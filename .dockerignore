@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+frontend/node_modules
+
+# Build outputs (excluded because Dockerfile uses multi-stage builds
+# and generates frontend/dist internally; no need to copy from host)
+frontend/dist
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Data and logs
+data/
+*.log
+*.lock
+
+# Documentation
+README.md
+LICENSE
+Agents.md
+DEPLOY.md
+
+# Claude / AI
+.claude/
+.gemini/
+
+# DevContainer
+.devcontainer/

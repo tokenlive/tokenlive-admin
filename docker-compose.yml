@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  tokenlive:
+    build: .
+    image: tokenlive-admin:latest
+    container_name: tokenlive-admin
+    ports:
+      - "8040:8040"
+    volumes:
+      - ./data:/app/data
+      - ./configs/prod:/app/configs/prod
+    environment:
+      - GIN_MODE=release
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8040/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

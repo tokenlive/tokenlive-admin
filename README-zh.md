@@ -16,7 +16,7 @@
 
 ## 项目介绍
 
-TokenLive Admin (TokenLive 控制台) 是 [TokenLive](https://github.com/chenzhiguo/ai-gateway) 的管理控制台。本项目是一款专为大模型（LLM）算力生态打造的高性能、企业级大模型网关。网关基于成熟的微服务治理模型设计，内置丰富的智能路由与流量治理策略，天然支持海量并发流量与弹性横向扩容。通过深度优化请求链路，网关能够极大降低LLM调用失败率，为高并发、高可用的AI应用场景提供坚如磐石的稳定性保障。
+TokenLive Admin (TokenLive 控制台) 是 [TokenLive](https://github.com/tokenlive/tokenlive-gateway) 的管理控制台。本项目是一款专为大模型（LLM）算力生态打造的高性能、企业级大模型网关。网关基于成熟的微服务治理模型设计，内置丰富的智能路由与流量治理策略，天然支持海量并发流量与弹性横向扩容。通过深度优化请求链路，网关能够极大降低LLM调用失败率，为高并发、高可用的AI应用场景提供坚如磐石的稳定性保障。
 
 ![控制台截图](./docs/images/dashboard.jpg)
 
@@ -213,12 +213,6 @@ Swagger 文档通过注解自动生成，运行 `make swagger` 重新生成。
 ```bash
 docker-compose logs -f tokenlive-admin
 ```
-
-## 关联项目
-
-1. [TokenLive](https://github.com/chenzhiguo/ai-gateway) — 一个拥有丰富治理策略保障企业稳定使用大模型的网关 (原名 ai-gateway)。
-
-2. [TokenLive Admin](https://github.com/tokenlive/tokenlive-admin) — TokenLive 的管理后台 (原名 tokenlive-admin)。
 
 ## 许可证
 

@@ -1,0 +1,76 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    height: auto;
+    min-height: 100%;
+    word-break: break-word;
+    hyphens: auto;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+}
+
+#app {
+    position: relative;
+}
+
+body {
+    font: normal normal normal 14px/1.5 @font-family;
+    color: @color-text;
+}
+
+img,
+video,
+audio {
+    max-width: 100%;
+    vertical-align: middle;
+}
+
+iframe {
+    vertical-align: middle;
+}
+
+input:-internal-autofill-previewed,
+input:-internal-autofill-selected {
+    transition: background-color 5000s ease-in-out 0s !important;
+}
+
+textarea {
+    resize: none;
+}
+
+ul,
+ol,
+li {
+    list-style: none;
+}
+
+// 全局美化滚动条，避免各种场景下（如 table 滚动、空状态等）出现原生粗白/亮色滚动条
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+// 暗色主题下的滚动条美化
+html[data-theme='dark'] {
+    ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.12);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(124, 92, 252, 0.35);
+    }
+}

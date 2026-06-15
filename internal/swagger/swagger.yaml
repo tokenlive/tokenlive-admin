@@ -1,0 +1,6014 @@
+definitions:
+  api.MetricsResponse:
+    properties:
+      avg_latency:
+        type: number
+      avg_ttft:
+        type: number
+      daily_completion_tokens:
+        type: integer
+      daily_cost:
+        type: number
+      daily_prompt_tokens:
+        type: integer
+      daily_requests:
+        type: integer
+      qps:
+        type: number
+    type: object
+  api.ModelRankingItem:
+    properties:
+      avg_latency:
+        type: number
+      avg_ttft:
+        type: number
+      fail_count:
+        type: integer
+      model_code:
+        type: string
+      model_name:
+        type: string
+      success_count:
+        type: integer
+      success_rate:
+        type: number
+      total_count:
+        type: integer
+    type: object
+  api.TrendsResponse:
+    properties:
+      failure:
+        items:
+          type: integer
+        type: array
+      success:
+        items:
+          type: integer
+        type: array
+      times:
+        items:
+          type: string
+        type: array
+    type: object
+  github_com_chenzhiguo_tokenlive-admin_pkg_errors.Error:
+    properties:
+      code:
+        type: integer
+      detail:
+        type: string
+      id:
+        type: string
+      status:
+        type: string
+    type: object
+  schema.Captcha:
+    properties:
+      captcha_id:
+        description: Captcha ID
+        type: string
+    type: object
+  schema.DataPermission:
+    properties:
+      created_at:
+        description: Create timestamp
+        type: string
+      creator:
+        description: Creator
+        type: string
+      data_id:
+        description: Data ID
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      permission:
+        description: Data permission bits - format(read,write,delete)
+        type: integer
+      role:
+        description: Role code
+        type: string
+      tenant:
+        description: Tenant
+        type: string
+      type:
+        description: Data type (table name)
+        type: string
+      updated_at:
+        description: Update timestamp
+        type: string
+      user:
+        description: User
+        type: string
+    type: object
+  schema.DataPermissionForm:
+    properties:
+      data_id:
+        description: Data ID
+        maxLength: 20
+        type: string
+      permission:
+        description: Data permission bits - format(read,write,delete)
+        type: integer
+      role:
+        description: Role code
+        maxLength: 20
+        type: string
+      tenant:
+        description: Tenant
+        maxLength: 50
+        type: string
+      type:
+        description: Data type (table name)
+        maxLength: 50
+        type: string
+      user:
+        description: User
+        maxLength: 50
+        type: string
+    required:
+    - data_id
+    - role
+    - tenant
+    - type
+    - user
+    type: object
+  schema.DegradeConfig:
+    properties:
+      attributes:
+        additionalProperties:
+          type: string
+        type: object
+      response_body:
+        type: string
+      response_code:
+        type: integer
+    type: object
+  schema.Endpoint:
+    properties:
+      api_key:
+        description: Optional, overrides provider-level api_key
+        type: string
+      created_at:
+        description: Create time
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Description
+        type: string
+      enabled:
+        description: 'Enable status: 0-disabled, 1-enabled'
+        type: integer
+      headers:
+        description: Custom HTTP headers
+        items:
+          type: integer
+        type: array
+      id:
+        description: Unique ID (XID)
+        type: string
+      metadata:
+        description: Metadata for tags etc.
+        items:
+          type: integer
+        type: array
+      model:
+        allOf:
+        - $ref: '#/definitions/schema.Model'
+        description: 关联查询
+      model_id:
+        description: Associated Model ID
+        type: string
+      modifier:
+        description: Modifier
+        type: string
+      priority:
+        description: Failover priority (higher = preferred)
+        type: integer
+      protocol:
+        description: Optional, overrides provider-level protocol
+        type: string
+      provider:
+        $ref: '#/definitions/schema.Provider'
+      provider_id:
+        description: Associated provider ID
+        type: string
+      real_model:
+        description: Optional, overrides model-level real_model
+        type: string
+      status_points:
+        description: Recent status points
+        items:
+          $ref: '#/definitions/schema.StatusPoint'
+        type: array
+      updated_at:
+        description: Update time
+        type: string
+      url:
+        description: Upstream API address
+        type: string
+      weight:
+        description: Load balancing weight
+        type: integer
+    type: object
+  schema.EndpointForm:
+    properties:
+      api_key:
+        description: Optional, overrides provider-level api_key
+        type: string
+      description:
+        description: Description
+        type: string
+      enabled:
+        description: 'Enable status: 0-disabled, 1-enabled'
+        type: integer
+      headers:
+        description: Custom HTTP headers
+        items:
+          type: integer
+        type: array
+      metadata:
+        description: Metadata
+        items:
+          type: integer
+        type: array
+      model_id:
+        description: Associated Model ID
+        maxLength: 20
+        type: string
+      priority:
+        description: Failover priority
+        type: integer
+      protocol:
+        description: Optional, overrides provider-level protocol
+        type: string
+      provider_id:
+        description: Associated provider ID
+        maxLength: 20
+        type: string
+      real_model:
+        description: Optional, overrides model-level real_model
+        type: string
+      url:
+        description: Upstream API address
+        maxLength: 512
+        type: string
+      weight:
+        description: Load balancing weight
+        type: integer
+    required:
+    - model_id
+    - provider_id
+    - url
+    type: object
+  schema.EndpointTestResult:
+    properties:
+      detail:
+        type: string
+      latency_ms:
+        type: integer
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  schema.ErrorParserPolicy:
+    properties:
+      content_types:
+        items:
+          type: string
+        type: array
+      expression:
+        type: string
+      parser:
+        type: string
+      statuses:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.Estimator:
+    properties:
+      ratio:
+        description: Character to token ratio
+        type: number
+      type:
+        description: length_ratio, tiktoken
+        type: string
+    type: object
+  schema.FallbackPolicy:
+    properties:
+      targets:
+        description: 降级目标模型链条，如 ["gpt-4:free", "gpt-3.5-turbo"]
+        items:
+          type: string
+        type: array
+    type: object
+  schema.FetchModelsForm:
+    properties:
+      api_key:
+        description: API key to use (optional, defaults to provider's first key)
+        type: string
+      base_url:
+        description: Upstream base URL, e.g., https://api.openai.com (optional if
+          provider has url)
+        type: string
+    type: object
+  schema.FetchModelsResult:
+    properties:
+      models:
+        items:
+          $ref: '#/definitions/schema.UpstreamModel'
+        type: array
+    type: object
+  schema.Logger:
+    properties:
+      created_at:
+        description: Create time
+        type: string
+      data:
+        description: Log data
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      level:
+        description: Log level
+        type: string
+      login_name:
+        description: From User.Username
+        type: string
+      message:
+        description: Log message
+        type: string
+      stack:
+        description: Error stack
+        type: string
+      tag:
+        description: Log tag
+        type: string
+      trace_id:
+        description: Trace ID
+        type: string
+      user_id:
+        description: User ID
+        type: string
+      user_name:
+        description: From User.Name
+        type: string
+    type: object
+  schema.LoginForm:
+    properties:
+      captcha_code:
+        description: Captcha verify code
+        type: string
+      captcha_id:
+        description: Captcha verify id
+        type: string
+      password:
+        description: Login password (md5 hash)
+        type: string
+      username:
+        description: Login name
+        type: string
+    required:
+    - captcha_code
+    - captcha_id
+    - password
+    - username
+    type: object
+  schema.LoginToken:
+    properties:
+      access_token:
+        description: Access token (JWT)
+        type: string
+      expires_at:
+        description: 'Expired time (Unit: second)'
+        type: integer
+      token_type:
+        description: 'Token type (Usage: Authorization=${token_type} ${access_token})'
+        type: string
+    type: object
+  schema.Menu:
+    properties:
+      children:
+        description: Child menus
+        items:
+          $ref: '#/definitions/schema.Menu'
+        type: array
+      code:
+        description: Code of menu (unique for each level)
+        type: string
+      created_at:
+        description: Create time
+        type: string
+      description:
+        description: Details about menu
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      name:
+        description: Display name of menu
+        type: string
+      parent_id:
+        description: Parent ID (From Menu.ID)
+        type: string
+      parent_path:
+        description: Parent path (split by .)
+        type: string
+      path:
+        description: Access path of menu
+        type: string
+      properties:
+        description: Properties of menu (JSON)
+        type: string
+      resources:
+        description: Resources of menu
+        items:
+          $ref: '#/definitions/schema.MenuResource'
+        type: array
+      sequence:
+        description: Sequence for sorting (Order by desc)
+        type: integer
+      status:
+        description: Status of menu (enabled, disabled)
+        type: string
+      type:
+        description: Type of menu (page, button)
+        type: string
+      updated_at:
+        description: Update time
+        type: string
+    type: object
+  schema.MenuForm:
+    properties:
+      code:
+        description: Code of menu (unique for each level)
+        maxLength: 32
+        type: string
+      description:
+        description: Details about menu
+        type: string
+      name:
+        description: Display name of menu
+        maxLength: 128
+        type: string
+      parent_id:
+        description: Parent ID (From Menu.ID)
+        type: string
+      path:
+        description: Access path of menu
+        type: string
+      properties:
+        description: Properties of menu (JSON)
+        type: string
+      resources:
+        description: Resources of menu
+        items:
+          $ref: '#/definitions/schema.MenuResource'
+        type: array
+      sequence:
+        description: Sequence for sorting (Order by desc)
+        type: integer
+      status:
+        description: Status of menu (enabled, disabled)
+        enum:
+        - disabled
+        - enabled
+        type: string
+      type:
+        description: Type of menu (page, button)
+        enum:
+        - page
+        - button
+        type: string
+    required:
+    - code
+    - name
+    - status
+    - type
+    type: object
+  schema.MenuResource:
+    properties:
+      created_at:
+        description: Create time
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      menu_id:
+        description: From Menu.ID
+        type: string
+      method:
+        description: HTTP method
+        type: string
+      path:
+        description: API request path (e.g. /api/v1/users/:id)
+        type: string
+      updated_at:
+        description: Update time
+        type: string
+    type: object
+  schema.Model:
+    properties:
+      abilities:
+        description: Model Abilities JSON, e.g., ["stream", "tool_call"]
+        type: string
+      context_length:
+        description: Max context window (Tokens)
+        type: integer
+      created_at:
+        description: Create time
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Description
+        type: string
+      enabled:
+        description: 'Enable status: 0-disabled, 1-enabled'
+        type: integer
+      extra:
+        description: Extra info
+        type: string
+      id:
+        description: Unique ID (XID)
+        type: string
+      max_output_tokens:
+        description: Max output tokens
+        type: integer
+      model_code:
+        description: Internal model code for association and billing
+        type: string
+      model_name:
+        description: Client-facing model name, e.g., gpt-4, claude-sonnet
+        type: string
+      modifier:
+        description: Modifier
+        type: string
+      owner:
+        description: Model owner/enterprise, e.g., OpenAI, Google, DeepSeek
+        type: string
+      request_types:
+        description: Space         *schema.Space   `json:"space,omitempty" gorm:"foreignKey:SpaceCode;references:Code"`    //
+          Space association
+        type: string
+      space_code:
+        description: Model space code
+        type: string
+      status_points:
+        description: Recent status points
+        items:
+          $ref: '#/definitions/schema.StatusPoint'
+        type: array
+      updated_at:
+        description: Update time
+        type: string
+    type: object
+  schema.ModelAlias:
+    properties:
+      alias:
+        description: Model alias
+        type: string
+      created_at:
+        description: Create timestamp
+        type: string
+      description:
+        description: Description
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      model:
+        allOf:
+        - $ref: '#/definitions/schema.Model'
+        description: Model association
+      model_id:
+        description: Model ID this alias belongs to
+        type: string
+      space_code:
+        description: Space code
+        type: string
+      updated_at:
+        description: Update timestamp
+        type: string
+    type: object
+  schema.ModelAliasForm:
+    properties:
+      alias:
+        description: Model alias
+        maxLength: 64
+        type: string
+      description:
+        description: Description
+        type: string
+      model_id:
+        description: Model ID
+        maxLength: 20
+        type: string
+      space_code:
+        description: Space code
+        maxLength: 255
+        type: string
+    required:
+    - alias
+    - model_id
+    - space_code
+    type: object
+  schema.ModelForm:
+    properties:
+      abilities:
+        description: Model Abilities JSON
+        type: string
+      context_length:
+        description: Max context window
+        type: integer
+      description:
+        description: Description
+        type: string
+      enabled:
+        description: Enable status
+        type: integer
+      extra:
+        description: Extra info
+        type: string
+      max_output_tokens:
+        description: Max output tokens
+        type: integer
+      model_code:
+        description: Internal model code
+        maxLength: 64
+        type: string
+      model_name:
+        description: Client-facing model name
+        maxLength: 128
+        type: string
+      owner:
+        description: Model owner
+        type: string
+      request_types:
+        description: Model RequestTypes JSON
+        type: string
+      space_code:
+        description: Space code
+        maxLength: 255
+        type: string
+    required:
+    - model_code
+    - model_name
+    - request_types
+    - space_code
+    type: object
+  schema.OpType:
+    enum:
+    - EQUAL
+    - NOT_EQUAL
+    - IN
+    - NOT_IN
+    - REGULAR
+    - PREFIX
+    type: string
+    x-enum-varnames:
+    - OpType_EQUAL
+    - OpType_NOT_EQUAL
+    - OpType_IN
+    - OpType_NOT_IN
+    - OpType_REGULAR
+    - OpType_PREFIX
+  schema.PolicyBinding:
+    properties:
+      created_at:
+        type: string
+      creator:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: integer
+      id:
+        type: string
+      model_code:
+        type: string
+      modifier:
+        type: string
+      policy_id:
+        type: string
+      policy_type:
+        type: string
+      priority:
+        type: integer
+      tenant_code:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  schema.PolicyBindingForm:
+    properties:
+      created_at:
+        type: string
+      creator:
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      enabled:
+        enum:
+        - 0
+        - 1
+        type: integer
+      id:
+        type: string
+      model_code:
+        maxLength: 64
+        type: string
+      modifier:
+        type: string
+      policy_id:
+        maxLength: 20
+        type: string
+      policy_type:
+        enum:
+        - tagging
+        - loadbalance
+        - invocation
+        - limit
+        - route
+        - circuit_break
+        type: string
+      priority:
+        minimum: 0
+        type: integer
+      tenant_code:
+        maxLength: 64
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        maxLength: 20
+        type: string
+    required:
+    - policy_id
+    - policy_type
+    type: object
+  schema.PolicyCircuitBreak:
+    properties:
+      allowed_calls_in_half_open_state:
+        description: Allowed calls in half open state
+        type: integer
+      code_policy:
+        description: Code policy (JSON)
+        type: string
+      created_at:
+        description: Create timestamp
+        type: string
+      creator:
+        description: Creator
+        type: string
+      degrade_config:
+        description: Degrade config (JSON)
+        type: string
+      description:
+        description: Details
+        type: string
+      enabled:
+        description: Enabled
+        type: integer
+      error_codes:
+        description: Error codes (JSON)
+        type: string
+      error_messages:
+        description: Error messages (JSON)
+        type: string
+      failure_rate_threshold:
+        description: Failure rate threshold
+        type: number
+      force_open:
+        description: Force open
+        type: integer
+      id:
+        description: Unique ID
+        type: string
+      level:
+        description: Policy level
+        type: string
+      message_policy:
+        description: Message policy (JSON)
+        type: string
+      min_calls_threshold:
+        description: Min calls threshold
+        type: integer
+      modifier:
+        description: Modifier
+        type: string
+      name:
+        description: Policy name
+        type: string
+      sliding_window_size:
+        description: Sliding window size
+        type: integer
+      sliding_window_type:
+        description: Sliding window type
+        type: string
+      slow_call_duration_threshold:
+        description: Slow call duration threshold
+        type: integer
+      slow_call_metric:
+        description: Slow call metric
+        type: string
+      slow_call_rate_threshold:
+        description: Slow call rate threshold
+        type: number
+      updated_at:
+        description: Update timestamp
+        type: string
+      version:
+        description: Version
+        type: integer
+      wait_duration_in_open_state:
+        description: Wait duration in open state
+        type: integer
+    type: object
+  schema.PolicyCircuitBreakForm:
+    properties:
+      allowed_calls_in_half_open_state:
+        description: Allowed calls in half open state
+        type: integer
+      code_policy:
+        allOf:
+        - $ref: '#/definitions/schema.ErrorParserPolicy'
+        description: Code policy
+      created_at:
+        description: Create timestamp
+        type: string
+      creator:
+        description: Creator
+        type: string
+      degrade_config:
+        allOf:
+        - $ref: '#/definitions/schema.DegradeConfig'
+        description: Degrade config
+      description:
+        description: Details
+        type: string
+      enabled:
+        description: Enabled
+        type: integer
+      error_codes:
+        description: Error codes
+        items:
+          type: string
+        type: array
+      error_messages:
+        description: Error messages
+        items:
+          type: string
+        type: array
+      failure_rate_threshold:
+        description: Failure rate threshold
+        type: number
+      force_open:
+        description: Force open
+        type: integer
+      id:
+        type: string
+      level:
+        description: Policy level
+        maxLength: 64
+        type: string
+      message_policy:
+        allOf:
+        - $ref: '#/definitions/schema.ErrorParserPolicy'
+        description: Message policy
+      min_calls_threshold:
+        description: Min calls threshold
+        type: integer
+      modifier:
+        description: Modifier
+        type: string
+      name:
+        description: Policy name
+        maxLength: 128
+        type: string
+      sliding_window_size:
+        description: Sliding window size
+        type: integer
+      sliding_window_type:
+        description: Sliding window type
+        maxLength: 16
+        type: string
+      slow_call_duration_threshold:
+        description: Slow call duration threshold
+        type: integer
+      slow_call_metric:
+        description: Slow call metric
+        type: string
+      slow_call_rate_threshold:
+        description: Slow call rate threshold
+        type: number
+      updated_at:
+        description: Update timestamp
+        type: string
+      version:
+        description: Version
+        type: integer
+      wait_duration_in_open_state:
+        description: Wait duration in open state
+        type: integer
+    required:
+    - level
+    - name
+    - sliding_window_type
+    type: object
+  schema.PolicyInvocation:
+    properties:
+      created_at:
+        description: Create timestamp
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Details
+        type: string
+      enabled:
+        description: Enabled
+        type: integer
+      fallback_policy:
+        description: Fallback policy (JSON)
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      modifier:
+        description: Modifier
+        type: string
+      name:
+        description: Policy name
+        type: string
+      retry_policy:
+        description: Retry policy (JSON)
+        type: string
+      type:
+        description: Invocation type (failfast | failover)
+        type: string
+      updated_at:
+        description: Update timestamp
+        type: string
+      version:
+        description: Version
+        type: integer
+    type: object
+  schema.PolicyInvocationForm:
+    properties:
+      created_at:
+        description: Create timestamp
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Details
+        type: string
+      enabled:
+        description: Enabled
+        type: integer
+      fallback_policy:
+        allOf:
+        - $ref: '#/definitions/schema.FallbackPolicy'
+        description: Fallback policy
+      id:
+        type: string
+      modifier:
+        description: Modifier
+        type: string
+      name:
+        description: Policy name
+        maxLength: 128
+        type: string
+      retry_policy:
+        allOf:
+        - $ref: '#/definitions/schema.RetryPolicy'
+        description: Retry policy
+      type:
+        description: Invocation type (failfast | failover)
+        maxLength: 20
+        type: string
+      updated_at:
+        description: Update timestamp
+        type: string
+      version:
+        description: Version
+        type: integer
+    required:
+    - name
+    - type
+    type: object
+  schema.PolicyLimit:
+    properties:
+      conditions:
+        description: Match conditions (JSON)
+        type: string
+      created_at:
+        description: Create timestamp
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Details
+        type: string
+      enabled:
+        description: Enabled
+        type: integer
+      estimator:
+        description: Estimator config (JSON)
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      max_wait_ms:
+        description: Max queue wait time
+        type: integer
+      modifier:
+        description: Modifier
+        type: string
+      name:
+        description: Policy name
+        type: string
+      relation_type:
+        description: Relation type
+        type: string
+      sliding_windows:
+        description: Sliding windows (JSON)
+        type: string
+      type:
+        description: Limit dimension
+        type: string
+      updated_at:
+        description: Update timestamp
+        type: string
+      version:
+        description: Version
+        type: integer
+    type: object
+  schema.PolicyLimitForm:
+    properties:
+      conditions:
+        description: Match conditions (JSON)
+        items:
+          $ref: '#/definitions/schema.TagCondition'
+        type: array
+      created_at:
+        description: Create timestamp
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Details
+        type: string
+      enabled:
+        description: Enabled
+        type: integer
+      estimator:
+        allOf:
+        - $ref: '#/definitions/schema.Estimator'
+        description: Estimator config (JSON)
+      id:
+        type: string
+      max_wait_ms:
+        description: Max queue wait time (ms)
+        type: integer
+      modifier:
+        description: Modifier
+        type: string
+      name:
+        description: Policy name
+        maxLength: 128
+        type: string
+      relation_type:
+        description: 'Relation type: AND / OR'
+        maxLength: 16
+        type: string
+      sliding_windows:
+        description: Sliding windows (JSON)
+        items:
+          $ref: '#/definitions/schema.SlidingWindow'
+        type: array
+      type:
+        description: 'Limit dimension: request / token / cost'
+        maxLength: 64
+        type: string
+      updated_at:
+        description: Update timestamp
+        type: string
+      version:
+        description: Version
+        type: integer
+    required:
+    - name
+    - relation_type
+    - type
+    type: object
+  schema.PolicyLoadbalance:
+    properties:
+      created_at:
+        type: string
+      creator:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: integer
+      id:
+        type: string
+      modifier:
+        type: string
+      name:
+        type: string
+      params:
+        items:
+          type: integer
+        type: array
+      type:
+        type: string
+      updated_at:
+        type: string
+      version:
+        type: integer
+    type: object
+  schema.PolicyLoadbalanceForm:
+    properties:
+      created_at:
+        description: Create timestamp
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Details
+        type: string
+      enabled:
+        description: Enabled
+        type: integer
+      id:
+        type: string
+      modifier:
+        description: Modifier
+        type: string
+      name:
+        description: Policy name
+        maxLength: 128
+        type: string
+      params:
+        description: Extra params (JSON)
+        items:
+          type: integer
+        type: array
+      type:
+        description: Loadbalance policy type
+        maxLength: 64
+        type: string
+      updated_at:
+        description: Update timestamp
+        type: string
+      version:
+        description: Version
+        type: integer
+    required:
+    - name
+    - type
+    type: object
+  schema.PolicyRoute:
+    properties:
+      created_at:
+        description: Create timestamp
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Details
+        type: string
+      details:
+        items:
+          $ref: '#/definitions/schema.PolicyRouteDetail'
+        type: array
+      enabled:
+        description: Enabled
+        type: integer
+      id:
+        description: Unique ID
+        type: string
+      modifier:
+        description: Modifier
+        type: string
+      name:
+        description: Policy name
+        type: string
+      order:
+        description: Sort order
+        type: integer
+      updated_at:
+        description: Update timestamp
+        type: string
+      version:
+        description: Version
+        type: integer
+    type: object
+  schema.PolicyRouteDetail:
+    properties:
+      conditions:
+        description: Match conditions (JSON)
+        type: string
+      created_at:
+        description: Create timestamp
+        type: string
+      description:
+        description: Details
+        type: string
+      destinations:
+        description: Destination rules (JSON)
+        type: string
+      enabled:
+        description: Enabled
+        type: integer
+      id:
+        description: Unique ID
+        type: string
+      order:
+        description: Sort order
+        type: integer
+      relation_type:
+        description: Relation type
+        type: string
+      route_id:
+        description: Route ID
+        type: string
+      updated_at:
+        description: Update timestamp
+        type: string
+    type: object
+  schema.PolicyRouteDetailForm:
+    properties:
+      conditions:
+        description: Match conditions
+        items:
+          $ref: '#/definitions/schema.TagCondition'
+        type: array
+      created_at:
+        description: Create timestamp
+        type: string
+      description:
+        description: Details
+        type: string
+      destinations:
+        description: Destination rules
+        items:
+          $ref: '#/definitions/schema.TagDestination'
+        type: array
+      enabled:
+        description: Enabled
+        type: integer
+      id:
+        type: string
+      order:
+        description: Sort order
+        type: integer
+      relation_type:
+        description: Relation type
+        maxLength: 20
+        type: string
+      route_id:
+        description: Route ID
+        maxLength: 20
+        type: string
+      updated_at:
+        description: Update timestamp
+        type: string
+    required:
+    - relation_type
+    - route_id
+    type: object
+  schema.PolicyRouteForm:
+    properties:
+      created_at:
+        description: Create timestamp
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Description
+        type: string
+      details:
+        description: RouteDetail
+        items:
+          $ref: '#/definitions/schema.PolicyRouteDetailForm'
+        type: array
+      enabled:
+        description: Enabled
+        type: integer
+      id:
+        description: Unique ID
+        type: string
+      modifier:
+        description: Modifier
+        type: string
+      name:
+        description: Policy name
+        maxLength: 128
+        type: string
+      order:
+        description: Sort order
+        type: integer
+      updated_at:
+        description: Update timestamp
+        type: string
+      version:
+        description: Version
+        type: integer
+    required:
+    - name
+    type: object
+  schema.PolicyTagging:
+    properties:
+      actions:
+        type: string
+      conditions:
+        type: string
+      created_at:
+        type: string
+      creator:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: integer
+      id:
+        type: string
+      modifier:
+        type: string
+      name:
+        type: string
+      order:
+        type: integer
+      relation:
+        type: string
+      updated_at:
+        type: string
+      version:
+        type: integer
+    type: object
+  schema.PolicyTaggingForm:
+    properties:
+      actions:
+        description: Tagging actions
+        items:
+          $ref: '#/definitions/schema.TaggingAction'
+        type: array
+      conditions:
+        description: Match conditions
+        items:
+          $ref: '#/definitions/schema.TagCondition'
+        type: array
+      created_at:
+        description: Create timestamp
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Details
+        type: string
+      enabled:
+        description: Enabled
+        enum:
+        - 0
+        - 1
+        type: integer
+      id:
+        type: string
+      modifier:
+        description: Modifier
+        type: string
+      name:
+        description: Policy name
+        maxLength: 128
+        type: string
+      order:
+        description: Execution order
+        type: integer
+      relation:
+        description: Relation type
+        enum:
+        - AND
+        - OR
+        type: string
+      updated_at:
+        description: Update timestamp
+        type: string
+      version:
+        description: Version
+        type: integer
+    required:
+    - name
+    - relation
+    type: object
+  schema.Provider:
+    properties:
+      api_keys:
+        description: Upstream API key list
+        items:
+          type: integer
+        type: array
+      code:
+        description: Provider unique code, e.g., openai-official
+        type: string
+      created_at:
+        description: Create time
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Description
+        type: string
+      enabled:
+        description: 'Enable status: 0-disabled, 1-enabled'
+        type: integer
+      id:
+        description: Unique ID (XID)
+        type: string
+      modifier:
+        description: Modifier
+        type: string
+      name:
+        description: Provider display name
+        type: string
+      protocol:
+        description: 'Protocol type: openai / anthropic / ...'
+        type: string
+      updated_at:
+        description: Update time
+        type: string
+      url:
+        description: Provider API base URL, e.g., https://api.openai.com
+        type: string
+    type: object
+  schema.ProviderForm:
+    properties:
+      api_keys:
+        description: Upstream API key list
+        items:
+          type: string
+        type: array
+      code:
+        description: Provider unique code
+        maxLength: 128
+        type: string
+      description:
+        description: Description
+        type: string
+      enabled:
+        description: 'Enable status: 0-disabled, 1-enabled'
+        type: integer
+      name:
+        description: Provider display name
+        maxLength: 128
+        type: string
+      protocol:
+        description: 'Protocol type: openai / anthropic / ...'
+        maxLength: 64
+        type: string
+      url:
+        description: Provider API base URL
+        type: string
+    required:
+    - code
+    - name
+    - protocol
+    type: object
+  schema.RelationType:
+    enum:
+    - AND
+    - OR
+    type: string
+    x-enum-varnames:
+    - RelationType_AND
+    - RelationType_OR
+  schema.RetryPolicy:
+    properties:
+      backoff_type:
+        description: 退避类型 (e.g. "fixed", "exponential")
+        type: string
+      base_ms:
+        description: 退避间隔 (毫秒)
+        type: integer
+      code_policy:
+        allOf:
+        - $ref: '#/definitions/schema.ErrorParserPolicy'
+        description: 错误码解析策略
+      connect_timeout:
+        description: 建立连接超时 (毫秒)
+        type: integer
+      error_codes:
+        description: 需要重试的错误码/状态码列表
+        items:
+          type: string
+        type: array
+      error_messages:
+        description: 需要重试的错误消息列表
+        items:
+          type: string
+        type: array
+      message_policy:
+        allOf:
+        - $ref: '#/definitions/schema.ErrorParserPolicy'
+        description: 错误消息解析策略
+      retry:
+        description: 重试次数
+        type: integer
+      total_timeout:
+        description: 请求总超时 (毫秒)
+        type: integer
+      ttft_timeout:
+        description: 首字超时 (毫秒)
+        type: integer
+      version:
+        description: 版本标识 (保留)
+        type: integer
+    type: object
+  schema.Role:
+    properties:
+      code:
+        description: Code of role (unique)
+        type: string
+      created_at:
+        description: Create time
+        type: string
+      description:
+        description: Details about role
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      menus:
+        description: Role menu list
+        items:
+          $ref: '#/definitions/schema.RoleMenu'
+        type: array
+      name:
+        description: Display name of role
+        type: string
+      sequence:
+        description: Sequence for sorting
+        type: integer
+      status:
+        description: Status of role (disabled, enabled)
+        type: string
+      updated_at:
+        description: Update time
+        type: string
+    type: object
+  schema.RoleForm:
+    properties:
+      code:
+        description: Code of role (unique)
+        maxLength: 32
+        type: string
+      description:
+        description: Details about role
+        type: string
+      menus:
+        description: Role menu list
+        items:
+          $ref: '#/definitions/schema.RoleMenu'
+        type: array
+      name:
+        description: Display name of role
+        maxLength: 128
+        type: string
+      sequence:
+        description: Sequence for sorting
+        type: integer
+      status:
+        description: Status of role (enabled, disabled)
+        enum:
+        - disabled
+        - enabled
+        type: string
+    required:
+    - code
+    - name
+    - status
+    type: object
+  schema.RoleMenu:
+    properties:
+      created_at:
+        description: Create time
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      menu_id:
+        description: From Menu.ID
+        type: string
+      role_id:
+        description: From Role.ID
+        type: string
+      updated_at:
+        description: Update time
+        type: string
+    type: object
+  schema.SlidingWindow:
+    properties:
+      burst_ratio:
+        type: number
+      threshold:
+        type: integer
+      time_window_in_ms:
+        type: integer
+    type: object
+  schema.Space:
+    properties:
+      code:
+        description: Code (unique)
+        type: string
+      created_at:
+        description: Create time
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Description
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      metadata:
+        description: Metadata (JSON)
+        type: string
+      name:
+        description: Name
+        type: string
+      tenant:
+        description: Tenant
+        type: string
+      updated_at:
+        description: Update time
+        type: string
+    type: object
+  schema.SpaceForm:
+    properties:
+      code:
+        description: Code (unique)
+        maxLength: 255
+        type: string
+      description:
+        description: Description
+        type: string
+      metadata:
+        description: Metadata (JSON)
+        type: string
+      name:
+        description: Name
+        maxLength: 255
+        type: string
+    required:
+    - code
+    - name
+    type: object
+  schema.StatusPoint:
+    properties:
+      end_time:
+        type: string
+      fail_count:
+        type: integer
+      start_time:
+        type: string
+      success_count:
+        type: integer
+    type: object
+  schema.TagCondition:
+    properties:
+      key:
+        type: string
+      op_type:
+        $ref: '#/definitions/schema.OpType'
+      type:
+        type: string
+      values:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.TagDestination:
+    properties:
+      conditions:
+        items:
+          $ref: '#/definitions/schema.TagCondition'
+        type: array
+      relation_type:
+        $ref: '#/definitions/schema.RelationType'
+      weight:
+        type: integer
+    type: object
+  schema.TaggingAction:
+    properties:
+      key:
+        description: 标签名
+        type: string
+      value:
+        description: 标签值，支持变量插值
+        type: string
+    required:
+    - key
+    - value
+    type: object
+  schema.Tenant:
+    properties:
+      api_key:
+        description: Tenant API Key (toB scenario)
+        type: string
+      code:
+        description: Unique identifier code (e.g. company-a)
+        type: string
+      created_at:
+        description: Create time
+        type: string
+      creator:
+        description: Creator
+        type: string
+      description:
+        description: Description
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      modifier:
+        description: Modifier
+        type: string
+      name:
+        description: Name of tenant
+        type: string
+      status:
+        description: Status of tenant (activated, freezed)
+        type: string
+      updated_at:
+        description: Update time
+        type: string
+    type: object
+  schema.TenantEndpointForm:
+    properties:
+      endpoint_ids:
+        description: 允许的端点 ID 列表，空表示不限制（全放通）
+        items:
+          type: string
+        type: array
+      model_id:
+        type: string
+      tenant_code:
+        type: string
+    required:
+    - model_id
+    - tenant_code
+    type: object
+  schema.TenantForm:
+    properties:
+      api_key:
+        description: Tenant API Key
+        maxLength: 128
+        type: string
+      code:
+        description: Code
+        maxLength: 64
+        type: string
+      description:
+        description: Description
+        maxLength: 255
+        type: string
+      name:
+        description: Name
+        maxLength: 128
+        type: string
+      status:
+        description: Status (activated, freezed)
+        enum:
+        - activated
+        - freezed
+        type: string
+    required:
+    - code
+    - name
+    - status
+    type: object
+  schema.TenantModelForm:
+    properties:
+      model_ids:
+        items:
+          type: string
+        type: array
+      tenant_code:
+        type: string
+    required:
+    - tenant_code
+    type: object
+  schema.TenantModelProviderForm:
+    properties:
+      model_id:
+        type: string
+      provider_ids:
+        description: 允许的供应商 ID 列表，空表示不限制（全放通）
+        items:
+          type: string
+        type: array
+      tenant_code:
+        type: string
+    required:
+    - model_id
+    - tenant_code
+    type: object
+  schema.UpdateCurrentUser:
+    properties:
+      email:
+        description: Email of user
+        maxLength: 128
+        type: string
+      name:
+        description: Name of user
+        maxLength: 64
+        type: string
+      phone:
+        description: Phone number of user
+        maxLength: 32
+        type: string
+      remark:
+        description: Remark of user
+        maxLength: 1024
+        type: string
+    required:
+    - name
+    type: object
+  schema.UpdateLoginPassword:
+    properties:
+      new_password:
+        description: New password (md5 hash)
+        type: string
+      old_password:
+        description: Old password (md5 hash)
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  schema.UpstreamModel:
+    properties:
+      id:
+        type: string
+      object:
+        type: string
+      owned_by:
+        type: string
+    type: object
+  schema.User:
+    properties:
+      created_at:
+        description: Create time
+        type: string
+      email:
+        description: Email of user
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      name:
+        description: Name of user
+        type: string
+      phone:
+        description: Phone number of user
+        type: string
+      remark:
+        description: Remark of user
+        type: string
+      roles:
+        description: Roles of user
+        items:
+          $ref: '#/definitions/schema.UserRole'
+        type: array
+      status:
+        description: Status of user (activated, freezed)
+        type: string
+      tenant:
+        description: Tenant
+        type: string
+      updated_at:
+        description: Update time
+        type: string
+      username:
+        description: Username for login
+        type: string
+    type: object
+  schema.UserAPIKey:
+    properties:
+      api_key:
+        description: 实际的 API Key 字符串
+        type: string
+      created_at:
+        description: 创建时间
+        type: string
+      creator:
+        description: 创建者
+        type: string
+      deleted:
+        description: 逻辑删除标识
+        type: string
+      deleted_at:
+        description: 逻辑删除时间
+        type: string
+      description:
+        description: 备注描述
+        type: string
+      expires_at:
+        description: '过期时间: NULL表示永不过期'
+        type: string
+      id:
+        description: 主键ID (XID)
+        type: string
+      modifier:
+        description: 修改者
+        type: string
+      name:
+        description: API Key 友好名称
+        type: string
+      quota:
+        description: '剩余配额: -1表示无限制'
+        type: integer
+      status:
+        description: '状态: 1-启用, 2-禁用'
+        type: integer
+      updated_at:
+        description: 更新时间
+        type: string
+      user_id:
+        description: 关联的用户 ID
+        type: string
+    type: object
+  schema.UserAPIKeyForm:
+    properties:
+      description:
+        description: 描述信息
+        maxLength: 255
+        type: string
+      expires_at:
+        description: 过期时间
+        type: string
+      name:
+        description: API Key 友好名称
+        maxLength: 64
+        type: string
+      quota:
+        description: '剩余配额: -1表示无限制'
+        type: integer
+      status:
+        description: '状态: 1-启用, 2-禁用'
+        enum:
+        - 1
+        - 2
+        type: integer
+      user_id:
+        description: 关联的用户 ID
+        maxLength: 20
+        type: string
+    required:
+    - name
+    - status
+    - user_id
+    type: object
+  schema.UserForm:
+    properties:
+      email:
+        description: Email of user
+        maxLength: 128
+        type: string
+      name:
+        description: Name of user
+        maxLength: 64
+        type: string
+      password:
+        description: Password for login (md5 hash)
+        maxLength: 64
+        type: string
+      phone:
+        description: Phone number of user
+        maxLength: 32
+        type: string
+      remark:
+        description: Remark of user
+        maxLength: 1024
+        type: string
+      roles:
+        description: Roles of user
+        items:
+          $ref: '#/definitions/schema.UserRole'
+        type: array
+      status:
+        description: Status of user (activated, freezed)
+        enum:
+        - activated
+        - freezed
+        type: string
+      tenant:
+        description: Tenant
+        maxLength: 255
+        type: string
+      username:
+        description: Username for login
+        maxLength: 64
+        type: string
+    required:
+    - name
+    - roles
+    - status
+    - username
+    type: object
+  schema.UserRole:
+    properties:
+      created_at:
+        description: Create time
+        type: string
+      id:
+        description: Unique ID
+        type: string
+      role_id:
+        description: From Role.ID
+        type: string
+      role_name:
+        description: From Role.Name
+        type: string
+      updated_at:
+        description: Update time
+        type: string
+      user_id:
+        description: From User.ID
+        type: string
+    type: object
+  util.ResponseResult:
+    properties:
+      data: {}
+      error:
+        $ref: '#/definitions/github_com_chenzhiguo_tokenlive-admin_pkg_errors.Error'
+      success:
+        type: boolean
+      total:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: An admin control center for ai-gateway.
+  title: tokenlive-admin
+  version: v1.0.0
+paths:
+  /api/v1/captcha/id:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Captcha'
+              type: object
+      summary: Get captcha ID
+      tags:
+      - LoginAPI
+  /api/v1/captcha/image:
+    get:
+      parameters:
+      - description: Captcha ID
+        in: query
+        name: id
+        required: true
+        type: string
+      - description: Reload captcha image (reload=1)
+        in: query
+        name: reload
+        type: number
+      produces:
+      - image/png
+      responses:
+        "200":
+          description: Captcha image
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      summary: Response captcha image
+      tags:
+      - LoginAPI
+  /api/v1/current/logout:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Logout system
+      tags:
+      - LoginAPI
+  /api/v1/current/menus:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.Menu'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query current user menus based on the current user role
+      tags:
+      - LoginAPI
+  /api/v1/current/password:
+    put:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.UpdateLoginPassword'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Change current user password
+      tags:
+      - LoginAPI
+  /api/v1/current/refresh-token:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.LoginToken'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Refresh current access token
+      tags:
+      - LoginAPI
+  /api/v1/current/user:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.User'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get current user info
+      tags:
+      - LoginAPI
+    put:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.UpdateCurrentUser'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update current user info
+      tags:
+      - LoginAPI
+  /api/v1/dashboard/circuit-breakers:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Query all endpoints that are currently in Open/Isolated state from
+        Redis
+      tags:
+      - DashboardAPI
+  /api/v1/dashboard/metrics:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/api.MetricsResponse'
+              type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Query big-screen telemetry metrics (QPS, requests, tokens, cost)
+      tags:
+      - DashboardAPI
+  /api/v1/dashboard/model-ranking:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/api.ModelRankingItem'
+                  type: array
+              type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Query model usage ranking (top 10 by request count in last 60 minutes)
+      tags:
+      - DashboardAPI
+  /api/v1/dashboard/qps:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  format: float64
+                  type: number
+              type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Query real-time gateway QPS from Prometheus
+      tags:
+      - DashboardAPI
+  /api/v1/dashboard/sync-redis:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: One-click synchronization of database configuration to Redis
+      tags:
+      - DashboardAPI
+  /api/v1/dashboard/trends:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/api.TrendsResponse'
+              type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Query 60-minute gateway traffic success/failure trends
+      tags:
+      - DashboardAPI
+  /api/v1/endpoints:
+    get:
+      parameters:
+      - default: 1
+        description: pagination index
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: pagination size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: Provider ID
+        in: query
+        name: provider_id
+        type: string
+      - description: URL (like)
+        in: query
+        name: url
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.Endpoint'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query endpoint list
+      tags:
+      - EndpointAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.EndpointForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Endpoint'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create endpoint record
+      tags:
+      - EndpointAPI
+  /api/v1/endpoints/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete endpoint record by ID
+      tags:
+      - EndpointAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Endpoint'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get endpoint record by ID
+      tags:
+      - EndpointAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.EndpointForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update endpoint record by ID
+      tags:
+      - EndpointAPI
+  /api/v1/endpoints/{id}/test:
+    post:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.EndpointTestResult'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Test endpoint connectivity by ID
+      tags:
+      - EndpointAPI
+  /api/v1/endpoints/test:
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.EndpointForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.EndpointTestResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Test endpoint connectivity (draft configuration)
+      tags:
+      - EndpointAPI
+  /api/v1/loggers:
+    get:
+      parameters:
+      - default: 1
+        description: pagination index
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: pagination size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: log level
+        in: query
+        name: level
+        type: string
+      - description: trace ID
+        in: query
+        name: traceID
+        type: string
+      - description: user name
+        in: query
+        name: userName
+        type: string
+      - description: log tag
+        in: query
+        name: tag
+        type: string
+      - description: log message
+        in: query
+        name: message
+        type: string
+      - description: start time
+        in: query
+        name: startTime
+        type: string
+      - description: end time
+        in: query
+        name: endTime
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.Logger'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query logger list
+      tags:
+      - LoggerAPI
+  /api/v1/login:
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.LoginForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.LoginToken'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      summary: Login system with username and password
+      tags:
+      - LoginAPI
+  /api/v1/menus:
+    get:
+      parameters:
+      - description: Code path of menu (like xxx.xxx.xxx)
+        in: query
+        name: code
+        type: string
+      - description: Name of menu
+        in: query
+        name: name
+        type: string
+      - description: Whether to include menu resources
+        in: query
+        name: includeResources
+        type: boolean
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.Menu'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query menu tree data
+      tags:
+      - MenuAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.MenuForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Menu'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create menu record
+      tags:
+      - MenuAPI
+  /api/v1/menus/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete menu record by ID
+      tags:
+      - MenuAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Menu'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get menu record by ID
+      tags:
+      - MenuAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.MenuForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update menu record by ID
+      tags:
+      - MenuAPI
+  /api/v1/model-aliases:
+    get:
+      parameters:
+      - description: Space code
+        in: query
+        name: space_code
+        type: string
+      - description: Model alias
+        in: query
+        name: alias
+        type: string
+      - description: Model ID
+        in: query
+        name: model_id
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.ModelAlias'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query model alias list
+      tags:
+      - ModelAliasAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelAliasForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.ModelAlias'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create model alias record
+      tags:
+      - ModelAliasAPI
+  /api/v1/model-aliases/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete model alias record by ID
+      tags:
+      - ModelAliasAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.ModelAlias'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get model alias record by ID
+      tags:
+      - ModelAliasAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelAliasForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update model alias record by ID
+      tags:
+      - ModelAliasAPI
+  /api/v1/models:
+    get:
+      parameters:
+      - default: 1
+        description: pagination index
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: pagination size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: Model name (like)
+        in: query
+        name: model_name
+        type: string
+      - description: Model code (exact)
+        in: query
+        name: model_code
+        type: string
+      - description: Space code
+        in: query
+        name: space_code
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.Model'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query model list
+      tags:
+      - ModelAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Model'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create model record
+      tags:
+      - ModelAPI
+  /api/v1/models/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete model record by ID
+      tags:
+      - ModelAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Model'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get model record by ID
+      tags:
+      - ModelAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update model record by ID
+      tags:
+      - ModelAPI
+  /api/v1/models/{id}/endpoints:
+    get:
+      parameters:
+      - description: Model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.Endpoint'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query endpoints by Model ID
+      tags:
+      - EndpointAPI
+  /api/v1/policy/policy-bindings:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.PolicyBinding'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query policy binding list
+      tags:
+      - PolicyBindingAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyBindingForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyBinding'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create policy binding record
+      tags:
+      - PolicyBindingAPI
+  /api/v1/policy/policy-bindings/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete policy binding record by ID
+      tags:
+      - PolicyBindingAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyBindingForm'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get policy binding record by ID
+      tags:
+      - PolicyBindingAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyBindingForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update policy binding record by ID
+      tags:
+      - PolicyBindingAPI
+  /api/v1/policy/policy-circuit-breaks:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.PolicyCircuitBreak'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query policy circuit break list
+      tags:
+      - PolicyCircuitBreakAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyCircuitBreakForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyCircuitBreak'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create policy circuit break record
+      tags:
+      - PolicyCircuitBreakAPI
+  /api/v1/policy/policy-circuit-breaks/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete policy circuit break record by ID
+      tags:
+      - PolicyCircuitBreakAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyCircuitBreakForm'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get policy circuit break record by ID
+      tags:
+      - PolicyCircuitBreakAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyCircuitBreakForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update policy circuit break record by ID
+      tags:
+      - PolicyCircuitBreakAPI
+  /api/v1/policy/policy-invocations:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.PolicyInvocation'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query policy invocation list
+      tags:
+      - PolicyInvocationAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyInvocationForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyInvocation'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create policy invocation record
+      tags:
+      - PolicyInvocationAPI
+  /api/v1/policy/policy-invocations/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete policy invocation record by ID
+      tags:
+      - PolicyInvocationAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyInvocationForm'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get policy invocation record by ID
+      tags:
+      - PolicyInvocationAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyInvocationForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update policy invocation record by ID
+      tags:
+      - PolicyInvocationAPI
+  /api/v1/policy/policy-limits:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.PolicyLimit'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query policy limit list
+      tags:
+      - PolicyLimitAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyLimitForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyLimit'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create policy limit record
+      tags:
+      - PolicyLimitAPI
+  /api/v1/policy/policy-limits/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete policy limit record by ID
+      tags:
+      - PolicyLimitAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyLimitForm'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get policy limit record by ID
+      tags:
+      - PolicyLimitAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyLimitForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update policy limit record by ID
+      tags:
+      - PolicyLimitAPI
+  /api/v1/policy/policy-loadbalances:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.PolicyLoadbalance'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query policy loadbalance list
+      tags:
+      - PolicyLoadbalanceAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyLoadbalanceForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyLoadbalance'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create policy loadbalance record
+      tags:
+      - PolicyLoadbalanceAPI
+  /api/v1/policy/policy-loadbalances/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete policy loadbalance record by ID
+      tags:
+      - PolicyLoadbalanceAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyLoadbalanceForm'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get policy loadbalance record by ID
+      tags:
+      - PolicyLoadbalanceAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyLoadbalanceForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update policy loadbalance record by ID
+      tags:
+      - PolicyLoadbalanceAPI
+  /api/v1/policy/policy-route-details:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.PolicyRouteDetail'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query policy route detail list
+      tags:
+      - PolicyRouteDetailAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyRouteDetailForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyRouteDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create policy route detail record
+      tags:
+      - PolicyRouteDetailAPI
+  /api/v1/policy/policy-route-details/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete policy route detail record by ID
+      tags:
+      - PolicyRouteDetailAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyRouteDetailForm'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get policy route detail record by ID
+      tags:
+      - PolicyRouteDetailAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyRouteDetailForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update policy route detail record by ID
+      tags:
+      - PolicyRouteDetailAPI
+  /api/v1/policy/policy-routes:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.PolicyRoute'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query policy route list
+      tags:
+      - PolicyRouteAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyRouteForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyRoute'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create policy route record
+      tags:
+      - PolicyRouteAPI
+  /api/v1/policy/policy-routes/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete policy route record by ID
+      tags:
+      - PolicyRouteAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyRouteForm'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get policy route record by ID
+      tags:
+      - PolicyRouteAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyRouteForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update policy route record by ID
+      tags:
+      - PolicyRouteAPI
+  /api/v1/policy/policy-taggings:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.PolicyTagging'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query policy tagging list
+      tags:
+      - PolicyTaggingAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyTaggingForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyTagging'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create policy tagging record
+      tags:
+      - PolicyTaggingAPI
+  /api/v1/policy/policy-taggings/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete policy tagging record by ID
+      tags:
+      - PolicyTaggingAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyTaggingForm'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get policy tagging record by ID
+      tags:
+      - PolicyTaggingAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyTaggingForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update policy tagging record by ID
+      tags:
+      - PolicyTaggingAPI
+  /api/v1/providers:
+    get:
+      parameters:
+      - default: 1
+        description: pagination index
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: pagination size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: Code of provider
+        in: query
+        name: code
+        type: string
+      - description: Name of provider
+        in: query
+        name: name
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.Provider'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query provider list
+      tags:
+      - ProviderAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ProviderForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Provider'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create provider record
+      tags:
+      - ProviderAPI
+  /api/v1/providers/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete provider record by ID
+      tags:
+      - ProviderAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Provider'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get provider record by ID
+      tags:
+      - ProviderAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ProviderForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update provider record by ID
+      tags:
+      - ProviderAPI
+  /api/v1/providers/{id}/endpoints:
+    get:
+      parameters:
+      - description: Provider ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.Endpoint'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query endpoints by Provider ID
+      tags:
+      - EndpointAPI
+  /api/v1/providers/{id}/fetch-models:
+    post:
+      parameters:
+      - description: provider id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.FetchModelsForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.FetchModelsResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Fetch models from upstream provider
+      tags:
+      - ProviderAPI
+  /api/v1/resource/data-permissions:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.DataPermission'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query data permission list
+      tags:
+      - DataPermissionAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.DataPermissionForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.DataPermission'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create data permission record
+      tags:
+      - DataPermissionAPI
+  /api/v1/resource/data-permissions/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete data permission record by ID
+      tags:
+      - DataPermissionAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.DataPermission'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get data permission record by ID
+      tags:
+      - DataPermissionAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.DataPermissionForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update data permission record by ID
+      tags:
+      - DataPermissionAPI
+  /api/v1/roles:
+    get:
+      parameters:
+      - default: 1
+        description: pagination index
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: pagination size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: Display name of role
+        in: query
+        name: name
+        type: string
+      - description: Status of role (disabled, enabled)
+        in: query
+        name: status
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.Role'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query role list
+      tags:
+      - RoleAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.RoleForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Role'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create role record
+      tags:
+      - RoleAPI
+  /api/v1/roles/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete role record by ID
+      tags:
+      - RoleAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Role'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get role record by ID
+      tags:
+      - RoleAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.RoleForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update role record by ID
+      tags:
+      - RoleAPI
+  /api/v1/spaces:
+    get:
+      parameters:
+      - default: 1
+        description: pagination index
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: pagination size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: Name of space
+        in: query
+        name: name
+        type: string
+      - description: Code of space
+        in: query
+        name: code
+        type: string
+      - description: Tenant
+        in: query
+        name: tenant
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.Space'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query space list
+      tags:
+      - SpaceAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SpaceForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Space'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create space record
+      tags:
+      - SpaceAPI
+  /api/v1/spaces/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete space record by ID
+      tags:
+      - SpaceAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Space'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get space record by ID
+      tags:
+      - SpaceAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SpaceForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update space record by ID
+      tags:
+      - SpaceAPI
+  /api/v1/tenant-models/{tenantCode}:
+    get:
+      parameters:
+      - description: Tenant Code
+        in: path
+        name: tenantCode
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get all authorized model IDs of the tenant
+      tags:
+      - TenantModelAPI
+  /api/v1/tenant-models/bindings:
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TenantModelForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Batch save tenant model bindings
+      tags:
+      - TenantModelAPI
+  /api/v1/tenant-models/endpoints:
+    get:
+      parameters:
+      - description: 租户英文编码
+        in: query
+        name: tenantCode
+        required: true
+        type: string
+      - description: 模型 ID
+        in: query
+        name: modelId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+      security:
+      - ApiKeyAuth: []
+      summary: 查询租户指定模型下已经允许的端点 ID 列表
+      tags:
+      - TenantEndpointAPI
+    post:
+      parameters:
+      - description: 保存表单
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TenantEndpointForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: 批量保存租户大模型的可访问端点白名单
+      tags:
+      - TenantEndpointAPI
+  /api/v1/tenant-models/providers:
+    get:
+      parameters:
+      - description: 租户英文编码
+        in: query
+        name: tenantCode
+        required: true
+        type: string
+      - description: 模型 ID
+        in: query
+        name: modelId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+      security:
+      - ApiKeyAuth: []
+      summary: 查询租户指定模型下已经允许的供应商 ID 列表
+      tags:
+      - TenantModelProviderAPI
+    post:
+      parameters:
+      - description: 保存表单
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TenantModelProviderForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: 批量保存租户大模型的可访问上游供应商白名单
+      tags:
+      - TenantModelProviderAPI
+  /api/v1/tenants:
+    get:
+      parameters:
+      - default: 1
+        description: pagination index
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: pagination size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: Tenant code
+        in: query
+        name: code
+        type: string
+      - description: Name of tenant
+        in: query
+        name: name
+        type: string
+      - description: Status of tenant (activated, freezed)
+        in: query
+        name: status
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.Tenant'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query tenant list
+      tags:
+      - TenantAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TenantForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Tenant'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create tenant record
+      tags:
+      - TenantAPI
+  /api/v1/tenants/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete tenant record by ID
+      tags:
+      - TenantAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.Tenant'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get tenant record by ID
+      tags:
+      - TenantAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TenantForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update tenant record by ID
+      tags:
+      - TenantAPI
+  /api/v1/user-api-keys:
+    get:
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: 每页条数
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: 关联用户ID
+        in: query
+        name: user_id
+        type: string
+      - description: 友好名称
+        in: query
+        name: name
+        type: string
+      - description: '状态: 1-启用, 2-禁用'
+        in: query
+        name: status
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.UserAPIKey'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: 查询 API Key 分页列表
+      tags:
+      - UserAPIKeyAPI
+    post:
+      parameters:
+      - description: 请求 Body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.UserAPIKeyForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.UserAPIKey'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: 创建 API Key
+      tags:
+      - UserAPIKeyAPI
+  /api/v1/user-api-keys/{id}:
+    delete:
+      parameters:
+      - description: API Key 记录 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: 根据 ID 删除记录
+      tags:
+      - UserAPIKeyAPI
+    get:
+      parameters:
+      - description: API Key 记录 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.UserAPIKey'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: 根据 ID 查询单条记录
+      tags:
+      - UserAPIKeyAPI
+    put:
+      parameters:
+      - description: API Key 记录 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 请求 Body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.UserAPIKeyForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: 根据 ID 修改记录
+      tags:
+      - UserAPIKeyAPI
+  /api/v1/user-api-keys/{id}/plaintext:
+    get:
+      description: 安全接口，返回未脱敏的 API Key 明文，仅用于前端复制功能
+      parameters:
+      - description: API Key 记录 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: 获取 API Key 明文（用于复制操作）
+      tags:
+      - UserAPIKeyAPI
+  /api/v1/users:
+    get:
+      parameters:
+      - default: 1
+        description: pagination index
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: pagination size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: Username for login
+        in: query
+        name: username
+        type: string
+      - description: Name of user
+        in: query
+        name: name
+        type: string
+      - description: Status of user (activated, freezed)
+        in: query
+        name: status
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.User'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query user list
+      tags:
+      - UserAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.UserForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create user record
+      tags:
+      - UserAPI
+  /api/v1/users/{id}:
+    delete:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete user record by ID
+      tags:
+      - UserAPI
+    get:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.User'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get user record by ID
+      tags:
+      - UserAPI
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.UserForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update user record by ID
+      tags:
+      - UserAPI
+  /api/v1/users/{id}/reset-pwd:
+    patch:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Reset user password by ID
+      tags:
+      - UserAPI
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -16,7 +16,7 @@
 
 ## Introduction
 
-TokenLive Admin is the admin console for the [TokenLive](https://github.com/chenzhiguo/ai-gateway) ecosystem. This project is a high-performance, enterprise-grade large model (LLM) gateway designed specifically for the LLM computing power ecosystem. The gateway is designed based on a mature microservice governance model, with built-in rich intelligent routing and traffic governance strategies, and naturally supports massive concurrent traffic and elastic horizontal scaling. By deeply optimizing the request chain, the gateway can greatly reduce the failure rate of LLM calls, providing a solid stability guarantee for high-concurrency, high-availability AI application scenarios.
+TokenLive Admin is the admin console for the [TokenLive](https://github.com/tokenlive/tokenlive-gateway) ecosystem. This project is a high-performance, enterprise-grade large model (LLM) gateway designed specifically for the LLM computing power ecosystem. The gateway is designed based on a mature microservice governance model, with built-in rich intelligent routing and traffic governance strategies, and naturally supports massive concurrent traffic and elastic horizontal scaling. By deeply optimizing the request chain, the gateway can greatly reduce the failure rate of LLM calls, providing a solid stability guarantee for high-concurrency, high-availability AI application scenarios.
 
 ![Dashboard Screenshot](./docs/images/dashboard.jpg)
 
@@ -184,6 +184,27 @@ Configuration files are located in `configs/`:
 
 Key config sections: `[General]`, `[Storage]`, `[Storage.DB]`, `[Storage.Cache]`, `[Middleware]`.
 
+#### Configuration with Environment Variables
+
+Sensitive configurations (passwords, tokens, connection strings) use environment variable placeholders with defaults. Create a `.env` file in the project root for local development:
+
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env with your actual values
+vi .env
+```
+
+**Environment variable format**: `${VAR_NAME:default_value}`
+
+Examples:
+- `${ROOT_PASSWORD:admin}` — Uses `admin` if `ROOT_PASSWORD` not set
+- `${REDIS_ADDR:localhost:6379}` — Uses `localhost:6379` if `REDIS_ADDR` not set
+- `${DB_DSN:data/tokenlive-admin.db}` — Uses SQLite if `DB_DSN` not set
+
+The `.env` file is automatically loaded at startup (not committed to git). Environment variables override file values when both exist.
+
 ## API Structure
 
 All APIs are prefixed with `/api/v1/`. Standard CRUD pattern:
@@ -213,12 +234,6 @@ When using Docker Compose, data is automatically mounted to the `./data` directo
 ```bash
 docker-compose logs -f tokenlive-admin
 ```
-
-## Related Projects
-
-1. [TokenLive](https://github.com/chenzhiguo/ai-gateway) — A gateway with rich governance strategies to ensure the stable use of large models by enterprises (formerly ai-gateway).
-
-2. [TokenLive Admin](https://github.com/tokenlive/tokenlive-admin) — The management backend of TokenLive (formerly tokenlive-admin).
 
 ## License
 

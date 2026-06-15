@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # Step 1: Detect which parts of the codebase changed
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          frontend:
+            - 'frontend/**'
+          backend:
+            - '**.go'
+            - 'go.mod'
+            - 'go.sum'
+            - 'configs/**'
+            - 'scripts/**'
+            - 'Makefile'
+            - 'Dockerfile'
+
+  # Step 2: Build frontend only when frontend files changed
+  build-frontend:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Build frontend
+      run: make build-frontend
+
+    - name: Upload frontend dist
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-dist
+        path: frontend/dist/
+        retention-days: 1
+
+  # Step 3: Build backend only when backend files changed
+  build-backend:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    - name: Build backend
+      run: make build

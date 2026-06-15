@@ -1,0 +1,91 @@
+[General]
+AppName = "tokenlive-admin"
+Version = "v1.0.0"
+Debug = false
+PprofAddr = ""
+DisableSwagger = true
+DisablePrintConfig = true
+DefaultLoginPwd = "c27435962ded9355cccc4017152c18f0" # MD5("2026@Beijing")
+MenuFile = "menu.json" # Or use "menu_cn.json"
+DenyOperateMenu = false
+
+[General.HTTP]
+Addr = ":8040"
+ShutdownTimeout = 10
+ReadTimeout = 60
+WriteTimeout = 60
+IdleTimeout = 10
+CertFile = "certs/server.cer"
+KeyFile = "certs/server.key"
+
+[General.Root] # Super Administrator Account
+ID = "root"
+Username = "admin"
+Password = "${ROOT_PASSWORD:admin}" # Compared directly with the login request password
+Name = "Admin"
+
+[Storage]
+
+[Storage.Cache]
+Type = "redis" # memory/badger/redis
+Delimiter = ":"
+
+[Storage.Cache.Memory]
+CleanupInterval = 60
+
+[Storage.Cache.Badger]
+Path = "data/cache"
+
+[Storage.Cache.Redis]
+Addr = "${REDIS_ADDR:localhost:6379}"
+Username = "${REDIS_USERNAME:}"
+Password = "${REDIS_PASSWORD:}"
+DB = 0
+
+[Storage.DB]
+Debug = false
+Type = "mysql"
+# SQLite3 DSN
+# DSN = "data/tokenlive-admin.db"
+# MySQL DSN
+DSN = "${DB_DSN:data/tokenlive-admin.db}"
+# PostgreSQL DSN
+# DSN = "host=db user=postgres password=123456 dbname=tokenlive-admin port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+MaxLifetime = 86400
+MaxIdleTime = 3600
+MaxOpenConns = 100
+MaxIdleConns = 50
+TablePrefix = ""
+AutoMigrate = true
+
+[Util]
+
+[Util.Captcha]
+Length = 4
+Width = 400
+Height = 160
+CacheType = "memory" # memory/redis
+
+[Util.Captcha.Redis]
+Addr = "" # If empty, then use the same configuration as Storage.Cache.Redis
+Username = ""
+Password = ""
+DB = 0
+KeyPrefix = "captcha:"
+
+[Util.Prometheus]
+Enable = true
+Port = 9100
+BasicUsername = "admin"
+BasicPassword = "admin"
+LogApis = [] # Log APIs, e.g. ["/api/v1/users"]
+LogMethods = [] # Log HTTP methods, e.g. ["GET"]
+DefaultCollect = true
+
+[Util.PrometheusServer]
+Address = "${PROMETHEUS_SERVER_URL:http://localhost:9090}"
+Username = "${PROMETHEUS_SERVER_USERNAME:admin}"
+Password = "${PROMETHEUS_SERVER_PASSWORD:}"
+
+[Dictionary]
+UserCacheExp = 4 # hours

@@ -1,0 +1,91 @@
+[General]
+AppName = "tokenlive-admin"
+Version = "v1.0.0"
+Debug = true
+PprofAddr = "" # Pprof monitor address, "localhost:6060"
+DisableSwagger = false
+DisablePrintConfig = false
+DefaultLoginPwd = "${DEFAULT_LOGIN_PWD:21232f297a57a5a743894a0e4a801fc3}" # MD5(admin)
+MenuFile = "menu.json" # Or use "menu_cn.json"
+DenyOperateMenu = false
+
+[General.HTTP]
+Addr = ":8040"
+ShutdownTimeout = 10
+ReadTimeout = 60
+WriteTimeout = 60
+IdleTimeout = 10
+CertFile = "certs/server.cer"
+KeyFile = "certs/server.key"
+
+[General.Root] # Super Administrator Account
+ID = "root"
+Username = "admin"
+Password = "${ROOT_PASSWORD:admin}" # Compared directly with the login request password
+Name = "Admin"
+
+[Storage]
+
+[Storage.Cache]
+Type = "memory" # memory/badger/redis
+Delimiter = ":"
+
+[Storage.Cache.Memory]
+CleanupInterval = 60
+
+[Storage.Cache.Badger]
+Path = "data/cache"
+
+[Storage.Cache.Redis]
+Addr = "${REDIS_ADDR:localhost:6379}"
+Username = "${REDIS_USERNAME:}"
+Password = "${REDIS_PASSWORD:}"
+DB = 0
+
+[Storage.DB]
+Debug = true
+Type = "mysql" # sqlite3/mysql/postgres
+# DSN
+DSN = "${DB_DSN:data/tokenlive-admin.db}"
+# MySQL DSN (example)
+# DSN = "root:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST:localhost}:${MYSQL_PORT:3306})/${MYSQL_DB:ai-gateway}?charset=utf8mb4&parseTime=True&loc=Local&tls=false&timeout=5s&readTimeout=5s&writeTimeout=5s"
+# PostgreSQL DSN (example)
+# DSN = "host=${PG_HOST:localhost} user=${PG_USER:postgres} password=${PG_PASSWORD} dbname=${PG_DB:tokenlive-admin} port=${PG_PORT:5432} sslmode=disable TimeZone=Asia/Shanghai"
+MaxLifetime = 86400
+MaxIdleTime = 3600
+MaxOpenConns = 100
+MaxIdleConns = 50
+TablePrefix = ""
+AutoMigrate = true
+
+[Util]
+
+[Util.Captcha]
+Length = 4
+Width = 400
+Height = 160
+CacheType = "memory" # memory/redis
+
+[Util.Captcha.Redis]
+Addr = "${CAPTCHA_REDIS_ADDR:${REDIS_ADDR:localhost:6379}}" # If empty, then use the same configuration as Storage.Cache.Redis
+Username = "${CAPTCHA_REDIS_USERNAME:${REDIS_USERNAME:}}"
+Password = "${CAPTCHA_REDIS_PASSWORD:${REDIS_PASSWORD:}}"
+DB = 1
+KeyPrefix = "captcha:"
+
+[Util.Prometheus]
+Enable = false
+Port = 9100
+BasicUsername = "${PROMETHEUS_USERNAME:admin}"
+BasicPassword = "${PROMETHEUS_PASSWORD:admin}"
+LogApis = [] # Log APIs, e.g. ["/api/v1/users"]
+LogMethods = [] # Log HTTP methods, e.g. ["GET"]
+DefaultCollect = true
+
+[Util.PrometheusServer]
+Address = "${PROMETHEUS_SERVER_URL:http://localhost:9090}"
+Username = "${PROMETHEUS_SERVER_USERNAME:admin}"
+Password = "${PROMETHEUS_SERVER_PASSWORD:}"
+
+[Dictionary]
+UserCacheExp = 4 # hours

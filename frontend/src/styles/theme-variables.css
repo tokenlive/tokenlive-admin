@@ -1,0 +1,371 @@
+/* ============================================================
+   JoyLive AI Gateway — Design Token System
+   全局 CSS 变量：Light / Dark 双主题
+   ============================================================ */
+
+/* ---- Light Theme (default) ---- */
+:root {
+    /* ── 主色 / Brand ── */
+    --color-primary: #7c5cfc;
+    --color-primary-hover: #9578ff;
+    --color-primary-active: #6347e0;
+    --color-primary-bg: rgba(124, 92, 252, 0.08);
+    --color-primary-bg-hover: rgba(124, 92, 252, 0.15);
+    --color-primary-border: rgba(124, 92, 252, 0.3);
+
+    /* ── 语义色 / Semantic ── */
+    --color-success: #52c41a;
+    --color-success-bg: rgba(82, 196, 26, 0.08);
+    --color-warning: #faad14;
+    --color-warning-bg: rgba(250, 173, 20, 0.08);
+    --color-error: #ff4d4f;
+    --color-error-bg: rgba(255, 77, 79, 0.08);
+    --color-info: #7c5cfc;
+    --color-info-bg: rgba(124, 92, 252, 0.08);
+
+    /* ── 背景 / Background ── */
+    --color-bg-base: #f5f5f5;
+    --color-bg-container: #ffffff;
+    --color-bg-elevated: #ffffff;
+    --color-bg-mask: rgba(0, 0, 0, 0.45);
+    --color-bg-hover: rgba(0, 0, 0, 0.04);
+    --color-bg-active: rgba(0, 0, 0, 0.06);
+
+    /* ── 文字 / Text ── */
+    --color-text-primary: rgba(0, 0, 0, 0.88);
+    --color-text-secondary: rgba(0, 0, 0, 0.65);
+    --color-text-tertiary: rgba(0, 0, 0, 0.45);
+    --color-text-quaternary: rgba(0, 0, 0, 0.25);
+    --color-text-inverse: #ffffff;
+
+    /* ── 边框 / Border ── */
+    --color-border: #d9d9d9;
+    --color-border-secondary: #f0f0f0;
+    --color-border-hover: var(--color-primary);
+
+    /* ── 阴影 / Shadow ── */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02);
+    --shadow-md:
+        0 3px 6px -4px rgba(0, 0, 0, 0.06), 0 6px 16px 0 rgba(0, 0, 0, 0.06), 0 9px 28px 8px rgba(0, 0, 0, 0.04);
+    --shadow-lg:
+        0 6px 16px -8px rgba(0, 0, 0, 0.08), 0 9px 28px 0 rgba(0, 0, 0, 0.06), 0 12px 48px 16px rgba(0, 0, 0, 0.04);
+    --shadow-glow: 0 0 0 2px var(--color-primary-bg), 0 0 12px var(--color-primary-bg);
+
+    /* ── 圆角 / Radius ── */
+    --radius-xs: 2px;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+
+    /* ── 排版 / Typography ── */
+    --font-family:
+        -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-size-xs: 12px;
+    --font-size-sm: 13px;
+    --font-size-md: 14px;
+    --font-size-lg: 16px;
+    --font-size-xl: 20px;
+    --font-size-2xl: 24px;
+    --line-height: 1.5714;
+    --line-height-relaxed: 1.6667;
+
+    /* ── 图表色板 / Chart Palette ── */
+    --chart-1: #7c5cfc;
+    --chart-2: #36cfc9;
+    --chart-3: #ffc53d;
+    --chart-4: #ff7a45;
+    --chart-5: #9254de;
+    --chart-6: #597ef7;
+    --chart-split-line: rgba(0, 0, 0, 0.06);
+    --chart-axis-label: rgba(0, 0, 0, 0.45);
+
+    /* ── 状态指示 / Status ── */
+    --color-online: #52c41a;
+    --color-offline: #ff4d4f;
+    --color-degraded: #faad14;
+    --color-pending: #7c5cfc;
+
+    /* ── 链接 / Link ── */
+    --color-link: var(--color-primary);
+    --color-link-hover: var(--color-primary-hover);
+
+    /* ── 侧边栏 / Sidebar ── */
+    --color-sidebar-bg: #001529;
+    --color-sidebar-text: rgba(255, 255, 255, 0.65);
+    --color-sidebar-text-active: #ffffff;
+    --color-sidebar-item-active-bg: var(--color-primary);
+}
+
+/* ============================================
+   全局焦点样式 (键盘导航优化)
+   ============================================ */
+:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    box-shadow: 0 0 0 3px var(--color-primary-bg);
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* 移除默认的焦点轮廓，使用我们的自定义样式 */
+:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* ---- Dark Theme ---- */
+[data-theme='dark'] {
+    /* ── 主色 / Brand ── */
+    --color-primary: #7c5cfc;
+    --color-primary-hover: #9578ff;
+    --color-primary-active: #6347e0;
+    --color-primary-bg: rgba(124, 92, 252, 0.12);
+    --color-primary-bg-hover: rgba(124, 92, 252, 0.2);
+    --color-primary-border: rgba(124, 92, 252, 0.4);
+
+    /* ── 语义色 / Semantic ── */
+    --color-success: #73d13d;
+    --color-success-bg: rgba(115, 209, 61, 0.12);
+    --color-warning: #ffc53d;
+    --color-warning-bg: rgba(255, 197, 61, 0.12);
+    --color-error: #ff7875;
+    --color-error-bg: rgba(255, 120, 117, 0.12);
+    --color-info: #9578ff;
+    --color-info-bg: rgba(149, 120, 255, 0.12);
+
+    /* ── 背景 / Background ── */
+    --color-bg-base: #0d0f14;
+    --color-bg-container: #141722;
+    --color-bg-elevated: #1a1d28;
+    --color-bg-mask: rgba(0, 0, 0, 0.6);
+    --color-bg-hover: rgba(255, 255, 255, 0.04);
+    --color-bg-active: rgba(255, 255, 255, 0.08);
+
+    /* ── 文字 / Text ── */
+    --color-text-primary: #f0f2f5;
+    --color-text-secondary: #8e919c;
+    --color-text-tertiary: #545766;
+    --color-text-quaternary: #3a3d4a;
+    --color-text-inverse: #0d0f14;
+
+    /* ── 边框 / Border ── */
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-border-secondary: rgba(255, 255, 255, 0.05);
+    --color-border-hover: var(--color-primary);
+
+    /* ── 阴影 / Shadow ── */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.2), 0 1px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px 0 rgba(0, 0, 0, 0.15);
+    --shadow-md: 0 3px 6px -4px rgba(0, 0, 0, 0.3), 0 6px 16px 0 rgba(0, 0, 0, 0.25), 0 9px 28px 8px rgba(0, 0, 0, 0.2);
+    --shadow-lg:
+        0 6px 16px -8px rgba(0, 0, 0, 0.4), 0 9px 28px 0 rgba(0, 0, 0, 0.3), 0 12px 48px 16px rgba(0, 0, 0, 0.25);
+    --shadow-glow: 0 0 0 2px var(--color-primary-bg), 0 0 16px rgba(124, 92, 252, 0.15);
+
+    /* ── 圆角 / Radius (不变) ── */
+
+    /* ── 排版 / Typography (暗黑模式略增行高) ── */
+    --line-height: 1.6429;
+    --line-height-relaxed: 1.7143;
+
+    /* ── 图表色板 / Chart Palette ── */
+    --chart-1: #9578ff;
+    --chart-2: #5cdbd3;
+    --chart-3: #ffd666;
+    --chart-4: #ffa940;
+    --chart-5: #b37feb;
+    --chart-6: #85a5ff;
+    --chart-split-line: rgba(255, 255, 255, 0.06);
+    --chart-axis-label: rgba(255, 255, 255, 0.45);
+
+    /* ── 状态指示 / Status ── */
+    --color-online: #73d13d;
+    --color-offline: #ff7875;
+    --color-degraded: #ffc53d;
+    --color-pending: #9578ff;
+
+    /* ── 链接 / Link ── */
+    --color-link: var(--color-primary);
+    --color-link-hover: var(--color-primary-hover);
+
+    /* ── 侧边栏 / Sidebar ── */
+    --color-sidebar-bg: #0d0f14;
+    --color-sidebar-text: var(--color-text-secondary);
+    --color-sidebar-text-active: var(--color-text-primary);
+    --color-sidebar-item-active-bg: var(--color-primary-bg-hover);
+}
+
+/* ---- 通用组件增强 ---- */
+
+/* 交互卡片悬浮效果 */
+.card-interactive {
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+.card-interactive:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-glow);
+}
+
+/* 表格行悬浮 */
+.ant-table-tbody > tr:hover > td {
+    background: var(--color-bg-hover) !important;
+}
+
+/* 状态标签统一 */
+.status-online {
+    color: var(--color-online);
+}
+.status-offline {
+    color: var(--color-offline);
+}
+.status-degraded {
+    color: var(--color-degraded);
+}
+.status-pending {
+    color: var(--color-pending);
+}
+
+/* 代码块 */
+code,
+.code-block {
+    background: var(--color-bg-active);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-primary);
+    padding: 2px 6px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Fira Mono', 'Droid Sans Mono', 'Consolas', monospace;
+    font-size: var(--font-size-xs);
+}
+
+/* 面包屑分隔线 */
+.ant-breadcrumb-separator {
+    color: var(--color-text-tertiary) !important;
+}
+
+/* 空状态 */
+.ant-empty-description {
+    color: var(--color-text-tertiary);
+}
+
+/* 进度条轨道 */
+.ant-progress-bg {
+    background: var(--color-primary);
+}
+
+/* ============================================================
+   暗黑模式高级视觉效果设计 (High-end Aesthetic Enhancements)
+   ============================================================ */
+
+[data-theme='dark'] body {
+    /* 注入极其微妙的顶部紫色和底部青色科技感径向渐变，打破黑色沉闷 */
+    background-image:
+        radial-gradient(at 50% 0%, rgba(124, 92, 252, 0.05) 0px, transparent 60%),
+        radial-gradient(at 0% 100%, rgba(54, 207, 201, 0.01) 0px, transparent 60%);
+    background-attachment: fixed;
+}
+
+/* 磨砂玻璃 Header */
+[data-theme='dark'] .ant-layout-header {
+    backdrop-filter: blur(12px) saturate(180%);
+    background: rgba(13, 15, 20, 0.75) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    transition: all 0.3s ease;
+}
+
+/* 磨砂玻璃 Sidebar */
+[data-theme='dark'] .ant-layout-sider {
+    backdrop-filter: blur(12px);
+    background: rgba(13, 15, 20, 0.75) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* 主色按钮渐变与内边框，提升暗色模式下的高级质感 (排除 Ghost 幽灵按钮) */
+[data-theme='dark'] .ant-btn-primary:not(.ant-btn-background-ghost) {
+    background: linear-gradient(135deg, #7c5cfc 0%, #6347e0 100%) !important;
+    border: none !important;
+    box-shadow:
+        0 2px 8px rgba(124, 92, 252, 0.25),
+        0 1px 0 rgba(255, 255, 255, 0.08) inset !important;
+}
+[data-theme='dark'] .ant-btn-primary:not(.ant-btn-background-ghost):not(:disabled):hover {
+    background: linear-gradient(135deg, #9578ff 0%, #7c5cfc 100%) !important;
+    box-shadow:
+        0 4px 16px rgba(124, 92, 252, 0.35),
+        0 1px 0 rgba(255, 255, 255, 0.12) inset !important;
+}
+
+/* 优化 Ghost 幽灵按钮在暗黑模式下的对比度与可见度 */
+[data-theme='dark'] .ant-btn-background-ghost.ant-btn-primary {
+    color: var(--color-primary-hover) !important;
+    border-color: var(--color-primary-hover) !important;
+}
+[data-theme='dark'] .ant-btn-background-ghost.ant-btn-primary:hover {
+    color: #b59fff !important;
+    border-color: #b59fff !important;
+}
+
+/* 卡片/表格交互效果提升 */
+[data-theme='dark'] .ant-card {
+    transition:
+        border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+        box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    border-color: rgba(255, 255, 255, 0.06);
+}
+[data-theme='dark'] .ant-card:hover {
+    border-color: rgba(124, 92, 252, 0.25) !important;
+    box-shadow:
+        0 12px 30px -4px rgba(12, 14, 20, 0.6),
+        0 0 0 1px rgba(124, 92, 252, 0.15) inset,
+        0 4px 20px rgba(124, 92, 252, 0.06) !important;
+}
+
+/* 输入框 / 下拉框聚焦时微弱发光 */
+[data-theme='dark'] .ant-input-focused,
+[data-theme='dark'] .ant-input:focus,
+[data-theme='dark'] .ant-select-focused:not(.ant-select-disabled) .ant-select-selector {
+    box-shadow: 0 0 0 2px rgba(124, 92, 252, 0.15) !important;
+    border-color: var(--color-primary) !important;
+}
+
+/* 滚动条 - 暗黑模式 */
+[data-theme='dark'] ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+[data-theme='dark'] ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 99px;
+    transition: background 0.2s ease;
+}
+[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(124, 92, 252, 0.4);
+}
+[data-theme='dark'] ::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* 滚动条 - 亮色模式 */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 99px;
+    transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(124, 92, 252, 0.4);
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}

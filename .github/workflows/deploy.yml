@@ -1,0 +1,75 @@
+name: Deploy Admin to VPS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**/*.go'
+      - '**/*.js'
+      - '**/*.vue'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build:prod
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Compile Go Binary
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-w -s -X main.VERSION=v1.0.0" -o ./bin/tokenlive-admin_linux_amd64
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
+        run: |
+          # 1. 整理并打包
+          mkdir -p deploy_temp/configs/prod deploy_temp/frontend
+          cp ./bin/tokenlive-admin_linux_amd64 ./deploy_temp/tokenlive-admin
+          cp -r ./configs/prod/* ./deploy_temp/configs/prod/
+          cp ./configs/menu.json ./deploy_temp/configs/
+          cp ./configs/menu_cn.json ./deploy_temp/configs/
+          cp ./configs/rbac_model.conf ./deploy_temp/configs/
+          cp -r ./frontend/dist ./deploy_temp/frontend/
+          
+          tar -czf deploy_admin.tar.gz -C ./deploy_temp .
+          rm -rf ./deploy_temp
+          
+          # 2. 单次上传压缩包
+          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -P ${{ secrets.SSH_PORT }} ./deploy_admin.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/ai-gateway/tokenlive-admin/deploy_admin.tar.gz
+
+      - name: Restart Admin Service
+        run: |
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            rm -f ~/ai-gateway/tokenlive-admin/tokenlive-admin && \
+            tar -xzf ~/ai-gateway/tokenlive-admin/deploy_admin.tar.gz -C ~/ai-gateway/tokenlive-admin/ && \
+            rm -f ~/ai-gateway/tokenlive-admin/deploy_admin.tar.gz && \
+            chmod +x ~/ai-gateway/tokenlive-admin/tokenlive-admin && \
+            systemctl restart tokenlive-admin && \
+            systemctl status tokenlive-admin --no-pager
+          "
