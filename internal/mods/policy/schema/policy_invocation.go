@@ -14,7 +14,7 @@ import (
 type PolicyInvocation struct {
 	ID             string          `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`                                  // Unique ID
 	Name           string          `json:"name" gorm:"size:128;not null;uniqueIndex:uniq_policy_invocation_name;comment:Policy name;"` // Policy name
-	Type           string          `json:"type" gorm:"size:20;not null;comment:Invocation type (failfast | failover);"`                // Invocation type (failfast | failover)
+	Type           string          `json:"type" gorm:"size:64;not null;default:failover;comment:Invocation type (failfast | failover);"`                // Invocation type (failfast | failover)
 	RetryPolicy    *string         `json:"retry_policy,omitempty" gorm:"type:json;comment:Retry policy (JSON);"`                       // Retry policy (JSON)
 	FallbackPolicy *string         `json:"fallback_policy,omitempty" gorm:"type:json;comment:Fallback policy (JSON);"`                 // Fallback policy (JSON)
 	Version        int64           `json:"version" gorm:"not null;default:1;comment:Version;"`                                         // Version
@@ -24,8 +24,8 @@ type PolicyInvocation struct {
 	Modifier       *string         `json:"modifier,omitempty" gorm:"size:255;comment:Modifier;"`                                       // Modifier
 	CreatedAt      time.Time       `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`                                 // Create timestamp
 	UpdatedAt      time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`                       // Update timestamp
-	Deleted        string          `json:"-" gorm:"uniqueIndex:uniq_policy_invocation_name;size:20;default:0;comment:Delete flag;"`    // Delete flag
-	DeletedAt      *gorm.DeletedAt `json:"-" gorm:"comment:Delete timestamp;"`                                                         // Delete timestamp
+	Deleted        string          `json:"-" gorm:"size:20;default:0;comment:Delete flag;"`    // Delete flag
+	DeletedAt      *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`   // Delete timestamp
 }
 
 func (a PolicyInvocation) TableName() string {
@@ -81,7 +81,7 @@ type PolicyInvocations []*PolicyInvocation
 type PolicyInvocationForm struct {
 	ID             string          `json:"id"`
 	Name           string          `json:"name" binding:"required,max=128"` // Policy name
-	Type           string          `json:"type" binding:"required,max=20"`  // Invocation type (failfast | failover)
+	Type           string          `json:"type" binding:"required,max=64"`  // Invocation type (failfast | failover)
 	RetryPolicy    *RetryPolicy    `json:"retry_policy"`                    // Retry policy
 	FallbackPolicy *FallbackPolicy `json:"fallback_policy"`                 // Fallback policy
 	Version        int64           `json:"version"`                         // Version

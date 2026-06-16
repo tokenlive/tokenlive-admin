@@ -13,7 +13,7 @@ import (
 // PolicyLoadbalance 负载均衡策略表
 type PolicyLoadbalance struct {
 	ID          string           `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`
-	Name        string           `json:"name" gorm:"size:128;not null;uniqueIndex:uniq_policy_load_balance_name;comment:Policy name;"`
+	Name        string           `json:"name" gorm:"size:128;not null;uniqueIndex:uniq_policy_loadbalance_name;comment:Policy name;"`
 	Type        string           `json:"type" gorm:"size:64;not null;comment:Loadbalance policy type (round_robin/weighted_rr/random/least_connections/least_latency/cost/composite);"`
 	Version     int64            `json:"version" gorm:"not null;default:1;comment:Version;"`
 	Enabled     int              `json:"enabled" gorm:"not null;default:0;comment:Enabled;"`
@@ -23,8 +23,8 @@ type PolicyLoadbalance struct {
 	Modifier    *string          `json:"modifier,omitempty" gorm:"size:255;comment:Modifier;"`
 	CreatedAt   time.Time        `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`
 	UpdatedAt   time.Time        `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`
-	Deleted     string           `json:"-" gorm:"uniqueIndex:uniq_policy_load_balance_name;size:20;default:0;comment:Delete flag;"`
-	DeletedAt   *gorm.DeletedAt  `json:"-" gorm:"comment:Delete timestamp;"`
+	Deleted     string           `json:"-" gorm:"size:20;default:0;comment:Delete flag;"`
+	DeletedAt   *gorm.DeletedAt  `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`
 }
 
 func (a PolicyLoadbalance) TableName() string {

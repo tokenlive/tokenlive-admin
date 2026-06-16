@@ -14,18 +14,18 @@ const (
 
 // Tenant management for multi-tenancy
 type Tenant struct {
-	ID          string     `json:"id" gorm:"size:20;primarykey;"` // Unique ID
-	Code        string     `json:"code" gorm:"size:64;index"`     // Unique identifier code (e.g. company-a)
-	Name        string     `json:"name" gorm:"size:128;index"`    // Name of tenant
-	Status      string     `json:"status" gorm:"size:20;index"`   // Status of tenant (activated, freezed)
-	Description string     `json:"description" gorm:"size:255;"`  // Description
-	APIKey      string     `json:"api_key" gorm:"size:128;index"` // Tenant API Key (toB scenario)
-	Creator     string     `json:"creator" gorm:"size:255"`       // Creator
-	Modifier    string     `json:"modifier" gorm:"size:255"`      // Modifier
-	CreatedAt   time.Time  `json:"created_at" gorm:"index;"`      // Create time
-	UpdatedAt   time.Time  `json:"updated_at" gorm:"index;"`      // Update time
-	Deleted     string     `json:"-" gorm:"size:20;default:0"`    // Logical delete flag
-	DeletedAt   *time.Time `json:"-" gorm:"index;"`               // Delete time
+	ID          string     `json:"id" gorm:"size:20;primarykey;"`                                                      // Unique ID
+	Code        string     `json:"code" gorm:"size:64;not null;uniqueIndex:uniq_tenant_code_deleted,priority:1;"`       // Unique identifier code (e.g. company-a)
+	Name        string     `json:"name" gorm:"size:128;not null;"`                                                     // Name of tenant
+	Status      string     `json:"status" gorm:"size:20;not null;default:activated;"`                                  // Status of tenant (activated, freezed)
+	Description string     `json:"description" gorm:"size:255;"`                                                       // Description
+	APIKey      string     `json:"api_key" gorm:"size:128;uniqueIndex:uniq_tenant_api_key;"`                           // Tenant API Key (toB scenario)
+	Creator     string     `json:"creator" gorm:"size:255"`                                                            // Creator
+	Modifier    string     `json:"modifier" gorm:"size:255"`                                                           // Modifier
+	CreatedAt   time.Time  `json:"created_at" gorm:"type:timestamp;autoCreateTime;"`                                                // Create time
+	UpdatedAt   time.Time  `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"`                                                // Update time
+	Deleted     string     `json:"-" gorm:"size:20;uniqueIndex:uniq_tenant_code_deleted,priority:2;default:0"`          // Logical delete flag
+	DeletedAt   *time.Time `json:"-" gorm:"type:datetime;null;"`                                                       // Delete time
 }
 
 func (a *Tenant) TableName() string {

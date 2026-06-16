@@ -31,8 +31,8 @@ type PolicyTagging struct {
 	Modifier    *string         `json:"modifier,omitempty" gorm:"size:255;comment:Modifier;"`
 	CreatedAt   time.Time       `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`
 	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`
-	Deleted     string          `json:"-" gorm:"uniqueIndex:uniq_policy_tagging_name;size:20;default:0;comment:Delete flag;"`
-	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"comment:Delete timestamp;"`
+	Deleted     string          `json:"-" gorm:"size:20;default:0;comment:Delete flag;"`
+	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`
 }
 
 func (a PolicyTagging) TableName() string {

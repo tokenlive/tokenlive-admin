@@ -12,8 +12,8 @@ type TenantEndpoint struct {
 	TenantCode string    `json:"tenant_code" gorm:"size:64;not null;uniqueIndex:uniq_tenant_endpoint,priority:1;index:idx_te_tenant_code;comment:租户唯一英文编码;"`
 	EndpointID string    `json:"endpoint_id" gorm:"size:20;not null;uniqueIndex:uniq_tenant_endpoint,priority:2;index:idx_te_endpoint_id;comment:端点主键 ID;"`
 	Creator    string    `json:"creator" gorm:"size:255;comment:创建人;"`
-	CreatedAt  time.Time `json:"created_at" gorm:"index;comment:创建时间;"`
-	UpdatedAt  time.Time `json:"updated_at" gorm:"index;comment:更新时间;"`
+	CreatedAt  time.Time `json:"created_at" gorm:"type:timestamp;autoCreateTime;comment:创建时间;"`
+	UpdatedAt  time.Time `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;comment:更新时间;"`
 }
 
 func (TenantEndpoint) TableName() string {

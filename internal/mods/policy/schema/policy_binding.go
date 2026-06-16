@@ -12,11 +12,11 @@ import (
 // PolicyBinding 策略绑定表，管理策略与实体的多对多应用关系
 type PolicyBinding struct {
 	ID          string          `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`
-	TenantCode  string          `json:"tenant_code" gorm:"size:64;not null;default:'';uniqueIndex:uk_dimensions_policy;index:idx_pb_tenant;comment:Tenant code, empty for unlimited;"`
-	UserID      string          `json:"user_id" gorm:"size:20;not null;default:'';uniqueIndex:uk_dimensions_policy;index:idx_pb_user;comment:User ID, empty for unlimited;"`
-	ModelCode   string          `json:"model_code" gorm:"size:64;not null;default:'';uniqueIndex:uk_dimensions_policy;index:idx_pb_model;comment:Model code, empty for unlimited;"`
-	PolicyType  string          `json:"policy_type" gorm:"size:64;not null;uniqueIndex:uk_dimensions_policy;comment:Policy type: tagging/loadbalance/invocation/limit/route/circuit_break;"`
-	PolicyID    string          `json:"policy_id" gorm:"size:20;not null;uniqueIndex:uk_dimensions_policy;comment:Policy ID;"`
+	TenantCode  string          `json:"tenant_code" gorm:"size:64;not null;default:'';uniqueIndex:uniq_dimensions_policy,priority:1;index:idx_pb_tenant,priority:1;comment:Tenant code, empty for unlimited;"`
+	UserID      string          `json:"user_id" gorm:"size:20;not null;default:'';uniqueIndex:uniq_dimensions_policy,priority:2;index:idx_pb_user,priority:1;comment:User ID, empty for unlimited;"`
+	ModelCode   string          `json:"model_code" gorm:"size:64;not null;default:'';uniqueIndex:uniq_dimensions_policy,priority:3;index:idx_pb_model,priority:1;comment:Model code, empty for unlimited;"`
+	PolicyType  string          `json:"policy_type" gorm:"size:64;not null;uniqueIndex:uniq_dimensions_policy,priority:4;comment:Policy type: tagging/loadbalance/invocation/limit/route/circuit_break;"`
+	PolicyID    string          `json:"policy_id" gorm:"size:20;not null;uniqueIndex:uniq_dimensions_policy,priority:5;comment:Policy ID;"`
 	Priority    int             `json:"priority" gorm:"not null;default:0;comment:Priority (smaller is higher priority);"`
 	Enabled     int             `json:"enabled" gorm:"not null;default:0;comment:Enabled;"`
 	Description *string         `json:"description,omitempty" gorm:"size:255;comment:Details;"`
@@ -24,8 +24,8 @@ type PolicyBinding struct {
 	Modifier    *string         `json:"modifier,omitempty" gorm:"size:255;comment:Modifier;"`
 	CreatedAt   time.Time       `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`
 	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`
-	Deleted     string          `json:"-" gorm:"size:20;default:0;comment:Delete flag;"`
-	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"comment:Delete timestamp;"`
+	Deleted     string          `json:"-" gorm:"size:20;default:0;index:idx_pb_tenant,priority:2;index:idx_pb_user,priority:2;index:idx_pb_model,priority:2;comment:Delete flag;"`
+	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`
 }
 
 func (a PolicyBinding) TableName() string {

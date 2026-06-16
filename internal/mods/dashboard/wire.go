@@ -7,5 +7,5 @@ import (
 
 var Set = wire.NewSet(
 	wire.Struct(new(Dashboard), "*"),
-	wire.Struct(new(api.Dashboard), "*"),
+	wire.Struct(new(api.Dashboard), "DB", "RedisClient", "RedisSync"),
 )

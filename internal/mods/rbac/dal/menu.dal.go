@@ -45,11 +45,11 @@ func (a *Menu) Query(ctx context.Context, params schema.MenuQueryParam, opts ...
 	}
 	if v := params.UserID; len(v) > 0 {
 		userRoleQuery := GetUserRoleDB(ctx, a.DB).Where("user_id = ?", v).Select("role_id")
-		roleMenuQuery := GetRoleMenuDB(ctx, a.DB).Where("role_id IN (?)", userRoleQuery).Select("menu_id")
+		roleMenuQuery := GetRoleMenuDB(ctx, a.DB).Where("role_id IN (?)", userRoleQuery).Select("menu_group_id")
 		db = db.Where("id IN (?)", roleMenuQuery)
 	}
 	if v := params.RoleID; len(v) > 0 {
-		roleMenuQuery := GetRoleMenuDB(ctx, a.DB).Where("role_id = ?", v).Select("menu_id")
+		roleMenuQuery := GetRoleMenuDB(ctx, a.DB).Where("role_id = ?", v).Select("menu_group_id")
 		db = db.Where("id IN (?)", roleMenuQuery)
 	}
 

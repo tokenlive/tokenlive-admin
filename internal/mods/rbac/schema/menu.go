@@ -36,8 +36,8 @@ type Menu struct {
 	ParentID    string        `json:"parent_id" gorm:"size:20;index;"`    // Parent ID (From Menu.ID)
 	ParentPath  string        `json:"parent_path" gorm:"size:255;index;"` // Parent path (split by .)
 	Children    *Menus        `json:"children" gorm:"-"`                  // Child menus
-	CreatedAt   time.Time     `json:"created_at" gorm:"index;"`           // Create time
-	UpdatedAt   time.Time     `json:"updated_at" gorm:"index;"`           // Update time
+	CreatedAt   time.Time     `json:"created_at" gorm:"type:timestamp;autoCreateTime;"` // Create time
+	UpdatedAt   time.Time     `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"` // Update time
 	Resources   MenuResources `json:"resources" gorm:"-"`                 // Resources of menu
 }
 

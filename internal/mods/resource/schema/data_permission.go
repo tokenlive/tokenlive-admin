@@ -30,10 +30,10 @@ type DataPermission struct {
 	Role       string          `json:"role" gorm:"size:20;not null;uniqueIndex:uniq_data_permission;comment:Role code;"`                             // Role code
 	Permission uint            `json:"permission" gorm:"not null;default:0;comment:Data permission bits - format(read,write,delete);"`               // Data permission bits - format(read,write,delete)
 	Creator    string          `json:"creator" gorm:"size:255"`                                                                                      // Creator
-	CreatedAt  time.Time       `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`                                                   // Create timestamp
-	UpdatedAt  time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`                                         // Update timestamp
-	Deleted    string          `json:"-" gorm:"uniqueIndex:uniq_data_permission;size:20;default:0;comment:Delete flag;"`                             // Delete flag
-	DeletedAt  *gorm.DeletedAt `json:"-" gorm:"comment:Delete timestamp;"`                                                                           // Delete timestamp
+	CreatedAt  time.Time       `json:"created_at" gorm:"type:timestamp;autoCreateTime;default:CURRENT_TIMESTAMP;comment:Create timestamp;"` // Create timestamp
+	UpdatedAt  time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;autoUpdateTime;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;comment:Update timestamp;"` // Update timestamp
+	Deleted    string          `json:"-" gorm:"uniqueIndex:uniq_data_permission;size:20;default:0;comment:Delete flag;"`             // Delete flag
+	DeletedAt  *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`                                             // Delete timestamp
 }
 
 func (a DataPermission) TableName() string {

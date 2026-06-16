@@ -21,9 +21,10 @@ type Role struct {
 	Name        string    `json:"name" gorm:"size:128;index"`    // Display name of role
 	Description string    `json:"description" gorm:"size:1024"`  // Details about role
 	Sequence    int       `json:"sequence" gorm:"index"`         // Sequence for sorting
+	Tenant      string    `json:"tenant" gorm:"size:255"`        // Tenant info
 	Status      string    `json:"status" gorm:"size:20;index"`   // Status of role (disabled, enabled)
-	CreatedAt   time.Time `json:"created_at" gorm:"index;"`      // Create time
-	UpdatedAt   time.Time `json:"updated_at" gorm:"index;"`      // Update time
+	CreatedAt   time.Time `json:"created_at" gorm:"type:timestamp;autoCreateTime;"` // Create time
+	UpdatedAt   time.Time `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"` // Update time
 	Menus       RoleMenus `json:"menus" gorm:"-"`                // Role menu list
 }
 

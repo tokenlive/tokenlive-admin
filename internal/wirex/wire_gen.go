@@ -8,7 +8,6 @@ package wirex
 
 import (
 	"context"
-
 	"github.com/tokenlive/tokenlive-admin/internal/mods"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/dashboard"
 	api5 "github.com/tokenlive/tokenlive-admin/internal/mods/dashboard/api"

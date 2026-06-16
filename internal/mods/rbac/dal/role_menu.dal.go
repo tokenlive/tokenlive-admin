@@ -93,6 +93,6 @@ func (a *RoleMenu) DeleteByRoleID(ctx context.Context, roleID string) error {
 
 // Deletes role menus by menu id.
 func (a *RoleMenu) DeleteByMenuID(ctx context.Context, menuID string) error {
-	result := GetRoleMenuDB(ctx, a.DB).Where("menu_id=?", menuID).Delete(new(schema.RoleMenu))
+	result := GetRoleMenuDB(ctx, a.DB).Where("menu_group_id=?", menuID).Delete(new(schema.RoleMenu))
 	return errors.WithStack(result.Error)
 }

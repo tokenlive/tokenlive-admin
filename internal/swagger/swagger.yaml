@@ -1,10 +1,81 @@
 definitions:
-  api.MetricsResponse:
+  api.CircuitBreakerInfo:
     properties:
-      avg_latency:
+      id:
+        type: string
+      model_id:
+        description: 关联模型 ID
+        type: string
+      model_name:
+        description: 关联模型名称
+        type: string
+      name:
+        description: 显示名称
+        type: string
+      provider_id:
+        description: 关联供应商 ID
+        type: string
+      provider_name:
+        description: 关联供应商名称
+        type: string
+      type:
+        description: '"endpoint" 或 "service"'
+        type: string
+      url:
+        description: 关联的 URL 地址
+        type: string
+    type: object
+  api.ModelRankingItem:
+    properties:
+      avg_latency_ms:
         type: number
-      avg_ttft:
+      avg_ttft_ms:
         type: number
+      fail_count:
+        type: integer
+      model_code:
+        type: string
+      model_id:
+        type: string
+      model_name:
+        type: string
+      p50_latency_ms:
+        type: number
+      p50_ttft_ms:
+        type: number
+      p95_latency_ms:
+        type: number
+      p95_ttft_ms:
+        type: number
+      p99_latency_ms:
+        type: number
+      p99_ttft_ms:
+        type: number
+      request_count:
+        type: integer
+      success_count:
+        type: integer
+      success_rate:
+        type: number
+      total_cost:
+        type: number
+      total_tokens:
+        type: integer
+    type: object
+  api.OverviewResponse:
+    properties:
+      active_circuit_breakers:
+        items:
+          $ref: '#/definitions/api.CircuitBreakerInfo'
+        type: array
+      avg_latency_ms:
+        type: number
+      avg_ttft_ms:
+        type: number
+      daily_cache_creation_tokens:
+        type: integer
+      daily_cached_tokens:
+        type: integer
       daily_completion_tokens:
         type: integer
       daily_cost:
@@ -16,41 +87,35 @@ definitions:
       qps:
         type: number
     type: object
-  api.ModelRankingItem:
-    properties:
-      avg_latency:
-        type: number
-      avg_ttft:
-        type: number
-      fail_count:
-        type: integer
-      model_code:
-        type: string
-      model_name:
-        type: string
-      success_count:
-        type: integer
-      success_rate:
-        type: number
-      total_count:
-        type: integer
-    type: object
   api.TrendsResponse:
     properties:
-      failure:
+      series:
         items:
-          type: integer
-        type: array
-      success:
-        items:
-          type: integer
+          $ref: '#/definitions/api.TrendsSeries'
         type: array
       times:
         items:
           type: string
         type: array
     type: object
-  github_com_chenzhiguo_tokenlive-admin_pkg_errors.Error:
+  api.TrendsSeries:
+    properties:
+      failure:
+        items:
+          type: integer
+        type: array
+      label:
+        type: string
+      success:
+        items:
+          type: integer
+        type: array
+      total:
+        items:
+          type: integer
+        type: array
+    type: object
+  github_com_tokenlive_tokenlive-admin_pkg_errors.Error:
     properties:
       code:
         type: integer
@@ -148,6 +213,12 @@ definitions:
       api_key:
         description: Optional, overrides provider-level api_key
         type: string
+      cache_creation_price:
+        description: Cache creation price (CNY/M Tokens), NULL means inherit model
+        type: number
+      cached_price:
+        description: Cached price (CNY/M Tokens), NULL means inherit model
+        type: number
       created_at:
         description: Create time
         type: string
@@ -168,6 +239,9 @@ definitions:
       id:
         description: Unique ID (XID)
         type: string
+      input_price:
+        description: Input price (CNY/M Tokens), NULL means inherit model
+        type: number
       metadata:
         description: Metadata for tags etc.
         items:
@@ -183,6 +257,9 @@ definitions:
       modifier:
         description: Modifier
         type: string
+      output_price:
+        description: Output price (CNY/M Tokens), NULL means inherit model
+        type: number
       priority:
         description: Failover priority (higher = preferred)
         type: integer
@@ -217,6 +294,12 @@ definitions:
       api_key:
         description: Optional, overrides provider-level api_key
         type: string
+      cache_creation_price:
+        description: Cache creation price (CNY/M Tokens)
+        type: number
+      cached_price:
+        description: Cached price (CNY/M Tokens)
+        type: number
       description:
         description: Description
         type: string
@@ -228,6 +311,9 @@ definitions:
         items:
           type: integer
         type: array
+      input_price:
+        description: Input price (CNY/M Tokens)
+        type: number
       metadata:
         description: Metadata
         items:
@@ -237,6 +323,9 @@ definitions:
         description: Associated Model ID
         maxLength: 20
         type: string
+      output_price:
+        description: Output price (CNY/M Tokens)
+        type: number
       priority:
         description: Failover priority
         type: integer
@@ -516,6 +605,12 @@ definitions:
       abilities:
         description: Model Abilities JSON, e.g., ["stream", "tool_call"]
         type: string
+      cache_creation_price:
+        description: Cache creation price (CNY/M Tokens)
+        type: number
+      cached_price:
+        description: Cached price (CNY/M Tokens)
+        type: number
       context_length:
         description: Max context window (Tokens)
         type: integer
@@ -537,6 +632,9 @@ definitions:
       id:
         description: Unique ID (XID)
         type: string
+      input_price:
+        description: Input price (CNY/M Tokens)
+        type: number
       max_output_tokens:
         description: Max output tokens
         type: integer
@@ -549,6 +647,9 @@ definitions:
       modifier:
         description: Modifier
         type: string
+      output_price:
+        description: Output price (CNY/M Tokens)
+        type: number
       owner:
         description: Model owner/enterprise, e.g., OpenAI, Google, DeepSeek
         type: string
@@ -600,7 +701,7 @@ definitions:
     properties:
       alias:
         description: Model alias
-        maxLength: 64
+        maxLength: 255
         type: string
       description:
         description: Description
@@ -623,6 +724,12 @@ definitions:
       abilities:
         description: Model Abilities JSON
         type: string
+      cache_creation_price:
+        description: Cache creation price (CNY/M Tokens)
+        type: number
+      cached_price:
+        description: Cached price (CNY/M Tokens)
+        type: number
       context_length:
         description: Max context window
         type: integer
@@ -635,6 +742,9 @@ definitions:
       extra:
         description: Extra info
         type: string
+      input_price:
+        description: Input price (CNY/M Tokens)
+        type: number
       max_output_tokens:
         description: Max output tokens
         type: integer
@@ -646,6 +756,9 @@ definitions:
         description: Client-facing model name
         maxLength: 128
         type: string
+      output_price:
+        description: Output price (CNY/M Tokens)
+        type: number
       owner:
         description: Model owner
         type: string
@@ -808,6 +921,9 @@ definitions:
       name:
         description: Policy name
         type: string
+      outlier_max_percent:
+        description: Outlier max percent
+        type: integer
       sliding_window_size:
         description: Sliding window size
         type: integer
@@ -894,6 +1010,9 @@ definitions:
         description: Policy name
         maxLength: 128
         type: string
+      outlier_max_percent:
+        description: Outlier max percent
+        type: integer
       sliding_window_size:
         description: Sliding window size
         type: integer
@@ -996,7 +1115,7 @@ definitions:
         description: Retry policy
       type:
         description: Invocation type (failfast | failover)
-        maxLength: 20
+        maxLength: 64
         type: string
       updated_at:
         description: Update timestamp
@@ -1527,6 +1646,9 @@ definitions:
         items:
           type: string
         type: array
+      idle_timeout:
+        description: 读空闲超时 (毫秒)
+        type: integer
       message_policy:
         allOf:
         - $ref: '#/definitions/schema.ErrorParserPolicy'
@@ -1572,6 +1694,9 @@ definitions:
       status:
         description: Status of role (disabled, enabled)
         type: string
+      tenant:
+        description: Tenant info
+        type: string
       updated_at:
         description: Update time
         type: string
@@ -1616,8 +1741,8 @@ definitions:
       id:
         description: Unique ID
         type: string
-      menu_id:
-        description: From Menu.ID
+      menu_group_id:
+        description: 'From Menu.ID (column: menu_group_id)'
         type: string
       role_id:
         description: From Role.ID
@@ -2063,7 +2188,7 @@ definitions:
     properties:
       data: {}
       error:
-        $ref: '#/definitions/github_com_chenzhiguo_tokenlive-admin_pkg_errors.Error'
+        $ref: '#/definitions/github_com_tokenlive_tokenlive-admin_pkg_errors.Error'
       success:
         type: boolean
       total:
@@ -2279,7 +2404,7 @@ paths:
             - properties:
                 data:
                   items:
-                    type: string
+                    $ref: '#/definitions/api.CircuitBreakerInfo'
                   type: array
               type: object
       security:
@@ -2288,25 +2413,18 @@ paths:
         Redis
       tags:
       - DashboardAPI
-  /api/v1/dashboard/metrics:
-    get:
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/util.ResponseResult'
-            - properties:
-                data:
-                  $ref: '#/definitions/api.MetricsResponse'
-              type: object
-      security:
-      - ApiKeyAuth: []
-      summary: Query big-screen telemetry metrics (QPS, requests, tokens, cost)
-      tags:
-      - DashboardAPI
   /api/v1/dashboard/model-ranking:
     get:
+      parameters:
+      - description: 'Sort by: request_count, avg_latency, avg_ttft, tokens, cost,
+          success_rate (default: request_count)'
+        in: query
+        name: sort_by
+        type: string
+      - description: 'Limit results (default: 10)'
+        in: query
+        name: limit
+        type: integer
       responses:
         "200":
           description: OK
@@ -2321,7 +2439,25 @@ paths:
               type: object
       security:
       - ApiKeyAuth: []
-      summary: Query model usage ranking (top 10 by request count in last 60 minutes)
+      summary: Query model usage ranking with detailed metrics
+      tags:
+      - DashboardAPI
+  /api/v1/dashboard/overview:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/api.OverviewResponse'
+              type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Query dashboard overview metrics (QPS, daily stats, latency, circuit
+        breakers)
       tags:
       - DashboardAPI
   /api/v1/dashboard/qps:
@@ -2356,6 +2492,15 @@ paths:
       - DashboardAPI
   /api/v1/dashboard/trends:
     get:
+      parameters:
+      - description: 'Group by: model, provider, tenant, endpoint (default: global)'
+        in: query
+        name: group_by
+        type: string
+      - description: 'Time range: 1h, 6h, 24h, 7d, today (default: 1h)'
+        in: query
+        name: time_range
+        type: string
       responses:
         "200":
           description: OK
@@ -2368,7 +2513,7 @@ paths:
               type: object
       security:
       - ApiKeyAuth: []
-      summary: Query 60-minute gateway traffic success/failure trends
+      summary: Query bucketed gateway traffic success/failure trends
       tags:
       - DashboardAPI
   /api/v1/endpoints:
@@ -3257,6 +3402,32 @@ paths:
       summary: Query endpoints by Model ID
       tags:
       - EndpointAPI
+  /api/v1/models/{id}/sync:
+    post:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Sync model's Redis cache by ID
+      tags:
+      - ModelAPI
   /api/v1/policy/policy-bindings:
     get:
       responses:

@@ -9,11 +9,11 @@ import (
 
 // Role permissions for RBAC
 type RoleMenu struct {
-	ID        string    `json:"id" gorm:"size:20;primarykey"` // Unique ID
-	RoleID    string    `json:"role_id" gorm:"size:20;index"` // From Role.ID
-	MenuID    string    `json:"menu_id" gorm:"size:20;index"` // From Menu.ID
-	CreatedAt time.Time `json:"created_at" gorm:"index;"`     // Create time
-	UpdatedAt time.Time `json:"updated_at" gorm:"index;"`     // Update time
+	ID        string    `json:"id" gorm:"size:20;primarykey"`                        // Unique ID
+	RoleID    string    `json:"role_id" gorm:"size:20;index"`                        // From Role.ID
+	MenuID    string    `json:"menu_group_id" gorm:"column:menu_group_id;size:20;index"` // From Menu.ID (column: menu_group_id)
+	CreatedAt time.Time `json:"created_at" gorm:"type:timestamp;autoCreateTime;"` // Create time
+	UpdatedAt time.Time `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"` // Update time
 }
 
 func (a *RoleMenu) TableName() string {

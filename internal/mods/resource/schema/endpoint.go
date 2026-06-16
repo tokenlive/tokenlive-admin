@@ -11,30 +11,30 @@ import (
 
 // Endpoint defines an upstream endpoint belonging to a provider.
 type Endpoint struct {
-	ID                 string          `json:"id" gorm:"size:20;primarykey;"`                                                                 // Unique ID (XID)
-	ProviderID         string          `json:"provider_id" gorm:"size:20;not null;index:idx_provider_id;index:idx_endpoint_route,priority:2"` // Associated provider ID
-	ModelID            string          `json:"model_id" gorm:"size:20;not null;index;index:idx_endpoint_route,priority:1"`                    // Associated Model ID
-	URL                string          `json:"url" gorm:"size:512;not null;"`                                                                 // Upstream API address
-	ApiKey             string          `json:"api_key,omitempty" gorm:"size:512;"`                                                            // Optional, overrides provider-level api_key
-	Protocol           string          `json:"protocol,omitempty" gorm:"size:64;"`                                                            // Optional, overrides provider-level protocol
-	RealModel          string          `json:"real_model,omitempty" gorm:"size:128;"`                                                         // Optional, overrides model-level real_model
-	Priority           int             `json:"priority" gorm:"not null;default:0;"`                                                           // Failover priority (higher = preferred)
-	Weight             int             `json:"weight" gorm:"default:1;"`                                                                      // Load balancing weight
-	Enabled            int             `json:"enabled" gorm:"not null;default:0;"`                                                            // Enable status: 0-disabled, 1-enabled
-	Headers            json.RawMessage `json:"headers,omitempty" gorm:"type:json;"`                                                           // Custom HTTP headers
-	Metadata           json.RawMessage `json:"metadata,omitempty" gorm:"type:json;"`                                                          // Metadata for tags etc.
-	InputPrice         *float64        `json:"input_price" gorm:"column:input_price;type:decimal(10,6);default:null;"`                        // Input price (CNY/M Tokens), NULL means inherit model
-	OutputPrice        *float64        `json:"output_price" gorm:"column:output_price;type:decimal(10,6);default:null;"`                      // Output price (CNY/M Tokens), NULL means inherit model
-	CachedPrice        *float64        `json:"cached_price" gorm:"column:cached_price;type:decimal(10,6);default:null;"`                      // Cached price (CNY/M Tokens), NULL means inherit model
-	CacheCreationPrice *float64        `json:"cache_creation_price" gorm:"column:cache_creation_price;type:decimal(10,6);default:null;"`      // Cache creation price (CNY/M Tokens), NULL means inherit model
-	Description        string          `json:"description" gorm:"size:255;"`                                                                  // Description
-	Creator            string          `json:"creator" gorm:"size:255;"`                                                                      // Creator
-	Modifier           string          `json:"modifier" gorm:"size:255;"`                                                                     // Modifier
-	CreatedAt          time.Time       `json:"created_at" gorm:"index;"`                                                                      // Create time
-	UpdatedAt          time.Time       `json:"updated_at" gorm:"index;"`                                                                      // Update time
-	Deleted            string          `json:"-" gorm:"size:20;default:0"`                                                                    // Logical delete flag
-	DeletedAt          *gorm.DeletedAt `json:"-" gorm:"comment:Delete time;"`                                                                 // Delete time
-	StatusPoints       []StatusPoint   `json:"status_points" gorm:"-"`                                                                        // Recent status points
+	ID                 string          `json:"id" gorm:"size:20;primarykey;"`                                                                                            // Unique ID (XID)
+	ProviderID         string          `json:"provider_id" gorm:"size:20;not null;index:idx_provider_id,priority:1;index:idx_endpoint_route,priority:2"`                 // Associated provider ID
+	ModelID            string          `json:"model_id" gorm:"size:20;not null;index:idx_model_id,priority:1;index:idx_endpoint_route,priority:1;"`                      // Associated Model ID
+	URL                string          `json:"url" gorm:"size:512;not null;"`                                                                                            // Upstream API address
+	ApiKey             string          `json:"api_key,omitempty" gorm:"size:512;"`                                                                                       // Optional, overrides provider-level api_key
+	Protocol           string          `json:"protocol,omitempty" gorm:"size:64;"`                                                                                       // Optional, overrides provider-level protocol
+	RealModel          string          `json:"real_model,omitempty" gorm:"size:128;"`                                                                                    // Optional, overrides model-level real_model
+	Priority           int             `json:"priority" gorm:"not null;default:0;"`                                                                                      // Failover priority (higher = preferred)
+	Weight             int             `json:"weight" gorm:"not null;default:1;"`                                                                                        // Load balancing weight
+	Enabled            int             `json:"enabled" gorm:"not null;default:0;"`                                                                                       // Enable status: 0-disabled, 1-enabled
+	Headers            json.RawMessage `json:"headers,omitempty" gorm:"type:json;"`                                                                                      // Custom HTTP headers
+	Metadata           json.RawMessage `json:"metadata,omitempty" gorm:"type:json;"`                                                                                     // Metadata for tags etc.
+	InputPrice         *float64        `json:"input_price" gorm:"column:input_price;type:decimal(10,6);default:null;"`                                                   // Input price (CNY/M Tokens), NULL means inherit model
+	OutputPrice        *float64        `json:"output_price" gorm:"column:output_price;type:decimal(10,6);default:null;"`                                                 // Output price (CNY/M Tokens), NULL means inherit model
+	CachedPrice        *float64        `json:"cached_price" gorm:"column:cached_price;type:decimal(10,6);default:null;"`                                                 // Cached price (CNY/M Tokens), NULL means inherit model
+	CacheCreationPrice *float64        `json:"cache_creation_price" gorm:"column:cache_creation_price;type:decimal(10,6);default:null;"`                                 // Cache creation price (CNY/M Tokens), NULL means inherit model
+	Description        string          `json:"description" gorm:"size:255;"`                                                                                             // Description
+	Creator            string          `json:"creator" gorm:"size:255;"`                                                                                                 // Creator
+	Modifier           string          `json:"modifier" gorm:"size:255;"`                                                                                                // Modifier
+	CreatedAt          time.Time       `json:"created_at" gorm:"type:timestamp;autoCreateTime;"`                                                                              // Create time
+	UpdatedAt          time.Time       `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"`                                                                              // Update time
+	Deleted            string          `json:"-" gorm:"size:20;index:idx_provider_id,priority:2;index:idx_model_id,priority:2;default:0"`                               // Logical delete flag
+	DeletedAt          *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete time;"`                                                                              // Delete time
+	StatusPoints       []StatusPoint   `json:"status_points" gorm:"-"`                                                                                                   // Recent status points
 
 	// 关联查询
 	Model    *Model    `json:"model,omitempty" gorm:"foreignKey:ModelID;references:ID"`

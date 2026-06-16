@@ -12,8 +12,8 @@ type UserRole struct {
 	ID        string    `json:"id" gorm:"size:20;primarykey"`           // Unique ID
 	UserID    string    `json:"user_id" gorm:"size:20;index"`           // From User.ID
 	RoleID    string    `json:"role_id" gorm:"size:20;index"`           // From Role.ID
-	CreatedAt time.Time `json:"created_at" gorm:"index;"`               // Create time
-	UpdatedAt time.Time `json:"updated_at" gorm:"index;"`               // Update time
+	CreatedAt time.Time `json:"created_at" gorm:"type:timestamp;autoCreateTime;"` // Create time
+	UpdatedAt time.Time `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"` // Update time
 	RoleName  string    `json:"role_name" gorm:"<-:false;-:migration;"` // From Role.Name
 }
 

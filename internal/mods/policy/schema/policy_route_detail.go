@@ -13,7 +13,7 @@ import (
 // Route policy detail management
 type PolicyRouteDetail struct {
 	ID           string          `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`                 // Unique ID
-	RouteId      string          `json:"route_id" gorm:"size:20;not null;index:idx_routeid;comment:Route ID;"`      // Route ID
+	RouteId      string          `json:"route_id" gorm:"size:20;not null;index:idx_routeid,priority:1;comment:Route ID;"` // Route ID
 	RelationType string          `json:"relation_type" gorm:"size:20;not null;comment:Relation type;"`              // Relation type
 	Conditions   *string         `json:"conditions,omitempty" gorm:"type:json;comment:Match conditions (JSON);"`    // Match conditions (JSON)
 	Destinations *string         `json:"destinations,omitempty" gorm:"type:json;comment:Destination rules (JSON);"` // Destination rules (JSON)
@@ -22,8 +22,8 @@ type PolicyRouteDetail struct {
 	Description  *string         `json:"description,omitempty" gorm:"size:255;comment:Details;"`                    // Details
 	CreatedAt    time.Time       `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`                // Create timestamp
 	UpdatedAt    time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`      // Update timestamp
-	Deleted      string          `json:"-" gorm:"index:idx_routeid;size:20;default:0;comment:Delete flag;"`         // Delete flag
-	DeletedAt    *gorm.DeletedAt `json:"-" gorm:"comment:Delete timestamp;"`                                        // Delete timestamp
+	Deleted      string          `json:"-" gorm:"index:idx_routeid,priority:2;size:20;default:0;comment:Delete flag;"` // Delete flag
+	DeletedAt    *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`                            // Delete timestamp
 }
 
 func (a PolicyRouteDetail) TableName() string {

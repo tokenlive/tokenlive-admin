@@ -1,4 +1,4 @@
-CREATE DATABASE IF NOT EXISTS ai_gateway CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+CREATE DATABASE IF NOT EXISTS tokenlive CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
 
 CREATE TABLE IF NOT EXISTS `menu`
 (
@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS `menu`
     `status`      varchar(20)   DEFAULT NULL COMMENT '状态',
     `parent_id`   varchar(20)   DEFAULT NULL COMMENT '父ID',
     `parent_path` varchar(255)  DEFAULT NULL COMMENT '父路径',
-    `created_at`  datetime(3)   DEFAULT NULL COMMENT '创建时间',
-    `updated_at`  datetime(3)   DEFAULT NULL COMMENT '更新时间',
+    `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`  TIMESTAMP          DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     KEY `idx_menu_parent_path` (`parent_path`),
     KEY `idx_menu_name` (`name`),
@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS `menu_resource`
     `menu_id`    varchar(20)  DEFAULT NULL COMMENT '菜单ID',
     `method`     varchar(20)  DEFAULT NULL COMMENT '请求方法',
     `path`       varchar(255) DEFAULT NULL COMMENT '请求路径',
-    `created_at` datetime(3)  DEFAULT NULL COMMENT '创建时间',
-    `updated_at` datetime(3)  DEFAULT NULL COMMENT '更新时间',
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` TIMESTAMP          DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     KEY `idx_menu_resource_menu_id` (`menu_id`)
 ) ENGINE = InnoDB
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS `menu_resource_group`
     `depends_on`  json                                                   DEFAULT NULL COMMENT '授权依赖其他权限编码,数组结构',
     `base_auth`   tinyint(1)                                             DEFAULT '0' COMMENT '是否基础默认权限,前端默认勾选',
     `created_at`  timestamp   NOT NULL                                   DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at`  timestamp   NULL                                       DEFAULT NULL COMMENT '更新时间',
+    `updated_at`  timestamp                                              DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uniq_code` (`code`)
 ) ENGINE = InnoDB
@@ -68,8 +68,8 @@ CREATE TABLE IF NOT EXISTS `role`
     `sequence`    bigint        DEFAULT NULL COMMENT '角色序列',
     `tenant`      varchar(255)  DEFAULT NULL COMMENT '租户信息',
     `status`      varchar(20)   DEFAULT NULL COMMENT '状态',
-    `created_at`  datetime(3)   DEFAULT NULL COMMENT '创建时间',
-    `updated_at`  datetime(3)   DEFAULT NULL COMMENT '更新时间',
+    `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`  TIMESTAMP          DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     KEY `idx_role_code` (`code`),
     KEY `idx_role_name` (`name`),
@@ -83,12 +83,12 @@ CREATE TABLE IF NOT EXISTS `role_menu`
 (
     `id`            varchar(20) NOT NULL COMMENT 'ID',
     `role_id`       varchar(20) DEFAULT NULL COMMENT '角色ID',
-    `menu_group_id` varchar(20) DEFAULT NULL COMMENT '菜单组ID',
-    `created_at`    datetime(3) DEFAULT NULL COMMENT '创建时间',
-    `updated_at`    datetime(3) DEFAULT NULL COMMENT '更新时间',
+    `menu_id` varchar(20) DEFAULT NULL COMMENT '菜单组ID',
+    `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`    TIMESTAMP          DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     KEY `idx_role_menu_role_id` (`role_id`),
-    KEY `idx_role_menu_menu_id` (`menu_group_id`)
+    KEY `idx_role_menu_menu_id` (`menu_id`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT = '角色菜单';
@@ -104,8 +104,8 @@ CREATE TABLE IF NOT EXISTS `user`
     `remark`     varchar(1024) DEFAULT NULL COMMENT '备注',
     `tenant`     varchar(255)  DEFAULT NULL COMMENT '租户信息',
     `status`     varchar(20)   DEFAULT NULL COMMENT '状态',
-    `created_at` datetime(3)   DEFAULT NULL COMMENT '创建时间',
-    `updated_at` datetime(3)   DEFAULT NULL COMMENT '更新时间',
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` TIMESTAMP          DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     KEY `idx_user_username` (`username`),
     KEY `idx_user_name` (`name`),
@@ -119,8 +119,8 @@ CREATE TABLE IF NOT EXISTS `user_role`
     `id`         varchar(20) NOT NULL COMMENT 'ID',
     `user_id`    varchar(20) DEFAULT NULL COMMENT '用户ID',
     `role_id`    varchar(20) DEFAULT NULL COMMENT '角色ID',
-    `created_at` datetime(3) DEFAULT NULL COMMENT '创建时间',
-    `updated_at` datetime(3) DEFAULT NULL COMMENT '更新时间',
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` TIMESTAMP          DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     KEY `idx_user_role_user_id` (`user_id`),
     KEY `idx_user_role_role_id` (`role_id`)
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS `model`
     `model_name`        VARCHAR(128)                                           NOT NULL COMMENT '模型名称',
     `model_code`        VARCHAR(64)                                            NOT NULL COMMENT '模型唯一编码',
     `space_code`        VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '模型空间编码',
-    `request_types`     JSON                                                   NOT NULL COMMENT '模型支持的请求类型，如 ["chat_completion", "embedding"]',
+    `request_types`     JSON                                                   DEFAULT NULL COMMENT '模型支持的请求类型，如 ["chat_completion", "embedding"]',
     `context_length`    BIGINT                                                 NOT NULL DEFAULT 128000 COMMENT '最大上下文窗口（Tokens）',
     `max_output_tokens` BIGINT                                                 NOT NULL DEFAULT 8192 COMMENT '最大输出Token',
     `owner`             VARCHAR(64) COMMENT '模型所属企业/厂商，如 OpenAI, Google, DeepSeek',
@@ -167,12 +167,30 @@ CREATE TABLE IF NOT EXISTS `model`
     `created_at`        TIMESTAMP                                              NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`        TIMESTAMP                                                       DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`           VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin  NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`        TIMESTAMP                                              NULL     DEFAULT NULL COMMENT '逻辑删除时间',
+    `deleted_at`        DATETIME                                              NULL     DEFAULT NULL COMMENT '逻辑删除时间',
     UNIQUE KEY `uniq_model_name` (`model_name`) USING BTREE,
     UNIQUE KEY `uniq_model_code_deleted` (`model_code`, `deleted`) USING BTREE
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='模型定义表，用户视角的 LLM 模型';
+
+-- 模型别名
+CREATE TABLE IF NOT EXISTS `model_alias`
+(
+    `id`          VARCHAR(20)  NOT NULL                                              COMMENT 'ID',
+    `space_code`  VARCHAR(255) NOT NULL                                              COMMENT '模型空间编码',
+    `alias`       VARCHAR(255) NOT NULL                                              COMMENT '模型别名',
+    `model_id`    VARCHAR(20)  NOT NULL                                              COMMENT '所属模型ID',
+    `description` VARCHAR(255)          DEFAULT NULL                                 COMMENT '备注',
+    `created_at`  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP                    COMMENT '创建时间',
+    `updated_at`  TIMESTAMP             DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted`     VARCHAR(20)  NOT NULL DEFAULT '0'                                  COMMENT '逻辑删除标识',
+    `deleted_at`  DATETIME              DEFAULT NULL                                 COMMENT '删除时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uniq_code` (`space_code`, `alias`, `deleted`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin COMMENT = '模型别名';
 
 -- Provider 定义（上游来源）
 CREATE TABLE IF NOT EXISTS `provider`
@@ -190,7 +208,7 @@ CREATE TABLE IF NOT EXISTS `provider`
     `created_at`  TIMESTAMP                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`  TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`  TIMESTAMP                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
+    `deleted_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
     UNIQUE KEY `uniq_provider_code` (`code`, `deleted`) USING BTREE
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -221,7 +239,7 @@ CREATE TABLE IF NOT EXISTS `endpoint`
     `created_at`  TIMESTAMP                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`  TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`  TIMESTAMP                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
+    `deleted_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
     KEY `idx_endpoint_route` (`model_id`, `provider_id`) USING BTREE,
     KEY `idx_provider_id` (`provider_id`, `deleted`),
     KEY `idx_model_id` (`model_id`, `deleted`)
@@ -246,8 +264,8 @@ CREATE TABLE IF NOT EXISTS `policy_binding`
     `created_at`  TIMESTAMP                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`  TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`  TIMESTAMP                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
-    UNIQUE KEY `uk_dimensions_policy` (`tenant_code`, `user_id`, `model_code`, `policy_type`, `policy_id`),
+    `deleted_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
+    UNIQUE KEY `uniq_dimensions_policy` (`tenant_code`, `user_id`, `model_code`, `policy_type`, `policy_id`),
     KEY `idx_pb_tenant` (`tenant_code`, `deleted`),
     KEY `idx_pb_user` (`user_id`, `deleted`),
     KEY `idx_pb_model` (`model_code`, `deleted`)
@@ -259,11 +277,11 @@ CREATE TABLE IF NOT EXISTS `policy_binding`
 CREATE TABLE IF NOT EXISTS `policy_tagging`
 (
     `id`          CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
-    `name`        VARCHAR(128)                                          NOT NULL UNIQUE COMMENT '策略名称',
+    `name`        VARCHAR(128)                                          NOT NULL COMMENT '策略名称',
     `order`       INT                                                   NOT NULL DEFAULT 0 COMMENT '执行顺序，数字越小越优先',
     `relation`    VARCHAR(16)                                           NOT NULL DEFAULT 'AND' COMMENT '多条件之间的逻辑关系：AND / OR',
-    `conditions`  JSON                                                  NOT NULL COMMENT '匹配条件列表，嵌套 Condition 数组',
-    `actions`     JSON                                                  NOT NULL COMMENT '染色动作列表，嵌套 TaggingAction 数组',
+    `conditions`  JSON                                                  DEFAULT NULL COMMENT '匹配条件列表，嵌套 Condition 数组',
+    `actions`     JSON                                                  DEFAULT NULL COMMENT '染色动作列表，嵌套 TaggingAction 数组',
     `version`     BIGINT                                                NOT NULL DEFAULT 1 COMMENT '配置版本号',
     `enabled`     INT                                                   NOT NULL DEFAULT 0 COMMENT '启用状态: 0-未启用，1-启用',
     `description` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '备注描述',
@@ -272,7 +290,8 @@ CREATE TABLE IF NOT EXISTS `policy_tagging`
     `created_at`  TIMESTAMP                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`  TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`  TIMESTAMP                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间'
+    `deleted_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
+    UNIQUE KEY `uniq_policy_tagging_name` (`name`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='染色打标策略表';
@@ -281,7 +300,7 @@ CREATE TABLE IF NOT EXISTS `policy_tagging`
 CREATE TABLE IF NOT EXISTS `policy_loadbalance`
 (
     `id`          CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
-    `name`        VARCHAR(128)                                          NOT NULL UNIQUE COMMENT '策略名称',
+    `name`        VARCHAR(128)                                          NOT NULL COMMENT '策略名称',
     `type`        VARCHAR(64)                                           NOT NULL COMMENT '负载均衡算法类型，如 ROUND_ROBIN / WEIGHTED / STICKY',
     `version`     BIGINT                                                NOT NULL DEFAULT 1 COMMENT '配置版本号',
     `enabled`     INT                                                   NOT NULL DEFAULT 0 COMMENT '启用状态: 0-未启用，1-启用',
@@ -292,7 +311,8 @@ CREATE TABLE IF NOT EXISTS `policy_loadbalance`
     `created_at`  TIMESTAMP                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`  TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`  TIMESTAMP                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间'
+    `deleted_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
+    UNIQUE KEY `uniq_policy_loadbalance_name` (`name`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='负载均衡策略表';
@@ -301,7 +321,7 @@ CREATE TABLE IF NOT EXISTS `policy_loadbalance`
 CREATE TABLE IF NOT EXISTS `policy_invocation`
 (
     `id`              CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
-    `name`            VARCHAR(128)                                          NOT NULL UNIQUE COMMENT '策略名称',
+    `name`            VARCHAR(128)                                          NOT NULL COMMENT '策略名称',
     `type`            VARCHAR(64)                                           NOT NULL DEFAULT 'failover' COMMENT '调用类型：failover,failfast',
     `retry_policy`    JSON                                                           DEFAULT NULL COMMENT '重试策略',
     `fallback_policy` JSON                                                           DEFAULT NULL COMMENT '降级策略',
@@ -313,7 +333,8 @@ CREATE TABLE IF NOT EXISTS `policy_invocation`
     `created_at`      TIMESTAMP                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`      TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`         VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`      TIMESTAMP                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间'
+    `deleted_at`      DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
+    UNIQUE KEY `uniq_policy_invocation_name` (`name`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='调用与重试策略表';
@@ -322,12 +343,12 @@ CREATE TABLE IF NOT EXISTS `policy_invocation`
 CREATE TABLE IF NOT EXISTS `policy_limit`
 (
     `id`              CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
-    `name`            VARCHAR(128)                                          NOT NULL UNIQUE COMMENT '策略名称',
+    `name`            VARCHAR(128)                                          NOT NULL COMMENT '策略名称',
     `version`         BIGINT                                                NOT NULL DEFAULT 1 COMMENT '配置版本号',
     `type`            VARCHAR(64)                                           NOT NULL COMMENT '限流维度：request / token / cost',
     `max_wait_ms`     INT                                                   NOT NULL DEFAULT 0 COMMENT '排队等待最大时间（毫秒）',
     `relation_type`   VARCHAR(16)                                           NOT NULL DEFAULT 'AND' COMMENT '多条件之间的逻辑关系：AND / OR',
-    `sliding_windows` JSON                                                  NOT NULL COMMENT '滑动窗口配额配置列表，嵌套 SlidingWindow 数组',
+    `sliding_windows` JSON                                                  DEFAULT NULL COMMENT '滑动窗口配额配置列表，嵌套 SlidingWindow 数组',
     `conditions`      JSON COMMENT '匹配条件列表，嵌套 Condition 数组',
     `estimator`       JSON COMMENT '估算器配置，包含 type 和 ratio',
     `enabled`         INT                                                   NOT NULL DEFAULT 0 COMMENT '启用状态: 0-未启用，1-启用',
@@ -337,7 +358,8 @@ CREATE TABLE IF NOT EXISTS `policy_limit`
     `created_at`      TIMESTAMP                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`      TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`         VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`      TIMESTAMP                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间'
+    `deleted_at`      DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
+    UNIQUE KEY `uniq_policy_limit_name` (`name`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='限流策略表';
@@ -346,7 +368,7 @@ CREATE TABLE IF NOT EXISTS `policy_limit`
 CREATE TABLE IF NOT EXISTS `policy_route`
 (
     `id`          CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
-    `name`        VARCHAR(128)                                          NOT NULL UNIQUE COMMENT '策略名称',
+    `name`        VARCHAR(128)                                          NOT NULL COMMENT '策略名称',
     `order`       INT                                                   NOT NULL DEFAULT 0 COMMENT '执行顺序，数字越小越优先',
     `version`     BIGINT                                                NOT NULL DEFAULT 1 COMMENT '配置版本号',
     `enabled`     INT                                                   NOT NULL DEFAULT 0 COMMENT '启用状态: 0-未启用，1-启用',
@@ -356,7 +378,8 @@ CREATE TABLE IF NOT EXISTS `policy_route`
     `created_at`  TIMESTAMP                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`  TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`  TIMESTAMP                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间'
+    `deleted_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
+    UNIQUE KEY `uniq_policy_route_name` (`name`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='标签路由策略表';
@@ -374,7 +397,7 @@ CREATE TABLE IF NOT EXISTS `policy_route_detail`
     `created_at`    timestamp                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`    timestamp                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`       varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`    timestamp                                             NULL     DEFAULT NULL COMMENT '删除时间',
+    `deleted_at`    DATETIME                                             NULL     DEFAULT NULL COMMENT '删除时间',
     PRIMARY KEY (`id`),
     KEY `idx_routeid` (`route_id`, `deleted`) USING BTREE
 ) ENGINE = InnoDB
@@ -385,7 +408,7 @@ CREATE TABLE IF NOT EXISTS `policy_route_detail`
 CREATE TABLE IF NOT EXISTS `policy_circuit_break`
 (
     `id`                               CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
-    `name`                             VARCHAR(128)                                          NOT NULL UNIQUE COMMENT '策略名称',
+    `name`                             VARCHAR(128)                                          NOT NULL COMMENT '策略名称',
     `level`                            VARCHAR(64)                                           NOT NULL DEFAULT 'INSTANCE' COMMENT '熔断隔离级别：SERVICE / INSTANCE',
     `sliding_window_type`              VARCHAR(16)                                           NOT NULL DEFAULT 'time' COMMENT '滑动窗口类型：time / count',
     `sliding_window_size`              INT                                                   NOT NULL DEFAULT 20 COMMENT '滑动窗口大小（次数或秒数）',
@@ -411,7 +434,8 @@ CREATE TABLE IF NOT EXISTS `policy_circuit_break`
     `created_at`                       TIMESTAMP                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`                       TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`                          VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`                       TIMESTAMP                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间'
+    `deleted_at`                       DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
+    UNIQUE KEY `uniq_policy_circuit_break_name` (`name`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='熔断隔离策略表';
@@ -427,7 +451,7 @@ CREATE TABLE IF NOT EXISTS `user_api_key`
     `api_key`     VARCHAR(128)                                          NOT NULL COMMENT '实际的 API Key 字符串',
     `status`      INT                                                   NOT NULL DEFAULT 1 COMMENT '状态: 1-启用, 2-禁用',
     `quota`       BIGINT                                                NOT NULL DEFAULT -1 COMMENT '剩余配额: -1表示无限制',
-    `expires_at`  TIMESTAMP                                             NULL     DEFAULT NULL COMMENT '过期时间: NULL表示永不过期',
+    `expires_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '过期时间: NULL表示永不过期',
     -- 审计与管理字段
     `description` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '备注描述',
     `creator`     VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '创建者',
@@ -435,7 +459,7 @@ CREATE TABLE IF NOT EXISTS `user_api_key`
     `created_at`  TIMESTAMP                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`  TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`  TIMESTAMP                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
+    `deleted_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
     UNIQUE KEY `uniq_api_key_deleted` (`api_key`, `deleted`) USING BTREE,
     KEY `idx_user_id` (`user_id`, `deleted`)
 ) ENGINE = InnoDB
@@ -459,7 +483,7 @@ CREATE TABLE IF NOT EXISTS `tenant`
     `created_at`  TIMESTAMP                                              NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at`  TIMESTAMP                                                       DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin  NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`  TIMESTAMP                                              NULL     DEFAULT NULL COMMENT '逻辑删除时间',
+    `deleted_at`  DATETIME                                              NULL     DEFAULT NULL COMMENT '逻辑删除时间',
     UNIQUE KEY `uniq_tenant_code_deleted` (`code`, `deleted`) USING BTREE,
     UNIQUE KEY `uniq_tenant_api_key` (`api_key`)
 ) ENGINE = InnoDB
@@ -503,3 +527,47 @@ CREATE TABLE IF NOT EXISTS `tenant_endpoint`
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='租户与端点关联表，用于端点级别的访问控制';
+
+CREATE TABLE IF NOT EXISTS `data_permission`
+(
+    `id`         VARCHAR(20)  NOT NULL                                              COMMENT 'ID',
+    `type`       VARCHAR(50)  NOT NULL                                              COMMENT '数据类型(表名)',
+    `data_id`    VARCHAR(20)  NOT NULL                                              COMMENT '数据ID',
+    `user`       VARCHAR(50)  NOT NULL                                              COMMENT '用户',
+    `tenant`     VARCHAR(50)  NOT NULL                                              COMMENT '租户',
+    `role`       VARCHAR(20)  NOT NULL                                              COMMENT '角色编码',
+    `permission` INT UNSIGNED NOT NULL DEFAULT 0                                    COMMENT '数据权限位 - 格式(read,write,delete)',
+    `creator`    VARCHAR(255) NOT NULL DEFAULT ''                                   COMMENT '创建者',
+    `created_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP                    COMMENT '创建时间',
+    `updated_at` TIMESTAMP             DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted`    VARCHAR(20)  NOT NULL DEFAULT '0'                                  COMMENT '逻辑删除标识',
+    `deleted_at` DATETIME              DEFAULT NULL                                 COMMENT '删除时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uniq_data_permission` (`type`, `data_id`, `user`, `tenant`, `role`, `deleted`),
+    KEY `idx_type` (`type`),
+    KEY `idx_data_id` (`data_id`),
+    KEY `idx_user` (`user`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin COMMENT = '数据权限';
+
+CREATE TABLE IF NOT EXISTS `space`
+(
+    `id`          VARCHAR(20)  NOT NULL                                              COMMENT 'ID',
+    `code`        VARCHAR(255) NOT NULL                                              COMMENT '空间编码',
+    `name`        VARCHAR(255) NOT NULL                                              COMMENT '空间名称',
+    `tenant`      VARCHAR(255) NOT NULL DEFAULT ''                                   COMMENT '租户信息',
+    `creator`     VARCHAR(255) NOT NULL DEFAULT ''                                   COMMENT '创建人',
+    `description` VARCHAR(255) NOT NULL DEFAULT ''                                   COMMENT '描述',
+    `metadata`    JSON                    DEFAULT NULL                               COMMENT '元数据',
+    `created_at`  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP                    COMMENT '创建时间',
+    `updated_at`  TIMESTAMP             DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted`     VARCHAR(20)  NOT NULL DEFAULT '0'                                  COMMENT '逻辑删除标识',
+    `deleted_at`  DATETIME              DEFAULT NULL                                 COMMENT '逻辑删除时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uniq_code` (`code`),
+    KEY `idx_space_created_at` (`created_at`),
+    KEY `idx_space_updated_at` (`updated_at`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin COMMENT = '空间管理';

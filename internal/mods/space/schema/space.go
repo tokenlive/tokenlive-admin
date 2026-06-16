@@ -10,16 +10,16 @@ import (
 // Space management for microservice spaces
 type Space struct {
 	ID          string     `json:"id" gorm:"size:20;primarykey;"`              // Unique ID
-	Code        string     `json:"code" gorm:"size:255;uniqueIndex:uniq_code"` // Code (unique)
-	Name        string     `json:"name" gorm:"size:255"`                       // Name
-	Tenant      string     `json:"tenant" gorm:"size:255"`                     // Tenant
-	Creator     string     `json:"creator" gorm:"size:255"`                    // Creator
-	Description string     `json:"description" gorm:"size:255"`                // Description
+	Code        string     `json:"code" gorm:"size:255;not null;uniqueIndex:uniq_code"` // Code (unique)
+	Name        string     `json:"name" gorm:"size:255;not null"`                       // Name
+	Tenant      string     `json:"tenant" gorm:"size:255;not null;default:''"`          // Tenant
+	Creator     string     `json:"creator" gorm:"size:255;not null;default:''"`         // Creator
+	Description string     `json:"description" gorm:"size:255;not null;default:''"`    // Description
 	Metadata    *string    `json:"metadata,omitempty" gorm:"type:json"`        // Metadata (JSON)
-	CreatedAt   time.Time  `json:"created_at" gorm:"index;"`                   // Create time
-	UpdatedAt   time.Time  `json:"updated_at" gorm:"index;"`                   // Update time
+	CreatedAt   time.Time  `json:"created_at" gorm:"type:timestamp;autoCreateTime;index:idx_space_created_at;"` // Create time
+	UpdatedAt   time.Time  `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;index:idx_space_updated_at;"` // Update time
 	Deleted     string     `json:"-" gorm:"size:20;default:0"`                 // Logical delete flag
-	DeletedAt   *time.Time `json:"-"`                                          // Delete time
+	DeletedAt   *time.Time `json:"-" gorm:"type:datetime;"`                    // Delete time
 }
 
 func (a *Space) TableName() string {

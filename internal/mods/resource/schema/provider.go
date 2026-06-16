@@ -11,20 +11,20 @@ import (
 
 // Provider defines the upstream LLM provider (e.g., OpenAI, Anthropic).
 type Provider struct {
-	ID          string          `json:"id" gorm:"size:20;primarykey;"`                             // Unique ID (XID)
-	Code        string          `json:"code" gorm:"size:128;uniqueIndex:uniq_provider_code;"`      // Provider unique code, e.g., openai-official
-	Name        string          `json:"name" gorm:"size:128;"`                                     // Provider display name
-	Protocol    string          `json:"protocol" gorm:"size:64;not null;"`                         // Protocol type: openai / anthropic / ...
-	URL         string          `json:"url" gorm:"size:512;"`                                      // Provider API base URL, e.g., https://api.openai.com
-	ApiKeys     json.RawMessage `json:"api_keys,omitempty" gorm:"type:json;"`                      // Upstream API key list
-	Enabled     int             `json:"enabled" gorm:"not null;default:0;"`                        // Enable status: 0-disabled, 1-enabled
-	Description string          `json:"description" gorm:"size:255;"`                              // Description
-	Creator     string          `json:"creator" gorm:"size:255;"`                                  // Creator
-	Modifier    string          `json:"modifier" gorm:"size:255;"`                                 // Modifier
-	CreatedAt   time.Time       `json:"created_at" gorm:"index;"`                                  // Create time
-	UpdatedAt   time.Time       `json:"updated_at" gorm:"index;"`                                  // Update time
-	Deleted     string          `json:"-" gorm:"size:20;uniqueIndex:uniq_provider_code;default:0"` // Logical delete flag
-	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"comment:Delete time;"`                             // Delete time
+	ID          string          `json:"id" gorm:"size:20;primarykey;"`                                                       // Unique ID (XID)
+	Code        string          `json:"code" gorm:"size:128;uniqueIndex:uniq_provider_code,priority:1;"`                     // Provider unique code, e.g., openai-official
+	Name        string          `json:"name" gorm:"size:128;not null;"`                                                      // Provider display name
+	Protocol    string          `json:"protocol" gorm:"size:64;not null;"`                                                   // Protocol type: openai / anthropic / ...
+	URL         string          `json:"url" gorm:"size:512;"`                                                                // Provider API base URL, e.g., https://api.openai.com
+	ApiKeys     json.RawMessage `json:"api_keys,omitempty" gorm:"type:json;"`                                                // Upstream API key list
+	Enabled     int             `json:"enabled" gorm:"not null;default:0;"`                                                  // Enable status: 0-disabled, 1-enabled
+	Description string          `json:"description" gorm:"size:255;"`                                                        // Description
+	Creator     string          `json:"creator" gorm:"size:255;"`                                                            // Creator
+	Modifier    string          `json:"modifier" gorm:"size:255;"`                                                           // Modifier
+	CreatedAt   time.Time       `json:"created_at" gorm:"type:timestamp;autoCreateTime;"`                                                             // Create time
+	UpdatedAt   time.Time       `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"`                                                             // Update time
+	Deleted     string          `json:"-" gorm:"size:20;uniqueIndex:uniq_provider_code,priority:2;default:0"`                // Logical delete flag
+	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete time;"`                                         // Delete time
 }
 
 func (p *Provider) TableName() string {

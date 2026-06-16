@@ -11,16 +11,16 @@ import (
 
 // ModelAlias defines an alias for a model.
 type ModelAlias struct {
-	ID          string          `json:"id" gorm:"size:20;primaryKey;<-:create;"`                                                // Unique ID
-	SpaceCode   string          `json:"space_code" gorm:"size:255;not null;uniqueIndex:uk_model_alias;"`                        // Space code
-	Alias       string          `json:"alias" gorm:"size:64;not null;uniqueIndex:uk_model_alias;uniqueIndex:uk_alias_deleted;"` // Model alias
-	ModelId     string          `json:"model_id" gorm:"size:20;not null;"`                                                      // Model ID this alias belongs to
-	Description *string         `json:"description,omitempty" gorm:"size:255;"`                                                 // Description
-	CreatedAt   time.Time       `json:"created_at" gorm:"autoCreateTime;"`                                                      // Create timestamp
-	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;"`                                            // Update timestamp
-	Deleted     string          `json:"-" gorm:"uniqueIndex:uk_model_alias;uniqueIndex:uk_alias_deleted;size:20;default:0;"`    // Delete flag
-	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"comment:Delete time;"`                                                          // Delete time
-	Model       *Model          `json:"model,omitempty" gorm:"foreignKey:ModelId;references:ID"`                                // Model association
+	ID          string          `json:"id" gorm:"size:20;primaryKey;<-:create;"`                                                 // Unique ID
+	SpaceCode   string          `json:"space_code" gorm:"size:255;not null;uniqueIndex:uniq_code;"`                              // Space code
+	Alias       string          `json:"alias" gorm:"size:255;not null;uniqueIndex:uniq_code;"`                                   // Model alias
+	ModelId     string          `json:"model_id" gorm:"size:20;not null;"`                                                       // Model ID this alias belongs to
+	Description *string         `json:"description,omitempty" gorm:"size:255;"`                                                  // Description
+	CreatedAt   time.Time       `json:"created_at" gorm:"type:timestamp;autoCreateTime;"`                                        // Create timestamp
+	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;autoUpdateTime;"`                              // Update timestamp
+	Deleted     string          `json:"-" gorm:"uniqueIndex:uniq_code;size:20;default:0;"`                                       // Delete flag
+	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete time;"`                                             // Delete time
+	Model       *Model          `json:"model,omitempty" gorm:"foreignKey:ModelId;references:ID"`                                 // Model association
 }
 
 func (m *ModelAlias) TableName() string {
@@ -52,7 +52,7 @@ type ModelAliases []*ModelAlias
 // ModelAliasForm defines the form for creating/updating a ModelAlias.
 type ModelAliasForm struct {
 	SpaceCode   string  `json:"space_code" binding:"required,max=255"` // Space code
-	Alias       string  `json:"alias" binding:"required,max=64"`       // Model alias
+	Alias       string  `json:"alias" binding:"required,max=255"`      // Model alias
 	ModelId     string  `json:"model_id" binding:"required,max=20"`    // Model ID
 	Description *string `json:"description"`                           // Description
 }

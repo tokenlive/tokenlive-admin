@@ -14,8 +14,8 @@ import (
 type PolicyCircuitBreak struct {
 	ID                          string          `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`                                              // Unique ID
 	Name                        string          `json:"name" gorm:"size:128;not null;uniqueIndex:uniq_policy_circuit_break_name;comment:Policy name;"`          // Policy name
-	Level                       string          `json:"level" gorm:"size:64;not null;default:SERVICE;comment:Policy level;"`                                    // Policy level
-	SlidingWindowType           string          `json:"sliding_window_type" gorm:"size:16;not null;default:count;comment:Sliding window type;"`                 // Sliding window type
+	Level                       string          `json:"level" gorm:"size:64;not null;default:INSTANCE;comment:Policy level;"`                                    // Policy level
+	SlidingWindowType           string          `json:"sliding_window_type" gorm:"size:16;not null;default:time;comment:Sliding window type;"`                   // Sliding window type
 	SlidingWindowSize           int             `json:"sliding_window_size" gorm:"not null;default:20;comment:Sliding window size;"`                            // Sliding window size
 	MinCallsThreshold           int             `json:"min_calls_threshold" gorm:"not null;default:5;comment:Min calls threshold;"`                             // Min calls threshold
 	FailureRateThreshold        float64         `json:"failure_rate_threshold" gorm:"type:decimal(5,2);not null;default:50.00;comment:Failure rate threshold;"` // Failure rate threshold
@@ -38,8 +38,8 @@ type PolicyCircuitBreak struct {
 	Modifier                    *string         `json:"modifier,omitempty" gorm:"size:255;comment:Modifier;"`                                                   // Modifier
 	CreatedAt                   time.Time       `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`                                             // Create timestamp
 	UpdatedAt                   time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`                                   // Update timestamp
-	Deleted                     string          `json:"-" gorm:"uniqueIndex:uniq_policy_circuit_break_name;size:20;default:0;comment:Delete flag;"`             // Delete flag
-	DeletedAt                   *gorm.DeletedAt `json:"-" gorm:"comment:Delete timestamp;"`                                                                     // Delete timestamp
+	Deleted                     string          `json:"-" gorm:"size:20;default:0;comment:Delete flag;"`             // Delete flag
+	DeletedAt                   *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`             // Delete timestamp
 }
 
 func (a PolicyCircuitBreak) TableName() string {

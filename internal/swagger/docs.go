@@ -368,41 +368,8 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "type": "string"
+                                                "$ref": "#/definitions/api.CircuitBreakerInfo"
                                             }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/dashboard/metrics": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "DashboardAPI"
-                ],
-                "summary": "Query big-screen telemetry metrics (QPS, requests, tokens, cost)",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/util.ResponseResult"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/api.MetricsResponse"
                                         }
                                     }
                                 }
@@ -422,7 +389,21 @@ const docTemplate = `{
                 "tags": [
                     "DashboardAPI"
                 ],
-                "summary": "Query model usage ranking (top 10 by request count in last 60 minutes)",
+                "summary": "Query model usage ranking with detailed metrics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sort by: request_count, avg_latency, avg_ttft, tokens, cost, success_rate (default: request_count)",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit results (default: 10)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -439,6 +420,39 @@ const docTemplate = `{
                                             "items": {
                                                 "$ref": "#/definitions/api.ModelRankingItem"
                                             }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/dashboard/overview": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "DashboardAPI"
+                ],
+                "summary": "Query dashboard overview metrics (QPS, daily stats, latency, circuit breakers)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/api.OverviewResponse"
                                         }
                                     }
                                 }
@@ -513,7 +527,21 @@ const docTemplate = `{
                 "tags": [
                     "DashboardAPI"
                 ],
-                "summary": "Query 60-minute gateway traffic success/failure trends",
+                "summary": "Query bucketed gateway traffic success/failure trends",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Group by: model, provider, tenant, endpoint (default: global)",
+                        "name": "group_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Time range: 1h, 6h, 24h, 7d, today (default: 1h)",
+                        "name": "time_range",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1989,6 +2017,48 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/models/{id}/sync": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "ModelAPI"
+                ],
+                "summary": "Sync model's Redis cache by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "unique id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/util.ResponseResult"
                         }
@@ -6593,14 +6663,118 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "api.MetricsResponse": {
+        "api.CircuitBreakerInfo": {
             "type": "object",
             "properties": {
-                "avg_latency": {
+                "id": {
+                    "type": "string"
+                },
+                "model_id": {
+                    "description": "关联模型 ID",
+                    "type": "string"
+                },
+                "model_name": {
+                    "description": "关联模型名称",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "显示名称",
+                    "type": "string"
+                },
+                "provider_id": {
+                    "description": "关联供应商 ID",
+                    "type": "string"
+                },
+                "provider_name": {
+                    "description": "关联供应商名称",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"endpoint\" 或 \"service\"",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "关联的 URL 地址",
+                    "type": "string"
+                }
+            }
+        },
+        "api.ModelRankingItem": {
+            "type": "object",
+            "properties": {
+                "avg_latency_ms": {
                     "type": "number"
                 },
-                "avg_ttft": {
+                "avg_ttft_ms": {
                     "type": "number"
+                },
+                "fail_count": {
+                    "type": "integer"
+                },
+                "model_code": {
+                    "type": "string"
+                },
+                "model_id": {
+                    "type": "string"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "p50_latency_ms": {
+                    "type": "number"
+                },
+                "p50_ttft_ms": {
+                    "type": "number"
+                },
+                "p95_latency_ms": {
+                    "type": "number"
+                },
+                "p95_ttft_ms": {
+                    "type": "number"
+                },
+                "p99_latency_ms": {
+                    "type": "number"
+                },
+                "p99_ttft_ms": {
+                    "type": "number"
+                },
+                "request_count": {
+                    "type": "integer"
+                },
+                "success_count": {
+                    "type": "integer"
+                },
+                "success_rate": {
+                    "type": "number"
+                },
+                "total_cost": {
+                    "type": "number"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.OverviewResponse": {
+            "type": "object",
+            "properties": {
+                "active_circuit_breakers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.CircuitBreakerInfo"
+                    }
+                },
+                "avg_latency_ms": {
+                    "type": "number"
+                },
+                "avg_ttft_ms": {
+                    "type": "number"
+                },
+                "daily_cache_creation_tokens": {
+                    "type": "integer"
+                },
+                "daily_cached_tokens": {
+                    "type": "integer"
                 },
                 "daily_completion_tokens": {
                     "type": "integer"
@@ -6619,48 +6793,13 @@ const docTemplate = `{
                 }
             }
         },
-        "api.ModelRankingItem": {
-            "type": "object",
-            "properties": {
-                "avg_latency": {
-                    "type": "number"
-                },
-                "avg_ttft": {
-                    "type": "number"
-                },
-                "fail_count": {
-                    "type": "integer"
-                },
-                "model_code": {
-                    "type": "string"
-                },
-                "model_name": {
-                    "type": "string"
-                },
-                "success_count": {
-                    "type": "integer"
-                },
-                "success_rate": {
-                    "type": "number"
-                },
-                "total_count": {
-                    "type": "integer"
-                }
-            }
-        },
         "api.TrendsResponse": {
             "type": "object",
             "properties": {
-                "failure": {
+                "series": {
                     "type": "array",
                     "items": {
-                        "type": "integer"
-                    }
-                },
-                "success": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
+                        "$ref": "#/definitions/api.TrendsSeries"
                     }
                 },
                 "times": {
@@ -6671,7 +6810,33 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_chenzhiguo_tokenlive-admin_pkg_errors.Error": {
+        "api.TrendsSeries": {
+            "type": "object",
+            "properties": {
+                "failure": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "total": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "github_com_tokenlive_tokenlive-admin_pkg_errors.Error": {
             "type": "object",
             "properties": {
                 "code": {
@@ -6807,6 +6972,14 @@ const docTemplate = `{
                     "description": "Optional, overrides provider-level api_key",
                     "type": "string"
                 },
+                "cache_creation_price": {
+                    "description": "Cache creation price (CNY/M Tokens), NULL means inherit model",
+                    "type": "number"
+                },
+                "cached_price": {
+                    "description": "Cached price (CNY/M Tokens), NULL means inherit model",
+                    "type": "number"
+                },
                 "created_at": {
                     "description": "Create time",
                     "type": "string"
@@ -6834,6 +7007,10 @@ const docTemplate = `{
                     "description": "Unique ID (XID)",
                     "type": "string"
                 },
+                "input_price": {
+                    "description": "Input price (CNY/M Tokens), NULL means inherit model",
+                    "type": "number"
+                },
                 "metadata": {
                     "description": "Metadata for tags etc.",
                     "type": "array",
@@ -6856,6 +7033,10 @@ const docTemplate = `{
                 "modifier": {
                     "description": "Modifier",
                     "type": "string"
+                },
+                "output_price": {
+                    "description": "Output price (CNY/M Tokens), NULL means inherit model",
+                    "type": "number"
                 },
                 "priority": {
                     "description": "Failover priority (higher = preferred)",
@@ -6909,6 +7090,14 @@ const docTemplate = `{
                     "description": "Optional, overrides provider-level api_key",
                     "type": "string"
                 },
+                "cache_creation_price": {
+                    "description": "Cache creation price (CNY/M Tokens)",
+                    "type": "number"
+                },
+                "cached_price": {
+                    "description": "Cached price (CNY/M Tokens)",
+                    "type": "number"
+                },
                 "description": {
                     "description": "Description",
                     "type": "string"
@@ -6924,6 +7113,10 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
+                "input_price": {
+                    "description": "Input price (CNY/M Tokens)",
+                    "type": "number"
+                },
                 "metadata": {
                     "description": "Metadata",
                     "type": "array",
@@ -6935,6 +7128,10 @@ const docTemplate = `{
                     "description": "Associated Model ID",
                     "type": "string",
                     "maxLength": 20
+                },
+                "output_price": {
+                    "description": "Output price (CNY/M Tokens)",
+                    "type": "number"
                 },
                 "priority": {
                     "description": "Failover priority",
@@ -7317,6 +7514,14 @@ const docTemplate = `{
                     "description": "Model Abilities JSON, e.g., [\"stream\", \"tool_call\"]",
                     "type": "string"
                 },
+                "cache_creation_price": {
+                    "description": "Cache creation price (CNY/M Tokens)",
+                    "type": "number"
+                },
+                "cached_price": {
+                    "description": "Cached price (CNY/M Tokens)",
+                    "type": "number"
+                },
                 "context_length": {
                     "description": "Max context window (Tokens)",
                     "type": "integer"
@@ -7345,6 +7550,10 @@ const docTemplate = `{
                     "description": "Unique ID (XID)",
                     "type": "string"
                 },
+                "input_price": {
+                    "description": "Input price (CNY/M Tokens)",
+                    "type": "number"
+                },
                 "max_output_tokens": {
                     "description": "Max output tokens",
                     "type": "integer"
@@ -7360,6 +7569,10 @@ const docTemplate = `{
                 "modifier": {
                     "description": "Modifier",
                     "type": "string"
+                },
+                "output_price": {
+                    "description": "Output price (CNY/M Tokens)",
+                    "type": "number"
                 },
                 "owner": {
                     "description": "Model owner/enterprise, e.g., OpenAI, Google, DeepSeek",
@@ -7438,7 +7651,7 @@ const docTemplate = `{
                 "alias": {
                     "description": "Model alias",
                     "type": "string",
-                    "maxLength": 64
+                    "maxLength": 255
                 },
                 "description": {
                     "description": "Description",
@@ -7469,6 +7682,14 @@ const docTemplate = `{
                     "description": "Model Abilities JSON",
                     "type": "string"
                 },
+                "cache_creation_price": {
+                    "description": "Cache creation price (CNY/M Tokens)",
+                    "type": "number"
+                },
+                "cached_price": {
+                    "description": "Cached price (CNY/M Tokens)",
+                    "type": "number"
+                },
                 "context_length": {
                     "description": "Max context window",
                     "type": "integer"
@@ -7485,6 +7706,10 @@ const docTemplate = `{
                     "description": "Extra info",
                     "type": "string"
                 },
+                "input_price": {
+                    "description": "Input price (CNY/M Tokens)",
+                    "type": "number"
+                },
                 "max_output_tokens": {
                     "description": "Max output tokens",
                     "type": "integer"
@@ -7498,6 +7723,10 @@ const docTemplate = `{
                     "description": "Client-facing model name",
                     "type": "string",
                     "maxLength": 128
+                },
+                "output_price": {
+                    "description": "Output price (CNY/M Tokens)",
+                    "type": "number"
                 },
                 "owner": {
                     "description": "Model owner",
@@ -7714,6 +7943,10 @@ const docTemplate = `{
                     "description": "Policy name",
                     "type": "string"
                 },
+                "outlier_max_percent": {
+                    "description": "Outlier max percent",
+                    "type": "integer"
+                },
                 "sliding_window_size": {
                     "description": "Sliding window size",
                     "type": "integer"
@@ -7842,6 +8075,10 @@ const docTemplate = `{
                     "description": "Policy name",
                     "type": "string",
                     "maxLength": 128
+                },
+                "outlier_max_percent": {
+                    "description": "Outlier max percent",
+                    "type": "integer"
                 },
                 "sliding_window_size": {
                     "description": "Sliding window size",
@@ -7985,7 +8222,7 @@ const docTemplate = `{
                 "type": {
                     "description": "Invocation type (failfast | failover)",
                     "type": "string",
-                    "maxLength": 20
+                    "maxLength": 64
                 },
                 "updated_at": {
                     "description": "Update timestamp",
@@ -8717,6 +8954,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "idle_timeout": {
+                    "description": "读空闲超时 (毫秒)",
+                    "type": "integer"
+                },
                 "message_policy": {
                     "description": "错误消息解析策略",
                     "allOf": [
@@ -8781,6 +9022,10 @@ const docTemplate = `{
                     "description": "Status of role (disabled, enabled)",
                     "type": "string"
                 },
+                "tenant": {
+                    "description": "Tenant info",
+                    "type": "string"
+                },
                 "updated_at": {
                     "description": "Update time",
                     "type": "string"
@@ -8841,8 +9086,8 @@ const docTemplate = `{
                     "description": "Unique ID",
                     "type": "string"
                 },
-                "menu_id": {
-                    "description": "From Menu.ID",
+                "menu_group_id": {
+                    "description": "From Menu.ID (column: menu_group_id)",
                     "type": "string"
                 },
                 "role_id": {
@@ -9460,7 +9705,7 @@ const docTemplate = `{
             "properties": {
                 "data": {},
                 "error": {
-                    "$ref": "#/definitions/github_com_chenzhiguo_tokenlive-admin_pkg_errors.Error"
+                    "$ref": "#/definitions/github_com_tokenlive_tokenlive-admin_pkg_errors.Error"
                 },
                 "success": {
                     "type": "boolean"
