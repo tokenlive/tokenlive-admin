@@ -8,6 +8,7 @@ on:
       - '**/*.go'
       - '**/*.js'
       - '**/*.vue'
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -61,15 +62,15 @@ jobs:
           rm -rf ./deploy_temp
           
           # 2. 单次上传压缩包
-          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -P ${{ secrets.SSH_PORT }} ./deploy_admin.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/ai-gateway/tokenlive-admin/deploy_admin.tar.gz
+          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -P ${{ secrets.SSH_PORT }} ./deploy_admin.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/tokenlive-admin/deploy_admin.tar.gz
 
       - name: Restart Admin Service
         run: |
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            rm -f ~/ai-gateway/tokenlive-admin/tokenlive-admin && \
-            tar -xzf ~/ai-gateway/tokenlive-admin/deploy_admin.tar.gz -C ~/ai-gateway/tokenlive-admin/ && \
-            rm -f ~/ai-gateway/tokenlive-admin/deploy_admin.tar.gz && \
-            chmod +x ~/ai-gateway/tokenlive-admin/tokenlive-admin && \
+            rm -f ~/tokenlive-admin/tokenlive-admin && \
+            tar -xzf ~/tokenlive-admin/deploy_admin.tar.gz -C ~/tokenlive-admin/ && \
+            rm -f ~/tokenlive-admin/deploy_admin.tar.gz && \
+            chmod +x ~/tokenlive-admin/tokenlive-admin && \
             systemctl restart tokenlive-admin && \
             systemctl status tokenlive-admin --no-pager
           "

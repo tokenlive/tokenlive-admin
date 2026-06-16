@@ -89,8 +89,6 @@ export default {
     'pages.dashboard.modelRanking.requests': '请求量',
     'pages.dashboard.modelRanking.success_rate': '成功率',
     'pages.dashboard.modelRanking.empty': '暂无模型使用数据',
-    'pages.dashboard.modelRanking.estimateNotice':
-        '请求数、成功率、Token 和费用来自 Prometheus 估算，可能与今日累计数据存在差异；延迟与 TTFT 为监控指标。',
     'pages.dashboard.modelRanking.columns.model': '模型',
     'pages.dashboard.modelRanking.columns.requests': '总请求数',
     'pages.dashboard.modelRanking.columns.successRate': '请求成功率',

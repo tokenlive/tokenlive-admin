@@ -92,8 +92,6 @@ export default {
     'pages.dashboard.modelRanking.requests': 'Requests',
     'pages.dashboard.modelRanking.success_rate': 'Success Rate',
     'pages.dashboard.modelRanking.empty': 'No model usage data',
-    'pages.dashboard.modelRanking.estimateNotice':
-        "Requests, success rate, tokens, and cost are Prometheus estimates and may differ from today's cumulative totals. Latency and TTFT are monitoring metrics.",
     'pages.dashboard.modelRanking.columns.model': 'Model',
     'pages.dashboard.modelRanking.columns.requests': 'Total Requests',
     'pages.dashboard.modelRanking.columns.successRate': 'Success Rate',

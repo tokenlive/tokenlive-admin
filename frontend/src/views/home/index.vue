@@ -237,11 +237,6 @@
                             </a-select>
                         </a-space>
                     </template>
-                    <a-alert
-                        :message="$t('pages.dashboard.modelRanking.estimateNotice')"
-                        type="info"
-                        show-icon
-                        style="margin-bottom: 16px" />
                     <transition
                         name="fade-chart"
                         mode="out-in">
