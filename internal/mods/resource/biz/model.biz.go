@@ -389,5 +389,33 @@ func (m *Model) Sync(ctx context.Context, id string) error {
 		}
 	}
 
+	// 3. 同步该模型关联的所有治理策略缓存 (包括公共策略和其它限定维度的策略)
+	if m.PolicyRedisSync != nil {
+		// (a) 先同步模型公共策略缓存 (tenantCode = "", userID = "")
+		if err := m.PolicyRedisSync.SyncDimension(ctx, "", "", model.ModelCode); err != nil {
+			return err
+		}
+
+		// (b) 再同步其它跟此 model 绑定的维度策略缓存
+		var bindings []*policySchema.PolicyBinding
+		policyBindingTable := config.C.FormatTableName("policy_binding")
+		db := util.GetDB(ctx, m.ModelDAL.DB)
+		err := db.Table(policyBindingTable).
+			Where("model_code = ? AND deleted = '0'", model.ModelCode).
+			Find(&bindings).Error
+		if err == nil && len(bindings) > 0 {
+			seen := make(map[string]bool)
+			seen["::"+model.ModelCode] = true // 过滤掉前面已经刷过的公共维度
+			for _, b := range bindings {
+				dimKey := fmt.Sprintf("%s:%s:%s", b.TenantCode, b.UserID, b.ModelCode)
+				if seen[dimKey] {
+					continue
+				}
+				seen[dimKey] = true
+				_ = m.PolicyRedisSync.SyncDimension(ctx, b.TenantCode, b.UserID, b.ModelCode)
+			}
+		}
+	}
+
 	return nil
 }

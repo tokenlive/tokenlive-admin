@@ -262,7 +262,7 @@ async function handleEdit(record = {}) {
 
     const { data, success } = await apis.model.getModel(record.id).catch()
     if (!success) {
-        message.error(t('component.message.error.save'))
+        message.error(t('component.message.error.request'))
         hideModal()
         return
     }
@@ -316,10 +316,14 @@ function handleOk() {
                 hideLoading()
                 if (config('http.code.success') === result?.success) {
                     hideModal()
+                    message.success(t('component.message.success.save'))
                     emit('ok')
+                } else {
+                    message.error(t('component.message.error.save'))
                 }
             } catch (error) {
                 hideLoading()
+                message.error(t('component.message.error.request'))
             }
         })
         .catch(() => {

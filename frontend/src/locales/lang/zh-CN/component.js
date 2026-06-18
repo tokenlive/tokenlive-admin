@@ -8,4 +8,8 @@ export default {
     'component.message.error.save': '保存失败',
     'component.message.success.delete': '删除成功',
     'component.message.success.copy': '已复制',
+    'component.message.success.operation': '操作成功',
+    'component.message.error.operation': '操作失败',
+    'component.message.error.request': '请求异常',
+    'component.message.error.copy': '自动复制失败，请手动复制',
 }

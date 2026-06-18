@@ -7,4 +7,9 @@ export default {
     'component.message.success.save': 'Save successfully',
     'component.message.error.save': 'Failed to save',
     'component.message.success.delete': 'Delete successfully',
+    'component.message.success.copy': 'Copied',
+    'component.message.success.operation': 'Operation successful',
+    'component.message.error.operation': 'Operation failed',
+    'component.message.error.request': 'Request error',
+    'component.message.error.copy': 'Auto copy failed, please copy manually',
 }

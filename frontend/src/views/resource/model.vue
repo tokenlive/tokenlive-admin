@@ -361,12 +361,12 @@ function handleSync({ id, model_name }) {
             try {
                 const { success } = await apis.model.syncModel(id)
                 if (config('http.code.success') === success) {
-                    message.success(t('component.message.success.operation') || '操作成功')
+                    message.success(t('component.message.success.operation'))
                 } else {
-                    message.error(t('component.message.error.operation') || '操作失败')
+                    message.error(t('component.message.error.operation'))
                 }
             } catch (error) {
-                message.error('操作请求异常')
+                message.error(t('component.message.error.request'))
             }
         },
     })
@@ -402,7 +402,7 @@ function handleCopy(text) {
                 message.success(t('component.message.success.copy'))
             })
             .catch(() => {
-                message.error('自动复制失败，请手动选择后复制')
+                message.error(t('component.message.error.copy'))
             })
     } else {
         const input = document.createElement('input')

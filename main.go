@@ -12,7 +12,7 @@ var VERSION = "v1.0.0"
 
 // @title tokenlive-admin
 // @version v1.0.0
-// @description An admin control center for ai-gateway.
+// @description An admin control center for tokelvie.
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
 // @name Authorization
@@ -22,7 +22,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "tokenlive-admin"
 	app.Version = VERSION
-	app.Usage = "An admin control center for ai-gateway."
+	app.Usage = "An admin control center for tokelvie."
 	app.Commands = []*cli.Command{
 		cmd.StartCmd(),
 		cmd.StopCmd(),

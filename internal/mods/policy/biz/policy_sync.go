@@ -41,8 +41,22 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 
 	redisKey, redisField := resolveRedisKeyAndField(tenantCode, userID, modelCode)
 
-	// 2. 如果无任何有效绑定，直接从 Redis HDel 移除并返回
+	// 2. 如果无任何有效绑定，清理旧策略，但保留计费 billing
 	if len(bindings) == 0 {
+		var existingPolicy map[string]interface{}
+		if oldData, err := s.RedisClient.HGet(ctx, redisKey, redisField).Result(); err == nil && oldData != "" {
+			_ = json.Unmarshal([]byte(oldData), &existingPolicy)
+		}
+		if existingPolicy != nil && existingPolicy["billing"] != nil {
+			// 只保留 billing 并返回
+			finalMap := map[string]interface{}{
+				"billing": existingPolicy["billing"],
+			}
+			finalJSON, err := json.Marshal(finalMap)
+			if err == nil {
+				return s.RedisClient.HSet(ctx, redisKey, redisField, string(finalJSON)).Err()
+			}
+		}
 		return s.RedisClient.HDel(ctx, redisKey, redisField).Err()
 	}
 
