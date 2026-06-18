@@ -136,7 +136,7 @@
 <script setup>
 import { message, Modal } from 'ant-design-vue'
 import { ref, watch, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import apis from '@/apis'
 import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
@@ -159,6 +159,7 @@ defineOptions({
 })
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const columns = [
     {
         title: t('pages.limit.form.name'),
@@ -233,6 +234,9 @@ function tryOpenEditFromQuery() {
     const target = listData.value.find((item) => String(item.id) === String(policyId))
     if (target) {
         editDialogRef.value?.handleEdit(target)
+        const query = { ...route.query }
+        delete query.policyId
+        router.replace({ query })
     }
 }
 

@@ -374,13 +374,60 @@
                 <div class="retry-policy-section">
                     <div class="scheme-row">
                         <span class="scheme-label">{{ $t('pages.invocation.form.fallbackTargets') }}</span>
-                        <div class="scheme-input">
+                        <div
+                            class="scheme-input"
+                            style="flex-direction: column; align-items: flex-start; gap: 12px">
                             <a-select
                                 v-model:value="formData.fallbackTargets"
                                 mode="tags"
                                 :options="modelOptions"
+                                :max-tag-count="'responsive'"
                                 :placeholder="$t('pages.invocation.form.fallbackTargets.placeholder')"
                                 style="width: 100%" />
+
+                            <!-- 降级顺序列表 -->
+                            <div
+                                v-if="formData.fallbackTargets && formData.fallbackTargets.length > 0"
+                                class="fallback-list">
+                                <div
+                                    v-for="(item, index) in formData.fallbackTargets"
+                                    :key="item"
+                                    class="fallback-item">
+                                    <div class="fallback-item-left">
+                                        <span class="fallback-index">{{ String(index + 1).padStart(2, '0') }}</span>
+                                        <span class="fallback-name">{{ getModelLabel(item) }}</span>
+                                    </div>
+                                    <div class="fallback-actions">
+                                        <a-tooltip :title="$t('pages.policy.sort.up') || '上移'">
+                                            <a-button
+                                                type="link"
+                                                size="small"
+                                                :disabled="index === 0"
+                                                @click="moveUp(index)">
+                                                <arrow-up-outlined />
+                                            </a-button>
+                                        </a-tooltip>
+                                        <a-tooltip :title="$t('pages.policy.sort.down') || '下移'">
+                                            <a-button
+                                                type="link"
+                                                size="small"
+                                                :disabled="index === formData.fallbackTargets.length - 1"
+                                                @click="moveDown(index)">
+                                                <arrow-down-outlined />
+                                            </a-button>
+                                        </a-tooltip>
+                                        <a-tooltip :title="$t('common.delete') || '删除'">
+                                            <a-button
+                                                type="link"
+                                                size="small"
+                                                danger
+                                                @click="removeFallback(index)">
+                                                <delete-outlined />
+                                            </a-button>
+                                        </a-tooltip>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -432,7 +479,7 @@ import { ref, computed, watch } from 'vue'
 import { config } from '@/config'
 import apis from '@/apis'
 import { useForm, useModal } from '@/hooks'
-import { QuestionCircleOutlined } from '@ant-design/icons-vue'
+import { QuestionCircleOutlined, ArrowUpOutlined, ArrowDownOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { useAppStore } from '@/store'
 
 const appStore = useAppStore()
@@ -461,6 +508,33 @@ async function loadModelOptions() {
     } catch (error) {
         // ignore
     }
+}
+
+function getModelLabel(value) {
+    const opt = modelOptions.value.find((item) => item.value === value)
+    return opt ? opt.label : value
+}
+
+function moveUp(index) {
+    if (index === 0) return
+    const targets = [...formData.value.fallbackTargets]
+    const temp = targets[index]
+    targets[index] = targets[index - 1]
+    targets[index - 1] = temp
+    formData.value.fallbackTargets = targets
+}
+
+function moveDown(index) {
+    if (index === formData.value.fallbackTargets.length - 1) return
+    const targets = [...formData.value.fallbackTargets]
+    const temp = targets[index]
+    targets[index] = targets[index + 1]
+    targets[index + 1] = temp
+    formData.value.fallbackTargets = targets
+}
+
+function removeFallback(index) {
+    formData.value.fallbackTargets.splice(index, 1)
 }
 
 formRules.value = {
@@ -849,6 +923,67 @@ defineExpose({
     white-space: nowrap;
 }
 
+.fallback-list {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.fallback-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 6px 12px;
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid var(--ant-color-border-secondary, rgba(128, 128, 128, 0.15));
+    border-radius: 6px;
+    transition: all 0.3s ease;
+
+    &:hover {
+        background: rgba(24, 144, 255, 0.03);
+        border-color: rgba(24, 144, 255, 0.3);
+    }
+
+    .fallback-item-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        overflow: hidden;
+    }
+
+    .fallback-index {
+        font-family: monospace;
+        font-weight: bold;
+        color: #1890ff;
+        background: rgba(24, 144, 255, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .fallback-name {
+        font-size: 13px;
+        color: rgba(0, 0, 0, 0.85);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .fallback-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        :deep(.ant-btn-link) {
+            padding: 0 4px;
+            height: auto;
+        }
+    }
+}
+
 .dark-form {
     .error-condition-section,
     .retry-policy-section {
@@ -861,6 +996,18 @@ defineExpose({
     }
     .scheme-unit {
         color: rgba(255, 255, 255, 0.45);
+    }
+    .fallback-item {
+        background: rgba(255, 255, 255, 0.02);
+
+        &:hover {
+            background: rgba(24, 144, 255, 0.05);
+            border-color: rgba(24, 144, 255, 0.4);
+        }
+
+        .fallback-name {
+            color: rgba(255, 255, 255, 0.85);
+        }
     }
 }
 </style>

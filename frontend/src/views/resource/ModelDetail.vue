@@ -1231,10 +1231,12 @@ function handleRemoveMember({ id }) {
 }
 
 .url-text {
+    font-family: monospace;
     display: inline-block;
-    max-width: 300px;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    vertical-align: middle;
 }
 </style>

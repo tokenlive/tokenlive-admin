@@ -54,15 +54,15 @@ export const updateCircuitBreak = (id, params) =>
 // 删除熔断策略
 export const delCircuitBreak = (id) => request.basic.delete(`/api/v1/policy/policy-circuit-breaks/${id}`)
 
-// 获取调用容错策略列表
+// 获取请求容错策略列表
 export const getInvocationList = (params) => request.basic.get('/api/v1/policy/policy-invocations', params)
-// 获取调用容错策略单条数据
+// 获取请求容错策略单条数据
 export const getInvocation = (id) => request.basic.get(`/api/v1/policy/policy-invocations/${id}`)
-// 添加调用容错策略
+// 添加请求容错策略
 export const createInvocation = (params) => request.basic.post('/api/v1/policy/policy-invocations', params)
-// 更新调用容错策略
+// 更新请求容错策略
 export const updateInvocation = (id, params) => request.basic.put(`/api/v1/policy/policy-invocations/${id}`, params)
-// 删除调用容错策略
+// 删除请求容错策略
 export const delInvocation = (id) => request.basic.delete(`/api/v1/policy/policy-invocations/${id}`)
 
 // 获取策略绑定列表

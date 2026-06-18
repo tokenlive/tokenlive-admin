@@ -51,7 +51,7 @@ export default [
                 component: 'policy/invocation.vue',
                 meta: {
                     icon: SafetyCertificateOutlined,
-                    title: '调用容错策略',
+                    title: '请求容错策略',
                     isMenu: true,
                     keepAlive: true,
                     permission: '*',

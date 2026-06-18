@@ -321,7 +321,7 @@
             },
             {
                 "code": "invocationList",
-                "name": "调用容错",
+                "name": "请求容错",
                 "sequence": 70,
                 "type": "page",
                 "path": "/policy/invocation",

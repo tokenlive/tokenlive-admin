@@ -48,7 +48,7 @@ export default {
     'pages.dashboard.policies': '治理策略',
     'pages.dashboard.policies.tagging': '流量染色',
     'pages.dashboard.policies.limit': '模型限流',
-    'pages.dashboard.policies.invocation': '调用容错',
+    'pages.dashboard.policies.invocation': '请求容错',
     'pages.dashboard.policies.route': '标签路由',
     'pages.dashboard.policies.loadbalance': '负载均衡',
     'pages.dashboard.policies.circuitBreak': '熔断降级',
@@ -344,7 +344,7 @@ export default {
     'pages.model.policy.form.priority.placeholder': '请输入优先级（数值越小优先级越高）',
     'pages.model.policy.form.enabled': '启用状态',
     'pages.model.policy.form.exclusive.warning':
-        '温馨提示：调用容错(invocation)和负载均衡(loadbalance)策略在同一个维度（模型/租户/用户）下只允许绑定一个，若有冲突将报错。',
+        '温馨提示：请求容错(invocation)和负载均衡(loadbalance)策略在同一个维度（模型/租户/用户）下只允许绑定一个，若有冲突将报错。',
     // endpoint
     'pages.endpoint.add': '添加端点',
     'pages.endpoint.edit': '编辑端点',
@@ -805,7 +805,7 @@ export default {
     'pages.invocation.add': '新建策略',
     'pages.invocation.edit': '编辑策略',
     'pages.invocation.copy': '复制策略',
-    'pages.invocation.delTip': '确定删除该调用容错策略吗？',
+    'pages.invocation.delTip': '确定删除该请求容错策略吗？',
     'pages.invocation.form.name': '容错策略名称',
     'pages.invocation.form.name.placeholder': '请输入容错策略名称',
     'pages.invocation.form.name.required': '容错策略名称是必填项！',
