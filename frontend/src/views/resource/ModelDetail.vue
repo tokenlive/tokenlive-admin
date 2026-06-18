@@ -349,6 +349,12 @@
                                     <edit-outlined />
                                 </a-tooltip>
                             </x-action-button>
+                            <x-action-button @click="handleGoToPolicyEdit(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('pages.model.policy.gotoEdit') }}</template>
+                                    <form-outlined />
+                                </a-tooltip>
+                            </x-action-button>
                             <x-action-button @click="handleRemovePolicy(record)">
                                 <a-tooltip>
                                     <template #title> {{ $t('pages.model.policy.unbind') }}</template>
@@ -460,7 +466,7 @@
 
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import {
     ReloadOutlined,
@@ -469,6 +475,7 @@ import {
     ApiOutlined,
     LoadingOutlined,
     CopyOutlined,
+    FormOutlined,
 } from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { config } from '@/config'
@@ -484,6 +491,7 @@ defineOptions({
 })
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const modelId = ref(route.params.id)
 const modelData = ref({})
@@ -587,7 +595,7 @@ const policyColumns = [
     {
         title: t('button.action'),
         key: 'action',
-        width: 120,
+        width: 160,
     },
 ]
 
@@ -883,6 +891,26 @@ function handleRemovePolicy({ id }) {
             })
         },
     })
+}
+
+// 策略类型 -> 策略列表路由 name 映射
+const policyRouteNameMap = {
+    tagging: 'taggingList',
+    limit: 'limitList',
+    invocation: 'invocationList',
+    route: 'routeList',
+    loadbalance: 'loadbalanceList',
+    load_balance: 'loadbalanceList',
+    invoke: 'invocationList',
+    circuit_break: 'circuitBreakList',
+}
+
+function handleGoToPolicyEdit(record) {
+    const routeName = policyRouteNameMap[record.policy_type]
+    if (!routeName || !record.policy_id) {
+        return
+    }
+    router.push({ name: routeName, query: { policyId: record.policy_id } })
 }
 
 async function loadAliasList() {

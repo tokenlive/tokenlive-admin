@@ -330,6 +330,7 @@ export default {
     'pages.model.policy.bind': 'Bind Policy',
     'pages.model.policy.unbind': 'Unbind Policy',
     'pages.model.policy.unbindTip': 'Are you sure you want to unbind this policy from the model?',
+    'pages.model.policy.gotoEdit': 'Edit Policy',
     'pages.model.policy.form.policy_type': 'Policy Type',
     'pages.model.policy.form.policy_type.placeholder': 'Please select policy type',
     'pages.model.policy.form.policy_type.required': 'Please select policy type!',

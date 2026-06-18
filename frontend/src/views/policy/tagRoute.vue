@@ -125,7 +125,8 @@
 
 <script setup>
 import { message, Modal } from 'ant-design-vue'
-import { ref } from 'vue'
+import { ref, watch, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import apis from '@/apis'
 import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
@@ -147,6 +148,7 @@ defineOptions({
     name: 'routeList',
 })
 const { t } = useI18n()
+const route = useRoute()
 const columns = [
     {
         title: t('pages.tagRoute.form.name'),
@@ -195,11 +197,32 @@ async function getPageList() {
         if (config('http.code.success') === success) {
             listData.value = data
             paginationState.total = total
+            tryOpenEditFromQuery()
         }
     } catch (error) {
         hideLoading()
     }
 }
+
+// 根据路由 query 参数自动打开编辑弹窗（用于从模型详情页跳转）
+function tryOpenEditFromQuery() {
+    const policyId = route.query.policyId
+    if (!policyId) return
+    const target = listData.value.find((item) => String(item.id) === String(policyId))
+    if (target) {
+        editDialogRef.value?.handleEdit(target)
+    }
+}
+
+// 监听 query 参数变化，处理 keepAlive 场景下从模型详情页重复跳转
+watch(
+    () => route.query.policyId,
+    (policyId) => {
+        if (policyId) {
+            nextTick(() => tryOpenEditFromQuery())
+        }
+    }
+)
 
 function handleRemove({ id }) {
     Modal.confirm({

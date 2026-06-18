@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -176,6 +177,10 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 		if len(apis) == 0 {
 			return fmt.Errorf("model %s has no request_types configured", modelCode)
 		}
+		apis = normalizeRequestTypesForProtocol(protocol, apis)
+		if len(apis) == 0 {
+			return fmt.Errorf("model %s has no request_types compatible with protocol %s", modelCode, protocol)
+		}
 
 		// 价格继承前置 (Admin 写入 Redis 缓存时完成继承)
 		var (
@@ -237,6 +242,45 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 
 	// 5. Increment version
 	return s.incrementVersion(ctx, modelCode)
+}
+
+func normalizeRequestTypesForProtocol(protocol string, requestTypes []string) []string {
+	protocol = strings.ToLower(strings.TrimSpace(protocol))
+	var result []string
+	seen := make(map[string]bool, len(requestTypes))
+
+	add := func(rt string) {
+		rt = strings.TrimSpace(rt)
+		if rt == "" || seen[rt] {
+			return
+		}
+		seen[rt] = true
+		result = append(result, rt)
+	}
+
+	for _, rt := range requestTypes {
+		switch protocol {
+		case "anthropic":
+			switch rt {
+			case "messages", "chat_completion":
+				add("messages")
+			}
+		case "joycode":
+			switch rt {
+			case "chat_completion", "responses":
+				add(rt)
+			}
+		case "openai":
+			switch rt {
+			case "chat_completion", "embedding", "responses", "messages":
+				add(rt)
+			}
+		default:
+			add(rt)
+		}
+	}
+
+	return result
 }
 
 // SyncAlias synchronizes a single alias mapping to Redis: aigw:config:alias:{alias} → modelCode.

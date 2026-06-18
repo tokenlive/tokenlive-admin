@@ -7,7 +7,7 @@ export default {
     setting: '信息设置',
     role: '角色管理',
     logger: '日志管理',
-    'user-api-key': '密钥管理',
+    'user-api-key': '令牌管理',
     tenant: '租户管理',
     space: '模型空间',
     spaceList: '空间列表',
