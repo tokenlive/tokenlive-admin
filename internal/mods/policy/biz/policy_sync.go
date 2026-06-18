@@ -166,13 +166,38 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		return s.RedisClient.HDel(ctx, redisKey, redisField).Err()
 	}
 
-	// 4. 序列化为 JSON 写入 Redis
+	// 4. 序列化为 JSON
 	jsonData, err := json.Marshal(policyAgg)
 	if err != nil {
 		return err
 	}
 
-	return s.RedisClient.HSet(ctx, redisKey, redisField, string(jsonData)).Err()
+	// 5. 先读取原有数据，防止将 model 默认计费等非 policy_binding 管理的信息冲掉
+	var finalMap map[string]interface{}
+	if err := json.Unmarshal(jsonData, &finalMap); err != nil {
+		return err
+	}
+	if finalMap == nil {
+		finalMap = make(map[string]interface{})
+	}
+
+	var existingPolicy map[string]interface{}
+	if oldData, err := s.RedisClient.HGet(ctx, redisKey, redisField).Result(); err == nil && oldData != "" {
+		_ = json.Unmarshal([]byte(oldData), &existingPolicy)
+	}
+
+	if existingPolicy != nil {
+		if billingVal, ok := existingPolicy["billing"]; ok {
+			finalMap["billing"] = billingVal
+		}
+	}
+
+	finalJSON, err := json.Marshal(finalMap)
+	if err != nil {
+		return err
+	}
+
+	return s.RedisClient.HSet(ctx, redisKey, redisField, string(finalJSON)).Err()
 }
 
 // SyncPolicyChange 当某个具体的策略配置变更时，反查所有关联维度并同步

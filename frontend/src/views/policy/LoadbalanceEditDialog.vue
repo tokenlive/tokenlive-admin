@@ -35,6 +35,9 @@
                                 v-model:value="formData.type">
                                 <a-select-option value="round_robin">轮询策略 (round_robin)</a-select-option>
                                 <a-select-option value="weighted_rr">加权轮询策略 (weighted_rr)</a-select-option>
+                                <a-select-option value="weighted_random"
+                                    >权重随机策略 (weighted_random)</a-select-option
+                                >
                                 <a-select-option value="random">随机策略 (random)</a-select-option>
                                 <a-select-option value="least_connections"
                                     >最少连接策略 (least_connections)</a-select-option

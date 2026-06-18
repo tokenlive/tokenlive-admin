@@ -7,24 +7,26 @@
         @close="handleCancel"
         @afterOpenChange="handleAfterOpenChange">
         <template #footer>
-            <a-button
-                :disabled="testing"
-                @click="handleCancel"
-                >{{ cancelText }}</a-button
-            >
-            <a-button
-                type="dashed"
-                :loading="testing"
-                @click="handleTest"
-                >{{ $t('pages.endpoint.test.draft') }}</a-button
-            >
-            <a-button
-                type="primary"
-                :loading="modal.confirmLoading"
-                :disabled="testing"
-                @click="handleOk"
-                >{{ okText }}</a-button
-            >
+            <div class="drawer-footer">
+                <a-button
+                    :disabled="testing"
+                    @click="handleCancel"
+                    >{{ cancelText }}</a-button
+                >
+                <a-button
+                    type="dashed"
+                    :loading="testing"
+                    @click="handleTest"
+                    >{{ $t('pages.endpoint.test.draft') }}</a-button
+                >
+                <a-button
+                    type="primary"
+                    :loading="modal.confirmLoading"
+                    :disabled="testing"
+                    @click="handleOk"
+                    >{{ okText }}</a-button
+                >
+            </div>
         </template>
         <a-form
             ref="formRef"
@@ -494,6 +496,12 @@ defineExpose({
 </script>
 
 <style lang="less" scoped>
+.drawer-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 .metadata-list {
     width: 100%;
 }

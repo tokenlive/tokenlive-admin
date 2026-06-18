@@ -58,15 +58,24 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 	policyKey := "aigw:policies:model:" + modelCode
 	if err == nil {
 		if model.Enabled == 1 {
-			policyAgg := map[string]interface{}{
-				"billing": map[string]interface{}{
-					"input_price":          model.InputPrice,
-					"output_price":         model.OutputPrice,
-					"cached_price":         model.CachedPrice,
-					"cache_creation_price": model.CacheCreationPrice,
-				},
+			// 先读取已有的配置，防止冲掉 policy_binding 绑定的其它策略
+			var existingPolicy map[string]interface{}
+			if oldData, err := s.RedisClient.HGet(ctx, policyKey, "*").Result(); err == nil && oldData != "" {
+				_ = json.Unmarshal([]byte(oldData), &existingPolicy)
 			}
-			policyData, err := json.Marshal(policyAgg)
+			if existingPolicy == nil {
+				existingPolicy = make(map[string]interface{})
+			}
+
+			// 更新计费价格策略
+			existingPolicy["billing"] = map[string]interface{}{
+				"input_price":          model.InputPrice,
+				"output_price":         model.OutputPrice,
+				"cached_price":         model.CachedPrice,
+				"cache_creation_price": model.CacheCreationPrice,
+			}
+
+			policyData, err := json.Marshal(existingPolicy)
 			if err == nil {
 				_ = s.RedisClient.HSet(ctx, policyKey, "*", string(policyData)).Err()
 			}
