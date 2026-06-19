@@ -1245,6 +1245,8 @@ export default {
     'pages.ops.table.model': 'Model',
     'pages.ops.table.provider': 'Provider',
     'pages.ops.table.policy': 'Policy',
+    'pages.ops.table.policy_id': 'Policy ID',
+    'pages.ops.table.policy_name': 'Policy Name',
     'pages.ops.table.detail': 'Detail',
     'pages.ops.table.threshold': 'Threshold',
     'pages.ops.table.current_value': 'Current Value',
@@ -1254,4 +1256,6 @@ export default {
     'pages.ops.filter.event_type': 'Event Type',
     'pages.ops.filter.tenant': 'Tenant',
     'pages.ops.filter.model': 'Model',
+    'pages.ops.filter.provider': 'Provider',
+    'pages.ops.filter.time_range': 'Time Range',
 }

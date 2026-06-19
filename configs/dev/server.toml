@@ -58,6 +58,13 @@ MaxIdleConns = 50
 TablePrefix = ""
 AutoMigrate = true
 
+[Storage.EventQueue]
+Type = "redis"                        # redis | kafka
+Topic = "aigw:events:policy"          # Redis Stream key / Kafka topic
+ConsumerGroup = "admin-consumer"
+RetentionDays = 2                     # 事件保留天数
+CleanupIntervalHours = 6              # 清理任务执行间隔（小时）
+
 [Util]
 
 [Util.Captcha]

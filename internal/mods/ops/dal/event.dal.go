@@ -32,10 +32,13 @@ func (a *EventLog) Query(ctx context.Context, params schema.EventQueryParam, opt
 		db = db.Where("event_type = ?", v)
 	}
 	if v := params.TenantCode; v != "" {
-		db = db.Where("tenant_code = ?", v)
+		db = db.Where("tenant_code LIKE ?", "%"+v+"%")
 	}
 	if v := params.ModelCode; v != "" {
-		db = db.Where("model_code = ?", v)
+		db = db.Where("model_code LIKE ?", "%"+v+"%")
+	}
+	if v := params.ProviderName; v != "" {
+		db = db.Where("provider_name LIKE ?", "%"+v+"%")
 	}
 	if v := params.EndpointID; v != "" {
 		db = db.Where("endpoint_id = ?", v)

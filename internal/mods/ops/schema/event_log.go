@@ -41,13 +41,14 @@ func (EventLog) TableName() string {
 // EventQueryParam defines query parameters for event list.
 type EventQueryParam struct {
 	util.PaginationParam
-	EventType  string `form:"event_type"`  // Filter by event type
-	TenantCode string `form:"tenant_code"` // Filter by tenant code
-	ModelCode  string `form:"model_code"`  // Filter by model code
-	EndpointID string `form:"endpoint_id"` // Filter by endpoint ID
-	PolicyID   string `form:"policy_id"`   // Filter by policy ID
-	StartTime  string `form:"start_time"`  // Filter by start time (ISO 8601 / unix)
-	EndTime    string `form:"end_time"`    // Filter by end time (ISO 8601 / unix)
+	EventType    string `form:"event_type"`    // Filter by event type
+	TenantCode   string `form:"tenant_code"`   // Filter by tenant code
+	ModelCode    string `form:"model_code"`    // Filter by model code
+	ProviderName string `form:"provider_name"` // Filter by provider name
+	EndpointID   string `form:"endpoint_id"`   // Filter by endpoint ID
+	PolicyID     string `form:"policy_id"`     // Filter by policy ID
+	StartTime    string `form:"start_time"`    // Filter by start time (ISO 8601 / unix)
+	EndTime      string `form:"end_time"`      // Filter by end time (ISO 8601 / unix)
 }
 
 // EventQueryOptions defines query options.

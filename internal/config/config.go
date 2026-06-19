@@ -86,6 +86,8 @@ type Storage struct {
 		Kafka         struct {
 			Brokers []string
 		}
+		RetentionDays        int `default:"7"` // event_log retention period in days
+		CleanupIntervalHours int `default:"6"` // cleanup task run interval in hours
 	}
 }
 

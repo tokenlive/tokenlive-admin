@@ -612,11 +612,8 @@
                                             </span>
                                         </div>
                                         <div
-                                            style="
-                                                font-size: 12px;
-                                                color: var(--color-text-tertiary);
-                                                line-height: 1.4;
-                                            ">
+                                            class="home-model-code"
+                                            style="font-size: 12px; line-height: 1.4">
                                             {{ record.model_code }}
                                         </div>
                                     </template>
@@ -1901,5 +1898,13 @@ function goToModel(modelId) {
 .fade-chart-enter-from,
 .fade-chart-leave-to {
     opacity: 0;
+}
+
+.home-model-code {
+    color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme='dark'] .home-model-code {
+    color: rgba(255, 255, 255, 0.45);
 }
 </style>

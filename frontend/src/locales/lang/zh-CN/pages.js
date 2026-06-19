@@ -1226,6 +1226,8 @@ export default {
     'pages.ops.table.model': '模型',
     'pages.ops.table.provider': '供应商',
     'pages.ops.table.policy': '策略',
+    'pages.ops.table.policy_id': '策略ID',
+    'pages.ops.table.policy_name': '策略名称',
     'pages.ops.table.detail': '详情',
     'pages.ops.table.threshold': '阈值',
     'pages.ops.table.current_value': '当前值',
@@ -1235,4 +1237,6 @@ export default {
     'pages.ops.filter.event_type': '事件类型',
     'pages.ops.filter.tenant': '租户',
     'pages.ops.filter.model': '模型',
+    'pages.ops.filter.provider': '供应商',
+    'pages.ops.filter.time_range': '时间范围',
 }

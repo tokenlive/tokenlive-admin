@@ -16,6 +16,7 @@ type EventBiz struct {
 
 // QueryEvents queries event logs with pagination and filtering.
 func (a *EventBiz) QueryEvents(ctx context.Context, params schema.EventQueryParam) (*schema.EventQueryResult, error) {
+	params.Pagination = true
 	return a.EventDAL.Query(ctx, params, schema.EventQueryOptions{
 		QueryOptions: util.QueryOptions{
 			OrderFields: []util.OrderByParam{

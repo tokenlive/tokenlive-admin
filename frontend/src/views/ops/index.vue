@@ -170,14 +170,42 @@
                         style="width: 140px"
                         :placeholder="$t('pages.ops.filter.model')" />
                 </a-form-item>
+                <a-form-item :label="$t('pages.ops.filter.provider')">
+                    <a-input
+                        v-model:value="filterForm.provider_name"
+                        allow-clear
+                        style="width: 140px"
+                        :placeholder="$t('pages.ops.filter.provider')" />
+                </a-form-item>
+                <a-form-item :label="$t('pages.ops.filter.time_range')">
+                    <a-range-picker
+                        v-model:value="searchTimeRange"
+                        show-time
+                        allow-clear
+                        style="width: 380px" />
+                </a-form-item>
                 <a-form-item>
-                    <a-space>
-                        <a-button
-                            type="primary"
-                            @click="handleSearch"
-                            >{{ $t('common.search') }}</a-button
-                        >
-                        <a-button @click="handleResetSearch">{{ $t('common.reset') }}</a-button>
+                    <a-space :size="8">
+                        <a-tooltip :title="$t('button.reset')">
+                            <a-button
+                                shape="circle"
+                                @click="handleResetSearch">
+                                <template #icon>
+                                    <redo-outlined />
+                                </template>
+                            </a-button>
+                        </a-tooltip>
+                        <a-tooltip :title="$t('button.search')">
+                            <a-button
+                                type="primary"
+                                ghost
+                                shape="circle"
+                                @click="handleSearch">
+                                <template #icon>
+                                    <search-outlined />
+                                </template>
+                            </a-button>
+                        </a-tooltip>
                     </a-space>
                 </a-form-item>
             </a-form>
@@ -198,32 +226,73 @@
                             {{ eventTypeName(record.event_type) }}
                         </a-tag>
                     </template>
+                    <template v-else-if="column.key === 'policy_id'">
+                        <a-typography-text
+                            v-if="record.policy_id"
+                            type="secondary"
+                            copyable
+                            :ellipsis="{ tooltip: true }"
+                            style="font-size: 12px; font-family: monospace; max-width: 80px">
+                            {{ record.policy_id }}
+                        </a-typography-text>
+                        <span
+                            v-else
+                            style="font-size: 12px; color: #bfbfbf"
+                            >-</span
+                        >
+                    </template>
                     <template v-else-if="column.key === 'event_time'">
                         {{ formatTime(record.event_time) }}
                     </template>
-                    <template v-else-if="column.key === 'detail'">
-                        <a-space
-                            direction="vertical"
-                            :size="2"
-                            style="font-size: 12px">
-                            <span v-if="record.threshold != null">
-                                {{ $t('pages.ops.table.threshold') }}: {{ record.threshold }}
-                                <span v-if="record.current_value != null">
-                                    | {{ $t('pages.ops.table.current_value') }}: {{ record.current_value }}
-                                </span>
-                            </span>
-                            <span
-                                v-if="record.message"
-                                style="color: var(--color-text-tertiary)"
-                                >{{ record.message }}</span
-                            >
-                            <span
-                                v-if="record.request_id"
-                                style="color: var(--color-text-tertiary)">
-                                {{ $t('pages.ops.table.request_id') }}: {{ record.request_id }}
-                            </span>
-                        </a-space>
-                    </template>
+                </template>
+                <template #expandedRowRender="{ record }">
+                    <div class="ops-expanded-container">
+                        <a-descriptions
+                            :column="2"
+                            size="small"
+                            bordered>
+                            <a-descriptions-item
+                                :label="$t('pages.ops.table.threshold')"
+                                v-if="record.threshold != null">
+                                <a-tag color="blue">{{ record.threshold }}</a-tag>
+                            </a-descriptions-item>
+                            <a-descriptions-item
+                                :label="$t('pages.ops.table.current_value')"
+                                v-if="record.current_value != null">
+                                <a-tag :color="record.current_value >= record.threshold ? 'red' : 'orange'">
+                                    {{ record.current_value }}
+                                </a-tag>
+                            </a-descriptions-item>
+                            <a-descriptions-item
+                                :label="$t('pages.ops.table.request_id')"
+                                v-if="record.request_id">
+                                <a-typography-text
+                                    copyable
+                                    :ellipsis="{ tooltip: true }"
+                                    style="font-family: monospace; max-width: 200px">
+                                    {{ record.request_id }}
+                                </a-typography-text>
+                            </a-descriptions-item>
+                            <a-descriptions-item
+                                :label="$t('pages.ops.table.trace_id')"
+                                v-if="record.trace_id">
+                                <a-typography-text
+                                    copyable
+                                    :ellipsis="{ tooltip: true }"
+                                    style="font-family: monospace; max-width: 200px">
+                                    {{ record.trace_id }}
+                                </a-typography-text>
+                            </a-descriptions-item>
+                            <a-descriptions-item
+                                :label="$t('pages.ops.table.detail')"
+                                :span="2"
+                                v-if="record.message">
+                                <div class="ops-expanded-error-msg">
+                                    {{ record.message }}
+                                </div>
+                            </a-descriptions-item>
+                        </a-descriptions>
+                    </div>
                 </template>
             </a-table>
         </a-card>
@@ -235,7 +304,14 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/store'
 import useUserStore from '@/store/modules/user'
-import { AlertOutlined, WarningOutlined, ThunderboltOutlined, CloseCircleOutlined } from '@ant-design/icons-vue'
+import {
+    AlertOutlined,
+    WarningOutlined,
+    ThunderboltOutlined,
+    CloseCircleOutlined,
+    RedoOutlined,
+    SearchOutlined,
+} from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { config } from '@/config'
 
@@ -249,11 +325,13 @@ const tableLoading = ref(false)
 const timeRange = ref('24h')
 const stats = ref({})
 const eventList = ref([])
+const searchTimeRange = ref(null)
 
 const filterForm = reactive({
     event_type: undefined,
     tenant_code: '',
     model_code: '',
+    provider_name: '',
 })
 
 const pagination = reactive({
@@ -264,11 +342,14 @@ const pagination = reactive({
     showTotal: (total) => t('common.pagination.total', { total }),
 })
 
-// Filter match helper (used by WS push to avoid injecting non-matching events)
 const matchesFilter = (evt) => {
     if (filterForm.event_type && evt.event_type !== filterForm.event_type) return false
-    if (filterForm.tenant_code && !evt.tenant_code?.includes(filterForm.tenant_code)) return false
-    if (filterForm.model_code && !evt.model_code?.includes(filterForm.model_code)) return false
+    if (filterForm.tenant_code && !evt.tenant_code?.toLowerCase().includes(filterForm.tenant_code.toLowerCase()))
+        return false
+    if (filterForm.model_code && !evt.model_code?.toLowerCase().includes(filterForm.model_code.toLowerCase()))
+        return false
+    if (filterForm.provider_name && !evt.provider_name?.toLowerCase().includes(filterForm.provider_name.toLowerCase()))
+        return false
     return true
 }
 
@@ -280,13 +361,13 @@ let wsManualClose = false
 
 // Table columns
 const columns = computed(() => [
-    { title: t('pages.ops.table.time'), key: 'event_time', dataIndex: 'event_time', width: 170 },
-    { title: t('pages.ops.table.type'), key: 'event_type', dataIndex: 'event_type', width: 120 },
-    { title: t('pages.ops.table.tenant'), dataIndex: 'tenant_code', width: 120, ellipsis: true },
+    { title: t('pages.ops.table.time'), key: 'event_time', dataIndex: 'event_time', width: 140 },
+    { title: t('pages.ops.table.type'), key: 'event_type', dataIndex: 'event_type', width: 80 },
+    { title: t('pages.ops.table.tenant'), dataIndex: 'tenant_code', width: 70, ellipsis: true },
     { title: t('pages.ops.table.model'), dataIndex: 'model_code', width: 120, ellipsis: true },
     { title: t('pages.ops.table.provider'), dataIndex: 'provider_name', width: 120, ellipsis: true },
-    { title: t('pages.ops.table.policy'), dataIndex: 'policy_name', width: 140, ellipsis: true },
-    { title: t('pages.ops.table.detail'), key: 'detail', width: 280 },
+    { title: t('pages.ops.table.policy_id'), key: 'policy_id', dataIndex: 'policy_id', width: 100, ellipsis: true },
+    { title: t('pages.ops.table.policy_name'), dataIndex: 'policy_name', width: 160, ellipsis: true },
 ])
 
 // Event type helpers
@@ -339,6 +420,10 @@ const fetchEvents = async () => {
             pageSize: pagination.pageSize,
             ...filterForm,
         }
+        if (searchTimeRange.value && searchTimeRange.value.length === 2) {
+            params.start_time = searchTimeRange.value[0].toISOString()
+            params.end_time = searchTimeRange.value[1].toISOString()
+        }
         // Clean empty params
         Object.keys(params).forEach((key) => {
             if (params[key] === '' || params[key] === undefined || params[key] === null) {
@@ -366,6 +451,8 @@ const handleResetSearch = () => {
     filterForm.event_type = undefined
     filterForm.tenant_code = ''
     filterForm.model_code = ''
+    filterForm.provider_name = ''
+    searchTimeRange.value = null
     pagination.current = 1
     fetchEvents()
 }
@@ -733,5 +820,63 @@ onUnmounted(() => {
 .ops-stat-card--purple .ops-stat-card__icon {
     color: #722ed1;
     background: rgba(114, 46, 209, 0.1);
+}
+
+.ops-detail-text {
+    color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme='dark'] .ops-detail-text {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+/* 行展开详情容器样式 */
+.ops-expanded-container {
+    padding: 16px 24px;
+    background: #fafafa;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='dark'] .ops-expanded-container {
+    background: #141414;
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+/* 行展开 descriptions 组件暗黑模式深度覆盖 */
+[data-theme='dark'] .ops-expanded-container :deep(.ant-descriptions-bordered .ant-descriptions-item-label) {
+    background-color: #1c1c1e;
+    color: rgba(255, 255, 255, 0.85);
+    border-right-color: #303030;
+}
+
+[data-theme='dark'] .ops-expanded-container :deep(.ant-descriptions-bordered .ant-descriptions-item-content) {
+    background-color: #141414;
+    color: rgba(255, 255, 255, 0.65);
+    border-right-color: #303030;
+}
+
+[data-theme='dark'] .ops-expanded-container :deep(.ant-descriptions-bordered .ant-descriptions-row) {
+    border-bottom-color: #303030;
+}
+
+[data-theme='dark'] .ops-expanded-container :deep(.ant-descriptions-title) {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* 异常详情文字折行及样式 */
+.ops-expanded-error-msg {
+    max-height: 120px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #ff4d4f;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+[data-theme='dark'] .ops-expanded-error-msg {
+    color: #ff7875;
 }
 </style>

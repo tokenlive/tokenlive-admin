@@ -4,20 +4,32 @@ import (
 	"context"
 	"time"
 
+	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/logging"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
-const (
-	cleanupInterval = 6 * time.Hour
-	retentionDays   = 7
-)
-
 // CleanupTask periodically deletes event logs older than the retention period.
 type CleanupTask struct {
 	DB *gorm.DB
+}
+
+// retentionDays returns the configured retention period (default 7 days).
+func retentionDays() int {
+	if d := config.C.Storage.EventQueue.RetentionDays; d > 0 {
+		return d
+	}
+	return 7
+}
+
+// cleanupInterval returns the configured cleanup interval (default 6 hours).
+func cleanupInterval() time.Duration {
+	if h := config.C.Storage.EventQueue.CleanupIntervalHours; h > 0 {
+		return time.Duration(h) * time.Hour
+	}
+	return 6 * time.Hour
 }
 
 // Start begins the cleanup goroutine.
@@ -26,12 +38,13 @@ func (t *CleanupTask) Start(ctx context.Context) {
 }
 
 func (t *CleanupTask) run(ctx context.Context) {
+	interval := cleanupInterval()
 	logging.Context(ctx).Info("event cleanup task started",
-		zap.Duration("interval", cleanupInterval),
-		zap.Int("retention_days", retentionDays),
+		zap.Duration("interval", interval),
+		zap.Int("retention_days", retentionDays()),
 	)
 
-	ticker := time.NewTicker(cleanupInterval)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	// Run once at startup
@@ -49,7 +62,7 @@ func (t *CleanupTask) run(ctx context.Context) {
 }
 
 func (t *CleanupTask) cleanup(ctx context.Context) {
-	cutoff := time.Now().AddDate(0, 0, -retentionDays)
+	cutoff := time.Now().AddDate(0, 0, -retentionDays())
 	result := t.DB.WithContext(ctx).
 		Where("event_time < ?", cutoff).
 		Delete(&schema.EventLog{})
