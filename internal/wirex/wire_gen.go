@@ -11,6 +11,10 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/dashboard"
 	api5 "github.com/tokenlive/tokenlive-admin/internal/mods/dashboard/api"
+	"github.com/tokenlive/tokenlive-admin/internal/mods/ops"
+	api6 "github.com/tokenlive/tokenlive-admin/internal/mods/ops/api"
+	biz5 "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	dal5 "github.com/tokenlive/tokenlive-admin/internal/mods/ops/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy"
 	api4 "github.com/tokenlive/tokenlive-admin/internal/mods/policy/api"
 	biz3 "github.com/tokenlive/tokenlive-admin/internal/mods/policy/biz"
@@ -410,12 +414,39 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	dashboardDashboard := &dashboard.Dashboard{
 		DashboardAPI: apiDashboard,
 	}
+	eventLog := &dal5.EventLog{
+		DB: db,
+	}
+	eventBiz := &biz5.EventBiz{
+		EventDAL: eventLog,
+	}
+	wsHub := api6.NewWSHub()
+	eventAPI := &api6.EventAPI{
+		EventBIZ: eventBiz,
+		Hub:      wsHub,
+	}
+	eventSubscriber := ops.ProvideEventSubscriber(client)
+	consumer := &biz5.Consumer{
+		Subscriber: eventSubscriber,
+		EventDAL:   eventLog,
+	}
+	cleanupTask := &biz5.CleanupTask{
+		DB: db,
+	}
+	opsOps := &ops.Ops{
+		DB:          db,
+		EventAPI:    eventAPI,
+		Consumer:    consumer,
+		CleanupTask: cleanupTask,
+		Hub:         wsHub,
+	}
 	modsMods := &mods.Mods{
 		RBAC:      rbacRBAC,
 		Resource:  resourceResource,
 		Space:     spaceSpace,
 		Policy:    policyPolicy,
 		Dashboard: dashboardDashboard,
+		Ops:       opsOps,
 	}
 	injector := &Injector{
 		DB:    db,

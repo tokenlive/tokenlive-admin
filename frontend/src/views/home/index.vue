@@ -1164,22 +1164,22 @@ const trendsChartOptions = computed(() => {
             },
             legend: {
                 data: trends.series.map((s) => s.label),
-                textStyle: { color: isDark ? 'var(--color-text-secondary)' : '#333' },
+                textStyle: { color: isDark ? 'rgba(255, 255, 255, 0.65)' : '#333' },
             },
             grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
             xAxis: {
                 type: 'category',
                 boundaryGap: false,
                 data: trends.times,
-                axisLabel: { color: isDark ? 'var(--color-text-tertiary)' : '#666' },
+                axisLabel: { color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#666' },
             },
             yAxis: [
                 {
                     type: 'value',
                     name: t('pages.dashboard.trends.requests'),
                     minInterval: 1,
-                    axisLabel: { color: isDark ? 'var(--color-text-tertiary)' : '#666' },
-                    splitLine: { lineStyle: { color: isDark ? 'var(--chart-split-line)' : '#f0f0f0' } },
+                    axisLabel: { color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#666' },
+                    splitLine: { lineStyle: { color: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' } },
                 },
             ],
             series: trends.series.map((s, index) => ({
@@ -1217,22 +1217,22 @@ const trendsChartOptions = computed(() => {
                     t('pages.dashboard.trends.failed_requests'),
                     t('pages.dashboard.trends.success_rate'),
                 ],
-                textStyle: { color: isDark ? 'var(--color-text-secondary)' : '#333' },
+                textStyle: { color: isDark ? 'rgba(255, 255, 255, 0.65)' : '#333' },
             },
             grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
             xAxis: {
                 type: 'category',
                 boundaryGap: false,
                 data: trends.times,
-                axisLabel: { color: isDark ? 'var(--color-text-tertiary)' : '#666' },
+                axisLabel: { color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#666' },
             },
             yAxis: [
                 {
                     type: 'value',
                     name: t('pages.dashboard.trends.requests'),
                     minInterval: 1,
-                    axisLabel: { color: isDark ? 'var(--color-text-tertiary)' : '#666' },
-                    splitLine: { lineStyle: { color: isDark ? 'var(--chart-split-line)' : '#f0f0f0' } },
+                    axisLabel: { color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#666' },
+                    splitLine: { lineStyle: { color: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' } },
                 },
                 {
                     type: 'value',
@@ -1241,7 +1241,7 @@ const trendsChartOptions = computed(() => {
                     max: 100,
                     axisLabel: {
                         formatter: '{value} %',
-                        color: isDark ? 'var(--color-text-tertiary)' : '#666',
+                        color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#666',
                     },
                     splitLine: { show: false },
                 },
@@ -1310,11 +1310,11 @@ const tokenChartOptions = computed(() => {
             textStyle: {
                 fontSize: 20,
                 fontWeight: 'bold',
-                color: isDark ? 'var(--color-text-primary)' : '#000',
+                color: isDark ? 'rgba(255, 255, 255, 0.85)' : '#000',
             },
             subtextStyle: {
                 fontSize: 12,
-                color: isDark ? 'var(--color-text-tertiary)' : 'rgba(0,0,0,0.45)',
+                color: isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0,0,0,0.45)',
             },
         },
         tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
@@ -1339,7 +1339,7 @@ const tokenChartOptions = computed(() => {
                     show: true,
                     formatter: '{b}: {c} ({d}%)',
                     fontSize: 11,
-                    color: isDark ? 'var(--color-text-primary)' : '#333',
+                    color: isDark ? 'rgba(255, 255, 255, 0.85)' : '#333',
                 },
                 data: [
                     { value: inputNonCache, name: t('pages.dashboard.tokens.input'), itemStyle: { color: '#7c5cfc' } },
@@ -1373,7 +1373,7 @@ const pieChartOptions = computed(() => {
             orient: 'vertical',
             left: '6%',
             top: 'middle',
-            textStyle: { color: isDark ? 'var(--color-text-secondary)' : '#333' },
+            textStyle: { color: isDark ? 'rgba(255, 255, 255, 0.65)' : '#333' },
         },
         series: [
             {

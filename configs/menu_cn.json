@@ -1,35 +1,53 @@
 [
     {
-        "code": "home",
-        "name": "首页看板",
+        "code": "monitor",
+        "name": "系统监控",
         "sequence": 90,
         "type": "page",
-        "path": "/home",
+        "path": "/monitor",
         "status": "enabled",
-        "resources": [
+        "children": [
             {
-                "method": "GET",
-                "path": "/api/v1/dashboard/qps"
+                "code": "home",
+                "name": "首页总览",
+                "sequence": 90,
+                "type": "page",
+                "path": "/monitor/home",
+                "status": "enabled",
+                "resources": [
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/qps"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/circuit-breakers"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/metrics"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/trends"
+                    },
+                    {
+                        "method": "POST",
+                        "path": "/api/v1/dashboard/sync-redis"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/model-ranking"
+                    }
+                ]
             },
             {
-                "method": "GET",
-                "path": "/api/v1/dashboard/circuit-breakers"
-            },
-            {
-                "method": "GET",
-                "path": "/api/v1/dashboard/metrics"
-            },
-            {
-                "method": "GET",
-                "path": "/api/v1/dashboard/trends"
-            },
-            {
-                "method": "POST",
-                "path": "/api/v1/dashboard/sync-redis"
-            },
-            {
-                "method": "GET",
-                "path": "/api/v1/dashboard/model-ranking"
+                "code": "opsMonitor",
+                "name": "运维看板",
+                "sequence": 80,
+                "type": "page",
+                "path": "/monitor/ops",
+                "status": "enabled"
             }
         ]
     },
@@ -978,19 +996,85 @@
         ]
     },
     {
-        "code": "resource",
-        "name": "基础资源",
-        "sequence": 70,
+        "code": "space",
+        "name": "模型空间",
+        "sequence": 80,
         "type": "page",
-        "path": "/resource",
+        "path": "/space",
         "status": "enabled",
         "children": [
             {
-                "code": "providerList",
-                "name": "供应商管理",
+                "code": "spaceList",
+                "name": "空间列表",
                 "sequence": 90,
                 "type": "page",
-                "path": "/resource/provider",
+                "path": "/space/list",
+                "status": "enabled",
+                "children": [
+                    {
+                        "code": "add",
+                        "name": "增加",
+                        "sequence": 9,
+                        "type": "button",
+                        "status": "enabled",
+                        "resources": [
+                            {
+                                "method": "POST",
+                                "path": "/api/v1/spaces"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "edit",
+                        "name": "编辑",
+                        "sequence": 8,
+                        "type": "button",
+                        "status": "enabled",
+                        "resources": [
+                            {
+                                "method": "PUT",
+                                "path": "/api/v1/spaces/{id}"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "delete",
+                        "name": "删除",
+                        "sequence": 7,
+                        "type": "button",
+                        "status": "enabled",
+                        "resources": [
+                            {
+                                "method": "DELETE",
+                                "path": "/api/v1/spaces/{id}"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "search",
+                        "name": "查询",
+                        "sequence": 6,
+                        "type": "button",
+                        "status": "enabled"
+                    }
+                ],
+                "resources": [
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/spaces"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/spaces/{id}"
+                    }
+                ]
+            },
+            {
+                "code": "providerList",
+                "name": "供应商管理",
+                "sequence": 80,
+                "type": "page",
+                "path": "/space/provider",
                 "status": "enabled",
                 "children": [
                     {
@@ -1094,9 +1178,9 @@
             {
                 "code": "modelList",
                 "name": "模型管理",
-                "sequence": 80,
+                "sequence": 70,
                 "type": "page",
-                "path": "/resource/model",
+                "path": "/space/model",
                 "status": "enabled",
                 "children": [
                     {

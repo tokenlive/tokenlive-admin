@@ -5,6 +5,8 @@ NOW = $(shell date -u '+%Y%m%d%I%M%S')
 RELEASE_VERSION = v1.0.0
 
 APP 		= tokenlive-admin
+REGISTRY        ?=
+PLATFORMS       ?= linux/amd64,linux/arm64
 SERVER_BIN  	= bin/${APP}
 GIT_COUNT 		= $(shell git rev-list --all --count)
 GIT_HASH        = $(shell git rev-parse --short HEAD)
@@ -78,9 +80,7 @@ gen-application-code:
 	gin-admin-cli gen -d ./ -m Resource -c gen/prototype/application.yaml
 
 docker-build:
-	docker build -t $(APP):$(RELEASE_TAG) .
-	docker tag $(APP):$(RELEASE_TAG) $(APP):latest
+	docker buildx build --load -t $(REGISTRY)$(APP):$(RELEASE_TAG) -t $(REGISTRY)$(APP):latest .
 
-docker-push: docker-build
-	docker push $(APP):$(RELEASE_TAG)
-	docker push $(APP):latest
+docker-push:
+	docker buildx build --platform $(PLATFORMS) --push -t $(REGISTRY)$(APP):$(RELEASE_TAG) -t $(REGISTRY)$(APP):latest .

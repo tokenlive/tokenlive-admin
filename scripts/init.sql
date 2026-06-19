@@ -571,3 +571,32 @@ CREATE TABLE IF NOT EXISTS `space`
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT = '空间管理';
+
+-- 运维事件日志
+CREATE TABLE IF NOT EXISTS `event_log`
+(
+    `id`            varchar(20)   NOT NULL COMMENT 'ID',
+    `event_type`    varchar(32)   NOT NULL COMMENT '事件类型',
+    `tenant_code`   varchar(64)   NOT NULL DEFAULT '' COMMENT '租户编码',
+    `model_code`    varchar(64)   NOT NULL DEFAULT '' COMMENT '模型编码',
+    `endpoint_id`   varchar(20)   NOT NULL DEFAULT '' COMMENT '端点ID',
+    `provider_name` varchar(128)  NOT NULL DEFAULT '' COMMENT '供应商名称',
+    `policy_id`     varchar(20)   NOT NULL DEFAULT '' COMMENT '策略ID',
+    `policy_name`   varchar(128)  NOT NULL DEFAULT '' COMMENT '策略名称',
+    `threshold`     decimal(10,2)          DEFAULT NULL COMMENT '阈值',
+    `current_value` decimal(10,2)          DEFAULT NULL COMMENT '触发时当前值',
+    `request_id`    varchar(64)   NOT NULL DEFAULT '' COMMENT '请求ID',
+    `trace_id`      varchar(64)   NOT NULL DEFAULT '' COMMENT '追踪ID',
+    `message`       varchar(1024) NOT NULL DEFAULT '' COMMENT '人机消息',
+    `event_time`    datetime      NOT NULL COMMENT '事件触发时间',
+    `created_at`    timestamp     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '入库时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_el_event_type` (`event_type`),
+    KEY `idx_el_tenant` (`tenant_code`),
+    KEY `idx_el_model` (`model_code`),
+    KEY `idx_el_endpoint` (`endpoint_id`),
+    KEY `idx_el_policy` (`policy_id`),
+    KEY `idx_el_time` (`event_time`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin COMMENT = '运维事件日志';

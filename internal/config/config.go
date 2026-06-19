@@ -79,6 +79,14 @@ type Storage struct {
 			Tables   []string
 		}
 	}
+	EventQueue struct {
+		Type          string `default:"redis"`              // redis | kafka
+		Topic         string `default:"aigw:events:policy"` // stream/topic name
+		ConsumerGroup string `default:"admin-consumer"`     // consumer group name
+		Kafka         struct {
+			Brokers []string
+		}
+	}
 }
 
 type Util struct {

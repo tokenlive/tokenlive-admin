@@ -1,35 +1,53 @@
 [
     {
-        "code": "home",
-        "name": "Home",
+        "code": "monitor",
+        "name": "System Monitor",
         "sequence": 90,
         "type": "page",
-        "path": "/home",
+        "path": "/monitor",
         "status": "enabled",
-        "resources": [
+        "children": [
             {
-                "method": "GET",
-                "path": "/api/v1/dashboard/qps"
+                "code": "home",
+                "name": "Home Overview",
+                "sequence": 90,
+                "type": "page",
+                "path": "/monitor/home",
+                "status": "enabled",
+                "resources": [
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/qps"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/circuit-breakers"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/metrics"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/trends"
+                    },
+                    {
+                        "method": "POST",
+                        "path": "/api/v1/dashboard/sync-redis"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/model-ranking"
+                    }
+                ]
             },
             {
-                "method": "GET",
-                "path": "/api/v1/dashboard/circuit-breakers"
-            },
-            {
-                "method": "GET",
-                "path": "/api/v1/dashboard/metrics"
-            },
-            {
-                "method": "GET",
-                "path": "/api/v1/dashboard/trends"
-            },
-            {
-                "method": "POST",
-                "path": "/api/v1/dashboard/sync-redis"
-            },
-            {
-                "method": "GET",
-                "path": "/api/v1/dashboard/model-ranking"
+                "code": "opsMonitor",
+                "name": "Ops Monitor",
+                "sequence": 80,
+                "type": "page",
+                "path": "/monitor/ops",
+                "status": "enabled"
             }
         ]
     },
@@ -1050,23 +1068,13 @@
                         "path": "/api/v1/spaces/{id}"
                     }
                 ]
-            }
-        ]
-    },
-    {
-        "code": "resource",
-        "name": "Resource",
-        "sequence": 70,
-        "type": "page",
-        "path": "/resource",
-        "status": "enabled",
-        "children": [
+            },
             {
                 "code": "providerList",
                 "name": "Provider",
-                "sequence": 90,
+                "sequence": 80,
                 "type": "page",
-                "path": "/resource/provider",
+                "path": "/space/provider",
                 "status": "enabled",
                 "children": [
                     {
@@ -1170,9 +1178,9 @@
             {
                 "code": "modelList",
                 "name": "Model",
-                "sequence": 80,
+                "sequence": 70,
                 "type": "page",
-                "path": "/resource/model",
+                "path": "/space/model",
                 "status": "enabled",
                 "children": [
                     {

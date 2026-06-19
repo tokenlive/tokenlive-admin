@@ -1,6 +1,8 @@
 export default {
     welcome: '欢迎',
-    home: '首页看板',
+    home: '首页总览',
+    monitor: '系统监控',
+    opsMonitor: '运维看板',
     system: '系统设置',
     menu: '菜单管理',
     user: '用户管理',

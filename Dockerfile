@@ -1,5 +1,5 @@
 # Stage 1: Build frontend
-FROM node:18-alpine AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
@@ -8,7 +8,7 @@ COPY frontend/ .
 RUN npm run build:prod
 
 # Stage 2: Build backend
-FROM golang:1.22-alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS backend-builder
 
 ARG APP=tokenlive-admin
 ARG VERSION=v1.0.0
@@ -17,6 +17,9 @@ ARG GOPROXY="https://proxy.golang.org,direct"
 
 ENV GOPROXY=${GOPROXY}
 
+ARG TARGETOS
+ARG TARGETARCH
+
 WORKDIR /go/src/${APP}
 COPY . .
 
@@ -24,7 +27,7 @@ COPY . .
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Build the application
-RUN CGO_ENABLED=0 go build -ldflags "-w -s -X main.VERSION=${RELEASE_TAG}" -o ./${APP} .
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags "-w -s -X main.VERSION=${RELEASE_TAG}" -o ./${APP} .
 
 # Stage 3: Production image
 FROM alpine

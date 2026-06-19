@@ -66,7 +66,13 @@ watch(
     () => props.options,
     (newVal) => {
         if (chart.value) {
-            chart.value.setOption(newVal, true)
+            chart.value.setOption(
+                {
+                    backgroundColor: 'transparent',
+                    ...newVal,
+                },
+                true
+            )
         }
     },
     {
@@ -170,7 +176,13 @@ function init() {
 
     setTimeout(() => {
         if (chart.value) {
-            chart.value.setOption(props.options, true)
+            chart.value.setOption(
+                {
+                    backgroundColor: 'transparent',
+                    ...props.options,
+                },
+                true
+            )
             chart.value.resize()
             if (!props.loading) {
                 chart.value.hideLoading()

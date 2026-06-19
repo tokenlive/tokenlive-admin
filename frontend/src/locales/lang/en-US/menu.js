@@ -1,6 +1,8 @@
 export default {
     welcome: 'Welcome',
-    home: 'Home',
+    home: 'Home Overview',
+    monitor: 'System Monitor',
+    opsMonitor: 'Ops Monitor',
     system: 'System',
     menu: 'Menu',
     user: 'User',
