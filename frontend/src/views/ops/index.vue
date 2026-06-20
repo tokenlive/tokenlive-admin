@@ -226,21 +226,6 @@
                             {{ eventTypeName(record.event_type) }}
                         </a-tag>
                     </template>
-                    <template v-else-if="column.key === 'policy_id'">
-                        <a-typography-text
-                            v-if="record.policy_id"
-                            type="secondary"
-                            copyable
-                            :ellipsis="{ tooltip: true }"
-                            style="font-size: 12px; font-family: monospace; max-width: 80px">
-                            {{ record.policy_id }}
-                        </a-typography-text>
-                        <span
-                            v-else
-                            style="font-size: 12px; color: #bfbfbf"
-                            >-</span
-                        >
-                    </template>
                     <template v-else-if="column.key === 'event_time'">
                         {{ formatTime(record.event_time) }}
                     </template>
@@ -252,34 +237,14 @@
                             size="small"
                             bordered>
                             <a-descriptions-item
-                                :label="$t('pages.ops.table.threshold') + ' / ' + $t('pages.ops.table.current_value')"
-                                v-if="record.threshold != null || record.current_value != null">
-                                <a-tag
-                                    :color="
-                                        record.current_value != null &&
-                                        record.threshold != null &&
-                                        record.current_value >= record.threshold
-                                            ? 'red'
-                                            : 'blue'
-                                    ">
-                                    <template v-if="record.event_type === 'circuit_break'">
-                                        {{
-                                            record.threshold != null
-                                                ? Number(record.threshold).toFixed(2).replace(/\.00$/, '') + '%'
-                                                : '-'
-                                        }}
-                                        /
-                                        {{
-                                            record.current_value != null
-                                                ? Number(record.current_value).toFixed(2).replace(/\.00$/, '') + '%'
-                                                : '-'
-                                        }}
-                                    </template>
-                                    <template v-else>
-                                        {{ record.threshold != null ? record.threshold : '-' }} /
-                                        {{ record.current_value != null ? record.current_value : '-' }}
-                                    </template>
-                                </a-tag>
+                                :label="$t('pages.ops.table.policy_id')"
+                                v-if="record.policy_id">
+                                <a-typography-text
+                                    copyable
+                                    :ellipsis="{ tooltip: true }"
+                                    style="font-family: monospace; max-width: 200px">
+                                    {{ record.policy_id }}
+                                </a-typography-text>
                             </a-descriptions-item>
                             <a-descriptions-item
                                 :label="$t('pages.ops.table.endpoint_id')"
@@ -310,6 +275,36 @@
                                     style="font-family: monospace; max-width: 200px">
                                     {{ record.trace_id }}
                                 </a-typography-text>
+                            </a-descriptions-item>
+                            <a-descriptions-item
+                                :label="$t('pages.ops.table.threshold') + ' / ' + $t('pages.ops.table.current_value')"
+                                v-if="record.threshold != null || record.current_value != null">
+                                <a-tag
+                                    :color="
+                                        record.current_value != null &&
+                                        record.threshold != null &&
+                                        record.current_value >= record.threshold
+                                            ? 'red'
+                                            : 'blue'
+                                    ">
+                                    <template v-if="record.event_type === 'circuit_break'">
+                                        {{
+                                            record.threshold != null
+                                                ? Number(record.threshold).toFixed(2).replace(/\.00$/, '') + '%'
+                                                : '-'
+                                        }}
+                                        /
+                                        {{
+                                            record.current_value != null
+                                                ? Number(record.current_value).toFixed(2).replace(/\.00$/, '') + '%'
+                                                : '-'
+                                        }}
+                                    </template>
+                                    <template v-else>
+                                        {{ record.threshold != null ? record.threshold : '-' }} /
+                                        {{ record.current_value != null ? record.current_value : '-' }}
+                                    </template>
+                                </a-tag>
                             </a-descriptions-item>
                             <a-descriptions-item
                                 :label="$t('pages.ops.table.detail')"
@@ -432,7 +427,6 @@ const columns = computed(() => [
     { title: t('pages.ops.table.tenant'), dataIndex: 'tenant_code', width: 70, ellipsis: true },
     { title: t('pages.ops.table.model'), dataIndex: 'model_code', width: 120, ellipsis: true },
     { title: t('pages.ops.table.provider'), dataIndex: 'provider_name', width: 120, ellipsis: true },
-    { title: t('pages.ops.table.policy_id'), key: 'policy_id', dataIndex: 'policy_id', width: 100, ellipsis: true },
     { title: t('pages.ops.table.policy_name'), dataIndex: 'policy_name', width: 160, ellipsis: true },
 ])
 
@@ -541,7 +535,11 @@ const connectWebSocket = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
     const token = userStore.token
-    const wsUrl = `${protocol}//${host}${config('http.apiBasic')}/api/v1/ops/events/ws?accessToken=${token}`
+    let apiBasic = config('http.apiBasic') || ''
+    if (apiBasic.endsWith('/')) {
+        apiBasic = apiBasic.slice(0, -1)
+    }
+    const wsUrl = `${protocol}//${host}${apiBasic}/api/v1/ops/events/ws?accessToken=${token}`
 
     ws = new WebSocket(wsUrl)
 

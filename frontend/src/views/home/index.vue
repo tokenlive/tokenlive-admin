@@ -901,6 +901,8 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/store'
+import useUserStore from '@/store/modules/user'
+import { config } from '@/config'
 
 import * as echarts from 'echarts'
 import {
@@ -920,8 +922,17 @@ const router = useRouter()
 const { t } = useI18n()
 const appStore = useAppStore()
 
+const userStore = useUserStore()
+
 const timer = ref(null)
 const firstLoading = ref(true)
+
+// WebSocket states
+let ws = null
+let wsReconnectTimer = null
+let wsReconnectDelay = 1000
+let wsManualClose = false
+const isUsingFallback = ref(false)
 
 // 流量走势分组选择
 const trendsGroupBy = ref('')
@@ -967,35 +978,59 @@ const policyCounts = reactive({
 
 const modelRanking = ref([])
 
+function sendWsConfig() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(
+            JSON.stringify({
+                type: 'config',
+                data: {
+                    trends_time_range: trendsTimeRange.value,
+                    trends_group_by: trendsGroupBy.value || '',
+                    model_ranking_sort_by: rankingSortBy.value,
+                    model_ranking_time_range: rankingTimeRange.value,
+                },
+            })
+        )
+    }
+}
+
 // 流量走势分组切换
 async function handleTrendsGroupChange() {
-    try {
-        const params = {}
-        if (trendsGroupBy.value) params.group_by = trendsGroupBy.value
-        if (trendsTimeRange.value) params.time_range = trendsTimeRange.value
-        const trendsRes = await apis.dashboard.getTrends(params).catch(() => ({ data: { times: [], series: [] } }))
-        if (trendsRes && trendsRes.data) {
-            trends.times = trendsRes.data.times || []
-            trends.series = trendsRes.data.series || []
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        sendWsConfig()
+    } else {
+        try {
+            const params = {}
+            if (trendsGroupBy.value) params.group_by = trendsGroupBy.value
+            if (trendsTimeRange.value) params.time_range = trendsTimeRange.value
+            const trendsRes = await apis.dashboard.getTrends(params).catch(() => ({ data: { times: [], series: [] } }))
+            if (trendsRes && trendsRes.data) {
+                trends.times = trendsRes.data.times || []
+                trends.series = trendsRes.data.series || []
+            }
+        } catch (e) {
+            console.error('Failed to fetch trends', e)
         }
-    } catch (e) {
-        console.error('Failed to fetch trends', e)
     }
 }
 
 // 模型排行榜排序/时间范围切换
 async function handleRankingSortChange() {
-    try {
-        const rankingRes = await apis.dashboard
-            .getModelRanking({
-                sort_by: rankingSortBy.value,
-                time_range: rankingTimeRange.value,
-                limit: 10,
-            })
-            .catch(() => ({ data: [] }))
-        modelRanking.value = rankingRes.data || []
-    } catch (e) {
-        console.error('Failed to fetch model ranking', e)
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        sendWsConfig()
+    } else {
+        try {
+            const rankingRes = await apis.dashboard
+                .getModelRanking({
+                    sort_by: rankingSortBy.value,
+                    time_range: rankingTimeRange.value,
+                    limit: 10,
+                })
+                .catch(() => ({ data: [] }))
+            modelRanking.value = rankingRes.data || []
+        } catch (e) {
+            console.error('Failed to fetch model ranking', e)
+        }
     }
 }
 
@@ -1016,9 +1051,8 @@ const POLICY_META = [
 
 const COLORS = ['#7c5cfc', '#ffc53d', '#36cfc9', '#52c41a', '#597ef7', '#ff7875']
 
-async function fetchTelemetryData() {
+async function fetchStaticCounts() {
     try {
-        // 1. 获取静态实体及策略数量
         const params = { current: 1, pageSize: 1 }
         const [spaceRes, providerRes, modelRes] = await Promise.all([
             apis.space.getSpaceList(params).catch(() => ({ total: 0 })),
@@ -1034,10 +1068,18 @@ async function fetchTelemetryData() {
         policyResults.forEach((res, i) => {
             policyCounts[POLICY_META[i].key] = res.total || 0
         })
+    } catch (e) {
+        console.error('Failed to fetch static counts', e)
+    }
+}
+
+async function fetchTelemetryData() {
+    try {
+        // 1. 获取静态实体数量
+        await fetchStaticCounts()
 
         // 2. 获取概览数据（合并 QPS + Metrics + CircuitBreakers）
         const overviewRes = await apis.dashboard.getOverview().catch(() => ({ data: {} }))
-        console.log('[DEBUG] overviewRes:', overviewRes)
         if (overviewRes && overviewRes.data) {
             metrics.qps = overviewRes.data.qps || 0
             metrics.dailyRequests = overviewRes.data.daily_requests || 0
@@ -1051,7 +1093,7 @@ async function fetchTelemetryData() {
             circuitBreakers.value = overviewRes.data.active_circuit_breakers || []
         }
 
-        // 3. 获取流量走势（默认全局，最近 1 小时）
+        // 3. 获取流量走势
         const trendsRes = await apis.dashboard
             .getTrends({
                 group_by: trendsGroupBy.value || undefined,
@@ -1063,7 +1105,7 @@ async function fetchTelemetryData() {
             trends.series = trendsRes.data.series || []
         }
 
-        // 4. 获取模型使用排行（默认按请求数排序，今日）
+        // 4. 获取模型使用排行
         const rankingRes = await apis.dashboard
             .getModelRanking({
                 sort_by: rankingSortBy.value,
@@ -1079,15 +1121,129 @@ async function fetchTelemetryData() {
     }
 }
 
+function handleWsMessage(payload) {
+    if (payload.overview) {
+        const d = payload.overview
+        metrics.qps = d.qps || 0
+        metrics.dailyRequests = d.daily_requests || 0
+        metrics.dailyPromptTokens = d.daily_prompt_tokens || 0
+        metrics.dailyCompletionTokens = d.daily_completion_tokens || 0
+        metrics.dailyCachedTokens = d.daily_cached_tokens || 0
+        metrics.dailyCacheCreationTokens = d.daily_cache_creation_tokens || 0
+        metrics.dailyCost = d.daily_cost || 0
+        metrics.avgLatency = d.avg_latency_ms || 0
+        metrics.avgTTFT = d.avg_ttft_ms || 0
+        circuitBreakers.value = d.active_circuit_breakers || []
+    }
+    if (payload.trends) {
+        trends.times = payload.trends.times || []
+        trends.series = payload.trends.series || []
+    }
+    if (payload.model_ranking) {
+        modelRanking.value = payload.model_ranking || []
+    }
+    firstLoading.value = false
+}
+
+function connectWebSocket() {
+    if (wsReconnectTimer) {
+        clearTimeout(wsReconnectTimer)
+        wsReconnectTimer = null
+    }
+
+    if (ws) {
+        wsManualClose = true
+        ws.onopen = null
+        ws.onclose = null
+        ws.onerror = null
+        ws.onmessage = null
+        ws.close()
+        ws = null
+        wsManualClose = false
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const host = window.location.host
+    const token = userStore.token
+    let apiBasic = config('http.apiBasic') || ''
+    if (apiBasic.endsWith('/')) {
+        apiBasic = apiBasic.slice(0, -1)
+    }
+    const wsUrl = `${protocol}//${host}${apiBasic}/api/v1/dashboard/ws?accessToken=${token}`
+
+    ws = new WebSocket(wsUrl)
+
+    ws.onopen = () => {
+        wsReconnectDelay = 1000
+        isUsingFallback.value = false
+        sendWsConfig()
+    }
+
+    ws.onmessage = (event) => {
+        try {
+            const payload = JSON.parse(event.data)
+            handleWsMessage(payload)
+            // 只有成功收到 WS 数据帧后，我们才停用 HTTP 轮询，确信 WS 可用且有数据
+            if (timer.value) {
+                clearInterval(timer.value)
+                timer.value = null
+            }
+        } catch (e) {
+            console.error('Failed to parse WS data', e)
+        }
+    }
+
+    ws.onclose = () => {
+        if (wsManualClose) return
+
+        // 立即切换/维持 HTTP 轮询兜底
+        isUsingFallback.value = true
+        if (!timer.value) {
+            fetchTelemetryData()
+            timer.value = setInterval(fetchTelemetryData, 10000)
+        }
+
+        wsReconnectTimer = setTimeout(() => {
+            wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000)
+            connectWebSocket()
+        }, wsReconnectDelay)
+    }
+
+    ws.onerror = () => {
+        if (ws) {
+            ws.close()
+        }
+    }
+}
+
 onMounted(async () => {
+    // 1. 获取静态实体数量
+    await fetchStaticCounts()
+    // 2. 立即通过 HTTP 拉取初始指标，避免白屏
     await fetchTelemetryData()
-    // 启动 10 秒定时自动拉取
+    // 3. 启动默认 HTTP 轮询 定时器
     timer.value = setInterval(fetchTelemetryData, 10000)
+    // 4. 尝试连接 WebSocket，若连接成功且有数据将被接管并自动关闭 HTTP 轮询定时器
+    connectWebSocket()
 })
 
 onUnmounted(() => {
+    wsManualClose = true
+    if (wsReconnectTimer) {
+        clearTimeout(wsReconnectTimer)
+        wsReconnectTimer = null
+    }
+    if (ws) {
+        ws.onopen = null
+        ws.onclose = null
+        ws.onerror = null
+        ws.onmessage = null
+        ws.close()
+        ws = null
+    }
     if (timer.value) {
         clearInterval(timer.value)
+        timer.value = null
     }
 })
 

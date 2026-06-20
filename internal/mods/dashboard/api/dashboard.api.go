@@ -33,6 +33,11 @@ type CircuitBreakerInfo struct {
 	URL          string `json:"url"`           // 关联的 URL 地址
 }
 
+type cacheVal struct {
+	data      interface{}
+	expiredAt time.Time
+}
+
 type Dashboard struct {
 	DB                *gorm.DB
 	RedisClient       *redis.Client
@@ -40,6 +45,33 @@ type Dashboard struct {
 	prometheusAvail   bool
 	prometheusMu      sync.RWMutex
 	prometheusLastChk time.Time
+	cacheMu           sync.RWMutex
+	cacheMap          map[string]cacheVal
+}
+
+func (a *Dashboard) getCache(key string) (interface{}, bool) {
+	a.cacheMu.RLock()
+	defer a.cacheMu.RUnlock()
+	if a.cacheMap == nil {
+		return nil, false
+	}
+	val, ok := a.cacheMap[key]
+	if !ok || time.Now().After(val.expiredAt) {
+		return nil, false
+	}
+	return val.data, true
+}
+
+func (a *Dashboard) setCache(key string, data interface{}, ttl time.Duration) {
+	a.cacheMu.Lock()
+	defer a.cacheMu.Unlock()
+	if a.cacheMap == nil {
+		a.cacheMap = make(map[string]cacheVal)
+	}
+	a.cacheMap[key] = cacheVal{
+		data:      data,
+		expiredAt: time.Now().Add(ttl),
+	}
 }
 
 type prometheusQueryResponse struct {
@@ -298,7 +330,12 @@ type OverviewResponse struct {
 // @Summary Query dashboard overview metrics (QPS, daily stats, latency, circuit breakers)
 // @Success 200 {object} util.ResponseResult{data=OverviewResponse}
 // @Router /api/v1/dashboard/overview [get]
-func (a *Dashboard) QueryOverview(c *gin.Context) {
+func (a *Dashboard) getOverview(ctx context.Context) (*OverviewResponse, error) {
+	cacheKey := "overview"
+	if cached, ok := a.getCache(cacheKey); ok {
+		return cached.(*OverviewResponse), nil
+	}
+
 	var res OverviewResponse
 
 	// 1. 获取 QPS：优先 Prometheus
@@ -309,7 +346,7 @@ func (a *Dashboard) QueryOverview(c *gin.Context) {
 		sKey := fmt.Sprintf("aigw:status:global:%d:s", minute-1)
 		fKey := fmt.Sprintf("aigw:status:global:%d:f", minute-1)
 
-		vals, err := a.RedisClient.MGet(c.Request.Context(), sKey, fKey).Result()
+		vals, err := a.RedisClient.MGet(ctx, sKey, fKey).Result()
 		if err == nil && len(vals) == 2 {
 			var succ, fail int64
 			if vals[0] != nil {
@@ -322,7 +359,7 @@ func (a *Dashboard) QueryOverview(c *gin.Context) {
 			if total <= 0 {
 				sKeyCurr := fmt.Sprintf("aigw:status:global:%d:s", minute)
 				fKeyCurr := fmt.Sprintf("aigw:status:global:%d:f", minute)
-				valsCurr, errCurr := a.RedisClient.MGet(c.Request.Context(), sKeyCurr, fKeyCurr).Result()
+				valsCurr, errCurr := a.RedisClient.MGet(ctx, sKeyCurr, fKeyCurr).Result()
 				if errCurr == nil && len(valsCurr) == 2 {
 					var succC, failC int64
 					if valsCurr[0] != nil {
@@ -349,7 +386,7 @@ func (a *Dashboard) QueryOverview(c *gin.Context) {
 		dailyCacheCreationKey := fmt.Sprintf("aigw:status:daily:cache_creation_tokens:%s", dateStr)
 		dailyCostKey := fmt.Sprintf("aigw:status:daily:cost:%s", dateStr)
 
-		vals, err := a.RedisClient.MGet(c.Request.Context(), dailyReqKey, dailyPromptKey, dailyCompletionKey, dailyCachedKey, dailyCacheCreationKey, dailyCostKey).Result()
+		vals, err := a.RedisClient.MGet(ctx, dailyReqKey, dailyPromptKey, dailyCompletionKey, dailyCachedKey, dailyCacheCreationKey, dailyCostKey).Result()
 		if err == nil && len(vals) == 6 {
 			if vals[0] != nil {
 				res.DailyRequests, _ = strconv.ParseInt(vals[0].(string), 10, 64)
@@ -379,8 +416,23 @@ func (a *Dashboard) QueryOverview(c *gin.Context) {
 	res.AvgTTFTMs = avgTTFT * 1000
 
 	// 4. 获取熔断器信息
-	res.ActiveCircuitBreakers = a.getCircuitBreakers(c.Request.Context())
+	res.ActiveCircuitBreakers = a.getCircuitBreakers(ctx)
 
+	a.setCache(cacheKey, &res, 5*time.Second)
+	return &res, nil
+}
+
+// @Tags DashboardAPI
+// @Security ApiKeyAuth
+// @Summary Query dashboard overview metrics (QPS, daily stats, latency, circuit breakers)
+// @Success 200 {object} util.ResponseResult{data=OverviewResponse}
+// @Router /api/v1/dashboard/overview [get]
+func (a *Dashboard) QueryOverview(c *gin.Context) {
+	res, err := a.getOverview(c.Request.Context())
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
 	util.ResSuccess(c, res)
 }
 
@@ -574,9 +626,12 @@ type trendRangeConfig struct {
 // @Param time_range query string false "Time range: 1h, 6h, 24h, 7d, today (default: 1h)"
 // @Success 200 {object} util.ResponseResult{data=TrendsResponse}
 // @Router /api/v1/dashboard/trends [get]
-func (a *Dashboard) QueryTrends(c *gin.Context) {
-	groupBy := c.Query("group_by")
-	timeRange := c.DefaultQuery("time_range", "1h")
+func (a *Dashboard) getTrends(ctx context.Context, groupBy, timeRange string) (*TrendsResponse, error) {
+	cacheKey := fmt.Sprintf("trends:%s:%s", groupBy, timeRange)
+	if cached, ok := a.getCache(cacheKey); ok {
+		return cached.(*TrendsResponse), nil
+	}
+
 	end := time.Now().Truncate(time.Minute)
 	rangeConfig := resolveTrendRange(timeRange, end)
 	end = rangeConfig.end
@@ -637,8 +692,8 @@ func (a *Dashboard) QueryTrends(c *gin.Context) {
 				}
 
 				res.Series = []TrendsSeries{series}
-				util.ResSuccess(c, res)
-				return
+				a.setCache(cacheKey, &res, 5*time.Second)
+				return &res, nil
 			}
 		} else {
 			// 按标签分组
@@ -680,8 +735,8 @@ func (a *Dashboard) QueryTrends(c *gin.Context) {
 					res.Series = append(res.Series, series)
 				}
 
-				util.ResSuccess(c, res)
-				return
+				a.setCache(cacheKey, &res, 5*time.Second)
+				return &res, nil
 			}
 		}
 	}
@@ -696,7 +751,7 @@ func (a *Dashboard) QueryTrends(c *gin.Context) {
 			keys[i*2+1] = fmt.Sprintf("aigw:status:global:%d:f", ts)
 		}
 
-		vals, err := a.RedisClient.MGet(c.Request.Context(), keys...).Result()
+		vals, err := a.RedisClient.MGet(ctx, keys...).Result()
 		if err == nil && len(vals) == rangeConfig.redisMinutes*2 {
 			series := TrendsSeries{
 				Label:   "global",
@@ -729,6 +784,25 @@ func (a *Dashboard) QueryTrends(c *gin.Context) {
 		}
 	}
 
+	a.setCache(cacheKey, &res, 5*time.Second)
+	return &res, nil
+}
+
+// @Tags DashboardAPI
+// @Security ApiKeyAuth
+// @Summary Query bucketed gateway traffic success/failure trends
+// @Param group_by query string false "Group by: model, provider, tenant, endpoint (default: global)"
+// @Param time_range query string false "Time range: 1h, 6h, 24h, 7d, today (default: 1h)"
+// @Success 200 {object} util.ResponseResult{data=TrendsResponse}
+// @Router /api/v1/dashboard/trends [get]
+func (a *Dashboard) QueryTrends(c *gin.Context) {
+	groupBy := c.Query("group_by")
+	timeRange := c.DefaultQuery("time_range", "1h")
+	res, err := a.getTrends(c.Request.Context(), groupBy, timeRange)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
 	util.ResSuccess(c, res)
 }
 
@@ -847,13 +921,10 @@ type ModelRankingItem struct {
 // @Param limit query int false "Limit results (default: 10)"
 // @Success 200 {object} util.ResponseResult{data=[]ModelRankingItem}
 // @Router /api/v1/dashboard/model-ranking [get]
-func (a *Dashboard) QueryModelRanking(c *gin.Context) {
-	ctx := c.Request.Context()
-	sortBy := c.DefaultQuery("sort_by", "request_count")
-	timeRange := c.DefaultQuery("time_range", "1h")
-	limit := 10
-	if l, err := strconv.Atoi(c.DefaultQuery("limit", "10")); err == nil && l > 0 {
-		limit = l
+func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange string, limit int) ([]ModelRankingItem, error) {
+	cacheKey := fmt.Sprintf("ranking:%s:%s:%d", sortBy, timeRange, limit)
+	if cached, ok := a.getCache(cacheKey); ok {
+		return cached.([]ModelRankingItem), nil
 	}
 
 	// 根据 time_range 计算 PromQL 范围和 Redis 窗口
@@ -862,13 +933,12 @@ func (a *Dashboard) QueryModelRanking(c *gin.Context) {
 	// 1. 从数据库查询所有启用的模型
 	var models []rschema.Model
 	if err := a.DB.WithContext(ctx).Where("enabled = ?", 1).Find(&models).Error; err != nil {
-		util.ResError(c, err)
-		return
+		return nil, err
 	}
 
 	if len(models) == 0 {
-		util.ResSuccess(c, []ModelRankingItem{})
-		return
+		a.setCache(cacheKey, []ModelRankingItem{}, 5*time.Second)
+		return []ModelRankingItem{}, nil
 	}
 
 	// 2. 初始化 items
@@ -1019,7 +1089,30 @@ func (a *Dashboard) QueryModelRanking(c *gin.Context) {
 		filtered = filtered[:limit]
 	}
 
-	util.ResSuccess(c, filtered)
+	a.setCache(cacheKey, filtered, 5*time.Second)
+	return filtered, nil
+}
+
+// @Tags DashboardAPI
+// @Security ApiKeyAuth
+// @Summary Query model usage ranking with detailed metrics
+// @Param sort_by query string false "Sort by: request_count, avg_latency, avg_ttft, tokens, cost, success_rate (default: request_count)"
+// @Param limit query int false "Limit results (default: 10)"
+// @Success 200 {object} util.ResponseResult{data=[]ModelRankingItem}
+// @Router /api/v1/dashboard/model-ranking [get]
+func (a *Dashboard) QueryModelRanking(c *gin.Context) {
+	sortBy := c.DefaultQuery("sort_by", "request_count")
+	timeRange := c.DefaultQuery("time_range", "1h")
+	limit := 10
+	if l, err := strconv.Atoi(c.DefaultQuery("limit", "10")); err == nil && l > 0 {
+		limit = l
+	}
+	res, err := a.getModelRanking(c.Request.Context(), sortBy, timeRange, limit)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResSuccess(c, res)
 }
 
 // resolveTimeRange 将前端传入的 time_range 参数转换为 PromQL 范围字符串和 Redis 窗口分钟数

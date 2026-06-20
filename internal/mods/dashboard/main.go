@@ -24,6 +24,7 @@ func (a *Dashboard) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) 
 		g.POST("sync-redis", a.DashboardAPI.SyncRedis)
 		g.GET("model-ranking", a.DashboardAPI.QueryModelRanking)
 		g.GET("overview", a.DashboardAPI.QueryOverview)
+		g.GET("ws", a.DashboardAPI.HandleWebSocket)
 	}
 	return nil
 }
