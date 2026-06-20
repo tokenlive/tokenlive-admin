@@ -262,8 +262,23 @@
                                             ? 'red'
                                             : 'blue'
                                     ">
-                                    {{ record.threshold != null ? record.threshold : '-' }} /
-                                    {{ record.current_value != null ? record.current_value : '-' }}
+                                    <template v-if="record.event_type === 'circuit_break'">
+                                        {{
+                                            record.threshold != null
+                                                ? Number(record.threshold).toFixed(2).replace(/\.00$/, '') + '%'
+                                                : '-'
+                                        }}
+                                        /
+                                        {{
+                                            record.current_value != null
+                                                ? Number(record.current_value).toFixed(2).replace(/\.00$/, '') + '%'
+                                                : '-'
+                                        }}
+                                    </template>
+                                    <template v-else>
+                                        {{ record.threshold != null ? record.threshold : '-' }} /
+                                        {{ record.current_value != null ? record.current_value : '-' }}
+                                    </template>
                                 </a-tag>
                             </a-descriptions-item>
                             <a-descriptions-item
