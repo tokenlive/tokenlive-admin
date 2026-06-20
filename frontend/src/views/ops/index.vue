@@ -252,16 +252,29 @@
                             size="small"
                             bordered>
                             <a-descriptions-item
-                                :label="$t('pages.ops.table.threshold')"
-                                v-if="record.threshold != null">
-                                <a-tag color="blue">{{ record.threshold }}</a-tag>
+                                :label="$t('pages.ops.table.threshold') + ' / ' + $t('pages.ops.table.current_value')"
+                                v-if="record.threshold != null || record.current_value != null">
+                                <a-tag
+                                    :color="
+                                        record.current_value != null &&
+                                        record.threshold != null &&
+                                        record.current_value >= record.threshold
+                                            ? 'red'
+                                            : 'blue'
+                                    ">
+                                    {{ record.threshold != null ? record.threshold : '-' }} /
+                                    {{ record.current_value != null ? record.current_value : '-' }}
+                                </a-tag>
                             </a-descriptions-item>
                             <a-descriptions-item
-                                :label="$t('pages.ops.table.current_value')"
-                                v-if="record.current_value != null">
-                                <a-tag :color="record.current_value >= record.threshold ? 'red' : 'orange'">
-                                    {{ record.current_value }}
-                                </a-tag>
+                                :label="$t('pages.ops.table.endpoint_id')"
+                                v-if="record.endpoint_id">
+                                <a-typography-text
+                                    copyable
+                                    :ellipsis="{ tooltip: true }"
+                                    style="font-family: monospace; max-width: 200px">
+                                    {{ record.endpoint_id }}
+                                </a-typography-text>
                             </a-descriptions-item>
                             <a-descriptions-item
                                 :label="$t('pages.ops.table.request_id')"
@@ -296,6 +309,25 @@
                 </template>
             </a-table>
         </a-card>
+
+        <!-- 全局控制工具栏 -->
+        <div
+            v-if="isAdmin"
+            class="cache-control-toolbar">
+            <div style="margin-right: auto; display: flex; align-items: center">
+                <sync-outlined style="font-size: 16px; color: var(--color-primary); margin-right: 8px" />
+                <span class="cache-control-title">{{ $t('pages.dashboard.cache.title') }}</span>
+            </div>
+            <a-button
+                type="primary"
+                ghost
+                :loading="syncing"
+                @click="handleSyncRedis"
+                style="border-radius: 6px; font-weight: 500">
+                <template #icon><sync-outlined /></template>
+                {{ $t('pages.dashboard.cache.sync') }}
+            </a-button>
+        </div>
     </div>
 </template>
 
@@ -311,13 +343,32 @@ import {
     CloseCircleOutlined,
     RedoOutlined,
     SearchOutlined,
+    SyncOutlined,
 } from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
 import apis from '@/apis'
 import { config } from '@/config'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 const userStore = useUserStore()
+const isAdmin = computed(() => userStore.userInfo?.username === 'admin')
+const syncing = ref(false)
+
+async function handleSyncRedis() {
+    syncing.value = true
+    try {
+        const res = await apis.dashboard.syncRedis()
+        if (res && res.success) {
+            message.success(t('pages.dashboard.cache.sync.success'))
+            await Promise.all([fetchData(), fetchEvents()])
+        }
+    } catch (e) {
+        console.error(e)
+    } finally {
+        syncing.value = false
+    }
+}
 
 // State
 const loading = ref(false)
@@ -633,9 +684,10 @@ const tenantRankingOptions = computed(() => {
     const isD = isDark.value
     return {
         tooltip: { trigger: 'axis' },
-        grid: { left: 120, right: 20, bottom: 10, top: 10 },
+        grid: { left: 120, right: 40, bottom: 10, top: 10 },
         xAxis: {
             type: 'value',
+            name: t('pages.circuitBreak.form.slidingWindow.unit.count'),
             axisLabel: { color: isD ? 'rgba(255, 255, 255, 0.45)' : '#666' },
             splitLine: { lineStyle: { color: isD ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' } },
         },
@@ -646,11 +698,17 @@ const tenantRankingOptions = computed(() => {
         },
         series: [
             {
+                name: t('pages.ops.event_count'),
                 type: 'bar',
                 barWidth: 16,
                 showBackground: true,
                 backgroundStyle: {
                     color: isD ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                },
+                label: {
+                    show: true,
+                    position: 'right',
+                    color: isD ? 'rgba(255, 255, 255, 0.65)' : '#666',
                 },
                 data: ranking.map((r) => r.count).reverse(),
                 itemStyle: { color: '#1890ff', borderRadius: [0, 4, 4, 0] },
@@ -664,9 +722,10 @@ const modelRankingOptions = computed(() => {
     const isD = isDark.value
     return {
         tooltip: { trigger: 'axis' },
-        grid: { left: 120, right: 20, bottom: 10, top: 10 },
+        grid: { left: 120, right: 40, bottom: 10, top: 10 },
         xAxis: {
             type: 'value',
+            name: t('pages.circuitBreak.form.slidingWindow.unit.count'),
             axisLabel: { color: isD ? 'rgba(255, 255, 255, 0.45)' : '#666' },
             splitLine: { lineStyle: { color: isD ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' } },
         },
@@ -677,11 +736,17 @@ const modelRankingOptions = computed(() => {
         },
         series: [
             {
+                name: t('pages.ops.event_count'),
                 type: 'bar',
                 barWidth: 16,
                 showBackground: true,
                 backgroundStyle: {
                     color: isD ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                },
+                label: {
+                    show: true,
+                    position: 'right',
+                    color: isD ? 'rgba(255, 255, 255, 0.65)' : '#666',
                 },
                 data: ranking.map((r) => r.count).reverse(),
                 itemStyle: { color: '#722ed1', borderRadius: [0, 4, 4, 0] },
@@ -878,5 +943,24 @@ onUnmounted(() => {
 
 [data-theme='dark'] .ops-expanded-error-msg {
     color: #ff7875;
+}
+
+/* 缓存控制工具栏 */
+.cache-control-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: var(--color-bg-container);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+}
+
+.cache-control-title {
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--color-text-primary);
 }
 </style>

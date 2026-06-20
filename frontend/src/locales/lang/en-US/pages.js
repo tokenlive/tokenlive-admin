@@ -1253,6 +1253,8 @@ export default {
     'pages.ops.table.message': 'Message',
     'pages.ops.table.request_id': 'Request ID',
     'pages.ops.table.trace_id': 'Trace ID',
+    'pages.ops.table.endpoint_id': 'Endpoint ID',
+    'pages.ops.event_count': 'Event Count',
     'pages.ops.filter.event_type': 'Event Type',
     'pages.ops.filter.tenant': 'Tenant',
     'pages.ops.filter.model': 'Model',

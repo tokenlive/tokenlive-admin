@@ -103,6 +103,17 @@ func (a *PolicyBinding) ExistsByPolicyID(ctx context.Context, policyType, policy
 	return ok, errors.WithStack(err)
 }
 
+// CleanDeletedConflict checks if a logically deleted record exists with the same unique key
+// (tenant_code, user_id, model_code, policy_type, policy_id) and deleted != '0'.
+// If found, it physically deletes it to prevent 1062 duplicate entry DB errors when inserting or updating a record.
+func (a *PolicyBinding) CleanDeletedConflict(ctx context.Context, tenantCode, userID, modelCode, policyType, policyID string) error {
+	err := util.GetDB(ctx, a.DB).Unscoped().
+		Where("tenant_code = ? AND user_id = ? AND model_code = ? AND policy_type = ? AND policy_id = ? AND deleted != '0'",
+			tenantCode, userID, modelCode, policyType, policyID).
+		Delete(new(schema.PolicyBinding)).Error
+	return errors.WithStack(err)
+}
+
 // Create a new policy binding.
 func (a *PolicyBinding) Create(ctx context.Context, item *schema.PolicyBinding) error {
 	result := GetPolicyBindingDB(ctx, a.DB).Create(item)

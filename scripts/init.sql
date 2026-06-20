@@ -265,7 +265,7 @@ CREATE TABLE IF NOT EXISTS `policy_binding`
     `updated_at`  TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
     `deleted_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
-    UNIQUE KEY `uniq_dimensions_policy` (`tenant_code`, `user_id`, `model_code`, `policy_type`, `policy_id`),
+    UNIQUE KEY `uniq_dimensions_policy` (`tenant_code`, `user_id`, `model_code`, `policy_type`, `policy_id`, `deleted`),
     KEY `idx_pb_tenant` (`tenant_code`, `deleted`),
     KEY `idx_pb_user` (`user_id`, `deleted`),
     KEY `idx_pb_model` (`model_code`, `deleted`)

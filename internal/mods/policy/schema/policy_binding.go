@@ -24,7 +24,7 @@ type PolicyBinding struct {
 	Modifier    *string         `json:"modifier,omitempty" gorm:"size:255;comment:Modifier;"`
 	CreatedAt   time.Time       `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`
 	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`
-	Deleted     string          `json:"-" gorm:"size:20;default:0;index:idx_pb_tenant,priority:2;index:idx_pb_user,priority:2;index:idx_pb_model,priority:2;comment:Delete flag;"`
+	Deleted     string          `json:"-" gorm:"size:20;default:0;uniqueIndex:uniq_dimensions_policy,priority:6;index:idx_pb_tenant,priority:2;index:idx_pb_user,priority:2;index:idx_pb_model,priority:2;comment:Delete flag;"`
 	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`
 }
 

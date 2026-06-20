@@ -893,25 +893,6 @@
                 </a-card>
             </a-col>
         </a-row>
-
-        <!-- 全局控制工具栏 -->
-        <div
-            v-if="isAdmin"
-            class="cache-control-toolbar">
-            <div style="margin-right: auto; display: flex; align-items: center">
-                <sync-outlined style="font-size: 16px; color: var(--color-primary); margin-right: 8px" />
-                <span class="cache-control-title">{{ $t('pages.dashboard.cache.title') }}</span>
-            </div>
-            <a-button
-                type="primary"
-                ghost
-                :loading="syncing"
-                @click="handleSyncRedis"
-                style="border-radius: 6px; font-weight: 500">
-                <template #icon><sync-outlined /></template>
-                {{ $t('pages.dashboard.cache.sync') }}
-            </a-button>
-        </div>
     </div>
 </template>
 
@@ -920,10 +901,7 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/store'
-import useUserStore from '@/store/modules/user'
 
-const userStore = useUserStore()
-const isAdmin = computed(() => userStore.userInfo?.username === 'admin')
 import * as echarts from 'echarts'
 import {
     DatabaseOutlined,
@@ -931,27 +909,8 @@ import {
     CloudServerOutlined,
     SafetyOutlined,
     AlertOutlined,
-    SyncOutlined,
 } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
 import apis from '@/apis'
-
-const syncing = ref(false)
-
-async function handleSyncRedis() {
-    syncing.value = true
-    try {
-        const res = await apis.dashboard.syncRedis()
-        if (res && res.success) {
-            message.success(t('pages.dashboard.cache.sync.success'))
-            await fetchTelemetryData()
-        }
-    } catch (e) {
-        console.error(e)
-    } finally {
-        syncing.value = false
-    }
-}
 
 defineOptions({
     name: 'home',
@@ -1658,25 +1617,6 @@ function goToModel(modelId) {
     &:hover {
         opacity: 0.8;
     }
-}
-
-// 缓存控制工具栏
-.cache-control-toolbar {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    margin-top: 16px;
-    padding: 12px 16px;
-    border-radius: 8px;
-    background: var(--color-bg-container);
-    border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-sm);
-}
-
-.cache-control-title {
-    font-weight: 500;
-    font-size: 14px;
-    color: var(--color-text-primary);
 }
 
 // 骨架屏基础样式与动画

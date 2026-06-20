@@ -64,6 +64,11 @@ func (a *PolicyBinding) Create(ctx context.Context, formItem *schema.PolicyBindi
 		return nil, errors.BadRequest("", "This specific policy is already bound to the specified dimension")
 	}
 
+	// 1.5. Clean logically deleted records that match the unique combination to prevent 1062 database constraint error.
+	if err := a.PolicyBindingDAL.CleanDeletedConflict(ctx, formItem.TenantCode, formItem.UserID, formItem.ModelCode, formItem.PolicyType, formItem.PolicyID); err != nil {
+		return nil, err
+	}
+
 	// 2. Industrial Spec: check exclusive policy types (invocation, loadbalance)
 	if isExclusivePolicy(formItem.PolicyType) {
 		existsDim, err := a.PolicyBindingDAL.ExistsByDimensions(ctx, formItem.TenantCode, formItem.UserID, formItem.ModelCode, formItem.PolicyType)
@@ -130,6 +135,11 @@ func (a *PolicyBinding) Update(ctx context.Context, id string, formItem *schema.
 			return err
 		} else if existsUnique {
 			return errors.BadRequest("", "This specific policy is already bound to the specified dimension")
+		}
+
+		// Clean logically deleted records that match the new unique combination to prevent 1062 database constraint error.
+		if err := a.PolicyBindingDAL.CleanDeletedConflict(ctx, formItem.TenantCode, formItem.UserID, formItem.ModelCode, formItem.PolicyType, formItem.PolicyID); err != nil {
+			return err
 		}
 	}
 
