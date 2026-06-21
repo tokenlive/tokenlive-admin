@@ -15,7 +15,7 @@ ShutdownTimeout = 10
 ReadTimeout = 60
 WriteTimeout = 60
 IdleTimeout = 10
-CertFile = "certs/tokenlive.net.crt"
+CertFile = "certs/fullchain.crt"
 KeyFile = "certs/tokenlive.net.key"
 
 [General.Root] # Super Administrator Account
