@@ -29,7 +29,7 @@ type EventLog struct {
 	CurrentValue *float64 `json:"current_value" gorm:"type:decimal(10,2);comment:Current value at trigger;"`
 	RequestID    string   `json:"request_id" gorm:"size:64;not null;default:'';comment:Request ID;"`
 	TraceID      string   `json:"trace_id" gorm:"size:64;not null;default:'';comment:Trace ID;"`
-	Message      string   `json:"message" gorm:"size:1024;not null;default:'';comment:Human-readable message;"`
+	Message      string   `json:"message" gorm:"size:10240;not null;default:'';comment:Human-readable message;"`
 	EventTime    time.Time `json:"event_time" gorm:"type:datetime;not null;index:idx_el_time;comment:Event timestamp from gateway;"`
 	CreatedAt    time.Time `json:"created_at" gorm:"autoCreateTime;comment:Ingest time;"`
 }

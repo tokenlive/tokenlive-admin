@@ -587,7 +587,7 @@ CREATE TABLE IF NOT EXISTS `event_log`
     `current_value` decimal(10,2)          DEFAULT NULL COMMENT '触发时当前值',
     `request_id`    varchar(64)   NOT NULL DEFAULT '' COMMENT '请求ID',
     `trace_id`      varchar(64)   NOT NULL DEFAULT '' COMMENT '追踪ID',
-    `message`       varchar(1024) NOT NULL DEFAULT '' COMMENT '人机消息',
+    `message`       varchar(10240) NOT NULL DEFAULT '' COMMENT '人机消息',
     `event_time`    datetime      NOT NULL COMMENT '事件触发时间',
     `created_at`    timestamp     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '入库时间',
     PRIMARY KEY (`id`),
