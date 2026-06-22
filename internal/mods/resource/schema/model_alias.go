@@ -11,16 +11,16 @@ import (
 
 // ModelAlias defines an alias for a model.
 type ModelAlias struct {
-	ID          string          `json:"id" gorm:"size:20;primaryKey;<-:create;"`                                                 // Unique ID
-	SpaceCode   string          `json:"space_code" gorm:"size:255;not null;uniqueIndex:uniq_model_alias_code;"`                              // Space code
-	Alias       string          `json:"alias" gorm:"size:255;not null;uniqueIndex:uniq_model_alias_code;"`                                   // Model alias
-	ModelId     string          `json:"model_id" gorm:"size:20;not null;"`                                                       // Model ID this alias belongs to
-	Description *string         `json:"description,omitempty" gorm:"size:255;"`                                                  // Description
-	CreatedAt   time.Time       `json:"created_at" gorm:"type:timestamp;autoCreateTime;"`                                        // Create timestamp
-	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;autoUpdateTime;"`                              // Update timestamp
-	Deleted     string          `json:"-" gorm:"uniqueIndex:uniq_model_alias_code;size:20;default:0;"`                                       // Delete flag
-	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete time;"`                                             // Delete time
-	Model       *Model          `json:"model,omitempty" gorm:"foreignKey:ModelId;references:ID"`                                 // Model association
+	ID          string          `json:"id" gorm:"type:varchar(20);primaryKey;<-:create;comment:ID;"`
+	SpaceCode   string          `json:"space_code" gorm:"type:varchar(255);not null;uniqueIndex:uniq_code;comment:模型空间编码;"`
+	Alias       string          `json:"alias" gorm:"type:varchar(255);not null;uniqueIndex:uniq_code;comment:模型别名;"`
+	ModelId     string          `json:"model_id" gorm:"type:varchar(20);not null;comment:所属模型ID;"`
+	Description *string         `json:"description,omitempty" gorm:"type:varchar(255);default:null;comment:备注;"`
+	CreatedAt   time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
+	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
+	Deleted     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_code;comment:逻辑删除标识;"`
+	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
+	Model       *Model          `json:"model,omitempty" gorm:"foreignKey:ModelId;references:ID"` // Model association
 }
 
 func (m *ModelAlias) TableName() string {

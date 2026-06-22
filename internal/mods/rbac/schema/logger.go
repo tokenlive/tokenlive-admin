@@ -18,8 +18,8 @@ type Logger struct {
 	Stack     string    `gorm:"type:text;" json:"stack"`                 // Error stack
 	Data      string    `gorm:"type:text;" json:"data"`                  // Log data
 	CreatedAt time.Time `gorm:"index;" json:"created_at"`                // Create time
-	LoginName string    `json:"login_name" gorm:"<-:false;-:migration;"` // From User.Username
-	UserName  string    `json:"user_name" gorm:"<-:false;-:migration;"`  // From User.Name
+	LoginName string    `json:"login_name" gorm:"->;-:migration"`        // From User.Username
+	UserName  string    `json:"user_name" gorm:"->;-:migration"`         // From User.Name
 }
 
 func (a *Logger) TableName() string {

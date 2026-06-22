@@ -9,17 +9,17 @@ import (
 
 // Space management for microservice spaces
 type Space struct {
-	ID          string     `json:"id" gorm:"size:20;primarykey;"`              // Unique ID
-	Code        string     `json:"code" gorm:"size:255;not null;uniqueIndex:uniq_code"` // Code (unique)
-	Name        string     `json:"name" gorm:"size:255;not null"`                       // Name
-	Tenant      string     `json:"tenant" gorm:"size:255;not null;default:''"`          // Tenant
-	Creator     string     `json:"creator" gorm:"size:255;not null;default:''"`         // Creator
-	Description string     `json:"description" gorm:"size:255;not null;default:''"`    // Description
-	Metadata    *string    `json:"metadata,omitempty" gorm:"type:json"`        // Metadata (JSON)
-	CreatedAt   time.Time  `json:"created_at" gorm:"type:timestamp;autoCreateTime;index:idx_space_created_at;"` // Create time
-	UpdatedAt   time.Time  `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;index:idx_space_updated_at;"` // Update time
-	Deleted     string     `json:"-" gorm:"size:20;default:0"`                 // Logical delete flag
-	DeletedAt   *time.Time `json:"-" gorm:"type:datetime;"`                    // Delete time
+	ID          string     `json:"id" gorm:"type:varchar(20);primaryKey;comment:ID;"`
+	Code        string     `json:"code" gorm:"type:varchar(255);default:null;uniqueIndex:uniq_code;comment:空间编码;"`
+	Name        string     `json:"name" gorm:"type:varchar(255);default:null;comment:空间名称;"`
+	Tenant      string     `json:"tenant" gorm:"type:varchar(255);default:null;comment:租户信息;"`
+	Creator     string     `json:"creator" gorm:"type:varchar(255);default:null;comment:创建人;"`
+	Description string     `json:"description" gorm:"type:varchar(255);default:null;comment:描述;"`
+	Metadata    *string    `json:"metadata,omitempty" gorm:"type:json;default:null;comment:元数据;"`
+	CreatedAt   time.Time  `json:"created_at" gorm:"type:datetime(3);default:null;autoCreateTime;comment:创建时间;"`
+	UpdatedAt   time.Time  `json:"updated_at" gorm:"type:datetime(3);default:null;autoUpdateTime;comment:更新时间;"`
+	Deleted     string     `json:"-" gorm:"type:varchar(20);default:'0';comment:逻辑删除标识;"`
+	DeletedAt   *time.Time `json:"-" gorm:"type:datetime(3);default:null;comment:逻辑删除时间;"`
 }
 
 func (a *Space) TableName() string {

@@ -11,18 +11,18 @@ import (
 
 // Route policy management
 type PolicyRoute struct {
-	ID          string               `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`                             // Unique ID
-	Name        string               `json:"name" gorm:"size:128;not null;uniqueIndex:uniq_policy_route_name;comment:Policy name;"` // Policy name
-	Order       int                  `json:"order" gorm:"not null;default:0;comment:Sort order;"`                                   // Sort order
-	Version     int64                `json:"version" gorm:"not null;default:1;comment:Version;"`                                    // Version
-	Enabled     int                  `json:"enabled" gorm:"not null;default:0;comment:Enabled;"`                                    // Enabled
-	Description *string              `json:"description,omitempty" gorm:"size:255;comment:Description;"`                            // Details
-	Creator     *string              `json:"creator,omitempty" gorm:"size:255;comment:Creator;"`                                    // Creator
-	Modifier    *string              `json:"modifier,omitempty" gorm:"size:255;comment:Modifier;"`                                  // Modifier
-	CreatedAt   time.Time            `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`                            // Create timestamp
-	UpdatedAt   time.Time            `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`                  // Update timestamp
-	Deleted     string               `json:"-" gorm:"size:20;default:0;comment:Delete flag;"` // Delete flag
-	DeletedAt   *gorm.DeletedAt      `json:"-" gorm:"type:datetime;comment:Delete timestamp;"` // Delete timestamp
+	ID          string               `json:"id" gorm:"type:char(20);primaryKey;<-:create;comment:主键ID (XID);"`
+	Name        string               `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_route_name;comment:策略名称;"`
+	Order       int                  `json:"order" gorm:"type:int;not null;default:0;comment:执行顺序，数字越小越优先;"`
+	Version     int64                `json:"version" gorm:"type:bigint;not null;default:1;comment:配置版本号;"`
+	Enabled     int                  `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
+	Description *string              `json:"description,omitempty" gorm:"type:varchar(255);default:null;comment:备注描述;"`
+	Creator     *string              `json:"creator,omitempty" gorm:"type:varchar(255);default:null;comment:创建者;"`
+	Modifier    *string              `json:"modifier,omitempty" gorm:"type:varchar(255);default:null;comment:修改者;"`
+	CreatedAt   time.Time            `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
+	UpdatedAt   time.Time            `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
+	Deleted     string               `json:"-" gorm:"type:varchar(20);not null;default:'0';comment:逻辑删除标识;"`
+	DeletedAt   *gorm.DeletedAt      `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 	Details     *[]PolicyRouteDetail `json:"details,omitempty" gorm:"foreignKey:RouteId;references:ID"`
 }
 

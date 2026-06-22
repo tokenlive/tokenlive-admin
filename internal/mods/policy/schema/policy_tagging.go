@@ -18,21 +18,21 @@ type TaggingAction struct {
 
 // PolicyTagging 流量染色策略表
 type PolicyTagging struct {
-	ID          string          `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`
-	Name        string          `json:"name" gorm:"size:128;not null;uniqueIndex:uniq_policy_tagging_name;comment:Policy name;"`
-	Order       int             `json:"order" gorm:"not null;default:0;comment:Execution order (smaller is higher priority);"`
-	Relation    string          `json:"relation" gorm:"size:16;not null;default:AND;comment:Relation type: AND/OR;"`
-	Conditions  *string         `json:"conditions,omitempty" gorm:"type:json;comment:Match conditions (JSON);"`
-	Actions     *string         `json:"actions,omitempty" gorm:"type:json;comment:Tagging actions (JSON);"`
-	Version     int64           `json:"version" gorm:"not null;default:1;comment:Version;"`
-	Enabled     int             `json:"enabled" gorm:"not null;default:0;comment:Enabled;"`
-	Description *string         `json:"description,omitempty" gorm:"size:255;comment:Details;"`
-	Creator     *string         `json:"creator,omitempty" gorm:"size:255;comment:Creator;"`
-	Modifier    *string         `json:"modifier,omitempty" gorm:"size:255;comment:Modifier;"`
-	CreatedAt   time.Time       `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`
-	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`
-	Deleted     string          `json:"-" gorm:"size:20;default:0;comment:Delete flag;"`
-	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`
+	ID          string          `json:"id" gorm:"type:char(20);primaryKey;<-:create;comment:主键ID (XID);"`
+	Name        string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_tagging_name;comment:策略名称;"`
+	Order       int             `json:"order" gorm:"type:int;not null;default:0;comment:执行顺序，数字越小越优先;"`
+	Relation    string          `json:"relation" gorm:"type:varchar(16);not null;default:'AND';comment:多条件之间的逻辑关系：AND / OR;"`
+	Conditions  *string         `json:"conditions,omitempty" gorm:"type:json;default:null;comment:匹配条件列表，嵌套 Condition 数组;"`
+	Actions     *string         `json:"actions,omitempty" gorm:"type:json;default:null;comment:染色动作列表，嵌套 TaggingAction 数组;"`
+	Version     int64           `json:"version" gorm:"type:bigint;not null;default:1;comment:配置版本号;"`
+	Enabled     int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
+	Description *string         `json:"description,omitempty" gorm:"type:varchar(255);default:null;comment:备注描述;"`
+	Creator     *string         `json:"creator,omitempty" gorm:"type:varchar(255);default:null;comment:创建者;"`
+	Modifier    *string         `json:"modifier,omitempty" gorm:"type:varchar(255);default:null;comment:修改者;"`
+	CreatedAt   time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
+	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
+	Deleted     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';comment:逻辑删除标识;"`
+	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
 func (a PolicyTagging) TableName() string {

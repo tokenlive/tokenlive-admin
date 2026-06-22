@@ -11,21 +11,21 @@ import (
 
 // PolicyBinding 策略绑定表，管理策略与实体的多对多应用关系
 type PolicyBinding struct {
-	ID          string          `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`
-	TenantCode  string          `json:"tenant_code" gorm:"size:64;not null;default:'';uniqueIndex:uniq_dimensions_policy,priority:1;index:idx_pb_tenant,priority:1;comment:Tenant code, empty for unlimited;"`
-	UserID      string          `json:"user_id" gorm:"size:20;not null;default:'';uniqueIndex:uniq_dimensions_policy,priority:2;index:idx_pb_user,priority:1;comment:User ID, empty for unlimited;"`
-	ModelCode   string          `json:"model_code" gorm:"size:64;not null;default:'';uniqueIndex:uniq_dimensions_policy,priority:3;index:idx_pb_model,priority:1;comment:Model code, empty for unlimited;"`
-	PolicyType  string          `json:"policy_type" gorm:"size:64;not null;uniqueIndex:uniq_dimensions_policy,priority:4;comment:Policy type: tagging/loadbalance/invocation/limit/route/circuit_break;"`
-	PolicyID    string          `json:"policy_id" gorm:"size:20;not null;uniqueIndex:uniq_dimensions_policy,priority:5;comment:Policy ID;"`
-	Priority    int             `json:"priority" gorm:"not null;default:0;comment:Priority (smaller is higher priority);"`
-	Enabled     int             `json:"enabled" gorm:"not null;default:0;comment:Enabled;"`
-	Description *string         `json:"description,omitempty" gorm:"size:255;comment:Details;"`
-	Creator     *string         `json:"creator,omitempty" gorm:"size:255;comment:Creator;"`
-	Modifier    *string         `json:"modifier,omitempty" gorm:"size:255;comment:Modifier;"`
-	CreatedAt   time.Time       `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`
-	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`
-	Deleted     string          `json:"-" gorm:"size:20;default:0;uniqueIndex:uniq_dimensions_policy,priority:6;index:idx_pb_tenant,priority:2;index:idx_pb_user,priority:2;index:idx_pb_model,priority:2;comment:Delete flag;"`
-	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`
+	ID          string          `json:"id" gorm:"type:char(20);primaryKey;<-:create;comment:主键ID (XID);"`
+	TenantCode  string          `json:"tenant_code" gorm:"type:varchar(64);not null;default:'';uniqueIndex:uniq_dimensions_policy,priority:1;index:idx_pb_tenant,priority:1;comment:租户唯一英文编码，不限则为空字符串;"`
+	UserID      string          `json:"user_id" gorm:"type:char(20);not null;default:'';uniqueIndex:uniq_dimensions_policy,priority:2;index:idx_pb_user,priority:1;comment:用户唯一ID (XID)，不限则为空字符串;"`
+	ModelCode   string          `json:"model_code" gorm:"type:varchar(64);not null;default:'';uniqueIndex:uniq_dimensions_policy,priority:3;index:idx_pb_model,priority:1;comment:模型唯一编码，不限则为空字符串;"`
+	PolicyType  string          `json:"policy_type" gorm:"type:varchar(64);not null;uniqueIndex:uniq_dimensions_policy,priority:4;comment:策略类型：tagging / loadbalance / invocation / limit / route / circuit_break;"`
+	PolicyID    string          `json:"policy_id" gorm:"type:char(20);not null;uniqueIndex:uniq_dimensions_policy,priority:5;comment:关联的具体策略表主键 ID (XID);"`
+	Priority    int             `json:"priority" gorm:"type:int;not null;default:0;comment:冲突合并时的优先级，数字越小越优先;"`
+	Enabled     int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
+	Description *string         `json:"description,omitempty" gorm:"type:varchar(255);default:null;comment:备注描述;"`
+	Creator     *string         `json:"creator,omitempty" gorm:"type:varchar(255);default:null;comment:创建者;"`
+	Modifier    *string         `json:"modifier,omitempty" gorm:"type:varchar(255);default:null;comment:修改者;"`
+	CreatedAt   time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
+	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
+	Deleted     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_dimensions_policy,priority:6;index:idx_pb_tenant,priority:2;index:idx_pb_user,priority:2;index:idx_pb_model,priority:2;comment:逻辑删除标识;"`
+	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
 func (a PolicyBinding) TableName() string {

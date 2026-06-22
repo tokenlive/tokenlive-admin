@@ -12,34 +12,34 @@ import (
 
 // Circuit break policy management
 type PolicyCircuitBreak struct {
-	ID                          string          `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`                                              // Unique ID
-	Name                        string          `json:"name" gorm:"size:128;not null;uniqueIndex:uniq_policy_circuit_break_name;comment:Policy name;"`          // Policy name
-	Level                       string          `json:"level" gorm:"size:64;not null;default:INSTANCE;comment:Policy level;"`                                    // Policy level
-	SlidingWindowType           string          `json:"sliding_window_type" gorm:"size:16;not null;default:time;comment:Sliding window type;"`                   // Sliding window type
-	SlidingWindowSize           int             `json:"sliding_window_size" gorm:"not null;default:20;comment:Sliding window size;"`                            // Sliding window size
-	MinCallsThreshold           int             `json:"min_calls_threshold" gorm:"not null;default:5;comment:Min calls threshold;"`                             // Min calls threshold
-	FailureRateThreshold        float64         `json:"failure_rate_threshold" gorm:"type:decimal(5,2);not null;default:50.00;comment:Failure rate threshold;"` // Failure rate threshold
-	SlowCallRateThreshold       float64         `json:"slow_call_rate_threshold" gorm:"type:decimal(5,2);comment:Slow call rate threshold;"`                    // Slow call rate threshold
-	SlowCallDurationThreshold   int             `json:"slow_call_duration_threshold" gorm:"comment:Slow call duration threshold;"`                              // Slow call duration threshold
-	SlowCallMetric              string          `json:"slow_call_metric" gorm:"size:32;comment:Slow call metric;"`                                              // Slow call metric
-	WaitDurationInOpenState     int             `json:"wait_duration_in_open_state" gorm:"not null;default:10000;comment:Wait duration in open state;"`         // Wait duration in open state
-	AllowedCallsInHalfOpenState int             `json:"allowed_calls_in_half_open_state" gorm:"not null;default:3;comment:Allowed calls in half open state;"`   // Allowed calls in half open state
-	ForceOpen                   int             `json:"force_open" gorm:"not null;default:0;comment:Force open;"`                                               // Force open
-	OutlierMaxPercent           int             `json:"outlier_max_percent" gorm:"not null;default:10;comment:Outlier max percent;"`                            // Outlier max percent
-	CodePolicy                  *string         `json:"code_policy,omitempty" gorm:"type:json;comment:Code policy (JSON);"`                                     // Code policy (JSON)
-	MessagePolicy               *string         `json:"message_policy,omitempty" gorm:"type:json;comment:Message policy (JSON);"`                               // Message policy (JSON)
-	DegradeConfig               *string         `json:"degrade_config,omitempty" gorm:"type:json;comment:Degrade config (JSON);"`                               // Degrade config (JSON)
-	ErrorCodes                  *string         `json:"error_codes,omitempty" gorm:"type:json;comment:Error codes (JSON);"`                                     // Error codes (JSON)
-	ErrorMessages               *string         `json:"error_messages,omitempty" gorm:"type:json;comment:Error messages (JSON);"`                               // Error messages (JSON)
-	Version                     int64           `json:"version" gorm:"not null;default:1;comment:Version;"`                                                     // Version
-	Enabled                     int             `json:"enabled" gorm:"not null;default:0;comment:Enabled;"`                                                     // Enabled
-	Description                 *string         `json:"description,omitempty" gorm:"size:255;comment:Details;"`                                                 // Details
-	Creator                     *string         `json:"creator,omitempty" gorm:"size:255;comment:Creator;"`                                                     // Creator
-	Modifier                    *string         `json:"modifier,omitempty" gorm:"size:255;comment:Modifier;"`                                                   // Modifier
-	CreatedAt                   time.Time       `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`                                             // Create timestamp
-	UpdatedAt                   time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`                                   // Update timestamp
-	Deleted                     string          `json:"-" gorm:"size:20;default:0;comment:Delete flag;"`             // Delete flag
-	DeletedAt                   *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`             // Delete timestamp
+	ID                          string          `json:"id" gorm:"type:char(20);primaryKey;<-:create;comment:主键ID (XID);"`
+	Name                        string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_circuit_break_name;comment:策略名称;"`
+	Level                       string          `json:"level" gorm:"type:varchar(64);not null;default:'INSTANCE';comment:熔断隔离级别：SERVICE / INSTANCE;"`
+	SlidingWindowType           string          `json:"sliding_window_type" gorm:"type:varchar(16);not null;default:'time';comment:滑动窗口类型：time / count;"`
+	SlidingWindowSize           int             `json:"sliding_window_size" gorm:"type:int;not null;default:20;comment:滑动窗口大小（次数或秒数）;"`
+	MinCallsThreshold           int             `json:"min_calls_threshold" gorm:"type:int;not null;default:5;comment:熔断计算的最小调用次数;"`
+	FailureRateThreshold        float64         `json:"failure_rate_threshold" gorm:"type:decimal(5,2);not null;default:50.00;comment:失败率阈值百分比;"`
+	SlowCallRateThreshold       float64         `json:"slow_call_rate_threshold" gorm:"type:decimal(5,2);default:null;comment:慢调用率阈值百分比;"`
+	SlowCallDurationThreshold   int             `json:"slow_call_duration_threshold" gorm:"type:int;default:null;comment:慢调用时长阈值（毫秒）;"`
+	SlowCallMetric              string          `json:"slow_call_metric" gorm:"type:varchar(32);default:null;comment:慢调用衡量指标：TTFT 等;"`
+	WaitDurationInOpenState     int             `json:"wait_duration_in_open_state" gorm:"type:int;not null;default:10000;comment:熔断器开启状态持续时间（毫秒）;"`
+	AllowedCallsInHalfOpenState int             `json:"allowed_calls_in_half_open_state" gorm:"type:int;not null;default:3;comment:半开状态下允许的试探调用次数;"`
+	ForceOpen                   int             `json:"force_open" gorm:"type:tinyint(1);not null;default:0;comment:是否强制开启熔断：0-否，1-是;"`
+	OutlierMaxPercent           int             `json:"outlier_max_percent" gorm:"type:int;not null;default:10;comment:最大熔断实例比例百分比(对 INSTANCE 级有效);"`
+	CodePolicy                  *string         `json:"code_policy,omitempty" gorm:"type:json;default:null;comment:响应状态码提取解析策略;"`
+	MessagePolicy               *string         `json:"message_policy,omitempty" gorm:"type:json;default:null;comment:错误消息提取解析策略;"`
+	DegradeConfig               *string         `json:"degrade_config,omitempty" gorm:"type:json;default:null;comment:熔断降级响应配置，嵌套 DegradeConfig 结构;"`
+	ErrorCodes                  *string         `json:"error_codes,omitempty" gorm:"type:json;default:null;comment:触发熔断的异常状态码列表;"`
+	ErrorMessages               *string         `json:"error_messages,omitempty" gorm:"type:json;default:null;comment:错误消息列表;"`
+	Version                     int64           `json:"version" gorm:"type:bigint;not null;default:1;comment:策略版本;"`
+	Enabled                     int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
+	Description                 *string         `json:"description,omitempty" gorm:"type:varchar(255);default:null;comment:备注描述;"`
+	Creator                     *string         `json:"creator,omitempty" gorm:"type:varchar(255);default:null;comment:创建者;"`
+	Modifier                    *string         `json:"modifier,omitempty" gorm:"type:varchar(255);default:null;comment:修改者;"`
+	CreatedAt                   time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
+	UpdatedAt                   time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
+	Deleted                     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';comment:逻辑删除标识;"`
+	DeletedAt                   *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
 func (a PolicyCircuitBreak) TableName() string {

@@ -12,18 +12,18 @@ import (
 
 // Route policy detail management
 type PolicyRouteDetail struct {
-	ID           string          `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`                 // Unique ID
-	RouteId      string          `json:"route_id" gorm:"size:20;not null;index:idx_routeid,priority:1;comment:Route ID;"` // Route ID
-	RelationType string          `json:"relation_type" gorm:"size:20;not null;comment:Relation type;"`              // Relation type
-	Conditions   *string         `json:"conditions,omitempty" gorm:"type:json;comment:Match conditions (JSON);"`    // Match conditions (JSON)
-	Destinations *string         `json:"destinations,omitempty" gorm:"type:json;comment:Destination rules (JSON);"` // Destination rules (JSON)
-	Order        int             `json:"order" gorm:"not null;default:0;comment:Sort order;"`                       // Sort order
-	Enabled      int             `json:"enabled" gorm:"not null;default:0;comment:Enabled;"`                        // Enabled
-	Description  *string         `json:"description,omitempty" gorm:"size:255;comment:Details;"`                    // Details
-	CreatedAt    time.Time       `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`                // Create timestamp
-	UpdatedAt    time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`      // Update timestamp
-	Deleted      string          `json:"-" gorm:"index:idx_routeid,priority:2;size:20;default:0;comment:Delete flag;"` // Delete flag
-	DeletedAt    *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`                            // Delete timestamp
+	ID           string          `json:"id" gorm:"type:varchar(20);primaryKey;<-:create;comment:ID;"`
+	RouteId      string          `json:"route_id" gorm:"type:varchar(20);not null;index:idx_routeid,priority:1;comment:路由ID;"`
+	RelationType string          `json:"relation_type" gorm:"type:varchar(20);not null;comment:关系类型;"`
+	Conditions   *string         `json:"conditions,omitempty" gorm:"type:json;default:null;comment:匹配条件;"`
+	Destinations *string         `json:"destinations,omitempty" gorm:"type:json;default:null;comment:目的规则;"`
+	Order        int             `json:"order" gorm:"type:int;not null;default:0;comment:排序值;"`
+	Enabled      int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用;"`
+	Description  *string         `json:"description,omitempty" gorm:"type:varchar(255);default:null;comment:备注;"`
+	CreatedAt    time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
+	UpdatedAt    time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
+	Deleted      string          `json:"-" gorm:"type:varchar(20);not null;default:'0';index:idx_routeid,priority:2;comment:逻辑删除标识;"`
+	DeletedAt    *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:删除时间;"`
 }
 
 func (a PolicyRouteDetail) TableName() string {

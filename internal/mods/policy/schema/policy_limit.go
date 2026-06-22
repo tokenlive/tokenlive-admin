@@ -18,23 +18,23 @@ type Estimator struct {
 
 // Limit policy management
 type PolicyLimit struct {
-	ID             string          `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`                             // Unique ID
-	Name           string          `json:"name" gorm:"size:128;not null;uniqueIndex:uniq_policy_limit_name;comment:Policy name;"` // Policy name
-	Version        int64           `json:"version" gorm:"not null;default:1;comment:Version;"`                                    // Version
-	Type           string          `json:"type" gorm:"size:64;not null;comment:Limit dimension: request / token / cost;"`         // Limit dimension
-	MaxWaitMs      int             `json:"max_wait_ms" gorm:"not null;default:0;comment:Max queue wait time (ms);"`               // Max queue wait time
-	RelationType   string          `json:"relation_type" gorm:"size:16;not null;default:AND;comment:Relation type: AND / OR;"`    // Relation type
-	SlidingWindows *string         `json:"sliding_windows,omitempty" gorm:"type:json;comment:Sliding windows (JSON);"`            // Sliding windows (JSON)
-	Conditions     *string         `json:"conditions,omitempty" gorm:"type:json;comment:Match conditions (JSON);"`                // Match conditions (JSON)
-	Estimator      *string         `json:"estimator,omitempty" gorm:"type:json;comment:Estimator config (JSON);"`                 // Estimator config (JSON)
-	Enabled        int             `json:"enabled" gorm:"not null;default:0;comment:Enabled;"`                                    // Enabled
-	Description    *string         `json:"description,omitempty" gorm:"size:255;comment:Details;"`                                // Details
-	Creator        *string         `json:"creator,omitempty" gorm:"size:255;comment:Creator;"`                                    // Creator
-	Modifier       *string         `json:"modifier,omitempty" gorm:"size:255;comment:Modifier;"`                                  // Modifier
-	CreatedAt      time.Time       `json:"created_at" gorm:"autoCreateTime;comment:Create timestamp;"`                            // Create timestamp
-	UpdatedAt      time.Time       `json:"updated_at,omitempty" gorm:"autoUpdateTime;comment:Update timestamp;"`                  // Update timestamp
-	Deleted        string          `json:"-" gorm:"size:20;default:0;comment:Delete flag;"` // Delete flag
-	DeletedAt      *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"` // Delete timestamp
+	ID             string          `json:"id" gorm:"type:char(20);primaryKey;<-:create;comment:主键ID (XID);"`
+	Name           string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_limit_name;comment:策略名称;"`
+	Version        int64           `json:"version" gorm:"type:bigint;not null;default:1;comment:配置版本号;"`
+	Type           string          `json:"type" gorm:"type:varchar(64);not null;comment:限流维度：request / token / cost;"`
+	MaxWaitMs      int             `json:"max_wait_ms" gorm:"type:int;not null;default:0;comment:排队等待最大时间（毫秒）;"`
+	RelationType   string          `json:"relation_type" gorm:"type:varchar(16);not null;default:'AND';comment:多条件之间的逻辑关系：AND / OR;"`
+	SlidingWindows *string         `json:"sliding_windows,omitempty" gorm:"type:json;default:null;comment:滑动窗口配额配置列表，嵌套 SlidingWindow 数组;"`
+	Conditions     *string         `json:"conditions,omitempty" gorm:"type:json;default:null;comment:匹配条件列表，嵌套 Condition 数组;"`
+	Estimator      *string         `json:"estimator,omitempty" gorm:"type:json;default:null;comment:估算器配置，包含 type 和 ratio;"`
+	Enabled        int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
+	Description    *string         `json:"description,omitempty" gorm:"type:varchar(255);default:null;comment:备注描述;"`
+	Creator        *string         `json:"creator,omitempty" gorm:"type:varchar(255);default:null;comment:创建者;"`
+	Modifier       *string         `json:"modifier,omitempty" gorm:"type:varchar(255);default:null;comment:修改者;"`
+	CreatedAt      time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
+	UpdatedAt      time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
+	Deleted        string          `json:"-" gorm:"type:varchar(20);not null;default:'0';comment:逻辑删除标识;"`
+	DeletedAt      *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
 func (a PolicyLimit) TableName() string {

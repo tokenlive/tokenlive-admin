@@ -14,7 +14,7 @@ type UserRole struct {
 	RoleID    string    `json:"role_id" gorm:"type:varchar(20);default:null;index:idx_user_role_role_id;comment:角色ID;"`
 	CreatedAt time.Time `json:"created_at" gorm:"type:datetime(3);default:null;autoCreateTime;comment:创建时间;"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"type:datetime(3);default:null;autoUpdateTime;comment:更新时间;"`
-	RoleName  string    `json:"role_name" gorm:"<-:false;-:migration;"`           // From Role.Name
+	RoleName  string    `json:"role_name" gorm:"->;-:migration"`                  // From Role.Name
 }
 
 func (a *UserRole) TableName() string {
