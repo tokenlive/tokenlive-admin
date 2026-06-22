@@ -158,17 +158,6 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	apiTenantModel := &api.TenantModel{
 		TenantModelBIZ: bizTenantModel,
 	}
-	tenantModelProvider := &dal.TenantModelProvider{
-		DB: db,
-	}
-	bizTenantModelProvider := &biz.TenantModelProvider{
-		Trans:                  trans,
-		TenantModelProviderDAL: tenantModelProvider,
-		RedisClient:            client,
-	}
-	apiTenantModelProvider := &api.TenantModelProvider{
-		TenantModelProviderBIZ: bizTenantModelProvider,
-	}
 	tenantEndpoint := &dal.TenantEndpoint{
 		DB: db,
 	}
@@ -188,18 +177,17 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		RoleDAL:         role,
 	}
 	rbacRBAC := &rbac.RBAC{
-		DB:                     db,
-		MenuAPI:                apiMenu,
-		RoleAPI:                apiRole,
-		UserAPI:                apiUser,
-		LoginAPI:               apiLogin,
-		LoggerAPI:              apiLogger,
-		UserAPIKeyAPI:          apiUserAPIKey,
-		TenantAPI:              apiTenant,
-		TenantModelAPI:         apiTenantModel,
-		TenantModelProviderAPI: apiTenantModelProvider,
-		TenantEndpointAPI:      apiTenantEndpoint,
-		Casbinx:                casbinx,
+		DB:                db,
+		MenuAPI:           apiMenu,
+		RoleAPI:           apiRole,
+		UserAPI:           apiUser,
+		LoginAPI:          apiLogin,
+		LoggerAPI:         apiLogger,
+		UserAPIKeyAPI:     apiUserAPIKey,
+		TenantAPI:         apiTenant,
+		TenantModelAPI:    apiTenantModel,
+		TenantEndpointAPI: apiTenantEndpoint,
+		Casbinx:           casbinx,
 	}
 	provider := &dal2.Provider{
 		DB: db,

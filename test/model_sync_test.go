@@ -484,20 +484,13 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 	assert.NoError(db.Create(binding2).Error)
 	assert.NoError(db.Create(binding3).Error)
 
-	// E. 创建租户白名单授权 tenant_model 和 tenant_model_provider
+	// E. 创建租户白名单授权 tenant_model
 	tenantModel1 := &rbacSchema.TenantModel{
 		ID:         "tm-cascade-1",
 		TenantCode: "t-cascade",
 		ModelID:    model1.ID,
 	}
-	tenantModelProvider1 := &rbacSchema.TenantModelProvider{
-		ID:         "tmp-cascade-1",
-		TenantCode: "t-cascade",
-		ModelID:    model1.ID,
-		ProviderID: "p-cascade",
-	}
 	assert.NoError(db.Create(tenantModel1).Error)
-	assert.NoError(db.Create(tenantModelProvider1).Error)
 
 	// 3. 执行模型 1 的删除操作
 	err := injector.M.Resource.ModelAPI.ModelBIZ.Delete(ctx, model1.ID)
@@ -536,12 +529,10 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 	assert.NoError(db.First(&b3, "id = ?", binding3.ID).Error)
 	assert.Equal("0", b3.Deleted)
 
-	// G. 验证数据权限（tenant_model, tenant_model_provider）物理删除
-	var tmCount, tmpCount int64
+	// G. 验证数据权限（tenant_model）物理删除
+	var tmCount int64
 	assert.NoError(db.Table(tenantModel1.TableName()).Where("model_id = ?", model1.ID).Count(&tmCount).Error)
 	assert.Equal(int64(0), tmCount)
-	assert.NoError(db.Table(tenantModelProvider1.TableName()).Where("model_id = ?", model1.ID).Count(&tmpCount).Error)
-	assert.Equal(int64(0), tmpCount)
 
 	// 5. 数据清理 (对未删除的数据进行物理清理，防止对其他测试造成干扰)
 	db.Unscoped().Delete(model1)
@@ -553,5 +544,4 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 	db.Unscoped().Delete(binding2)
 	db.Unscoped().Delete(binding3)
 	db.Unscoped().Delete(tenantModel1)
-	db.Unscoped().Delete(tenantModelProvider1)
 }

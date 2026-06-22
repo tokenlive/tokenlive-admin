@@ -11,20 +11,20 @@ import (
 
 // Provider defines the upstream LLM provider (e.g., OpenAI, Anthropic).
 type Provider struct {
-	ID          string          `json:"id" gorm:"size:20;primarykey;"`                                                       // Unique ID (XID)
-	Code        string          `json:"code" gorm:"size:128;uniqueIndex:uniq_provider_code,priority:1;"`                     // Provider unique code, e.g., openai-official
-	Name        string          `json:"name" gorm:"size:128;not null;"`                                                      // Provider display name
-	Protocol    string          `json:"protocol" gorm:"size:64;not null;"`                                                   // Protocol type: openai / anthropic / ...
-	URL         string          `json:"url" gorm:"size:512;"`                                                                // Provider API base URL, e.g., https://api.openai.com
-	ApiKeys     json.RawMessage `json:"api_keys,omitempty" gorm:"type:json;"`                                                // Upstream API key list
-	Enabled     int             `json:"enabled" gorm:"not null;default:0;"`                                                  // Enable status: 0-disabled, 1-enabled
-	Description string          `json:"description" gorm:"size:255;"`                                                        // Description
-	Creator     string          `json:"creator" gorm:"size:255;"`                                                            // Creator
-	Modifier    string          `json:"modifier" gorm:"size:255;"`                                                           // Modifier
-	CreatedAt   time.Time       `json:"created_at" gorm:"type:timestamp;autoCreateTime;"`                                                             // Create time
-	UpdatedAt   time.Time       `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"`                                                             // Update time
-	Deleted     string          `json:"-" gorm:"size:20;uniqueIndex:uniq_provider_code,priority:2;default:0"`                // Logical delete flag
-	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete time;"`                                         // Delete time
+	ID          string          `json:"id" gorm:"type:char(20);primaryKey;comment:主键ID (XID);"`
+	Code        string          `json:"code" gorm:"type:varchar(128);not null;uniqueIndex:uniq_provider_code,priority:1;comment:Provider唯一标识;"`
+	Name        string          `json:"name" gorm:"type:varchar(128);not null;comment:Provider名称;"`
+	Protocol    string          `json:"protocol" gorm:"type:varchar(64);not null;comment:协议类型，决定使用哪个 ProviderFactory;"`
+	URL         string          `json:"url" gorm:"type:varchar(512);default:null;comment:供应商 API 基础地址;"`
+	ApiKeys     json.RawMessage `json:"api_keys,omitempty" gorm:"type:json;default:null;comment:上游API认证密钥列表;"`
+	Enabled     int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
+	Description string          `json:"description" gorm:"type:varchar(255);default:null;comment:备注描述;"`
+	Creator     string          `json:"creator" gorm:"type:varchar(255);default:null;comment:创建者;"`
+	Modifier    string          `json:"modifier" gorm:"type:varchar(255);default:null;comment:修改者;"`
+	CreatedAt   time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
+	UpdatedAt   time.Time       `json:"updated_at" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
+	Deleted     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_provider_code,priority:2;comment:逻辑删除标识;"`
+	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
 func (p *Provider) TableName() string {

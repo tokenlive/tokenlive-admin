@@ -16,16 +16,16 @@ const (
 
 // Role management for RBAC
 type Role struct {
-	ID          string    `json:"id" gorm:"size:20;primarykey;"` // Unique ID
-	Code        string    `json:"code" gorm:"size:32;index;"`    // Code of role (unique)
-	Name        string    `json:"name" gorm:"size:128;index"`    // Display name of role
-	Description string    `json:"description" gorm:"size:1024"`  // Details about role
-	Sequence    int       `json:"sequence" gorm:"index"`         // Sequence for sorting
-	Tenant      string    `json:"tenant" gorm:"size:255"`        // Tenant info
-	Status      string    `json:"status" gorm:"size:20;index"`   // Status of role (disabled, enabled)
-	CreatedAt   time.Time `json:"created_at" gorm:"type:timestamp;autoCreateTime;"` // Create time
-	UpdatedAt   time.Time `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"` // Update time
-	Menus       RoleMenus `json:"menus" gorm:"-"`                // Role menu list
+	ID          string    `json:"id" gorm:"type:varchar(20);primaryKey;comment:ID;"`
+	Code        string    `json:"code" gorm:"type:varchar(32);default:null;index:idx_role_code;comment:角色编码;"`
+	Name        string    `json:"name" gorm:"type:varchar(128);default:null;index:idx_role_name;comment:角色名称;"`
+	Description string    `json:"description" gorm:"type:varchar(1024);default:null;comment:角色描述;"`
+	Sequence    int       `json:"sequence" gorm:"type:bigint;default:null;index:idx_role_sequence;comment:角色序列;"`
+	Tenant      string    `json:"tenant" gorm:"type:varchar(255);default:null;comment:租户信息;"`
+	Status      string    `json:"status" gorm:"type:varchar(20);default:null;index:idx_role_status;comment:状态;"`
+	CreatedAt   time.Time `json:"created_at" gorm:"type:datetime(3);default:null;autoCreateTime;comment:创建时间;"`
+	UpdatedAt   time.Time `json:"updated_at" gorm:"type:datetime(3);default:null;autoUpdateTime;comment:更新时间;"`
+	Menus       RoleMenus `json:"menus" gorm:"-"`                                   // Role menu list
 }
 
 func (a *Role) TableName() string {

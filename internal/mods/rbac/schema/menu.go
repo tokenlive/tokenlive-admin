@@ -24,21 +24,21 @@ var (
 
 // Menu management for RBAC
 type Menu struct {
-	ID          string        `json:"id" gorm:"size:20;primarykey;"`      // Unique ID
-	Code        string        `json:"code" gorm:"size:32;index;"`         // Code of menu (unique for each level)
-	Name        string        `json:"name" gorm:"size:128;index"`         // Display name of menu
-	Description string        `json:"description" gorm:"size:1024"`       // Details about menu
-	Sequence    int           `json:"sequence" gorm:"index;"`             // Sequence for sorting (Order by desc)
-	Type        string        `json:"type" gorm:"size:20;index"`          // Type of menu (page, button)
-	Path        string        `json:"path" gorm:"size:255;"`              // Access path of menu
-	Properties  string        `json:"properties" gorm:"type:text;"`       // Properties of menu (JSON)
-	Status      string        `json:"status" gorm:"size:20;index"`        // Status of menu (enabled, disabled)
-	ParentID    string        `json:"parent_id" gorm:"size:20;index;"`    // Parent ID (From Menu.ID)
-	ParentPath  string        `json:"parent_path" gorm:"size:255;index;"` // Parent path (split by .)
-	Children    *Menus        `json:"children" gorm:"-"`                  // Child menus
-	CreatedAt   time.Time     `json:"created_at" gorm:"type:timestamp;autoCreateTime;"` // Create time
-	UpdatedAt   time.Time     `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"` // Update time
-	Resources   MenuResources `json:"resources" gorm:"-"`                 // Resources of menu
+	ID          string        `json:"id" gorm:"type:varchar(20);primaryKey;comment:ID;"`
+	Code        string        `json:"code" gorm:"type:varchar(32);default:null;index:idx_menu_code;comment:菜单编码;"`
+	Name        string        `json:"name" gorm:"type:varchar(128);default:null;index:idx_menu_name;comment:菜单名称;"`
+	Description string        `json:"description" gorm:"type:varchar(1024);default:null;comment:描述;"`
+	Sequence    int           `json:"sequence" gorm:"type:bigint;default:null;index:idx_menu_sequence;comment:序列;"`
+	Type        string        `json:"type" gorm:"type:varchar(20);default:null;index:idx_menu_type;comment:类型: page, button;"`
+	Path        string        `json:"path" gorm:"type:varchar(255);default:null;comment:路径;"`
+	Properties  string        `json:"properties" gorm:"type:text;comment:属性;"`
+	Status      string        `json:"status" gorm:"type:varchar(20);default:null;index:idx_menu_status;comment:状态;"`
+	ParentID    string        `json:"parent_id" gorm:"type:varchar(20);default:null;index:idx_menu_parent_id;comment:父ID;"`
+	ParentPath  string        `json:"parent_path" gorm:"type:varchar(255);default:null;index:idx_menu_parent_path;comment:父路径;"`
+	Children    *Menus        `json:"children" gorm:"-"`                                 // Child menus
+	CreatedAt   time.Time     `json:"created_at" gorm:"type:datetime(3);default:null;autoCreateTime;comment:创建时间;"`
+	UpdatedAt   time.Time     `json:"updated_at" gorm:"type:datetime(3);default:null;autoUpdateTime;comment:更新时间;"`
+	Resources   MenuResources `json:"resources" gorm:"-"`                                // Resources of menu
 }
 
 func (a *Menu) TableName() string {

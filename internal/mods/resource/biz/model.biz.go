@@ -203,12 +203,6 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 			return err
 		}
 
-		// 级联删除 tenant_model_provider 表中绑定关系
-		tenantModelProviderTable := config.C.FormatTableName("tenant_model_provider")
-		if err := tx.Table(tenantModelProviderTable).Where("model_id = ?", id).Delete(nil).Error; err != nil {
-			return err
-		}
-
 		// 1. 级联逻辑删除相关的模型别名
 		modelAliasTable := config.C.FormatTableName("model_alias")
 		if err := tx.Table(modelAliasTable).Where("model_id = ? AND deleted = '0'", id).Update("deleted", gorm.Expr("id")).Error; err != nil {

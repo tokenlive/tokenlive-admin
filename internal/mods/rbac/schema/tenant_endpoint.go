@@ -8,12 +8,12 @@ import (
 
 // TenantEndpoint 租户-端点关联表
 type TenantEndpoint struct {
-	ID         string    `json:"id" gorm:"size:20;primarykey;comment:主键 ID;"`
-	TenantCode string    `json:"tenant_code" gorm:"size:64;not null;uniqueIndex:uniq_tenant_endpoint,priority:1;index:idx_te_tenant_code;comment:租户唯一英文编码;"`
-	EndpointID string    `json:"endpoint_id" gorm:"size:20;not null;uniqueIndex:uniq_tenant_endpoint,priority:2;index:idx_te_endpoint_id;comment:端点主键 ID;"`
-	Creator    string    `json:"creator" gorm:"size:255;comment:创建人;"`
-	CreatedAt  time.Time `json:"created_at" gorm:"type:timestamp;autoCreateTime;comment:创建时间;"`
-	UpdatedAt  time.Time `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;comment:更新时间;"`
+	ID         string    `json:"id" gorm:"type:char(20);primaryKey;comment:主键ID (XID);"`
+	TenantCode string    `json:"tenant_code" gorm:"type:varchar(64);not null;uniqueIndex:uniq_tenant_endpoint,priority:1;index:idx_te_tenant_code;comment:租户唯一英文编码，关联 tenant.code;"`
+	EndpointID string    `json:"endpoint_id" gorm:"type:char(20);not null;uniqueIndex:uniq_tenant_endpoint,priority:2;index:idx_te_endpoint_id;comment:端点ID，关联 endpoint.id;"`
+	Creator    string    `json:"creator" gorm:"type:varchar(255);default:null;comment:创建者;"`
+	CreatedAt  time.Time `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
+	UpdatedAt  time.Time `json:"updated_at" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
 }
 
 func (TenantEndpoint) TableName() string {

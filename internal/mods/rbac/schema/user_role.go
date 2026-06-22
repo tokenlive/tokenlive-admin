@@ -9,12 +9,12 @@ import (
 
 // User roles for RBAC
 type UserRole struct {
-	ID        string    `json:"id" gorm:"size:20;primarykey"`           // Unique ID
-	UserID    string    `json:"user_id" gorm:"size:20;index"`           // From User.ID
-	RoleID    string    `json:"role_id" gorm:"size:20;index"`           // From Role.ID
-	CreatedAt time.Time `json:"created_at" gorm:"type:timestamp;autoCreateTime;"` // Create time
-	UpdatedAt time.Time `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"` // Update time
-	RoleName  string    `json:"role_name" gorm:"<-:false;-:migration;"` // From Role.Name
+	ID        string    `json:"id" gorm:"type:varchar(20);primaryKey;comment:ID;"`
+	UserID    string    `json:"user_id" gorm:"type:varchar(20);default:null;index:idx_user_role_user_id;comment:用户ID;"`
+	RoleID    string    `json:"role_id" gorm:"type:varchar(20);default:null;index:idx_user_role_role_id;comment:角色ID;"`
+	CreatedAt time.Time `json:"created_at" gorm:"type:datetime(3);default:null;autoCreateTime;comment:创建时间;"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"type:datetime(3);default:null;autoUpdateTime;comment:更新时间;"`
+	RoleName  string    `json:"role_name" gorm:"<-:false;-:migration;"`           // From Role.Name
 }
 
 func (a *UserRole) TableName() string {

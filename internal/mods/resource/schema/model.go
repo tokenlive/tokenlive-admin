@@ -11,30 +11,29 @@ import (
 
 // Model defines the LLM model from user's perspective.
 type Model struct {
-	ID        string `json:"id" gorm:"size:20;primarykey;"`                                                                                                              // Unique ID (XID)
-	ModelName string `json:"model_name" gorm:"size:128;uniqueIndex:uniq_model_name;"`                                                                                   // Client-facing model name, e.g., gpt-4, claude-sonnet
-	ModelCode string `json:"model_code" gorm:"size:64;uniqueIndex:uniq_model_code_deleted,priority:1;"`                                                                // Internal model code for association and billing
-	SpaceCode string `json:"space_code" gorm:"size:255;not null;"`                                                                                                      // Model space code
-	// Space         *schema.Space   `json:"space,omitempty" gorm:"foreignKey:SpaceCode;references:Code"`    // Space association
-	RequestTypes       string          `json:"request_types" gorm:"column:request_types;type:json;"`                                                                  // Model RequestTypes JSON, e.g., ["chat_completion", "embedding"]
-	ContextLength      int             `json:"context_length" gorm:"not null;default:128000;"`                                                                         // Max context window (Tokens)
-	MaxOutputTokens    int             `json:"max_output_tokens" gorm:"not null;default:8192;"`                                                                        // Max output tokens
-	Abilities          string          `json:"abilities" gorm:"column:abilities;type:json;"`                                                                           // Model Abilities JSON, e.g., ["stream", "tool_call"]
-	Owner              string          `json:"owner,omitempty" gorm:"size:64;"`                                                                                        // Model owner/enterprise, e.g., OpenAI, Google, DeepSeek
-	Enabled            int             `json:"enabled" gorm:"not null;default:0;"`                                                                                     // Enable status: 0-disabled, 1-enabled
-	InputPrice         float64         `json:"input_price" gorm:"column:input_price;type:decimal(10,6);not null;default:0.002000;"`                                    // Input price (CNY/M Tokens)
-	OutputPrice        float64         `json:"output_price" gorm:"column:output_price;type:decimal(10,6);not null;default:0.002000;"`                                  // Output price (CNY/M Tokens)
-	CachedPrice        float64         `json:"cached_price" gorm:"column:cached_price;type:decimal(10,6);not null;default:0.002000;"`                                  // Cached price (CNY/M Tokens)
-	CacheCreationPrice float64         `json:"cache_creation_price" gorm:"column:cache_creation_price;type:decimal(10,6);not null;default:0.002000;"`                  // Cache creation price (CNY/M Tokens)
-	Description        string          `json:"description" gorm:"size:255;"`                                                                                            // Description
-	Extra              *string         `json:"extra,omitempty" gorm:"type:json"`                                                                                        // Extra info
-	Creator            string          `json:"creator" gorm:"size:255;"`                                                                                                // Creator
-	Modifier           string          `json:"modifier" gorm:"size:255;"`                                                                                               // Modifier
-	CreatedAt          time.Time       `json:"created_at" gorm:"type:timestamp;autoCreateTime;"`                                                                       // Create time
-	UpdatedAt          time.Time       `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"`                                                                       // Update time
-	StatusPoints       []StatusPoint   `json:"status_points" gorm:"-"`                                                                                                  // Recent status points
-	Deleted            string          `json:"-" gorm:"size:20;uniqueIndex:uniq_model_code_deleted,priority:2;default:0"`                                              // Logical delete flag
-	DeletedAt          *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete time;"`                                                                             // Delete time
+	ID                 string          `json:"id" gorm:"type:char(20);primaryKey;comment:主键ID (XID);"`
+	ModelName          string          `json:"model_name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_model_name;comment:模型名称;"`
+	ModelCode          string          `json:"model_code" gorm:"type:varchar(64);not null;uniqueIndex:uniq_model_code_deleted,priority:1;comment:模型唯一编码;"`
+	SpaceCode          string          `json:"space_code" gorm:"type:varchar(255);not null;comment:模型空间编码;"`
+	RequestTypes       string          `json:"request_types" gorm:"type:json;default:null;comment:模型支持的请求类型，如 [\"chat_completion\", \"embedding\"];"`
+	ContextLength      int             `json:"context_length" gorm:"type:bigint;not null;default:128000;comment:最大上下文窗口（Tokens）;"`
+	MaxOutputTokens    int             `json:"max_output_tokens" gorm:"type:bigint;not null;default:8192;comment:最大输出Token;"`
+	Owner              string          `json:"owner,omitempty" gorm:"type:varchar(64);default:null;comment:模型所属企业/厂商，如 OpenAI, Google, DeepSeek;"`
+	Abilities          string          `json:"abilities" gorm:"type:json;default:null;comment:能力列表,如:流式输出,工具调用,思维链,结构化输出等;"`
+	Enabled            int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
+	InputPrice         float64         `json:"input_price" gorm:"type:decimal(10,6);not null;default:0.002000;comment:输入价格（元/百万 Tokens）;"`
+	OutputPrice        float64         `json:"output_price" gorm:"type:decimal(10,6);not null;default:0.002000;comment:输出价格（元/百万 Tokens）;"`
+	CachedPrice        float64         `json:"cached_price" gorm:"type:decimal(10,6);not null;default:0.002000;comment:缓存命中价格（元/百万 Tokens）;"`
+	CacheCreationPrice float64         `json:"cache_creation_price" gorm:"type:decimal(10,6);not null;default:0.002000;comment:缓存创建价格（元/百万 Tokens）;"`
+	Description        string          `json:"description" gorm:"type:varchar(255);default:null;comment:备注描述;"`
+	Extra              *string         `json:"extra,omitempty" gorm:"type:json;default:null;comment:其他信息;"`
+	Creator            string          `json:"creator" gorm:"type:varchar(255);default:null;comment:创建者;"`
+	Modifier           string          `json:"modifier" gorm:"type:varchar(255);default:null;comment:修改者;"`
+	CreatedAt          time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
+	UpdatedAt          time.Time       `json:"updated_at" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
+	StatusPoints       []StatusPoint   `json:"status_points" gorm:"-"`                                                                                // Recent status points
+	Deleted            string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_model_code_deleted,priority:2;comment:逻辑删除标识;"`
+	DeletedAt          *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
 func (m *Model) TableName() string {

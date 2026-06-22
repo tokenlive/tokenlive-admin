@@ -2078,6 +2078,163 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/ops/events": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "EventAPI"
+                ],
+                "summary": "Query event logs with pagination and filtering",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "current",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Event type filter",
+                        "name": "event_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Tenant code filter",
+                        "name": "tenant_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Model code filter",
+                        "name": "model_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Endpoint ID filter",
+                        "name": "endpoint_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Policy ID filter",
+                        "name": "policy_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time (ISO 8601)",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (ISO 8601)",
+                        "name": "end_time",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/schema.EventLog"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ops/events/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "EventAPI"
+                ],
+                "summary": "Get event statistics (counts, trend, rankings)",
+                "parameters": [
+                    {
+                        "enum": [
+                            "1h",
+                            "6h",
+                            "24h",
+                            "7d",
+                            "today"
+                        ],
+                        "type": "string",
+                        "default": "24h",
+                        "description": "Time range",
+                        "name": "time_range",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/schema.EventStatistics"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ops/events/ws": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "EventAPI"
+                ],
+                "summary": "WebSocket endpoint for real-time event push",
+                "responses": {}
+            }
+        },
         "/api/v1/policy/policy-bindings": {
             "get": {
                 "security": [
@@ -5522,88 +5679,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/tenant-models/providers": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "TenantModelProviderAPI"
-                ],
-                "summary": "查询租户指定模型下已经允许的供应商 ID 列表",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "租户英文编码",
-                        "name": "tenantCode",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "模型 ID",
-                        "name": "modelId",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/util.ResponseResult"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "string"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "TenantModelProviderAPI"
-                ],
-                "summary": "批量保存租户大模型的可访问上游供应商白名单",
-                "parameters": [
-                    {
-                        "description": "保存表单",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/schema.TenantModelProviderForm"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/tenant-models/{tenantCode}": {
             "get": {
                 "security": [
@@ -7214,6 +7289,94 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.EventLog": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "current_value": {
+                    "type": "number"
+                },
+                "endpoint_id": {
+                    "type": "string"
+                },
+                "event_time": {
+                    "type": "string"
+                },
+                "event_type": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "model_code": {
+                    "type": "string"
+                },
+                "policy_id": {
+                    "type": "string"
+                },
+                "policy_name": {
+                    "type": "string"
+                },
+                "provider_name": {
+                    "type": "string"
+                },
+                "request_id": {
+                    "type": "string"
+                },
+                "tenant_code": {
+                    "type": "string"
+                },
+                "threshold": {
+                    "type": "number"
+                },
+                "trace_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.EventStatistics": {
+            "type": "object",
+            "properties": {
+                "circuit_break_count": {
+                    "type": "integer"
+                },
+                "invocation_fail_count": {
+                    "type": "integer"
+                },
+                "lb_switch_count": {
+                    "type": "integer"
+                },
+                "model_ranking": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.RankingItem"
+                    }
+                },
+                "rate_limit_count": {
+                    "type": "integer"
+                },
+                "tenant_ranking": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.RankingItem"
+                    }
+                },
+                "total_events": {
+                    "type": "integer"
+                },
+                "trend": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.TrendPoint"
+                    }
+                }
+            }
+        },
         "schema.FallbackPolicy": {
             "type": "object",
             "properties": {
@@ -7354,39 +7517,30 @@ const docTemplate = `{
                     }
                 },
                 "code": {
-                    "description": "Code of menu (unique for each level)",
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "Create time",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Details about menu",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "name": {
-                    "description": "Display name of menu",
                     "type": "string"
                 },
                 "parent_id": {
-                    "description": "Parent ID (From Menu.ID)",
                     "type": "string"
                 },
                 "parent_path": {
-                    "description": "Parent path (split by .)",
                     "type": "string"
                 },
                 "path": {
-                    "description": "Access path of menu",
                     "type": "string"
                 },
                 "properties": {
-                    "description": "Properties of menu (JSON)",
                     "type": "string"
                 },
                 "resources": {
@@ -7397,19 +7551,15 @@ const docTemplate = `{
                     }
                 },
                 "sequence": {
-                    "description": "Sequence for sorting (Order by desc)",
                     "type": "integer"
                 },
                 "status": {
-                    "description": "Status of menu (enabled, disabled)",
                     "type": "string"
                 },
                 "type": {
-                    "description": "Type of menu (page, button)",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update time",
                     "type": "string"
                 }
             }
@@ -7482,27 +7632,21 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "description": "Create time",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "menu_id": {
-                    "description": "From Menu.ID",
                     "type": "string"
                 },
                 "method": {
-                    "description": "HTTP method",
                     "type": "string"
                 },
                 "path": {
-                    "description": "API request path (e.g. /api/v1/users/:id)",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update time",
                     "type": "string"
                 }
             }
@@ -8906,6 +9050,17 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.RankingItem": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.RelationType": {
             "type": "string",
             "enum": [
@@ -8988,19 +9143,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "code": {
-                    "description": "Code of role (unique)",
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "Create time",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Details about role",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "menus": {
@@ -9011,23 +9162,18 @@ const docTemplate = `{
                     }
                 },
                 "name": {
-                    "description": "Display name of role",
                     "type": "string"
                 },
                 "sequence": {
-                    "description": "Sequence for sorting",
                     "type": "integer"
                 },
                 "status": {
-                    "description": "Status of role (disabled, enabled)",
                     "type": "string"
                 },
                 "tenant": {
-                    "description": "Tenant info",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update time",
                     "type": "string"
                 }
             }
@@ -9079,23 +9225,18 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "description": "Create time",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
-                "menu_group_id": {
-                    "description": "From Menu.ID (column: menu_group_id)",
+                "menu_id": {
                     "type": "string"
                 },
                 "role_id": {
-                    "description": "From Role.ID",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update time",
                     "type": "string"
                 }
             }
@@ -9257,43 +9398,33 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "api_key": {
-                    "description": "Tenant API Key (toB scenario)",
                     "type": "string"
                 },
                 "code": {
-                    "description": "Unique identifier code (e.g. company-a)",
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "Create time",
                     "type": "string"
                 },
                 "creator": {
-                    "description": "Creator",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Description",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "modifier": {
-                    "description": "Modifier",
                     "type": "string"
                 },
                 "name": {
-                    "description": "Name of tenant",
                     "type": "string"
                 },
                 "status": {
-                    "description": "Status of tenant (activated, freezed)",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update time",
                     "type": "string"
                 }
             }
@@ -9375,24 +9506,22 @@ const docTemplate = `{
                 }
             }
         },
-        "schema.TenantModelProviderForm": {
+        "schema.TrendPoint": {
             "type": "object",
-            "required": [
-                "model_id",
-                "tenant_code"
-            ],
             "properties": {
-                "model_id": {
-                    "type": "string"
+                "circuit_break": {
+                    "type": "integer"
                 },
-                "provider_ids": {
-                    "description": "允许的供应商 ID 列表，空表示不限制（全放通）",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                "invocation_fail": {
+                    "type": "integer"
                 },
-                "tenant_code": {
+                "lb_switch": {
+                    "type": "integer"
+                },
+                "rate_limit": {
+                    "type": "integer"
+                },
+                "time": {
                     "type": "string"
                 }
             }
@@ -9460,27 +9589,21 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "description": "Create time",
                     "type": "string"
                 },
                 "email": {
-                    "description": "Email of user",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "name": {
-                    "description": "Name of user",
                     "type": "string"
                 },
                 "phone": {
-                    "description": "Phone number of user",
                     "type": "string"
                 },
                 "remark": {
-                    "description": "Remark of user",
                     "type": "string"
                 },
                 "roles": {
@@ -9491,19 +9614,15 @@ const docTemplate = `{
                     }
                 },
                 "status": {
-                    "description": "Status of user (activated, freezed)",
                     "type": "string"
                 },
                 "tenant": {
-                    "description": "Tenant",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update time",
                     "type": "string"
                 },
                 "username": {
-                    "description": "Username for login",
                     "type": "string"
                 }
             }
@@ -9512,59 +9631,45 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "api_key": {
-                    "description": "实际的 API Key 字符串",
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "创建时间",
                     "type": "string"
                 },
                 "creator": {
-                    "description": "创建者",
                     "type": "string"
                 },
                 "deleted": {
-                    "description": "逻辑删除标识",
                     "type": "string"
                 },
                 "deleted_at": {
-                    "description": "逻辑删除时间",
                     "type": "string"
                 },
                 "description": {
-                    "description": "备注描述",
                     "type": "string"
                 },
                 "expires_at": {
-                    "description": "过期时间: NULL表示永不过期",
                     "type": "string"
                 },
                 "id": {
-                    "description": "主键ID (XID)",
                     "type": "string"
                 },
                 "modifier": {
-                    "description": "修改者",
                     "type": "string"
                 },
                 "name": {
-                    "description": "API Key 友好名称",
                     "type": "string"
                 },
                 "quota": {
-                    "description": "剩余配额: -1表示无限制",
                     "type": "integer"
                 },
                 "status": {
-                    "description": "状态: 1-启用, 2-禁用",
                     "type": "integer"
                 },
                 "updated_at": {
-                    "description": "更新时间",
                     "type": "string"
                 },
                 "user_id": {
-                    "description": "关联的用户 ID",
                     "type": "string"
                 }
             }
@@ -9675,15 +9780,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "description": "Create time",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "role_id": {
-                    "description": "From Role.ID",
                     "type": "string"
                 },
                 "role_name": {
@@ -9691,11 +9793,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update time",
                     "type": "string"
                 },
                 "user_id": {
-                    "description": "From User.ID",
                     "type": "string"
                 }
             }
@@ -9732,7 +9832,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "tokenlive-admin",
-	Description:      "An admin control center for ai-gateway.",
+	Description:      "An admin control center for tokelvie.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

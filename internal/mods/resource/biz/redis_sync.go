@@ -531,8 +531,6 @@ func (s *ConfigRedisSync) SyncModelEnable(ctx context.Context, modelID, modelCod
 		return err
 	}
 
-	tenantModelProviderTable := config.C.FormatTableName("tenant_model_provider")
-	providerTable := config.C.FormatTableName("provider")
 	tenantEndpointTable := config.C.FormatTableName("tenant_endpoint")
 	endpointTable := config.C.FormatTableName("endpoint")
 
@@ -541,27 +539,7 @@ func (s *ConfigRedisSync) SyncModelEnable(ctx context.Context, modelID, modelCod
 		modelsKey := "aigw:tenant:" + tenantCode + ":models"
 		_ = s.RedisClient.SAdd(ctx, modelsKey, modelCode).Err()
 
-		// 3. 重新同步该租户此模型的 providers 限制白名单（旧，过渡期保留）
-		providersKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":providers"
-
-		var providerNames []string
-		err = db.Table(providerTable).
-			Joins("JOIN "+tenantModelProviderTable+" ON "+providerTable+".id = "+tenantModelProviderTable+".provider_id").
-			Where(tenantModelProviderTable+".tenant_code = ? AND "+tenantModelProviderTable+".model_id = ? AND "+providerTable+".deleted = '0'", tenantCode, modelID).
-			Pluck(providerTable+".name", &providerNames).Error
-
-		if err == nil {
-			_ = s.RedisClient.Del(ctx, providersKey).Err()
-			if len(providerNames) > 0 {
-				var members []interface{}
-				for _, name := range providerNames {
-					members = append(members, name)
-				}
-				_ = s.RedisClient.SAdd(ctx, providersKey, members...).Err()
-			}
-		}
-
-		// 4. 重新同步该租户此模型的 endpoints 限制白名单（新）
+		// 3. 重新同步该租户此模型的 endpoints 限制白名单（新）
 		endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":endpoints"
 
 		var endpointIDs []string
@@ -640,8 +618,6 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 	}
 
 	// 5. 对每一个租户进行原子覆盖 models 缓存，以及 providers 和 endpoints 限制白名单
-	tenantModelProviderTable := config.C.FormatTableName("tenant_model_provider")
-	providerTable := config.C.FormatTableName("provider")
 	tenantEndpointTable := config.C.FormatTableName("tenant_endpoint")
 	endpointTable := config.C.FormatTableName("endpoint")
 
@@ -669,40 +645,9 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 			_ = s.RedisClient.Del(ctx, modelsKey).Err()
 		}
 
-		// 为租户所绑定的每一个模型，同步其 providers 和 endpoints 白名单
+		// 为租户所绑定的每一个模型，同步其 endpoints 白名单
 		for _, m := range models {
 			if m.Enabled == 1 {
-				// 同步 providers 白名单（旧，过渡期保留）
-				providersKey := "aigw:tenant:" + tenantCode + ":model:" + m.ModelCode + ":providers"
-
-				var providerNames []string
-				err = db.Table(providerTable).
-					Joins("JOIN "+tenantModelProviderTable+" ON "+providerTable+".id = "+tenantModelProviderTable+".provider_id").
-					Where(tenantModelProviderTable+".tenant_code = ? AND "+tenantModelProviderTable+".model_id = ? AND "+providerTable+".deleted = '0'", tenantCode, m.ID).
-					Pluck(providerTable+".name", &providerNames).Error
-
-				if err == nil {
-					if len(providerNames) > 0 {
-						// 原子替换 providers 集合
-						tmpProvidersKey := providersKey + ":tmp"
-						_ = s.RedisClient.Del(ctx, tmpProvidersKey).Err()
-
-						var members []interface{}
-						for _, name := range providerNames {
-							members = append(members, name)
-						}
-						if err := s.RedisClient.SAdd(ctx, tmpProvidersKey, members...).Err(); err != nil {
-							return err
-						}
-						if err := s.RedisClient.Rename(ctx, tmpProvidersKey, providersKey).Err(); err != nil {
-							return err
-						}
-					} else {
-						// 若无限制，物理 Del 白名单
-						_ = s.RedisClient.Del(ctx, providersKey).Err()
-					}
-				}
-
 				// 同步 endpoints 白名单（新）
 				endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + m.ModelCode + ":endpoints"
 

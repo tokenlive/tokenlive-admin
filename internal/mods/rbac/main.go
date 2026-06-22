@@ -24,7 +24,6 @@ type RBAC struct {
 	UserAPIKeyAPI          *api.UserAPIKey
 	TenantAPI              *api.Tenant
 	TenantModelAPI         *api.TenantModel
-	TenantModelProviderAPI *api.TenantModelProvider
 	TenantEndpointAPI      *api.TenantEndpoint
 	Casbinx                *Casbinx
 }
@@ -40,7 +39,6 @@ func (a *RBAC) AutoMigrate(ctx context.Context) error {
 		new(schema.UserAPIKey),
 		new(schema.Tenant),
 		new(schema.TenantModel),
-		new(schema.TenantModelProvider),
 		new(schema.TenantEndpoint),
 	)
 }
@@ -150,8 +148,6 @@ func (a *RBAC) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) error
 	{
 		tenantModels.GET(":tenantCode", a.TenantModelAPI.GetAuthorizedModelIDs)
 		tenantModels.POST("bindings", a.TenantModelAPI.SaveBindings)
-		tenantModels.GET("providers", a.TenantModelProviderAPI.GetAllowedProviderIDs)
-		tenantModels.POST("providers", a.TenantModelProviderAPI.SaveProviders)
 		tenantModels.GET("endpoints", a.TenantEndpointAPI.GetAllowedEndpointIDs)
 		tenantModels.POST("endpoints", a.TenantEndpointAPI.SaveEndpoints)
 	}

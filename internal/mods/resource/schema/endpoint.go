@@ -11,30 +11,30 @@ import (
 
 // Endpoint defines an upstream endpoint belonging to a provider.
 type Endpoint struct {
-	ID                 string          `json:"id" gorm:"size:20;primarykey;"`                                                                                            // Unique ID (XID)
-	ProviderID         string          `json:"provider_id" gorm:"size:20;not null;index:idx_provider_id,priority:1;index:idx_endpoint_route,priority:2"`                 // Associated provider ID
-	ModelID            string          `json:"model_id" gorm:"size:20;not null;index:idx_model_id,priority:1;index:idx_endpoint_route,priority:1;"`                      // Associated Model ID
-	URL                string          `json:"url" gorm:"size:512;not null;"`                                                                                            // Upstream API address
-	ApiKey             string          `json:"api_key,omitempty" gorm:"size:512;"`                                                                                       // Optional, overrides provider-level api_key
-	Protocol           string          `json:"protocol,omitempty" gorm:"size:64;"`                                                                                       // Optional, overrides provider-level protocol
-	RealModel          string          `json:"real_model,omitempty" gorm:"size:128;"`                                                                                    // Optional, overrides model-level real_model
-	Priority           int             `json:"priority" gorm:"not null;default:0;"`                                                                                      // Failover priority (higher = preferred)
-	Weight             int             `json:"weight" gorm:"not null;default:1;"`                                                                                        // Load balancing weight
-	Enabled            int             `json:"enabled" gorm:"not null;default:0;"`                                                                                       // Enable status: 0-disabled, 1-enabled
-	Headers            json.RawMessage `json:"headers,omitempty" gorm:"type:json;"`                                                                                      // Custom HTTP headers
-	Metadata           json.RawMessage `json:"metadata,omitempty" gorm:"type:json;"`                                                                                     // Metadata for tags etc.
-	InputPrice         *float64        `json:"input_price" gorm:"column:input_price;type:decimal(10,6);default:null;"`                                                   // Input price (CNY/M Tokens), NULL means inherit model
-	OutputPrice        *float64        `json:"output_price" gorm:"column:output_price;type:decimal(10,6);default:null;"`                                                 // Output price (CNY/M Tokens), NULL means inherit model
-	CachedPrice        *float64        `json:"cached_price" gorm:"column:cached_price;type:decimal(10,6);default:null;"`                                                 // Cached price (CNY/M Tokens), NULL means inherit model
-	CacheCreationPrice *float64        `json:"cache_creation_price" gorm:"column:cache_creation_price;type:decimal(10,6);default:null;"`                                 // Cache creation price (CNY/M Tokens), NULL means inherit model
-	Description        string          `json:"description" gorm:"size:255;"`                                                                                             // Description
-	Creator            string          `json:"creator" gorm:"size:255;"`                                                                                                 // Creator
-	Modifier           string          `json:"modifier" gorm:"size:255;"`                                                                                                // Modifier
-	CreatedAt          time.Time       `json:"created_at" gorm:"type:timestamp;autoCreateTime;"`                                                                              // Create time
-	UpdatedAt          time.Time       `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"`                                                                              // Update time
-	Deleted            string          `json:"-" gorm:"size:20;index:idx_provider_id,priority:2;index:idx_model_id,priority:2;default:0"`                               // Logical delete flag
-	DeletedAt          *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete time;"`                                                                              // Delete time
-	StatusPoints       []StatusPoint   `json:"status_points" gorm:"-"`                                                                                                   // Recent status points
+	ID                 string          `json:"id" gorm:"type:char(20);primaryKey;comment:主键ID (XID);"`
+	ModelID            string          `json:"model_id" gorm:"type:char(20);not null;index:idx_endpoint_route,priority:1;index:idx_model_id,priority:1;comment:关联 of model ID;"`
+	ProviderID         string          `json:"provider_id" gorm:"type:char(20);not null;index:idx_endpoint_route,priority:2;index:idx_provider_id,priority:1;comment:关联 of provider ID;"`
+	URL                string          `json:"url" gorm:"type:varchar(512);not null;comment:上游 API 地址;"`
+	ApiKey             string          `json:"api_key,omitempty" gorm:"type:varchar(512);default:null;comment:可选，覆盖 provider 级别的 api_key;"`
+	Protocol           string          `json:"protocol,omitempty" gorm:"type:varchar(64);default:null;comment:可选，覆盖 provider 级别的 protocol;"`
+	RealModel          string          `json:"real_model,omitempty" gorm:"type:varchar(128);default:null;comment:可选，覆盖 model 级别的 real_model;"`
+	Priority           int             `json:"priority" gorm:"type:int;not null;default:0;comment:故障转移顺序，数字越小越优先;"`
+	Weight             int             `json:"weight" gorm:"type:int;not null;default:1;comment:负载均衡权重;"`
+	Enabled            int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
+	Headers            json.RawMessage `json:"headers,omitempty" gorm:"type:json;default:null;comment:自定义请求头，如 {\"X-Custom-Header\": \"value\"};"`
+	Metadata           json.RawMessage `json:"metadata,omitempty" gorm:"type:json;default:null;comment:元数据，用于存储标签等额外信息;"`
+	InputPrice         *float64        `json:"input_price" gorm:"type:decimal(10,6);default:null;comment:输入价格（元/百万 Tokens），NULL表示继承模型;"`
+	OutputPrice        *float64        `json:"output_price" gorm:"type:decimal(10,6);default:null;comment:输出价格（元/百万 Tokens），NULL表示继承模型;"`
+	CachedPrice        *float64        `json:"cached_price" gorm:"type:decimal(10,6);default:null;comment:缓存命中价格（元/百万 Tokens），NULL表示继承模型;"`
+	CacheCreationPrice *float64        `json:"cache_creation_price" gorm:"type:decimal(10,6);default:null;comment:缓存创建价格（元/百万 Tokens），NULL表示继承模型;"`
+	Description        string          `json:"description" gorm:"type:varchar(255);default:null;comment:备注描述;"`
+	Creator            string          `json:"creator" gorm:"type:varchar(255);default:null;comment:创建者;"`
+	Modifier           string          `json:"modifier" gorm:"type:varchar(255);default:null;comment:修改者;"`
+	CreatedAt          time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
+	UpdatedAt          time.Time       `json:"updated_at" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
+	Deleted            string          `json:"-" gorm:"type:varchar(20);not null;default:'0';index:idx_provider_id,priority:2;index:idx_model_id,priority:2;comment:逻辑删除标识;"`
+	DeletedAt          *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
+	StatusPoints       []StatusPoint   `json:"status_points" gorm:"-"`                                                                                   // Recent status points
 
 	// 关联查询
 	Model    *Model    `json:"model,omitempty" gorm:"foreignKey:ModelID;references:ID"`

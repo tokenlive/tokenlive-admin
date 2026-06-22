@@ -22,18 +22,18 @@ var dataPermissionTypes = map[string]bool{
 
 // Data permission management
 type DataPermission struct {
-	ID         string          `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`                                                    // Unique ID
-	Type       string          `json:"type" gorm:"size:50;not null;uniqueIndex:uniq_data_permission;index:idx_type;comment:Data type (table name);"` // Data type (table name)
-	DataId     string          `json:"data_id" gorm:"size:20;not null;uniqueIndex:uniq_data_permission;index:idx_data_id;comment:Data ID;"`          // Data ID
-	User       string          `json:"user" gorm:"size:50;not null;uniqueIndex:uniq_data_permission;index:idx_user;comment:User;"`                   // User
-	Tenant     string          `json:"tenant" gorm:"size:50;not null;uniqueIndex:uniq_data_permission;comment:Tenant;"`                              // Tenant
-	Role       string          `json:"role" gorm:"size:20;not null;uniqueIndex:uniq_data_permission;comment:Role code;"`                             // Role code
-	Permission uint            `json:"permission" gorm:"not null;default:0;comment:Data permission bits - format(read,write,delete);"`               // Data permission bits - format(read,write,delete)
-	Creator    string          `json:"creator" gorm:"size:255"`                                                                                      // Creator
-	CreatedAt  time.Time       `json:"created_at" gorm:"type:timestamp;autoCreateTime;default:CURRENT_TIMESTAMP;comment:Create timestamp;"` // Create timestamp
-	UpdatedAt  time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;autoUpdateTime;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;comment:Update timestamp;"` // Update timestamp
-	Deleted    string          `json:"-" gorm:"uniqueIndex:uniq_data_permission;size:20;default:0;comment:Delete flag;"`             // Delete flag
-	DeletedAt  *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`                                             // Delete timestamp
+	ID         string          `json:"id" gorm:"size:20;primaryKey;<-:create;comment:Unique ID;"`                                                     // Unique ID
+	Type       string          `json:"type" gorm:"size:50;not null;uniqueIndex:uniq_data_permission;index:idx_type;comment:Data type (table name);"`  // Data type (table name)
+	DataId     string          `json:"data_id" gorm:"size:20;not null;uniqueIndex:uniq_data_permission;index:idx_data_id;comment:Data ID;"`           // Data ID
+	User       string          `json:"user" gorm:"size:50;not null;uniqueIndex:uniq_data_permission;index:idx_user;comment:User;"`                    // User
+	Tenant     string          `json:"tenant" gorm:"size:50;not null;uniqueIndex:uniq_data_permission;comment:Tenant;"`                               // Tenant
+	Role       string          `json:"role" gorm:"size:20;not null;uniqueIndex:uniq_data_permission;comment:Role code;"`                              // Role code
+	Permission uint            `json:"permission" gorm:"not null;default:0;comment:Data permission bits - format(read,write,delete);"`                // Data permission bits - format(read,write,delete)
+	Creator    string          `json:"creator" gorm:"size:255"`                                                                                       // Creator
+	CreatedAt  time.Time       `json:"created_at" gorm:"type:timestamp;autoCreateTime;default:CURRENT_TIMESTAMP;comment:Create timestamp;"`           // Create timestamp
+	UpdatedAt  time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;autoUpdateTime;default:CURRENT_TIMESTAMP;comment:Update timestamp;"` // Update timestamp
+	Deleted    string          `json:"-" gorm:"uniqueIndex:uniq_data_permission;size:20;default:0;comment:Delete flag;"`                              // Delete flag
+	DeletedAt  *gorm.DeletedAt `json:"-" gorm:"type:datetime;comment:Delete timestamp;"`                                                              // Delete timestamp
 }
 
 func (a DataPermission) TableName() string {

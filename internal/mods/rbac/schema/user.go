@@ -17,18 +17,18 @@ const (
 
 // User management for RBAC
 type User struct {
-	ID        string    `json:"id" gorm:"size:20;primarykey;"` // Unique ID
-	Username  string    `json:"username" gorm:"size:64;index"` // Username for login
-	Name      string    `json:"name" gorm:"size:64;index"`     // Name of user
-	Password  string    `json:"-" gorm:"size:64;"`             // Password for login (encrypted)
-	Phone     string    `json:"phone" gorm:"size:32;"`         // Phone number of user
-	Email     string    `json:"email" gorm:"size:128;"`        // Email of user
-	Remark    string    `json:"remark" gorm:"size:1024;"`      // Remark of user
-	Tenant    string    `json:"tenant" gorm:"size:255"`        // Tenant
-	Status    string    `json:"status" gorm:"size:20;index"`   // Status of user (activated, freezed)
-	CreatedAt time.Time `json:"created_at" gorm:"type:timestamp;autoCreateTime;"` // Create time
-	UpdatedAt time.Time `json:"updated_at" gorm:"type:timestamp;autoUpdateTime;"` // Update time
-	Roles     UserRoles `json:"roles" gorm:"-"`                // Roles of user
+	ID        string    `json:"id" gorm:"type:varchar(20);primaryKey;comment:ID;"`
+	Username  string    `json:"username" gorm:"type:varchar(64);default:null;index:idx_user_username;comment:用户名;"`
+	Name      string    `json:"name" gorm:"type:varchar(64);default:null;index:idx_user_name;comment:用户名称;"`
+	Password  string    `json:"-" gorm:"type:varchar(64);default:null;comment:密码;"`
+	Phone     string    `json:"phone" gorm:"type:varchar(32);default:null;comment:电话;"`
+	Email     string    `json:"email" gorm:"type:varchar(128);default:null;comment:邮件;"`
+	Remark    string    `json:"remark" gorm:"type:varchar(1024);default:null;comment:备注;"`
+	Tenant    string    `json:"tenant" gorm:"type:varchar(255);default:null;comment:租户信息;"`
+	Status    string    `json:"status" gorm:"type:varchar(20);default:null;index:idx_user_status;comment:状态;"`
+	CreatedAt time.Time `json:"created_at" gorm:"type:datetime(3);default:null;autoCreateTime;comment:创建时间;"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"type:datetime(3);default:null;autoUpdateTime;comment:更新时间;"`
+	Roles     UserRoles `json:"roles" gorm:"-"`                                   // Roles of user
 }
 
 func (a *User) TableName() string {
