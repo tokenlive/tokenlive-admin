@@ -233,7 +233,7 @@ CREATE TABLE IF NOT EXISTS `endpoint`
     `output_price` DECIMAL(10, 6)                                                 DEFAULT NULL COMMENT '输出价格（元/百万 Tokens），NULL表示继承模型',
     `cached_price` DECIMAL(10, 6)                                                 DEFAULT NULL COMMENT '缓存命中价格（元/百万 Tokens），NULL表示继承模型',
     `cache_creation_price` DECIMAL(10, 6)                                          DEFAULT NULL COMMENT '缓存创建价格（元/百万 Tokens），NULL表示继承模型',
-    `description` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '备注描述',
+    `description` VARCHAR(10240) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '备注描述',
     `creator`     VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '创建者',
     `modifier`    VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '修改者',
     `created_at`  TIMESTAMP                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

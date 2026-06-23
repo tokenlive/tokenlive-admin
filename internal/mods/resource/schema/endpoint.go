@@ -27,7 +27,7 @@ type Endpoint struct {
 	OutputPrice        *float64        `json:"output_price" gorm:"type:decimal(10,6);default:null;comment:输出价格（元/百万 Tokens），NULL表示继承模型;"`
 	CachedPrice        *float64        `json:"cached_price" gorm:"type:decimal(10,6);default:null;comment:缓存命中价格（元/百万 Tokens），NULL表示继承模型;"`
 	CacheCreationPrice *float64        `json:"cache_creation_price" gorm:"type:decimal(10,6);default:null;comment:缓存创建价格（元/百万 Tokens），NULL表示继承模型;"`
-	Description        string          `json:"description" gorm:"type:varchar(255);default:null;comment:备注描述;"`
+	Description        string          `json:"description" gorm:"type:varchar(10240);default:null;comment:备注描述;"`
 	Creator            string          `json:"creator" gorm:"type:varchar(255);default:null;comment:创建者;"`
 	Modifier           string          `json:"modifier" gorm:"type:varchar(255);default:null;comment:修改者;"`
 	CreatedAt          time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
