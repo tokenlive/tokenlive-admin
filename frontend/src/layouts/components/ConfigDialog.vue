@@ -9,26 +9,7 @@
             :colon="false"
             :label-col="{ span: 24 }">
             <!--            <div class="mb-8-2 fw-600">菜单设置</div>-->
-            <a-form-item
-                :label="$t('app.setting.navigationmode')"
-                class="mb-8-2"
-                :label-col="{ flex: 'auto' }"
-                :wrapper-col="{ style: { flex: '0 0 auto' } }">
-                <a-select
-                    v-model:value="config.layout"
-                    :options="layoutList"
-                    @change="onChange"></a-select>
-            </a-form-item>
-            <a-form-item
-                :label="$t('app.setting.navigationmode')"
-                class="mb-8-2"
-                :label-col="{ flex: 'auto' }"
-                :wrapper-col="{ style: { flex: '0 0 auto' } }">
-                <a-select
-                    v-model:value="config.menuMode"
-                    :options="menuModeList"
-                    @change="onChange"></a-select>
-            </a-form-item>
+
             <a-form-item
                 :label="$t('app.setting.theme')"
                 class="mb-8-2"
@@ -85,18 +66,9 @@ const appStore = useAppStore()
 const { config } = storeToRefs(appStore)
 
 const open = ref(false)
-const layoutList = ref([
-    { value: 'topBottom', label: t('app.setting.topBottom') },
-    { value: 'leftRight', label: t('app.setting.leftRight') },
-])
 const themeList = ref([
     { value: 'light', label: t('app.setting.pagestyle.light') },
     { value: 'dark', label: t('app.setting.pagestyle.dark') },
-])
-const menuModeList = ref([
-    { value: 'side', label: t('app.setting.sidemenu') },
-    { value: 'top', label: t('app.setting.topmenu') },
-    // { value: 'mix', label: '混合菜单' },
 ])
 
 function handleOpen() {

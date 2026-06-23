@@ -21,9 +21,12 @@ const useAppStore = defineStore('app', {
     name: 'useAppStore',
     state: () => {
         const storedConfig = storage.session.getItem(config('storage.config'), null)
+        const activeConfig = { ...defaultConfig, ...(storedConfig || {}) }
+        activeConfig.layout = 'leftRight'
+        activeConfig.menuMode = 'side'
         return {
             complete: false,
-            config: { ...defaultConfig, ...(storedConfig || {}) },
+            config: activeConfig,
         }
     },
     getters: {
