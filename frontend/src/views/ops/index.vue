@@ -861,7 +861,7 @@ onUnmounted(() => {
 }
 
 [data-theme='dark'] .ops-stat-card__value {
-    color: #ffffff;
+    color: #e0dbff;
 }
 
 .ops-stat-card__label {

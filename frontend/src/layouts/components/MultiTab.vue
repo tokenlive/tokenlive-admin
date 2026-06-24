@@ -101,6 +101,13 @@ const { token } = antTheme.useToken()
 const spin = ref(false)
 const multiTabRef = ref()
 
+const activeTextColor = computed(() => {
+    return appStore.config.theme === 'dark' ? '#e0dbff' : token.value.colorPrimary
+})
+const hoverTextColor = computed(() => {
+    return appStore.config.theme === 'dark' ? '#9578ff' : token.value.colorPrimaryHover
+})
+
 const cpMultiTabList = computed(() => multiTabStore.list)
 const cpCurrent = computed(() => multiTabStore.current)
 const cpShowCloseBtn = computed(() => cpMultiTabList.value.length > 1)
@@ -168,6 +175,24 @@ function initDragSort() {
 
                 .ant-tabs-tab {
                     border-bottom-color: transparent;
+
+                    &:hover {
+                        .ant-tabs-tab-btn {
+                            color: v-bind(hoverTextColor) !important;
+                        }
+                        .multi-tab__icon {
+                            color: v-bind(hoverTextColor) !important;
+                        }
+                    }
+
+                    &.ant-tabs-tab-active {
+                        .ant-tabs-tab-btn {
+                            color: v-bind(activeTextColor) !important;
+                        }
+                        .multi-tab__icon {
+                            color: v-bind(activeTextColor) !important;
+                        }
+                    }
                 }
             }
         }

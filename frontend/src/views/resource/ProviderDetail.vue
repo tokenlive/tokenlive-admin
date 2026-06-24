@@ -165,6 +165,16 @@
                                     <api-outlined v-else />
                                 </a-tooltip>
                             </x-action-button>
+                            <x-action-button @click="handleToggleEndpointEnabled(record)">
+                                <a-tooltip>
+                                    <template #title>{{
+                                        record.enabled === 1
+                                            ? $t('pages.endpoint.disable')
+                                            : $t('pages.endpoint.enable')
+                                    }}</template>
+                                    <poweroff-outlined :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }"
+                                /></a-tooltip>
+                            </x-action-button>
                             <x-action-button @click="$refs.endpointEditRef.handleEdit(record)">
                                 <a-tooltip>
                                     <template #title> {{ $t('pages.endpoint.edit') }}</template>
@@ -197,7 +207,14 @@
 import { ref, onMounted, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
-import { ReloadOutlined, EditOutlined, DeleteOutlined, ApiOutlined, LoadingOutlined } from '@ant-design/icons-vue'
+import {
+    ReloadOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    ApiOutlined,
+    LoadingOutlined,
+    PoweroffOutlined,
+} from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { config } from '@/config'
 import { formatUtcDateTime } from '@/utils/util'
@@ -280,7 +297,7 @@ const endpointColumns = [
     {
         title: t('button.action'),
         key: 'action',
-        width: 160,
+        width: 200,
     },
 ]
 
@@ -377,6 +394,29 @@ async function handleTestEndpoint(record) {
         })
     } finally {
         testingEndpoints.value[record.id] = false
+    }
+}
+
+const togglingEndpoints = ref({})
+
+async function handleToggleEndpointEnabled(record) {
+    if (togglingEndpoints.value[record.id]) return
+    const nextEnabled = record.enabled === 1 ? 0 : 1
+    togglingEndpoints.value[record.id] = true
+    try {
+        const { success } = await apis.endpoint.toggleEndpointEnabled(record.id, { enabled: nextEnabled }).catch(() => {
+            throw new Error()
+        })
+        if (config('http.code.success') === success) {
+            message.success(
+                nextEnabled === 1 ? t('pages.endpoint.enable.success') : t('pages.endpoint.disable.success')
+            )
+            await loadEndpointList()
+        }
+    } catch (error) {
+        // ignore, error already handled by interceptor
+    } finally {
+        togglingEndpoints.value[record.id] = false
     }
 }
 

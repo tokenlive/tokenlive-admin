@@ -61,7 +61,7 @@ const theme = computed(() => {
                       colorBgLayout: '#0d0f14',
                       colorBorder: 'rgba(255, 255, 255, 0.08)',
                       colorBorderSecondary: 'rgba(255, 255, 255, 0.05)',
-                      colorTextBase: '#f0f2f5',
+                      colorTextBase: '#e8eaed',
                       colorTextSecondary: '#8e919c',
                   }
                 : {}),
@@ -77,6 +77,12 @@ const theme = computed(() => {
             Card: {
                 paddingLG: 16,
             },
+            Tabs: isDark
+                ? {
+                      tabsActiveColor: '#ffffff',
+                      tabsHoverColor: '#9578ff',
+                  }
+                : {},
             // 暗色主题组件定制
             Layout: isDark
                 ? {
@@ -91,7 +97,7 @@ const theme = computed(() => {
                       colorSubItemBg: '#0d0f14',
                       colorItemBgSelected: 'rgba(124, 92, 252, 0.15)',
                       colorItemBgActive: 'rgba(124, 92, 252, 0.1)',
-                      colorItemTextSelected: '#7c5cfc',
+                      colorItemTextSelected: '#e0dbff',
                       colorItemTextHover: '#9578ff',
                       colorActiveBarWidth: 3,
                   }

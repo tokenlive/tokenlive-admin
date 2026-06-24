@@ -117,6 +117,35 @@ func (m *Model) Update(c *gin.Context) {
 
 // @Tags ModelAPI
 // @Security ApiKeyAuth
+// @Summary Toggle model enabled status by ID
+// @Param id path string true "unique id"
+// @Param body body schema.ModelEnabledForm true "Request body"
+// @Success 200 {object} util.ResponseResult
+// @Failure 400 {object} util.ResponseResult
+// @Failure 401 {object} util.ResponseResult
+// @Failure 500 {object} util.ResponseResult
+// @Router /api/v1/models/{id}/enabled [put]
+func (m *Model) UpdateEnabled(c *gin.Context) {
+	ctx := c.Request.Context()
+	item := new(schema.ModelEnabledForm)
+	if err := util.ParseJSON(c, item); err != nil {
+		util.ResError(c, err)
+		return
+	} else if err := item.Validate(); err != nil {
+		util.ResError(c, err)
+		return
+	}
+
+	err := m.ModelBIZ.ToggleEnabled(ctx, c.Param("id"), item)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResOK(c)
+}
+
+// @Tags ModelAPI
+// @Security ApiKeyAuth
 // @Summary Delete model record by ID
 // @Param id path string true "unique id"
 // @Success 200 {object} util.ResponseResult

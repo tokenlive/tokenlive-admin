@@ -151,7 +151,7 @@ select:focus-visible {
     --color-bg-active: rgba(255, 255, 255, 0.08);
 
     /* ── 文字 / Text ── */
-    --color-text-primary: #f0f2f5;
+    --color-text-primary: #e8eaed;
     --color-text-secondary: #8e919c;
     --color-text-tertiary: #545766;
     --color-text-quaternary: #3a3d4a;

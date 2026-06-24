@@ -73,6 +73,9 @@ export const getPolicyBinding = (id) => request.basic.get(`/api/v1/policy/policy
 export const createPolicyBinding = (params) => request.basic.post('/api/v1/policy/policy-bindings', params)
 // 更新策略绑定
 export const updatePolicyBinding = (id, params) => request.basic.put(`/api/v1/policy/policy-bindings/${id}`, params)
+// 切换策略绑定启用状态
+export const togglePolicyBindingEnabled = (id, params) =>
+    request.basic.put(`/api/v1/policy/policy-bindings/${id}/enabled`, params)
 // 删除策略绑定
 export const delPolicyBinding = (id) => request.basic.delete(`/api/v1/policy/policy-bindings/${id}`)
 

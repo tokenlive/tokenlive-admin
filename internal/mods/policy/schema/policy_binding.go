@@ -115,3 +115,15 @@ func (a *PolicyBindingForm) FillTo(binding *PolicyBinding) error {
 	binding.Description = a.Description
 	return nil
 }
+
+// PolicyBindingEnabledForm toggles the enabled status of a policy binding.
+type PolicyBindingEnabledForm struct {
+	Enabled int `json:"enabled"` // Enable status: 0-disabled, 1-enabled
+}
+
+func (a *PolicyBindingEnabledForm) Validate() error {
+	if a.Enabled != 0 && a.Enabled != 1 {
+		return errors.BadRequest("", "enabled 字段必须为 0 或 1")
+	}
+	return nil
+}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
+	"github.com/tokenlive/tokenlive-admin/pkg/errors"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
 )
@@ -34,7 +35,7 @@ type Endpoint struct {
 	UpdatedAt          time.Time       `json:"updated_at" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
 	Deleted            string          `json:"-" gorm:"type:varchar(20);not null;default:'0';index:idx_provider_id,priority:2;index:idx_model_id,priority:2;comment:逻辑删除标识;"`
 	DeletedAt          *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
-	StatusPoints       []StatusPoint   `json:"status_points" gorm:"-"`                                                                                   // Recent status points
+	StatusPoints       []StatusPoint   `json:"status_points" gorm:"-"` // Recent status points
 
 	// 关联查询
 	Model    *Model    `json:"model,omitempty" gorm:"foreignKey:ModelID;references:ID"`
@@ -117,6 +118,18 @@ func (e *EndpointForm) FillTo(endpoint *Endpoint) error {
 	endpoint.CachedPrice = e.CachedPrice
 	endpoint.CacheCreationPrice = e.CacheCreationPrice
 	endpoint.Description = e.Description
+	return nil
+}
+
+// EndpointEnabledForm toggles the enabled status of an endpoint.
+type EndpointEnabledForm struct {
+	Enabled int `json:"enabled"` // Enable status: 0-disabled, 1-enabled
+}
+
+func (e *EndpointEnabledForm) Validate() error {
+	if e.Enabled != 0 && e.Enabled != 1 {
+		return errors.BadRequest("", "enabled 字段必须为 0 或 1")
+	}
 	return nil
 }
 

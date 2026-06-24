@@ -10,6 +10,8 @@ export const getModel = (id) => request.basic.get(`/api/v1/models/${id}`)
 export const createModel = (params) => request.basic.post('/api/v1/models', params)
 // 更新 model
 export const updateModel = (id, params) => request.basic.put(`/api/v1/models/${id}`, params)
+// 切换 model 启用状态
+export const toggleModelEnabled = (id, params) => request.basic.put(`/api/v1/models/${id}/enabled`, params)
 // 删除 model
 export const delModel = (id) => request.basic.delete(`/api/v1/models/${id}`)
 // 同步 model

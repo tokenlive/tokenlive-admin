@@ -126,6 +126,15 @@ func (a *PolicyBinding) Update(ctx context.Context, item *schema.PolicyBinding) 
 	return errors.WithStack(result.Error)
 }
 
+// UpdateEnabled updates only the enabled status (and modifier) of the specified policy binding.
+func (a *PolicyBinding) UpdateEnabled(ctx context.Context, id string, enabled int, modifier string) error {
+	result := GetPolicyBindingDB(ctx, a.DB).Where("id=?", id).Updates(map[string]interface{}{
+		"enabled":  enabled,
+		"modifier": modifier,
+	})
+	return errors.WithStack(result.Error)
+}
+
 // Delete the specified policy binding from the database using logical deletion.
 func (a *PolicyBinding) Delete(ctx context.Context, id string) error {
 	return errors.WithStack(util.SoftDelete(ctx, GetPolicyBindingDB(ctx, a.DB), id))

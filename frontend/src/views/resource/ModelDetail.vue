@@ -221,6 +221,16 @@
                                     <api-outlined v-else />
                                 </a-tooltip>
                             </x-action-button>
+                            <x-action-button @click="handleToggleEndpointEnabled(record)">
+                                <a-tooltip>
+                                    <template #title>{{
+                                        record.enabled === 1
+                                            ? $t('pages.endpoint.disable')
+                                            : $t('pages.endpoint.enable')
+                                    }}</template>
+                                    <poweroff-outlined :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }"
+                                /></a-tooltip>
+                            </x-action-button>
                             <x-action-button @click="$refs.endpointEditRef.handleCopy(record)">
                                 <a-tooltip>
                                     <template #title> {{ $t('pages.endpoint.copy') }}</template>
@@ -349,6 +359,16 @@
                                     <edit-outlined />
                                 </a-tooltip>
                             </x-action-button>
+                            <x-action-button @click="handleTogglePolicyBindingEnabled(record)">
+                                <a-tooltip>
+                                    <template #title>{{
+                                        record.enabled === 1
+                                            ? $t('pages.endpoint.disable')
+                                            : $t('pages.endpoint.enable')
+                                    }}</template>
+                                    <poweroff-outlined :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }"
+                                /></a-tooltip>
+                            </x-action-button>
                             <x-action-button @click="handleGoToPolicyEdit(record)">
                                 <a-tooltip>
                                     <template #title> {{ $t('pages.model.policy.gotoEdit') }}</template>
@@ -476,6 +496,7 @@ import {
     LoadingOutlined,
     CopyOutlined,
     FormOutlined,
+    PoweroffOutlined,
 } from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { config } from '@/config'
@@ -595,7 +616,7 @@ const policyColumns = [
     {
         title: t('button.action'),
         key: 'action',
-        width: 160,
+        width: 200,
     },
 ]
 
@@ -668,7 +689,7 @@ const endpointColumns = [
     {
         title: t('button.action'),
         key: 'action',
-        width: 190,
+        width: 230,
     },
 ]
 
@@ -913,6 +934,31 @@ function handleGoToPolicyEdit(record) {
     router.push({ name: routeName, query: { policyId: record.policy_id } })
 }
 
+const togglingPolicyBindings = ref({})
+
+async function handleTogglePolicyBindingEnabled(record) {
+    if (togglingPolicyBindings.value[record.id]) return
+    const nextEnabled = record.enabled === 1 ? 0 : 1
+    togglingPolicyBindings.value[record.id] = true
+    try {
+        const { success } = await apis.policy
+            .togglePolicyBindingEnabled(record.id, { enabled: nextEnabled })
+            .catch(() => {
+                throw new Error()
+            })
+        if (config('http.code.success') === success) {
+            message.success(
+                nextEnabled === 1 ? t('pages.endpoint.enable.success') : t('pages.endpoint.disable.success')
+            )
+            await loadPolicyBindingList()
+        }
+    } catch (error) {
+        // ignore, error already handled by interceptor
+    } finally {
+        togglingPolicyBindings.value[record.id] = false
+    }
+}
+
 async function loadAliasList() {
     try {
         aliasLoading.value = true
@@ -1075,6 +1121,29 @@ async function handleTestEndpoint(record) {
         })
     } finally {
         testingEndpoints.value[record.id] = false
+    }
+}
+
+const togglingEndpoints = ref({})
+
+async function handleToggleEndpointEnabled(record) {
+    if (togglingEndpoints.value[record.id]) return
+    const nextEnabled = record.enabled === 1 ? 0 : 1
+    togglingEndpoints.value[record.id] = true
+    try {
+        const { success } = await apis.endpoint.toggleEndpointEnabled(record.id, { enabled: nextEnabled }).catch(() => {
+            throw new Error()
+        })
+        if (config('http.code.success') === success) {
+            message.success(
+                nextEnabled === 1 ? t('pages.endpoint.enable.success') : t('pages.endpoint.disable.success')
+            )
+            await loadEndpointList()
+        }
+    } catch (error) {
+        // ignore, error already handled by interceptor
+    } finally {
+        togglingEndpoints.value[record.id] = false
     }
 }
 

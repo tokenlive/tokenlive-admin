@@ -5,6 +5,7 @@ import (
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	// "github.com/tokenlive/tokenlive-admin/internal/mods/space/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/errors"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
 )
@@ -31,7 +32,7 @@ type Model struct {
 	Modifier           string          `json:"modifier" gorm:"type:varchar(255);default:null;comment:修改者;"`
 	CreatedAt          time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
 	UpdatedAt          time.Time       `json:"updated_at" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
-	StatusPoints       []StatusPoint   `json:"status_points" gorm:"-"`                                                                                // Recent status points
+	StatusPoints       []StatusPoint   `json:"status_points" gorm:"-"` // Recent status points
 	Deleted            string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_model_code_deleted,priority:2;comment:逻辑删除标识;"`
 	DeletedAt          *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
@@ -109,6 +110,18 @@ func toNilIfEmpty(s *string) *string {
 		return nil
 	}
 	return s
+}
+
+// ModelEnabledForm toggles the enabled status of a model.
+type ModelEnabledForm struct {
+	Enabled int `json:"enabled"` // Enable status: 0-disabled, 1-enabled
+}
+
+func (m *ModelEnabledForm) Validate() error {
+	if m.Enabled != 0 && m.Enabled != 1 {
+		return errors.BadRequest("", "enabled 字段必须为 0 或 1")
+	}
+	return nil
 }
 
 // StatusPoint 最近状态时间点的成功失败数

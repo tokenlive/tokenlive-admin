@@ -108,6 +108,15 @@ func (m *Model) Update(ctx context.Context, item *schema.Model) error {
 	return errors.WithStack(result.Error)
 }
 
+// UpdateEnabled updates only the enabled status (and modifier) of the specified model.
+func (m *Model) UpdateEnabled(ctx context.Context, id string, enabled int, modifier string) error {
+	result := GetModelDB(ctx, m.DB).Where("id=?", id).Updates(map[string]interface{}{
+		"enabled":  enabled,
+		"modifier": modifier,
+	})
+	return errors.WithStack(result.Error)
+}
+
 // Delete the specified model logically.
 func (m *Model) Delete(ctx context.Context, id string) error {
 	return errors.WithStack(util.SoftDelete(ctx, GetModelDB(ctx, m.DB), id))

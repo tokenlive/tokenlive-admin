@@ -182,6 +182,32 @@ func (a *PolicyBinding) Update(ctx context.Context, id string, formItem *schema.
 	return nil
 }
 
+// ToggleEnabled updates only the enabled status of a policy binding and re-syncs the dimension to Redis.
+// Toggling does not change the binding's dimensions, so no exclusive-policy or unique-key checks are needed.
+func (a *PolicyBinding) ToggleEnabled(ctx context.Context, id string, formItem *schema.PolicyBindingEnabledForm) error {
+	binding, err := a.PolicyBindingDAL.Get(ctx, id)
+	if err != nil {
+		return err
+	} else if binding == nil {
+		return errors.NotFound("", "Policy binding not found")
+	}
+
+	// No-op if the status is unchanged.
+	if binding.Enabled == formItem.Enabled {
+		return nil
+	}
+
+	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyBindingDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
+	})
+	if err != nil {
+		return err
+	}
+
+	// The aggregated policy snapshot is filtered by enabled = 1, so the dimension must be re-synced.
+	return a.PolicyRedisSync.SyncDimension(ctx, binding.TenantCode, binding.UserID, binding.ModelCode)
+}
+
 // Delete the specified policy binding from the data access object.
 func (a *PolicyBinding) Delete(ctx context.Context, id string) error {
 	binding, err := a.PolicyBindingDAL.Get(ctx, id)

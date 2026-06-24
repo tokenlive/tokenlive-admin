@@ -10,6 +10,8 @@ export const getEndpoint = (id) => request.basic.get(`/api/v1/endpoints/${id}`)
 export const createEndpoint = (params) => request.basic.post('/api/v1/endpoints', params)
 // 更新 endpoint
 export const updateEndpoint = (id, params) => request.basic.put(`/api/v1/endpoints/${id}`, params)
+// 切换 endpoint 启用状态
+export const toggleEndpointEnabled = (id, params) => request.basic.put(`/api/v1/endpoints/${id}/enabled`, params)
 // 删除 endpoint
 export const delEndpoint = (id) => request.basic.delete(`/api/v1/endpoints/${id}`)
 // 查询 Model 关联的 Endpoint 列表

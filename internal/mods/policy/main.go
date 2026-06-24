@@ -94,6 +94,7 @@ func (a *Policy) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) err
 		policyBinding.GET(":id", a.PolicyBindingAPI.Get)
 		policyBinding.POST("", a.PolicyBindingAPI.Create)
 		policyBinding.PUT(":id", a.PolicyBindingAPI.Update)
+		policyBinding.PUT(":id/enabled", a.PolicyBindingAPI.UpdateEnabled)
 		policyBinding.DELETE(":id", a.PolicyBindingAPI.Delete)
 	}
 

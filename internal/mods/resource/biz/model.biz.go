@@ -164,6 +164,37 @@ func (m *Model) Update(ctx context.Context, id string, formItem *schema.ModelFor
 	return err
 }
 
+// ToggleEnabled updates only the enabled status of a model and re-syncs Redis.
+// It replicates the enabled-change side effects of Update: SyncModelByCode plus
+// SyncModelEnable/SyncModelDisable (which handle tenant binding relationships).
+// model_code is not changed by a toggle, so no SyncModelCodeChange is needed.
+func (m *Model) ToggleEnabled(ctx context.Context, id string, formItem *schema.ModelEnabledForm) error {
+	model, err := m.ModelDAL.Get(ctx, id)
+	if err != nil {
+		return err
+	} else if model == nil {
+		return errors.NotFound("", "Model not found")
+	}
+
+	// No-op if the status is unchanged.
+	if model.Enabled == formItem.Enabled {
+		return nil
+	}
+
+	err = m.Trans.Exec(ctx, func(ctx context.Context) error {
+		return m.ModelDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
+	})
+	if err == nil {
+		_ = m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
+		if formItem.Enabled == 0 {
+			_ = m.ConfigRedisSync.SyncModelDisable(ctx, model.ID, model.ModelCode)
+		} else {
+			_ = m.ConfigRedisSync.SyncModelEnable(ctx, model.ID, model.ModelCode)
+		}
+	}
+	return err
+}
+
 // Delete the specified model.
 func (m *Model) Delete(ctx context.Context, id string) error {
 	model, err := m.ModelDAL.Get(ctx, id)

@@ -232,6 +232,31 @@ func (e *Endpoint) Update(ctx context.Context, id string, formItem *schema.Endpo
 	return err
 }
 
+// ToggleEnabled updates only the enabled status of an endpoint and re-syncs the routing config to Redis.
+func (e *Endpoint) ToggleEnabled(ctx context.Context, id string, formItem *schema.EndpointEnabledForm) error {
+	endpoint, err := e.EndpointDAL.Get(ctx, id)
+	if err != nil {
+		return err
+	} else if endpoint == nil {
+		return errors.NotFound("", "Endpoint not found")
+	}
+
+	// No-op if the status is unchanged.
+	if endpoint.Enabled == formItem.Enabled {
+		return nil
+	}
+
+	err = e.Trans.Exec(ctx, func(ctx context.Context) error {
+		return e.EndpointDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
+	})
+	if err == nil {
+		if model, _ := e.ModelDAL.Get(ctx, endpoint.ModelID); model != nil {
+			_ = e.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
+		}
+	}
+	return err
+}
+
 // Delete the specified endpoint.
 func (e *Endpoint) Delete(ctx context.Context, id string) error {
 	endpoint, err := e.EndpointDAL.Get(ctx, id)

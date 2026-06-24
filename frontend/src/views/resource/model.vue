@@ -138,6 +138,14 @@
                                 <edit-outlined />
                             </a-tooltip>
                         </x-action-button>
+                        <x-action-button @click="handleToggleEnabled(record)">
+                            <a-tooltip>
+                                <template #title>{{
+                                    record.enabled === 1 ? $t('pages.endpoint.disable') : $t('pages.endpoint.enable')
+                                }}</template>
+                                <poweroff-outlined :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }"
+                            /></a-tooltip>
+                        </x-action-button>
                         <x-action-button @click="handleSync(record)">
                             <a-tooltip>
                                 <template #title> {{ $t('pages.model.sync') }}</template>
@@ -178,6 +186,7 @@ import {
     RedoOutlined,
     CopyOutlined,
     SyncOutlined,
+    PoweroffOutlined,
 } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -221,7 +230,7 @@ const columns = [
         width: 180,
         sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     },
-    { title: t('button.action'), key: 'action', fixed: 'right', width: 150 },
+    { title: t('button.action'), key: 'action', fixed: 'right', width: 190 },
 ]
 
 const { listData, loading, showLoading, hideLoading, paginationState, searchFormData, resetPagination } =
@@ -370,6 +379,29 @@ function handleSync({ id, model_name }) {
             }
         },
     })
+}
+
+const togglingModels = ref({})
+
+async function handleToggleEnabled(record) {
+    if (togglingModels.value[record.id]) return
+    const nextEnabled = record.enabled === 1 ? 0 : 1
+    togglingModels.value[record.id] = true
+    try {
+        const { success } = await apis.model.toggleModelEnabled(record.id, { enabled: nextEnabled }).catch(() => {
+            throw new Error()
+        })
+        if (config('http.code.success') === success) {
+            message.success(
+                nextEnabled === 1 ? t('pages.endpoint.enable.success') : t('pages.endpoint.disable.success')
+            )
+            await getPageList()
+        }
+    } catch (error) {
+        // ignore, error already handled by interceptor
+    } finally {
+        togglingModels.value[record.id] = false
+    }
 }
 
 function onTableChange({ current, pageSize }) {

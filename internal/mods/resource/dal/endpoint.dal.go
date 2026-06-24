@@ -102,6 +102,15 @@ func (e *Endpoint) Update(ctx context.Context, item *schema.Endpoint) error {
 	return errors.WithStack(result.Error)
 }
 
+// UpdateEnabled updates only the enabled status (and modifier) of the specified endpoint.
+func (e *Endpoint) UpdateEnabled(ctx context.Context, id string, enabled int, modifier string) error {
+	result := GetEndpointDB(ctx, e.DB).Where("id=?", id).Updates(map[string]interface{}{
+		"enabled":  enabled,
+		"modifier": modifier,
+	})
+	return errors.WithStack(result.Error)
+}
+
 // Delete the specified endpoint logically.
 func (e *Endpoint) Delete(ctx context.Context, id string) error {
 	return errors.WithStack(util.SoftDelete(ctx, GetEndpointDB(ctx, e.DB), id))
