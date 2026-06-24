@@ -870,18 +870,25 @@ function handleOk() {
                 // Build judgment -> thresholds
                 let failureRateThreshold = 0
                 let slowCallRateThreshold = 0
-                for (const item of formData.value.judgment) {
-                    if (item.key === 'failureRateThreshold' && item.value) {
-                        failureRateThreshold = item.value
+                // Only include thresholds if corresponding check is enabled
+                if (checkList.value.includes('code')) {
+                    for (const item of formData.value.judgment) {
+                        if (item.key === 'failureRateThreshold' && item.value) {
+                            failureRateThreshold = item.value
+                        }
                     }
-                    if (item.key === 'slowCallRateThreshold' && item.value) {
-                        slowCallRateThreshold = item.value
+                }
+                if (checkList.value.includes('delay')) {
+                    for (const item of formData.value.judgment) {
+                        if (item.key === 'slowCallRateThreshold' && item.value) {
+                            slowCallRateThreshold = item.value
+                        }
                     }
                 }
 
-                // Build code_policy
+                // Build code_policy - only if code check is enabled
                 let codePolicy = undefined
-                if (formData.value.codePolicy && formData.value.codePolicy.parser) {
+                if (checkList.value.includes('code') && formData.value.codePolicy && formData.value.codePolicy.parser) {
                     codePolicy = {
                         parser: formData.value.codePolicy.parser,
                         expression: formData.value.codePolicy.expression,
@@ -890,14 +897,28 @@ function handleOk() {
                     }
                 }
 
-                // Build message_policy
+                // Build message_policy - only if code check is enabled
                 let messagePolicy = undefined
-                if (formData.value.messagePolicy && formData.value.messagePolicy.parser) {
+                if (
+                    checkList.value.includes('code') &&
+                    formData.value.messagePolicy &&
+                    formData.value.messagePolicy.parser
+                ) {
                     messagePolicy = {
                         parser: formData.value.messagePolicy.parser,
                         expression: formData.value.messagePolicy.expression,
                         statuses: formData.value.messagePolicy.statuses || [],
                         content_types: formData.value.messagePolicy.contentTypes || [],
+                    }
+                }
+
+                // Build slow call fields - only if delay check is enabled
+                let slowCallMetric = ''
+                let slowCallDurationThreshold = 0
+                if (checkList.value.includes('delay')) {
+                    slowCallDurationThreshold = formData.value.slow_call_duration_threshold || 0
+                    if (slowCallRateThreshold > 0 || slowCallDurationThreshold > 0) {
+                        slowCallMetric = formData.value.slow_call_metric
                     }
                 }
 
@@ -917,14 +938,6 @@ function handleOk() {
                     }
                 }
 
-                let slowCallMetric = ''
-                if (
-                    slowCallRateThreshold > 0 ||
-                    (formData.value.slow_call_duration_threshold && formData.value.slow_call_duration_threshold > 0)
-                ) {
-                    slowCallMetric = formData.value.slow_call_metric
-                }
-
                 const params = {
                     name: formData.value.name,
                     level: formData.value.level,
@@ -933,11 +946,11 @@ function handleOk() {
                     min_calls_threshold: formData.value.min_calls_threshold,
                     code_policy: codePolicy,
                     message_policy: messagePolicy,
-                    error_codes: formData.value.error_codes || [],
-                    error_messages: formData.value.error_messages || [],
+                    error_codes: checkList.value.includes('code') ? formData.value.error_codes || [] : [],
+                    error_messages: checkList.value.includes('code') ? formData.value.error_messages || [] : [],
                     failure_rate_threshold: failureRateThreshold,
                     slow_call_rate_threshold: slowCallRateThreshold,
-                    slow_call_duration_threshold: formData.value.slow_call_duration_threshold || 0,
+                    slow_call_duration_threshold: slowCallDurationThreshold,
                     slow_call_metric: slowCallMetric,
                     wait_duration_in_open_state: formData.value.wait_duration_in_open_state,
                     allowed_calls_in_half_open_state: formData.value.allowed_calls_in_half_open_state,
