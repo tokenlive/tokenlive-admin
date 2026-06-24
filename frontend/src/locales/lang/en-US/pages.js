@@ -1000,7 +1000,7 @@ export default {
     'pages.circuitBreak.form.slowCallMetric': 'Slow Call Metric',
     'pages.circuitBreak.form.slowCallMetric.placeholder': 'Please select slow call metric',
     'pages.circuitBreak.form.slowCallMetric.ttft': 'TTFT (Time To First Token)',
-    'pages.circuitBreak.form.slowCallMetric.duration': 'Duration (Total Duration)',
+    'pages.circuitBreak.form.slowCallMetric.duration': 'RTT (Total RTT)',
     'pages.circuitBreak.form.judgment': 'Judgment Conditions',
     'pages.circuitBreak.form.judgment.tooltip': 'Set threshold conditions for circuit breaker triggering',
     'pages.circuitBreak.form.judgment.failureRate': 'Failure Rate',

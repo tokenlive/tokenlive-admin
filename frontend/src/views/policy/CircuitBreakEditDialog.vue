@@ -282,7 +282,7 @@
                                 <a-select-option value="TTFT">{{
                                     $t('pages.circuitBreak.form.slowCallMetric.ttft')
                                 }}</a-select-option>
-                                <a-select-option value="Duration">{{
+                                <a-select-option value="RTT">{{
                                     $t('pages.circuitBreak.form.slowCallMetric.duration')
                                 }}</a-select-option>
                             </a-select>

@@ -984,7 +984,7 @@ export default {
     'pages.circuitBreak.form.slowCallMetric': '慢调用衡量指标',
     'pages.circuitBreak.form.slowCallMetric.placeholder': '请选择慢调用衡量指标',
     'pages.circuitBreak.form.slowCallMetric.ttft': 'TTFT (首字耗时)',
-    'pages.circuitBreak.form.slowCallMetric.duration': 'Duration (全程耗时)',
+    'pages.circuitBreak.form.slowCallMetric.duration': 'RTT (全程耗时)',
     'pages.circuitBreak.form.judgment': '判断条件',
     'pages.circuitBreak.form.judgment.tooltip': '设置熔断触发的阈值条件',
     'pages.circuitBreak.form.judgment.failureRate': '错误率',
