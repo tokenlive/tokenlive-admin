@@ -22,6 +22,7 @@ const (
 
 type ResolvedEndpoint struct {
 	ID                 string            `json:"id,omitempty"`
+	Code               string            `json:"code,omitempty"`
 	Description        string            `json:"description,omitempty"`
 	RealModel          string            `json:"real_model"`
 	ProviderName       string            `json:"provider_name"`
@@ -211,6 +212,7 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 		for _, apiKey := range apiKeys {
 			resolvedList = append(resolvedList, ResolvedEndpoint{
 				ID:                 ep.ID,
+				Code:               ep.Code,
 				Description:        ep.Description,
 				RealModel:          realModel,
 				ProviderName:       ep.Provider.Name,

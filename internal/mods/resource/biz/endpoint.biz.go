@@ -153,12 +153,20 @@ func (e *Endpoint) Get(ctx context.Context, id string) (*schema.Endpoint, error)
 
 // Create a new endpoint.
 func (e *Endpoint) Create(ctx context.Context, formItem *schema.EndpointForm) (*schema.Endpoint, error) {
-	// Exists check
+	// Exists check for duplicate endpoint
 	exists, err := e.EndpointDAL.ExistsDuplicate(ctx, formItem.ModelID, formItem.ProviderID, formItem.URL, formItem.ApiKey, formItem.RealModel, "")
 	if err != nil {
 		return nil, err
 	} else if exists {
 		return nil, errors.Conflict("", "已经存在相同模型、相同供应商、相同 URL、相同 API Key 和相同真实模型的 Endpoint 记录")
+	}
+
+	// Exists check for code uniqueness
+	existsCode, err := e.EndpointDAL.ExistsByCode(ctx, formItem.Code, "")
+	if err != nil {
+		return nil, err
+	} else if existsCode {
+		return nil, errors.Conflict("", "端点编码已存在")
 	}
 
 	endpoint := &schema.Endpoint{
@@ -205,6 +213,14 @@ func (e *Endpoint) Update(ctx context.Context, id string, formItem *schema.Endpo
 		return err
 	} else if exists {
 		return errors.Conflict("", "已经存在相同模型、相同供应商、相同 URL、相同 API Key 和相同真实模型的 Endpoint 记录")
+	}
+
+	// Exists check for code uniqueness (excluding self)
+	existsCode, err := e.EndpointDAL.ExistsByCode(ctx, formItem.Code, id)
+	if err != nil {
+		return err
+	} else if existsCode {
+		return errors.Conflict("", "端点编码已存在")
 	}
 
 	var oldModelCode string

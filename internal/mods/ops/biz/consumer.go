@@ -80,6 +80,7 @@ func parseMessage(msg *Message) *schema.EventLog {
 		TenantCode:   strField(fields, "tenant_code"),
 		ModelCode:    strField(fields, "model_code"),
 		EndpointID:   strField(fields, "endpoint_id"),
+		EndpointCode: strField(fields, "endpoint_code"),
 		ProviderName: strField(fields, "provider_name"),
 		PolicyID:     strField(fields, "policy_id"),
 		PolicyName:   strField(fields, "policy_name"),

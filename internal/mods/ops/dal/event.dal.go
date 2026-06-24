@@ -43,6 +43,9 @@ func (a *EventLog) Query(ctx context.Context, params schema.EventQueryParam, opt
 	if v := params.EndpointID; v != "" {
 		db = db.Where("endpoint_id = ?", v)
 	}
+	if v := params.EndpointCode; v != "" {
+		db = db.Where("endpoint_code LIKE ?", "%"+v+"%")
+	}
 	if v := params.PolicyID; v != "" {
 		db = db.Where("policy_id = ?", v)
 	}

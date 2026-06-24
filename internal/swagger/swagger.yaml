@@ -206,6 +206,8 @@ definitions:
         type: number
       cached_price:
         type: number
+      code:
+        type: string
       created_at:
         type: string
       creator:
@@ -275,6 +277,10 @@ definitions:
       cached_price:
         description: Cached price (CNY/M Tokens)
         type: number
+      code:
+        description: Endpoint unique code
+        maxLength: 128
+        type: string
       description:
         description: Description
         type: string
@@ -322,6 +328,7 @@ definitions:
         description: Load balancing weight
         type: integer
     required:
+    - code
     - model_id
     - provider_id
     - url
@@ -367,6 +374,8 @@ definitions:
         type: string
       current_value:
         type: number
+      endpoint_code:
+        type: string
       endpoint_id:
         type: string
       event_time:

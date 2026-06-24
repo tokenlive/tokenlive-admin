@@ -637,6 +637,11 @@ const endpointPagination = reactive({
 
 const endpointColumns = [
     {
+        title: t('pages.endpoint.form.code'),
+        dataIndex: 'code',
+        width: 180,
+    },
+    {
         title: t('pages.endpoint.form.provider_id'),
         key: 'provider_id',
         width: 150,

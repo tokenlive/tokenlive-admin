@@ -13,6 +13,7 @@ import (
 // Endpoint defines an upstream endpoint belonging to a provider.
 type Endpoint struct {
 	ID                 string          `json:"id" gorm:"type:char(20);primaryKey;comment:主键ID (XID);"`
+	Code               string          `json:"code" gorm:"type:varchar(128);not null;uniqueIndex:uniq_endpoint_code_deleted,priority:1;comment:端点唯一编码;"`
 	ModelID            string          `json:"model_id" gorm:"type:char(20);not null;index:idx_endpoint_route,priority:1;index:idx_model_id,priority:1;comment:关联 of model ID;"`
 	ProviderID         string          `json:"provider_id" gorm:"type:char(20);not null;index:idx_endpoint_route,priority:2;index:idx_provider_id,priority:1;comment:关联 of provider ID;"`
 	URL                string          `json:"url" gorm:"type:varchar(512);not null;comment:上游 API 地址;"`
@@ -33,7 +34,7 @@ type Endpoint struct {
 	Modifier           string          `json:"modifier" gorm:"type:varchar(255);default:null;comment:修改者;"`
 	CreatedAt          time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
 	UpdatedAt          time.Time       `json:"updated_at" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
-	Deleted            string          `json:"-" gorm:"type:varchar(20);not null;default:'0';index:idx_provider_id,priority:2;index:idx_model_id,priority:2;comment:逻辑删除标识;"`
+	Deleted            string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_endpoint_code_deleted,priority:2;index:idx_provider_id,priority:2;index:idx_model_id,priority:2;comment:逻辑删除标识;"`
 	DeletedAt          *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 	StatusPoints       []StatusPoint   `json:"status_points" gorm:"-"` // Recent status points
 
@@ -71,6 +72,7 @@ type Endpoints []*Endpoint
 
 // EndpointForm defines the form for creating/updating an Endpoint.
 type EndpointForm struct {
+	Code               string          `json:"code" binding:"required,max=128"`       // Endpoint unique code
 	ProviderID         string          `json:"provider_id" binding:"required,max=20"` // Associated provider ID
 	ModelID            string          `json:"model_id" binding:"required,max=20"`    // Associated Model ID
 	URL                string          `json:"url" binding:"required,max=512"`        // Upstream API address
@@ -94,6 +96,7 @@ func (e *EndpointForm) Validate() error {
 }
 
 func (e *EndpointForm) FillTo(endpoint *Endpoint) error {
+	endpoint.Code = e.Code
 	endpoint.ProviderID = e.ProviderID
 	endpoint.ModelID = e.ModelID
 	endpoint.URL = e.URL

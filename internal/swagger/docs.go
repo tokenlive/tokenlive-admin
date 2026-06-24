@@ -7213,6 +7213,9 @@ const docTemplate = `{
                 "cached_price": {
                     "type": "number"
                 },
+                "code": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -7305,6 +7308,7 @@ const docTemplate = `{
         "schema.EndpointForm": {
             "type": "object",
             "required": [
+                "code",
                 "model_id",
                 "provider_id",
                 "url"
@@ -7321,6 +7325,11 @@ const docTemplate = `{
                 "cached_price": {
                     "description": "Cached price (CNY/M Tokens)",
                     "type": "number"
+                },
+                "code": {
+                    "description": "Endpoint unique code",
+                    "type": "string",
+                    "maxLength": 128
                 },
                 "description": {
                     "description": "Description",
@@ -7446,6 +7455,9 @@ const docTemplate = `{
                 },
                 "current_value": {
                     "type": "number"
+                },
+                "endpoint_code": {
+                    "type": "string"
                 },
                 "endpoint_id": {
                     "type": "string"

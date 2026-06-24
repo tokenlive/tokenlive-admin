@@ -16,15 +16,15 @@
             :label-col="{ style: { width: '100px' } }">
             <a-card class="mb-8-2">
                 <a-form-item
-                    :label="$t('pages.provider.form.code')"
-                    name="code">
-                    <a-input v-model:value="formData.code"></a-input>
-                </a-form-item>
-
-                <a-form-item
                     :label="$t('pages.provider.form.name')"
                     name="name">
                     <a-input v-model:value="formData.name"></a-input>
+                </a-form-item>
+
+                <a-form-item
+                    :label="$t('pages.provider.form.code')"
+                    name="code">
+                    <a-input v-model:value="formData.code"></a-input>
                 </a-form-item>
 
                 <a-form-item

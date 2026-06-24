@@ -177,6 +177,13 @@
                         style="width: 140px"
                         :placeholder="$t('pages.ops.filter.provider')" />
                 </a-form-item>
+                <a-form-item :label="$t('pages.ops.filter.endpoint_code')">
+                    <a-input
+                        v-model:value="filterForm.endpoint_code"
+                        allow-clear
+                        style="width: 140px"
+                        :placeholder="$t('pages.ops.filter.endpoint_code')" />
+                </a-form-item>
                 <a-form-item :label="$t('pages.ops.filter.time_range')">
                     <a-range-picker
                         v-model:value="searchTimeRange"
@@ -244,6 +251,16 @@
                                     :ellipsis="{ tooltip: true }"
                                     style="font-family: monospace; max-width: 200px">
                                     {{ record.policy_id }}
+                                </a-typography-text>
+                            </a-descriptions-item>
+                            <a-descriptions-item
+                                :label="$t('pages.ops.table.endpoint_code')"
+                                v-if="record.endpoint_code">
+                                <a-typography-text
+                                    copyable
+                                    :ellipsis="{ tooltip: true }"
+                                    style="font-family: monospace; max-width: 200px">
+                                    {{ record.endpoint_code }}
                                 </a-typography-text>
                             </a-descriptions-item>
                             <a-descriptions-item
@@ -393,6 +410,7 @@ const filterForm = reactive({
     tenant_code: '',
     model_code: '',
     provider_name: '',
+    endpoint_code: '',
 })
 
 const pagination = reactive({
@@ -411,6 +429,8 @@ const matchesFilter = (evt) => {
         return false
     if (filterForm.provider_name && !evt.provider_name?.toLowerCase().includes(filterForm.provider_name.toLowerCase()))
         return false
+    if (filterForm.endpoint_code && !evt.endpoint_code?.toLowerCase().includes(filterForm.endpoint_code.toLowerCase()))
+        return false
     return true
 }
 
@@ -426,6 +446,7 @@ const columns = computed(() => [
     { title: t('pages.ops.table.type'), key: 'event_type', dataIndex: 'event_type', width: 80 },
     { title: t('pages.ops.table.tenant'), dataIndex: 'tenant_code', width: 70, ellipsis: true },
     { title: t('pages.ops.table.model'), dataIndex: 'model_code', width: 120, ellipsis: true },
+    { title: t('pages.ops.table.endpoint_code'), dataIndex: 'endpoint_code', width: 120, ellipsis: true },
     { title: t('pages.ops.table.provider'), dataIndex: 'provider_name', width: 120, ellipsis: true },
     { title: t('pages.ops.table.policy_name'), dataIndex: 'policy_name', width: 160, ellipsis: true },
 ])
@@ -512,6 +533,7 @@ const handleResetSearch = () => {
     filterForm.tenant_code = ''
     filterForm.model_code = ''
     filterForm.provider_name = ''
+    filterForm.endpoint_code = ''
     searchTimeRange.value = null
     pagination.current = 1
     fetchEvents()

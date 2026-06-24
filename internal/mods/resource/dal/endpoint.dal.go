@@ -90,6 +90,19 @@ func (e *Endpoint) ExistsDuplicate(ctx context.Context, modelID, providerID, url
 	return count > 0, nil
 }
 
+// ExistsByCode checks if an endpoint with the given code exists.
+func (e *Endpoint) ExistsByCode(ctx context.Context, code string, excludeID string) (bool, error) {
+	db := GetEndpointDB(ctx, e.DB).Where("code = ?", code)
+	if len(excludeID) > 0 {
+		db = db.Where("id != ?", excludeID)
+	}
+	var count int64
+	if err := db.Count(&count).Error; err != nil {
+		return false, errors.WithStack(err)
+	}
+	return count > 0, nil
+}
+
 // Create a new endpoint.
 func (e *Endpoint) Create(ctx context.Context, item *schema.Endpoint) error {
 	result := GetEndpointDB(ctx, e.DB).Create(item)

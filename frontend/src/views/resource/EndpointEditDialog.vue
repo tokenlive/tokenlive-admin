@@ -81,6 +81,14 @@
                 <a-input v-model:value="formData.model_id" />
             </a-form-item>
             <a-form-item
+                :label="$t('pages.endpoint.form.code')"
+                name="code"
+                :rules="[{ required: true, message: $t('pages.endpoint.form.code.required') }]">
+                <a-input
+                    :placeholder="$t('pages.endpoint.form.code.placeholder')"
+                    v-model:value="formData.code" />
+            </a-form-item>
+            <a-form-item
                 :label="$t('pages.endpoint.form.real_model')"
                 name="real_model">
                 <a-input
