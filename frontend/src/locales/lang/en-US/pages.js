@@ -1271,4 +1271,5 @@ export default {
     'pages.ops.filter.provider': 'Provider',
     'pages.ops.filter.endpoint_code': 'Endpoint Code',
     'pages.ops.filter.time_range': 'Time Range',
+    'pages.ops.filter.model_or_endpoint': 'Model/Endpoint',
 }

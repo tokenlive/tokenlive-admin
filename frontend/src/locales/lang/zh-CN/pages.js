@@ -1252,4 +1252,5 @@ export default {
     'pages.ops.filter.provider': '供应商',
     'pages.ops.filter.endpoint_code': '端点编码',
     'pages.ops.filter.time_range': '时间范围',
+    'pages.ops.filter.model_or_endpoint': '模型/端点',
 }

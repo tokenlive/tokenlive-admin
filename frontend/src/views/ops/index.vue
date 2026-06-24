@@ -163,12 +163,28 @@
                         style="width: 140px"
                         :placeholder="$t('pages.ops.filter.tenant')" />
                 </a-form-item>
-                <a-form-item :label="$t('pages.ops.filter.model')">
-                    <a-input
-                        v-model:value="filterForm.model_code"
-                        allow-clear
-                        style="width: 140px"
-                        :placeholder="$t('pages.ops.filter.model')" />
+                <a-form-item :label="$t('pages.ops.filter.model_or_endpoint')">
+                    <a-input-group
+                        :compact="true"
+                        style="display: inline-block; vertical-align: middle">
+                        <a-select
+                            v-model:value="searchType"
+                            style="width: 105px">
+                            <a-select-option value="model_code">{{ $t('pages.ops.filter.model') }}</a-select-option>
+                            <a-select-option value="endpoint_code">{{
+                                $t('pages.ops.filter.endpoint_code')
+                            }}</a-select-option>
+                        </a-select>
+                        <a-input
+                            v-model:value="searchValue"
+                            allow-clear
+                            style="width: 150px"
+                            :placeholder="
+                                searchType === 'model_code'
+                                    ? $t('pages.ops.filter.model')
+                                    : $t('pages.ops.filter.endpoint_code')
+                            " />
+                    </a-input-group>
                 </a-form-item>
                 <a-form-item :label="$t('pages.ops.filter.provider')">
                     <a-input
@@ -176,13 +192,6 @@
                         allow-clear
                         style="width: 140px"
                         :placeholder="$t('pages.ops.filter.provider')" />
-                </a-form-item>
-                <a-form-item :label="$t('pages.ops.filter.endpoint_code')">
-                    <a-input
-                        v-model:value="filterForm.endpoint_code"
-                        allow-clear
-                        style="width: 140px"
-                        :placeholder="$t('pages.ops.filter.endpoint_code')" />
                 </a-form-item>
                 <a-form-item :label="$t('pages.ops.filter.time_range')">
                     <a-range-picker
@@ -359,7 +368,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/store'
 import useUserStore from '@/store/modules/user'
@@ -411,6 +420,20 @@ const filterForm = reactive({
     model_code: '',
     provider_name: '',
     endpoint_code: '',
+})
+
+// 组合查询条件：选择维度（模型编码/端点编码）
+const searchType = ref('model_code')
+const searchValue = ref('')
+
+watch([searchType, searchValue], ([type, val]) => {
+    if (type === 'model_code') {
+        filterForm.model_code = val ? val.trim() : ''
+        filterForm.endpoint_code = ''
+    } else {
+        filterForm.endpoint_code = val ? val.trim() : ''
+        filterForm.model_code = ''
+    }
 })
 
 const pagination = reactive({
@@ -531,9 +554,9 @@ const handleSearch = () => {
 const handleResetSearch = () => {
     filterForm.event_type = undefined
     filterForm.tenant_code = ''
-    filterForm.model_code = ''
+    searchType.value = 'model_code'
+    searchValue.value = ''
     filterForm.provider_name = ''
-    filterForm.endpoint_code = ''
     searchTimeRange.value = null
     pagination.current = 1
     fetchEvents()
