@@ -21,18 +21,6 @@ export const getAuthorizedModelIds = (tenantCode) => request.basic.get(`/api/v1/
 // 批量保存租户与模型的绑定关系
 export const saveTenantModels = (params) => request.basic.post('/api/v1/tenant-models/bindings', params)
 
-// 获取租户指定模型的可访问供应商白名单 ID 列表
-export const getTenantModelProviders = (tenantCode, modelId) => {
-    return request.basic.get(
-        '/api/v1/tenant-models/providers',
-        { tenant_code: tenantCode, model_id: modelId },
-        { enableAbortController: false }
-    )
-}
-
-// 保存租户模型供应商绑定白名单
-export const saveTenantModelProviders = (params) => request.basic.post('/api/v1/tenant-models/providers', params)
-
 // 获取租户指定模型的可访问端点 ID 列表（新）
 export const getTenantModelEndpoints = (tenantCode, modelId) => {
     return request.basic.get(

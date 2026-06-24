@@ -913,6 +913,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/endpoints/{id}/enabled": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "EndpointAPI"
+                ],
+                "summary": "Toggle endpoint enabled status by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "unique id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.EndpointEnabledForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/endpoints/{id}/test": {
             "post": {
                 "security": [
@@ -1973,6 +2030,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/models/{id}/enabled": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "ModelAPI"
+                ],
+                "summary": "Toggle model enabled status by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "unique id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelEnabledForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/models/{id}/endpoints": {
             "get": {
                 "security": [
@@ -2473,6 +2587,63 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/policy/policy-bindings/{id}/enabled": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PolicyBindingAPI"
+                ],
+                "summary": "Toggle policy binding enabled status by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "unique id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PolicyBindingEnabledForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/util.ResponseResult"
                         }
@@ -6941,43 +7112,33 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "description": "Create timestamp",
                     "type": "string"
                 },
                 "creator": {
-                    "description": "Creator",
                     "type": "string"
                 },
                 "data_id": {
-                    "description": "Data ID",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "permission": {
-                    "description": "Data permission bits - format(read,write,delete)",
                     "type": "integer"
                 },
                 "role": {
-                    "description": "Role code",
                     "type": "string"
                 },
                 "tenant": {
-                    "description": "Tenant",
                     "type": "string"
                 },
                 "type": {
-                    "description": "Data type (table name)",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update timestamp",
                     "type": "string"
                 },
                 "user": {
-                    "description": "User",
                     "type": "string"
                 }
             }
@@ -7044,50 +7205,39 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "api_key": {
-                    "description": "Optional, overrides provider-level api_key",
                     "type": "string"
                 },
                 "cache_creation_price": {
-                    "description": "Cache creation price (CNY/M Tokens), NULL means inherit model",
                     "type": "number"
                 },
                 "cached_price": {
-                    "description": "Cached price (CNY/M Tokens), NULL means inherit model",
                     "type": "number"
                 },
                 "created_at": {
-                    "description": "Create time",
                     "type": "string"
                 },
                 "creator": {
-                    "description": "Creator",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Description",
                     "type": "string"
                 },
                 "enabled": {
-                    "description": "Enable status: 0-disabled, 1-enabled",
                     "type": "integer"
                 },
                 "headers": {
-                    "description": "Custom HTTP headers",
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
                 },
                 "id": {
-                    "description": "Unique ID (XID)",
                     "type": "string"
                 },
                 "input_price": {
-                    "description": "Input price (CNY/M Tokens), NULL means inherit model",
                     "type": "number"
                 },
                 "metadata": {
-                    "description": "Metadata for tags etc.",
                     "type": "array",
                     "items": {
                         "type": "integer"
@@ -7102,34 +7252,27 @@ const docTemplate = `{
                     ]
                 },
                 "model_id": {
-                    "description": "Associated Model ID",
                     "type": "string"
                 },
                 "modifier": {
-                    "description": "Modifier",
                     "type": "string"
                 },
                 "output_price": {
-                    "description": "Output price (CNY/M Tokens), NULL means inherit model",
                     "type": "number"
                 },
                 "priority": {
-                    "description": "Failover priority (higher = preferred)",
                     "type": "integer"
                 },
                 "protocol": {
-                    "description": "Optional, overrides provider-level protocol",
                     "type": "string"
                 },
                 "provider": {
                     "$ref": "#/definitions/schema.Provider"
                 },
                 "provider_id": {
-                    "description": "Associated provider ID",
                     "type": "string"
                 },
                 "real_model": {
-                    "description": "Optional, overrides model-level real_model",
                     "type": "string"
                 },
                 "status_points": {
@@ -7140,15 +7283,21 @@ const docTemplate = `{
                     }
                 },
                 "updated_at": {
-                    "description": "Update time",
                     "type": "string"
                 },
                 "url": {
-                    "description": "Upstream API address",
                     "type": "string"
                 },
                 "weight": {
-                    "description": "Load balancing weight",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.EndpointEnabledForm": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Enable status: 0-disabled, 1-enabled",
                     "type": "integer"
                 }
             }
@@ -7655,79 +7804,60 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "abilities": {
-                    "description": "Model Abilities JSON, e.g., [\"stream\", \"tool_call\"]",
                     "type": "string"
                 },
                 "cache_creation_price": {
-                    "description": "Cache creation price (CNY/M Tokens)",
                     "type": "number"
                 },
                 "cached_price": {
-                    "description": "Cached price (CNY/M Tokens)",
                     "type": "number"
                 },
                 "context_length": {
-                    "description": "Max context window (Tokens)",
                     "type": "integer"
                 },
                 "created_at": {
-                    "description": "Create time",
                     "type": "string"
                 },
                 "creator": {
-                    "description": "Creator",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Description",
                     "type": "string"
                 },
                 "enabled": {
-                    "description": "Enable status: 0-disabled, 1-enabled",
                     "type": "integer"
                 },
                 "extra": {
-                    "description": "Extra info",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID (XID)",
                     "type": "string"
                 },
                 "input_price": {
-                    "description": "Input price (CNY/M Tokens)",
                     "type": "number"
                 },
                 "max_output_tokens": {
-                    "description": "Max output tokens",
                     "type": "integer"
                 },
                 "model_code": {
-                    "description": "Internal model code for association and billing",
                     "type": "string"
                 },
                 "model_name": {
-                    "description": "Client-facing model name, e.g., gpt-4, claude-sonnet",
                     "type": "string"
                 },
                 "modifier": {
-                    "description": "Modifier",
                     "type": "string"
                 },
                 "output_price": {
-                    "description": "Output price (CNY/M Tokens)",
                     "type": "number"
                 },
                 "owner": {
-                    "description": "Model owner/enterprise, e.g., OpenAI, Google, DeepSeek",
                     "type": "string"
                 },
                 "request_types": {
-                    "description": "Space         *schema.Space   ` + "`" + `json:\"space,omitempty\" gorm:\"foreignKey:SpaceCode;references:Code\"` + "`" + `    // Space association",
                     "type": "string"
                 },
                 "space_code": {
-                    "description": "Model space code",
                     "type": "string"
                 },
                 "status_points": {
@@ -7738,7 +7868,6 @@ const docTemplate = `{
                     }
                 },
                 "updated_at": {
-                    "description": "Update time",
                     "type": "string"
                 }
             }
@@ -7747,19 +7876,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "alias": {
-                    "description": "Model alias",
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "Create timestamp",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Description",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "model": {
@@ -7771,15 +7896,12 @@ const docTemplate = `{
                     ]
                 },
                 "model_id": {
-                    "description": "Model ID this alias belongs to",
                     "type": "string"
                 },
                 "space_code": {
-                    "description": "Space code",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update timestamp",
                     "type": "string"
                 }
             }
@@ -7810,6 +7932,15 @@ const docTemplate = `{
                     "description": "Space code",
                     "type": "string",
                     "maxLength": 255
+                }
+            }
+        },
+        "schema.ModelEnabledForm": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Enable status: 0-disabled, 1-enabled",
+                    "type": "integer"
                 }
             }
         },
@@ -7950,6 +8081,15 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.PolicyBindingEnabledForm": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Enable status: 0-disabled, 1-enabled",
+                    "type": "integer"
+                }
+            }
+        },
         "schema.PolicyBindingForm": {
             "type": "object",
             "required": [
@@ -8020,107 +8160,81 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "allowed_calls_in_half_open_state": {
-                    "description": "Allowed calls in half open state",
                     "type": "integer"
                 },
                 "code_policy": {
-                    "description": "Code policy (JSON)",
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "Create timestamp",
                     "type": "string"
                 },
                 "creator": {
-                    "description": "Creator",
                     "type": "string"
                 },
                 "degrade_config": {
-                    "description": "Degrade config (JSON)",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Details",
                     "type": "string"
                 },
                 "enabled": {
-                    "description": "Enabled",
                     "type": "integer"
                 },
                 "error_codes": {
-                    "description": "Error codes (JSON)",
                     "type": "string"
                 },
                 "error_messages": {
-                    "description": "Error messages (JSON)",
                     "type": "string"
                 },
                 "failure_rate_threshold": {
-                    "description": "Failure rate threshold",
                     "type": "number"
                 },
                 "force_open": {
-                    "description": "Force open",
                     "type": "integer"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "level": {
-                    "description": "Policy level",
                     "type": "string"
                 },
                 "message_policy": {
-                    "description": "Message policy (JSON)",
                     "type": "string"
                 },
                 "min_calls_threshold": {
-                    "description": "Min calls threshold",
                     "type": "integer"
                 },
                 "modifier": {
-                    "description": "Modifier",
                     "type": "string"
                 },
                 "name": {
-                    "description": "Policy name",
                     "type": "string"
                 },
                 "outlier_max_percent": {
-                    "description": "Outlier max percent",
                     "type": "integer"
                 },
                 "sliding_window_size": {
-                    "description": "Sliding window size",
                     "type": "integer"
                 },
                 "sliding_window_type": {
-                    "description": "Sliding window type",
                     "type": "string"
                 },
                 "slow_call_duration_threshold": {
-                    "description": "Slow call duration threshold",
                     "type": "integer"
                 },
                 "slow_call_metric": {
-                    "description": "Slow call metric",
                     "type": "string"
                 },
                 "slow_call_rate_threshold": {
-                    "description": "Slow call rate threshold",
                     "type": "number"
                 },
                 "updated_at": {
-                    "description": "Update timestamp",
                     "type": "string"
                 },
                 "version": {
-                    "description": "Version",
                     "type": "integer"
                 },
                 "wait_duration_in_open_state": {
-                    "description": "Wait duration in open state",
                     "type": "integer"
                 }
             }
@@ -8263,51 +8377,39 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "description": "Create timestamp",
                     "type": "string"
                 },
                 "creator": {
-                    "description": "Creator",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Details",
                     "type": "string"
                 },
                 "enabled": {
-                    "description": "Enabled",
                     "type": "integer"
                 },
                 "fallback_policy": {
-                    "description": "Fallback policy (JSON)",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "modifier": {
-                    "description": "Modifier",
                     "type": "string"
                 },
                 "name": {
-                    "description": "Policy name",
                     "type": "string"
                 },
                 "retry_policy": {
-                    "description": "Retry policy (JSON)",
                     "type": "string"
                 },
                 "type": {
-                    "description": "Invocation type (failfast | failover)",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update timestamp",
                     "type": "string"
                 },
                 "version": {
-                    "description": "Version",
                     "type": "integer"
                 }
             }
@@ -8382,63 +8484,48 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "conditions": {
-                    "description": "Match conditions (JSON)",
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "Create timestamp",
                     "type": "string"
                 },
                 "creator": {
-                    "description": "Creator",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Details",
                     "type": "string"
                 },
                 "enabled": {
-                    "description": "Enabled",
                     "type": "integer"
                 },
                 "estimator": {
-                    "description": "Estimator config (JSON)",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "max_wait_ms": {
-                    "description": "Max queue wait time",
                     "type": "integer"
                 },
                 "modifier": {
-                    "description": "Modifier",
                     "type": "string"
                 },
                 "name": {
-                    "description": "Policy name",
                     "type": "string"
                 },
                 "relation_type": {
-                    "description": "Relation type",
                     "type": "string"
                 },
                 "sliding_windows": {
-                    "description": "Sliding windows (JSON)",
                     "type": "string"
                 },
                 "type": {
-                    "description": "Limit dimension",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update timestamp",
                     "type": "string"
                 },
                 "version": {
-                    "description": "Version",
                     "type": "integer"
                 }
             }
@@ -8627,15 +8714,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "created_at": {
-                    "description": "Create timestamp",
                     "type": "string"
                 },
                 "creator": {
-                    "description": "Creator",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Details",
                     "type": "string"
                 },
                 "details": {
@@ -8645,31 +8729,24 @@ const docTemplate = `{
                     }
                 },
                 "enabled": {
-                    "description": "Enabled",
                     "type": "integer"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "modifier": {
-                    "description": "Modifier",
                     "type": "string"
                 },
                 "name": {
-                    "description": "Policy name",
                     "type": "string"
                 },
                 "order": {
-                    "description": "Sort order",
                     "type": "integer"
                 },
                 "updated_at": {
-                    "description": "Update timestamp",
                     "type": "string"
                 },
                 "version": {
-                    "description": "Version",
                     "type": "integer"
                 }
             }
@@ -8678,43 +8755,33 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "conditions": {
-                    "description": "Match conditions (JSON)",
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "Create timestamp",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Details",
                     "type": "string"
                 },
                 "destinations": {
-                    "description": "Destination rules (JSON)",
                     "type": "string"
                 },
                 "enabled": {
-                    "description": "Enabled",
                     "type": "integer"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "order": {
-                    "description": "Sort order",
                     "type": "integer"
                 },
                 "relation_type": {
-                    "description": "Relation type",
                     "type": "string"
                 },
                 "route_id": {
-                    "description": "Route ID",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update timestamp",
                     "type": "string"
                 }
             }
@@ -8954,54 +9021,42 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "api_keys": {
-                    "description": "Upstream API key list",
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
                 },
                 "code": {
-                    "description": "Provider unique code, e.g., openai-official",
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "Create time",
                     "type": "string"
                 },
                 "creator": {
-                    "description": "Creator",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Description",
                     "type": "string"
                 },
                 "enabled": {
-                    "description": "Enable status: 0-disabled, 1-enabled",
                     "type": "integer"
                 },
                 "id": {
-                    "description": "Unique ID (XID)",
                     "type": "string"
                 },
                 "modifier": {
-                    "description": "Modifier",
                     "type": "string"
                 },
                 "name": {
-                    "description": "Provider display name",
                     "type": "string"
                 },
                 "protocol": {
-                    "description": "Protocol type: openai / anthropic / ...",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update time",
                     "type": "string"
                 },
                 "url": {
-                    "description": "Provider API base URL, e.g., https://api.openai.com",
                     "type": "string"
                 }
             }
@@ -9259,39 +9314,30 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "code": {
-                    "description": "Code (unique)",
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "Create time",
                     "type": "string"
                 },
                 "creator": {
-                    "description": "Creator",
                     "type": "string"
                 },
                 "description": {
-                    "description": "Description",
                     "type": "string"
                 },
                 "id": {
-                    "description": "Unique ID",
                     "type": "string"
                 },
                 "metadata": {
-                    "description": "Metadata (JSON)",
                     "type": "string"
                 },
                 "name": {
-                    "description": "Name",
                     "type": "string"
                 },
                 "tenant": {
-                    "description": "Tenant",
                     "type": "string"
                 },
                 "updated_at": {
-                    "description": "Update time",
                     "type": "string"
                 }
             }

@@ -140,13 +140,6 @@ func (a *Tenant) Update(ctx context.Context, id string, formItem *schema.TenantF
 			if err != nil {
 				return err
 			}
-
-			// 级联更新 tenant_model_provider 表
-			tenantModelProviderTable := config.C.FormatTableName("tenant_model_provider")
-			err = tx.Table(tenantModelProviderTable).Where("tenant_code = ?", oldCode).Update("tenant_code", tenant.Code).Error
-			if err != nil {
-				return err
-			}
 		}
 
 		return a.TenantDAL.Update(ctx, tenant)
@@ -174,7 +167,7 @@ func (a *Tenant) Update(ctx context.Context, id string, formItem *schema.TenantF
 			_ = a.RedisClient.Rename(ctx, oldModelsKey, newModelsKey).Err()
 		}
 
-		// 2. 迁移 aigw:tenant:{oldCode}:model:{modelCode}:providers 和 endpoints
+		// 2. 迁移 aigw:tenant:{oldCode}:model:{modelCode}:endpoints
 		tx := util.GetDB(ctx, a.TenantDAL.DB)
 		var modelCodes []string
 		tenantModelTable := config.C.FormatTableName("tenant_model")
@@ -187,15 +180,6 @@ func (a *Tenant) Update(ctx context.Context, id string, formItem *schema.TenantF
 
 		if err == nil {
 			for _, modelCode := range modelCodes {
-				// 迁移 providers key（旧）
-				oldProvidersKey := "aigw:tenant:" + oldCode + ":model:" + modelCode + ":providers"
-				newProvidersKey := "aigw:tenant:" + tenant.Code + ":model:" + modelCode + ":providers"
-
-				existsProviders, err := a.RedisClient.Exists(ctx, oldProvidersKey).Result()
-				if err == nil && existsProviders > 0 {
-					_ = a.RedisClient.Rename(ctx, oldProvidersKey, newProvidersKey).Err()
-				}
-
 				// 迁移 endpoints key（新）
 				oldEndpointsKey := "aigw:tenant:" + oldCode + ":model:" + modelCode + ":endpoints"
 				newEndpointsKey := "aigw:tenant:" + tenant.Code + ":model:" + modelCode + ":endpoints"

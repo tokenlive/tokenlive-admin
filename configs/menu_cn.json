@@ -927,10 +927,6 @@
                             },
                             {
                                 "method": "POST",
-                                "path": "/api/v1/tenant-models/providers"
-                            },
-                            {
-                                "method": "POST",
                                 "path": "/api/v1/tenant-models/endpoints"
                             }
                         ]
@@ -968,10 +964,6 @@
                     {
                         "method": "GET",
                         "path": "/api/v1/tenant-models/{tenantCode}"
-                    },
-                    {
-                        "method": "GET",
-                        "path": "/api/v1/tenant-models/providers"
                     },
                     {
                         "method": "GET",

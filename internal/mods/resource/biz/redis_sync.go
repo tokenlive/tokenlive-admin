@@ -429,21 +429,6 @@ func (s *ConfigRedisSync) SyncModelCodeChange(ctx context.Context, modelID, oldM
 		_ = s.RedisClient.SRem(ctx, oldModelsKey, oldModelCode).Err()
 		_ = s.RedisClient.SAdd(ctx, oldModelsKey, newModelCode).Err()
 
-		// 3. 迁移 aigw:tenant:{tenantCode}:model:{modelCode}:providers 集合（旧）
-		oldProvidersKey := "aigw:tenant:" + tenantCode + ":model:" + oldModelCode + ":providers"
-		newProvidersKey := "aigw:tenant:" + tenantCode + ":model:" + newModelCode + ":providers"
-
-		// 获取并迁移供应商白名单
-		members, err := s.RedisClient.SMembers(ctx, oldProvidersKey).Result()
-		if err == nil && len(members) > 0 {
-			var interfaces []interface{}
-			for _, m := range members {
-				interfaces = append(interfaces, m)
-			}
-			_ = s.RedisClient.SAdd(ctx, newProvidersKey, interfaces...).Err()
-		}
-		// 删除旧供应商白名单缓存
-		_ = s.RedisClient.Del(ctx, oldProvidersKey).Err()
 
 		// 4. 迁移 aigw:tenant:{tenantCode}:model:{modelCode}:endpoints 集合（新）
 		oldEndpointsKey := "aigw:tenant:" + tenantCode + ":model:" + oldModelCode + ":endpoints"
@@ -501,9 +486,6 @@ func (s *ConfigRedisSync) SyncModelDisable(ctx context.Context, modelID, modelCo
 		modelsKey := "aigw:tenant:" + tenantCode + ":models"
 		_ = s.RedisClient.SRem(ctx, modelsKey, modelCode).Err()
 
-		// 3. 删除 providers 白名单缓存（旧）
-		providersKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":providers"
-		_ = s.RedisClient.Del(ctx, providersKey).Err()
 
 		// 4. 删除 endpoints 白名单缓存（新）
 		endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":endpoints"
@@ -516,7 +498,7 @@ func (s *ConfigRedisSync) SyncModelDisable(ctx context.Context, modelID, modelCo
 	return nil
 }
 
-// SyncModelEnable handles adding model code back to associated tenants' allowed model sets and rebuilding provider whitelist caches.
+// SyncModelEnable handles adding model code back to associated tenants' allowed model sets and rebuilding endpoint whitelist caches.
 func (s *ConfigRedisSync) SyncModelEnable(ctx context.Context, modelID, modelCode string) error {
 	if s.RedisClient == nil || modelID == "" || modelCode == "" {
 		return nil
@@ -619,7 +601,7 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 		tenantToModels[b.TenantCode] = append(tenantToModels[b.TenantCode], b.ModelCode)
 	}
 
-	// 5. 对每一个租户进行原子覆盖 models 缓存，以及 providers 和 endpoints 限制白名单
+	// 5. 对每一个租户进行原子覆盖 models 缓存，以及 endpoints 限制白名单
 	tenantEndpointTable := config.C.FormatTableName("tenant_endpoint")
 	endpointTable := config.C.FormatTableName("endpoint")
 
@@ -697,13 +679,10 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 			_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, m.ModelCode).Err()
 			_ = s.RedisClient.Del(ctx, "aigw:policies:model:"+m.ModelCode).Err()
 
-			// 物理清理各租户中被禁用模型的授权与 provider/endpoints 缓存
+			// 物理清理各租户中被禁用模型的授权与 endpoints 缓存
 			for _, tenantCode := range tenantCodes {
 				modelsKey := "aigw:tenant:" + tenantCode + ":models"
 				_ = s.RedisClient.SRem(ctx, modelsKey, m.ModelCode).Err()
-
-				providersKey := "aigw:tenant:" + tenantCode + ":model:" + m.ModelCode + ":providers"
-				_ = s.RedisClient.Del(ctx, providersKey).Err()
 
 				endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + m.ModelCode + ":endpoints"
 				_ = s.RedisClient.Del(ctx, endpointsKey).Err()
