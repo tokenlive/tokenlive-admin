@@ -580,6 +580,7 @@ CREATE TABLE IF NOT EXISTS `event_log`
     `tenant_code`   varchar(64)   NOT NULL DEFAULT '' COMMENT '租户编码',
     `model_code`    varchar(64)   NOT NULL DEFAULT '' COMMENT '模型编码',
     `endpoint_id`   varchar(20)   NOT NULL DEFAULT '' COMMENT '端点ID',
+    `endpoint_code` varchar(128)  NOT NULL DEFAULT '' COMMENT '端点Code',
     `provider_name` varchar(128)  NOT NULL DEFAULT '' COMMENT '供应商名称',
     `policy_id`     varchar(20)   NOT NULL DEFAULT '' COMMENT '策略ID',
     `policy_name`   varchar(128)  NOT NULL DEFAULT '' COMMENT '策略名称',
@@ -595,6 +596,7 @@ CREATE TABLE IF NOT EXISTS `event_log`
     KEY `idx_el_tenant` (`tenant_code`),
     KEY `idx_el_model` (`model_code`),
     KEY `idx_el_endpoint` (`endpoint_id`),
+    KEY `idx_el_endpoint_code` (`endpoint_code`),
     KEY `idx_el_policy` (`policy_id`),
     KEY `idx_el_time` (`event_time`)
 ) ENGINE = InnoDB

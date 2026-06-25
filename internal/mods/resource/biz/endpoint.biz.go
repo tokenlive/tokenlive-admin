@@ -17,7 +17,9 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
+	"github.com/tokenlive/tokenlive-admin/pkg/logging"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
+	"go.uber.org/zap"
 )
 
 // Endpoint business logic layer
@@ -46,7 +48,7 @@ func (e *Endpoint) Query(ctx context.Context, params schema.EndpointQueryParam) 
 		return nil, err
 	}
 
-	if len(result.Data) > 0 && e.RedisClient != nil {
+	if len(result.Data) > 0 {
 		e.fillEndpointsStatusPoints(ctx, result.Data)
 	}
 
@@ -54,7 +56,7 @@ func (e *Endpoint) Query(ctx context.Context, params schema.EndpointQueryParam) 
 }
 
 func (e *Endpoint) fillEndpointsStatusPoints(ctx context.Context, endpoints []*schema.Endpoint) {
-	if len(endpoints) == 0 || e.RedisClient == nil {
+	if len(endpoints) == 0 {
 		return
 	}
 
@@ -74,9 +76,39 @@ func (e *Endpoint) fillEndpointsStatusPoints(ctx context.Context, endpoints []*s
 		}
 	}
 
-	values, err := e.RedisClient.MGet(ctx, keys...).Result()
-	if err != nil {
-		return
+	var values []interface{}
+	var err error
+	if e.RedisClient != nil {
+		batchSize := 500
+		values = make([]interface{}, 0, len(keys))
+		for i := 0; i < len(keys); i += batchSize {
+			end := i + batchSize
+			if end > len(keys) {
+				end = len(keys)
+			}
+			batchKeys := keys[i:end]
+			batchValues, batchErr := e.RedisClient.MGet(ctx, batchKeys...).Result()
+			if batchErr != nil {
+				err = batchErr
+				break
+			}
+			values = append(values, batchValues...)
+		}
+		if err != nil {
+			logging.Context(ctx).Error("Failed to MGet endpoint status points from Redis", zap.Error(err))
+		} else {
+			limit := 5
+			if len(keys) < limit {
+				limit = len(keys)
+			}
+			logging.Context(ctx).Info("Successfully MGet endpoint status points from Redis",
+				zap.Int("keysCount", len(keys)),
+				zap.Int("valuesCount", len(values)),
+				zap.Any("firstFewKeys", keys[0:limit]),
+				zap.Any("firstFewValues", values[0:limit]))
+		}
+	} else {
+		err = fmt.Errorf("redis client is nil")
 	}
 
 	idx = 0
@@ -84,22 +116,24 @@ func (e *Endpoint) fillEndpointsStatusPoints(ctx context.Context, endpoints []*s
 		minSuccess := make([]int64, numMinutes)
 		minFail := make([]int64, numMinutes)
 
-		for i := 0; i < numMinutes; i++ {
-			sVal := values[idx]
-			fVal := values[idx+1]
-			idx += 2
+		if err == nil && len(values) == numKeys {
+			for i := 0; i < numMinutes; i++ {
+				sVal := values[idx]
+				fVal := values[idx+1]
+				idx += 2
 
-			if sVal != nil {
-				if sStr, ok := sVal.(string); ok {
-					if val, parseErr := strconv.ParseInt(sStr, 10, 64); parseErr == nil {
-						minSuccess[i] = val
+				if sVal != nil {
+					if sStr, ok := sVal.(string); ok {
+						if val, parseErr := strconv.ParseInt(sStr, 10, 64); parseErr == nil {
+							minSuccess[i] = val
+						}
 					}
 				}
-			}
-			if fVal != nil {
-				if fStr, ok := fVal.(string); ok {
-					if val, parseErr := strconv.ParseInt(fStr, 10, 64); parseErr == nil {
-						minFail[i] = val
+				if fVal != nil {
+					if fStr, ok := fVal.(string); ok {
+						if val, parseErr := strconv.ParseInt(fStr, 10, 64); parseErr == nil {
+							minFail[i] = val
+						}
 					}
 				}
 			}
@@ -109,10 +143,14 @@ func (e *Endpoint) fillEndpointsStatusPoints(ctx context.Context, endpoints []*s
 		for pIdx := 0; pIdx < 10; pIdx++ {
 			var successSum int64
 			var failSum int64
-			for mOffset := 0; mOffset < 10; mOffset++ {
-				mIdx := pIdx*10 + mOffset
-				successSum += minSuccess[mIdx]
-				failSum += minFail[mIdx]
+			if err == nil {
+				for mOffset := 0; mOffset < 10; mOffset++ {
+					mIdx := pIdx*10 + mOffset
+					if mIdx < len(minSuccess) {
+						successSum += minSuccess[mIdx]
+						failSum += minFail[mIdx]
+					}
+				}
 			}
 			startSec := (currentMin - int64(numMinutes-1-pIdx*10)) * 60
 			endSec := (currentMin - int64(numMinutes-1-(pIdx*10+9)) + 1) * 60
@@ -147,6 +185,8 @@ func (e *Endpoint) Get(ctx context.Context, id string) (*schema.Endpoint, error)
 			return nil, errors.NotFound("", "Endpoint not found")
 		}
 	}
+
+	e.fillEndpointsStatusPoints(ctx, []*schema.Endpoint{endpoint})
 
 	return endpoint, nil
 }
@@ -302,7 +342,7 @@ func (e *Endpoint) QueryEndpointsByModelID(ctx context.Context, modelID string) 
 	if err != nil {
 		return nil, err
 	}
-	if len(endpoints) > 0 && e.RedisClient != nil {
+	if len(endpoints) > 0 {
 		e.fillEndpointsStatusPoints(ctx, endpoints)
 	}
 	return endpoints, nil
@@ -314,7 +354,7 @@ func (e *Endpoint) QueryEndpointsByProviderID(ctx context.Context, providerID st
 	if err != nil {
 		return nil, err
 	}
-	if len(endpoints) > 0 && e.RedisClient != nil {
+	if len(endpoints) > 0 {
 		e.fillEndpointsStatusPoints(ctx, endpoints)
 	}
 	return endpoints, nil

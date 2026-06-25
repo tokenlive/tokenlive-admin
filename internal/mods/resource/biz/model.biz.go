@@ -13,7 +13,9 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
+	"github.com/tokenlive/tokenlive-admin/pkg/logging"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -42,7 +44,7 @@ func (m *Model) Query(ctx context.Context, params schema.ModelQueryParam) (*sche
 		return nil, err
 	}
 
-	if len(result.Data) > 0 && m.RedisClient != nil {
+	if len(result.Data) > 0 {
 		m.fillModelsStatusPoints(ctx, result.Data)
 	}
 
@@ -309,7 +311,7 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 }
 
 func (m *Model) fillModelsStatusPoints(ctx context.Context, models []*schema.Model) {
-	if len(models) == 0 || m.RedisClient == nil {
+	if len(models) == 0 {
 		return
 	}
 
@@ -329,9 +331,39 @@ func (m *Model) fillModelsStatusPoints(ctx context.Context, models []*schema.Mod
 		}
 	}
 
-	values, err := m.RedisClient.MGet(ctx, keys...).Result()
-	if err != nil {
-		return
+	var values []interface{}
+	var err error
+	if m.RedisClient != nil {
+		batchSize := 500
+		values = make([]interface{}, 0, len(keys))
+		for i := 0; i < len(keys); i += batchSize {
+			end := i + batchSize
+			if end > len(keys) {
+				end = len(keys)
+			}
+			batchKeys := keys[i:end]
+			batchValues, batchErr := m.RedisClient.MGet(ctx, batchKeys...).Result()
+			if batchErr != nil {
+				err = batchErr
+				break
+			}
+			values = append(values, batchValues...)
+		}
+		if err != nil {
+			logging.Context(ctx).Error("Failed to MGet model status points from Redis", zap.Error(err))
+		} else {
+			limit := 5
+			if len(keys) < limit {
+				limit = len(keys)
+			}
+			logging.Context(ctx).Info("Successfully MGet model status points from Redis",
+				zap.Int("keysCount", len(keys)),
+				zap.Int("valuesCount", len(values)),
+				zap.Any("firstFewKeys", keys[0:limit]),
+				zap.Any("firstFewValues", values[0:limit]))
+		}
+	} else {
+		err = fmt.Errorf("redis client is nil")
 	}
 
 	idx = 0
@@ -339,22 +371,24 @@ func (m *Model) fillModelsStatusPoints(ctx context.Context, models []*schema.Mod
 		minSuccess := make([]int64, numMinutes)
 		minFail := make([]int64, numMinutes)
 
-		for i := 0; i < numMinutes; i++ {
-			sVal := values[idx]
-			fVal := values[idx+1]
-			idx += 2
+		if err == nil && len(values) == numKeys {
+			for i := 0; i < numMinutes; i++ {
+				sVal := values[idx]
+				fVal := values[idx+1]
+				idx += 2
 
-			if sVal != nil {
-				if sStr, ok := sVal.(string); ok {
-					if val, parseErr := strconv.ParseInt(sStr, 10, 64); parseErr == nil {
-						minSuccess[i] = val
+				if sVal != nil {
+					if sStr, ok := sVal.(string); ok {
+						if val, parseErr := strconv.ParseInt(sStr, 10, 64); parseErr == nil {
+							minSuccess[i] = val
+						}
 					}
 				}
-			}
-			if fVal != nil {
-				if fStr, ok := fVal.(string); ok {
-					if val, parseErr := strconv.ParseInt(fStr, 10, 64); parseErr == nil {
-						minFail[i] = val
+				if fVal != nil {
+					if fStr, ok := fVal.(string); ok {
+						if val, parseErr := strconv.ParseInt(fStr, 10, 64); parseErr == nil {
+							minFail[i] = val
+						}
 					}
 				}
 			}
