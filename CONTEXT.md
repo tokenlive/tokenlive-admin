@@ -25,6 +25,15 @@ AI 模型的上游服务商或自定义接入端点，例如 OpenAI、Azure Open
 - **可叠加策略（Cumulative Policy）**：如限流、染色打标、路由、熔断。支持同一维度重复绑定不同策略实例，运行时网关将它们融合并累加生效（如在 Policy struct 中以 Slice 数组形式合并）。
 - **单选覆盖策略（Exclusive Policy）**：如负载均衡、调用重试。同一维度同种类型只能生效唯一实例。如果在多级维度发生冲突，运行时会根据优先级链条进行高优先级指针非 nil 覆盖合并（在 Policy struct 中以单指针形式合并）。
 
+## Tagging Action (染色打标动作/注入动作)
+染色打标策略（policy_tagging）触发时执行的操作。动作可以有不同的操作类型（Type）：
+- **TAG**：默认动作，将键值对注入到网关请求上下文标签（GatewayContext.Tags）中，用于后续路由等模块消费。
+- **REQ_HEADER**：注入或修改发送至上游模型的 HTTP 请求头部（Request Header）。
+- **RSP_HEADER**：注入或修改返回给客户端的 HTTP 响应头部（Response Header）。
+- **REQ_COOKIE**：注入或修改发送至上游模型的 HTTP Cookie。
+- **RSP_COOKIE**：注入或修改返回给客户端的 HTTP Cookie (Set-Cookie)。
+- **REQ_BODY**：修改或改写发送至上游模型的 HTTP 请求体 JSON 字段。
+
 ## Priority Chain (可配置优先级链条)
 网关在运行时通过策略匹配器（`PolicyMatcher`）合并策略时的优先级顺位。该链条完全可配置（如 `global -> tenant -> user -> model -> tenant_model -> user_model`），自底向上遍历进行合并，后者的 non-nil 字段将覆盖前者的零值与非空值，最终生成当次请求的动态策略参数。
 

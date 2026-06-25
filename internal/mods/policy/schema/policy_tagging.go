@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"strings"
 	"time"
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
@@ -10,9 +11,19 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	TaggingActionTypeTag       = "TAG"
+	TaggingActionTypeReqHeader = "REQ_HEADER"
+	TaggingActionTypeRspHeader = "RSP_HEADER"
+	TaggingActionTypeReqCookie = "REQ_COOKIE"
+	TaggingActionTypeRspCookie = "RSP_COOKIE"
+	TaggingActionTypeReqBody   = "REQ_BODY"
+)
+
 // TaggingAction 染色打标动作
 type TaggingAction struct {
-	Key   string `json:"key" binding:"required"`   // 标签名
+	Type  string `json:"type"`                     // 动作类型/操作范围，如 TAG, REQ_HEADER, RSP_HEADER 等
+	Key   string `json:"key" binding:"required"`   // 标签名/键名
 	Value string `json:"value" binding:"required"` // 标签值，支持变量插值
 }
 
@@ -110,6 +121,27 @@ func (a *PolicyTaggingForm) Validate() error {
 	if a.Relation == "" {
 		return errors.BadRequest("", "Relation is required")
 	}
+	if a.Actions != nil {
+		for _, action := range *a.Actions {
+			if action.Key == "" {
+				return errors.BadRequest("", "Action key is required")
+			}
+			if action.Value == "" {
+				return errors.BadRequest("", "Action value is required")
+			}
+			if action.Type != "" {
+				t := strings.ToUpper(action.Type)
+				if t != TaggingActionTypeTag &&
+					t != TaggingActionTypeReqHeader &&
+					t != TaggingActionTypeRspHeader &&
+					t != TaggingActionTypeReqCookie &&
+					t != TaggingActionTypeRspCookie &&
+					t != TaggingActionTypeReqBody {
+					return errors.BadRequest("", "Invalid action type: %s", action.Type)
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -133,7 +165,24 @@ func (a *PolicyTaggingForm) FillTo(policyTagging *PolicyTagging) error {
 		}
 		return json.MarshalToString(&validConds)
 	}()
-	policyTagging.Actions = func() *string { return json.MarshalToString(a.Actions) }()
+	policyTagging.Actions = func() *string {
+		if a.Actions == nil {
+			return nil
+		}
+		normalizedActions := make([]TaggingAction, len(*a.Actions))
+		for i, act := range *a.Actions {
+			t := strings.ToUpper(act.Type)
+			if t == "" {
+				t = TaggingActionTypeTag
+			}
+			normalizedActions[i] = TaggingAction{
+				Type:  t,
+				Key:   act.Key,
+				Value: act.Value,
+			}
+		}
+		return json.MarshalToString(&normalizedActions)
+	}()
 	policyTagging.Enabled = a.Enabled
 	policyTagging.Description = a.Description
 	policyTagging.Version = time.Now().UnixMilli()

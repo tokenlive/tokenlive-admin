@@ -171,16 +171,29 @@
                     :key="index">
                     <a-row
                         :gutter="8"
-                        align="middle"
-                        style="width: 100%">
+                        align="middle">
+                        <!-- 操作范围 -->
+                        <a-col :span="6">
+                            <a-select
+                                v-model:value="item.type"
+                                :placeholder="$t('pages.tagging.form.actions.type.placeholder')"
+                                style="width: 100%">
+                                <a-select-option value="TAG">TAG</a-select-option>
+                                <a-select-option value="REQ_HEADER">REQ_HEADER</a-select-option>
+                                <a-select-option value="RSP_HEADER">RSP_HEADER</a-select-option>
+                                <a-select-option value="REQ_COOKIE">REQ_COOKIE</a-select-option>
+                                <a-select-option value="RSP_COOKIE">RSP_COOKIE</a-select-option>
+                                <a-select-option value="REQ_BODY">REQ_BODY</a-select-option>
+                            </a-select>
+                        </a-col>
                         <!-- 标签键 -->
-                        <a-col :span="10">
+                        <a-col :span="8">
                             <a-input
                                 v-model:value="item.key"
                                 :placeholder="$t('pages.tagging.form.actions.key.placeholder')" />
                         </a-col>
                         <!-- 标签值 -->
-                        <a-col :span="12">
+                        <a-col :span="8">
                             <a-input
                                 v-model:value="item.value"
                                 :placeholder="$t('pages.tagging.form.actions.value.placeholder')" />
@@ -261,9 +274,17 @@ async function handleCopy(record = {}) {
             formData.value.conditions = formData.value.conditions.map((c) => ({
                 ...c,
                 op_type: c.op_type !== undefined ? c.op_type : c.opType,
+                values: c.values || [],
             }))
         }
-        if (!formData.value.actions) formData.value.actions = []
+        if (!formData.value.actions) {
+            formData.value.actions = []
+        } else {
+            formData.value.actions = formData.value.actions.map((a) => ({
+                ...a,
+                type: a.type || 'TAG',
+            }))
+        }
     } catch (e) {
         hideModal()
     }
@@ -290,9 +311,17 @@ async function handleEdit(record = {}) {
             formData.value.conditions = formData.value.conditions.map((c) => ({
                 ...c,
                 op_type: c.op_type !== undefined ? c.op_type : c.opType,
+                values: c.values || [],
             }))
         }
-        if (!formData.value.actions) formData.value.actions = []
+        if (!formData.value.actions) {
+            formData.value.actions = []
+        } else {
+            formData.value.actions = formData.value.actions.map((a) => ({
+                ...a,
+                type: a.type || 'TAG',
+            }))
+        }
     } catch (e) {
         hideModal()
     }
@@ -311,7 +340,7 @@ function removeCondition(index) {
 // 染色动作列表行增删
 function addAction() {
     if (!formData.value.actions) formData.value.actions = []
-    formData.value.actions.push({ key: '', value: '' })
+    formData.value.actions.push({ type: 'TAG', key: '', value: '' })
 }
 
 function removeAction(index) {
@@ -327,10 +356,10 @@ function handleOk() {
                 message.error('请至少添加一个染色注入动作！')
                 return
             }
-            // 校验 actions 是否填完了 key & value
+            // 校验 actions 是否填完了 type, key & value
             for (const act of formData.value.actions) {
-                if (!act.key || !act.value) {
-                    message.error('打标动作键或值不能为空，请填写完整！')
+                if (!act.type || !act.key || !act.value) {
+                    message.error('打标动作类型、键或值不能为空，请填写完整！')
                     return
                 }
             }
