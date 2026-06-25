@@ -52,28 +52,9 @@
                                     allow-clear></a-input>
                             </a-form-item>
                             <a-form-item style="margin-bottom: 0">
-                                <a-space :size="8">
-                                    <a-tooltip :title="$t('button.reset')">
-                                        <a-button
-                                            shape="circle"
-                                            @click="handleResetForm">
-                                            <template #icon>
-                                                <redo-outlined />
-                                            </template>
-                                        </a-button>
-                                    </a-tooltip>
-                                    <a-tooltip :title="$t('button.search')">
-                                        <a-button
-                                            type="primary"
-                                            ghost
-                                            shape="circle"
-                                            @click="handleSearch">
-                                            <template #icon>
-                                                <search-outlined />
-                                            </template>
-                                        </a-button>
-                                    </a-tooltip>
-                                </a-space>
+                                <x-filter-actions
+                                    @reset="handleResetForm"
+                                    @search="handleSearch" />
                             </a-form-item>
                         </a-form>
                     </a-col>
@@ -123,7 +104,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { ReloadOutlined, SearchOutlined, RedoOutlined } from '@ant-design/icons-vue'
+import { ReloadOutlined } from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { config } from '@/config'
 import { usePagination } from '@/hooks'

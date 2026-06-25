@@ -46,28 +46,9 @@
                                     @pressEnter="handleSearch"></a-input>
                             </a-form-item>
                             <a-form-item style="margin-bottom: 0">
-                                <a-space :size="8">
-                                    <a-tooltip :title="$t('button.reset')">
-                                        <a-button
-                                            shape="circle"
-                                            @click="handleResetSearch">
-                                            <template #icon>
-                                                <redo-outlined />
-                                            </template>
-                                        </a-button>
-                                    </a-tooltip>
-                                    <a-tooltip :title="$t('button.search')">
-                                        <a-button
-                                            type="primary"
-                                            ghost
-                                            shape="circle"
-                                            @click="handleSearch">
-                                            <template #icon>
-                                                <search-outlined />
-                                            </template>
-                                        </a-button>
-                                    </a-tooltip>
-                                </a-space>
+                                <x-filter-actions
+                                    @reset="handleResetSearch"
+                                    @search="handleSearch" />
                             </a-form-item>
                         </a-form>
                     </a-col>
@@ -117,7 +98,7 @@ import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
 import { usePagination } from '@/hooks'
 import EditDialog from './components/EditDialog.vue'
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, RedoOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
 
 defineOptions({

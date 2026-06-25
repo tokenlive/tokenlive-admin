@@ -58,28 +58,9 @@
                                     allow-clear></a-input>
                             </a-form-item>
                             <a-form-item style="margin-bottom: 0">
-                                <a-space :size="8">
-                                    <a-tooltip :title="$t('common.reset')">
-                                        <a-button
-                                            shape="circle"
-                                            @click="handleResetSearch">
-                                            <template #icon>
-                                                <redo-outlined />
-                                            </template>
-                                        </a-button>
-                                    </a-tooltip>
-                                    <a-tooltip :title="$t('common.search')">
-                                        <a-button
-                                            type="primary"
-                                            ghost
-                                            shape="circle"
-                                            @click="handleSearch">
-                                            <template #icon>
-                                                <search-outlined />
-                                            </template>
-                                        </a-button>
-                                    </a-tooltip>
-                                </a-space>
+                                <x-filter-actions
+                                    @reset="handleResetSearch"
+                                    @search="handleSearch" />
                             </a-form-item>
                         </a-form>
                     </a-col>
@@ -195,14 +176,7 @@ import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
 import { usePagination } from '@/hooks'
 import EditDialog from './components/EditDialog.vue'
-import {
-    PlusOutlined,
-    EditOutlined,
-    DeleteOutlined,
-    CopyOutlined,
-    SearchOutlined,
-    RedoOutlined,
-} from '@ant-design/icons-vue'
+import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
 
 const { t } = useI18n()

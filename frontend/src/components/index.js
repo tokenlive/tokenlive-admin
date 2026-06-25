@@ -6,6 +6,7 @@ import Cropper from './Cropper/Cropper.vue'
 import CropperDialog from './Cropper/CropperDialog.vue'
 import Editor from './Editor/Editor.vue'
 import Filter from './Filter/Filter.vue'
+import FilterActions from './FilterActions/FilterActions.vue'
 import FilterItem from './Filter/FilterItem.vue'
 import FilterTag from './Filter/FilterTag.vue'
 import FilterTagItem from './Filter/FilterTagItem.vue'
@@ -30,6 +31,7 @@ const componentList = [
     CropperDialog,
     Editor,
     Filter,
+    FilterActions,
     FilterItem,
     FilterTag,
     FilterTagItem,

@@ -144,7 +144,7 @@
             <a-form
                 layout="inline"
                 style="margin-bottom: 16px">
-                <a-form-item :label="$t('pages.ops.filter.event_type')">
+                <a-form-item>
                     <a-select
                         v-model:value="filterForm.event_type"
                         allow-clear
@@ -156,14 +156,30 @@
                         <a-select-option value="lb_switch">{{ $t('pages.ops.lb_switch') }}</a-select-option>
                     </a-select>
                 </a-form-item>
-                <a-form-item :label="$t('pages.ops.filter.tenant')">
-                    <a-input
-                        v-model:value="filterForm.tenant_code"
-                        allow-clear
-                        style="width: 140px"
-                        :placeholder="$t('pages.ops.filter.tenant')" />
+                <a-form-item>
+                    <a-input-group
+                        :compact="true"
+                        style="display: inline-block; vertical-align: middle">
+                        <a-select
+                            v-model:value="searchType2"
+                            style="width: 105px">
+                            <a-select-option value="tenant_code">{{ $t('pages.ops.filter.tenant') }}</a-select-option>
+                            <a-select-option value="provider_name">{{
+                                $t('pages.ops.filter.provider')
+                            }}</a-select-option>
+                        </a-select>
+                        <a-input
+                            v-model:value="searchValue2"
+                            allow-clear
+                            style="width: 150px"
+                            :placeholder="
+                                searchType2 === 'tenant_code'
+                                    ? $t('pages.ops.filter.tenant')
+                                    : $t('pages.ops.filter.provider')
+                            " />
+                    </a-input-group>
                 </a-form-item>
-                <a-form-item :label="$t('pages.ops.filter.model_or_endpoint')">
+                <a-form-item>
                     <a-input-group
                         :compact="true"
                         style="display: inline-block; vertical-align: middle">
@@ -186,14 +202,7 @@
                             " />
                     </a-input-group>
                 </a-form-item>
-                <a-form-item :label="$t('pages.ops.filter.provider')">
-                    <a-input
-                        v-model:value="filterForm.provider_name"
-                        allow-clear
-                        style="width: 140px"
-                        :placeholder="$t('pages.ops.filter.provider')" />
-                </a-form-item>
-                <a-form-item :label="$t('pages.ops.filter.time_range')">
+                <a-form-item>
                     <a-range-picker
                         v-model:value="searchTimeRange"
                         show-time
@@ -201,28 +210,9 @@
                         style="width: 380px" />
                 </a-form-item>
                 <a-form-item>
-                    <a-space :size="8">
-                        <a-tooltip :title="$t('button.reset')">
-                            <a-button
-                                shape="circle"
-                                @click="handleResetSearch">
-                                <template #icon>
-                                    <redo-outlined />
-                                </template>
-                            </a-button>
-                        </a-tooltip>
-                        <a-tooltip :title="$t('button.search')">
-                            <a-button
-                                type="primary"
-                                ghost
-                                shape="circle"
-                                @click="handleSearch">
-                                <template #icon>
-                                    <search-outlined />
-                                </template>
-                            </a-button>
-                        </a-tooltip>
-                    </a-space>
+                    <x-filter-actions
+                        @reset="handleResetSearch"
+                        @search="handleSearch" />
                 </a-form-item>
             </a-form>
 
@@ -377,8 +367,6 @@ import {
     WarningOutlined,
     ThunderboltOutlined,
     CloseCircleOutlined,
-    RedoOutlined,
-    SearchOutlined,
     SyncOutlined,
 } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
@@ -422,7 +410,21 @@ const filterForm = reactive({
     endpoint_code: '',
 })
 
-// 组合查询条件：选择维度（模型编码/端点编码）
+// 组合查询条件1：选择维度（租户/供应商）
+const searchType2 = ref('tenant_code')
+const searchValue2 = ref('')
+
+watch([searchType2, searchValue2], ([type, val]) => {
+    if (type === 'tenant_code') {
+        filterForm.tenant_code = val ? val.trim() : ''
+        filterForm.provider_name = ''
+    } else {
+        filterForm.provider_name = val ? val.trim() : ''
+        filterForm.tenant_code = ''
+    }
+})
+
+// 组合查询条件2：选择维度（模型编码/端点编码）
 const searchType = ref('model_code')
 const searchValue = ref('')
 
@@ -553,10 +555,10 @@ const handleSearch = () => {
 
 const handleResetSearch = () => {
     filterForm.event_type = undefined
-    filterForm.tenant_code = ''
+    searchType2.value = 'tenant_code'
+    searchValue2.value = ''
     searchType.value = 'model_code'
     searchValue.value = ''
-    filterForm.provider_name = ''
     searchTimeRange.value = null
     pagination.current = 1
     fetchEvents()
