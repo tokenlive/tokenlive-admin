@@ -11,6 +11,12 @@ type TokenInfo interface {
 	EncodeToJSON() ([]byte, error)
 }
 
+type RefreshTokenInfo interface {
+	GetRefreshToken() string
+	GetExpiresAt() int64
+	EncodeToJSON() ([]byte, error)
+}
+
 type tokenInfo struct {
 	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
@@ -30,5 +36,22 @@ func (t *tokenInfo) GetExpiresAt() int64 {
 }
 
 func (t *tokenInfo) EncodeToJSON() ([]byte, error) {
+	return jsoniter.Marshal(t)
+}
+
+type refreshTokenInfo struct {
+	RefreshToken string `json:"refresh_token"`
+	ExpiresAt    int64  `json:"expires_at"`
+}
+
+func (t *refreshTokenInfo) GetRefreshToken() string {
+	return t.RefreshToken
+}
+
+func (t *refreshTokenInfo) GetExpiresAt() int64 {
+	return t.ExpiresAt
+}
+
+func (t *refreshTokenInfo) EncodeToJSON() ([]byte, error) {
 	return jsoniter.Marshal(t)
 }

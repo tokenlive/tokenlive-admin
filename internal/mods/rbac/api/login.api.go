@@ -65,14 +65,50 @@ func (a *Login) Login(c *gin.Context) {
 }
 
 // @Tags LoginAPI
+// @Summary Refresh access token with refresh token (public endpoint)
+// @Param body body schema.RefreshTokenForm true "Request body"
+// @Success 200 {object} util.ResponseResult{data=schema.LoginToken}
+// @Failure 401 {object} util.ResponseResult
+// @Failure 500 {object} util.ResponseResult
+// @Router /api/v1/refresh-token [post]
+func (a *Login) RefreshTokenWithRefreshToken(c *gin.Context) {
+	ctx := c.Request.Context()
+	item := new(schema.RefreshTokenForm)
+	if err := util.ParseJSON(c, item); err != nil {
+		util.ResError(c, err)
+		return
+	}
+
+	data, err := a.LoginBIZ.RefreshTokenWithRefreshToken(ctx, item.RefreshToken)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResSuccess(c, data)
+}
+
+// @Tags LoginAPI
 // @Security ApiKeyAuth
-// @Summary Logout system
+// @Summary Logout system with optional refresh token revocation
+// @Param body body schema.RefreshTokenForm false "Request body (optional, for refresh token revocation)"
 // @Success 200 {object} util.ResponseResult
 // @Failure 500 {object} util.ResponseResult
 // @Router /api/v1/current/logout [post]
 func (a *Login) Logout(c *gin.Context) {
 	ctx := c.Request.Context()
-	err := a.LoginBIZ.Logout(ctx)
+
+	// Try to parse refresh token from body if present
+	item := new(schema.RefreshTokenForm)
+	var refreshToken string
+	_ = util.ParseJSON(c, item) // Ignore error, it's optional
+	if item != nil {
+		refreshToken = item.RefreshToken
+	}
+
+	// Get access token from header
+	accessToken := util.GetToken(c)
+
+	err := a.LoginBIZ.LogoutWithRefreshToken(ctx, accessToken, refreshToken)
 	if err != nil {
 		util.ResError(c, err)
 		return
@@ -82,7 +118,7 @@ func (a *Login) Logout(c *gin.Context) {
 
 // @Tags LoginAPI
 // @Security ApiKeyAuth
-// @Summary Refresh current access token
+// @Summary Refresh current access token (requires valid access token)
 // @Success 200 {object} util.ResponseResult{data=schema.LoginToken}
 // @Failure 401 {object} util.ResponseResult
 // @Failure 500 {object} util.ResponseResult

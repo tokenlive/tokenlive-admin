@@ -11,10 +11,13 @@ const useUserStore = defineStore('user', {
     state: () => ({
         userInfo: storage.local.getItem(config('storage.userInfo'), null),
         token: storage.local.getItem(config('storage.token'), ''),
+        refreshToken: storage.local.getItem(config('storage.refreshToken'), ''),
+        refreshExpiresAt: storage.local.getItem(config('storage.refreshExpiresAt'), null),
         permission: storage.local.getItem(config('storage.permission'), []),
     }),
     getters: {
         isLogin: (state) => !!state.token,
+        hasRefreshToken: (state) => !!state.refreshToken,
     },
     actions: {
         /**
@@ -31,9 +34,21 @@ const useUserStore = defineStore('user', {
                         })
                         const { success, data } = result || {}
                         if (config('http.code.success') === success) {
-                            const { access_token } = data
+                            const { access_token, refresh_token, expires_at } = data
                             this.token = access_token
                             storage.local.setItem(config('storage.token'), access_token)
+
+                            // 只有当 remember_me 为 true 时才会返回 refresh_token
+                            if (refresh_token) {
+                                this.refreshToken = refresh_token
+                                this.refreshExpiresAt = expires_at
+                                storage.local.setItem(config('storage.refreshToken'), refresh_token)
+                                storage.local.setItem(config('storage.refreshExpiresAt'), expires_at)
+                            } else {
+                                // 没有 remember_me，清除旧的 refresh token
+                                this.clearRefreshToken()
+                            }
+
                             await this.getUserInfo()
                         }
                         resolve(result)
@@ -44,6 +59,57 @@ const useUserStore = defineStore('user', {
             })
         },
         /**
+         * 用 refresh token 刷新 access token
+         * @returns {Promise<boolean>}
+         */
+        async refreshAccessToken() {
+            if (!this.refreshToken) {
+                return false
+            }
+
+            try {
+                const result = await apis.user.refreshToken({ refreshToken: this.refreshToken })
+                const { success, data } = result || {}
+                if (config('http.code.success') === success) {
+                    const { access_token, refresh_token, expires_at } = data
+                    this.token = access_token
+                    storage.local.setItem(config('storage.token'), access_token)
+
+                    // 滑动过期：更新 refresh token
+                    if (refresh_token) {
+                        this.refreshToken = refresh_token
+                        this.refreshExpiresAt = expires_at
+                        storage.local.setItem(config('storage.refreshToken'), refresh_token)
+                        storage.local.setItem(config('storage.refreshExpiresAt'), expires_at)
+                    }
+
+                    return true
+                }
+                return false
+            } catch (error) {
+                // refresh token 失效，清除所有 token
+                this.clearTokens()
+                return false
+            }
+        },
+        /**
+         * 清除 refresh token
+         */
+        clearRefreshToken() {
+            this.refreshToken = ''
+            this.refreshExpiresAt = null
+            storage.local.removeItem(config('storage.refreshToken'))
+            storage.local.removeItem(config('storage.refreshExpiresAt'))
+        },
+        /**
+         * 清除所有 token
+         */
+        clearTokens() {
+            this.token = ''
+            storage.local.removeItem(config('storage.token'))
+            this.clearRefreshToken()
+        },
+        /**
          * 退出登录
          */
         logout() {
@@ -51,7 +117,9 @@ const useUserStore = defineStore('user', {
                 const appStore = useAppStore()
                 const multiTab = useMultiTab()
                 const router = useRouter()
-                storage.local.removeItem(config('storage.token'))
+
+                // 清除所有 token
+                this.clearTokens()
                 storage.local.removeItem(config('storage.userInfo'))
                 this.$reset()
                 appStore.$reset()

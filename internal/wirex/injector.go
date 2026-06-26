@@ -90,6 +90,7 @@ func InitAuth(ctx context.Context) (jwtx.Auther, func(), error) {
 	cfg := config.C.Middleware.Auth
 	var opts []jwtx.Option
 	opts = append(opts, jwtx.SetExpired(cfg.Expired))
+	opts = append(opts, jwtx.SetRefreshExpired(cfg.RefreshExpired))
 	opts = append(opts, jwtx.SetSigningKey(cfg.SigningKey, cfg.OldSigningKey))
 
 	var method jwt.SigningMethod

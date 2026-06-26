@@ -81,6 +81,7 @@ func (a *RBAC) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) error
 	}
 
 	v1.POST("login", a.LoginAPI.Login)
+	v1.POST("refresh-token", a.LoginAPI.RefreshTokenWithRefreshToken)
 
 	current := v1.Group("current")
 	{

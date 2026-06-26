@@ -51,14 +51,17 @@
                                 :src="captcha_img" />
                         </a-space>
                     </a-form-item>
+                    <a-form-item name="rememberMe">
+                        <a-checkbox v-model:checked="formData.rememberMe"> 记住登录状态（30天） </a-checkbox>
+                    </a-form-item>
                     <a-form-item>
                         <a-button
                             type="primary"
                             size="large"
                             block
                             :loading="loading"
-                            @click="handleLogin"
-                            >{{ $t('pages.login.submit') }}
+                            @click="handleLogin">
+                            {{ $t('pages.login.submit') }}
                         </a-button>
                     </a-form-item>
                 </a-form>
@@ -101,6 +104,9 @@ formRules.value = {
     captcha_code: { required: true, message: t('pages.login.captcha.placeholder') },
 }
 
+// 初始化表单数据，记住我默认不勾选
+formData.value.rememberMe = false
+
 onMounted(() => {
     // 清理登录信息
     userStore.logout()
@@ -108,14 +114,12 @@ onMounted(() => {
 })
 
 /**
- * 获取 验证码ID
+ * 获取验证码
  */
 async function getCaptcha() {
-    const { data } = await apis.common.getCaptcha().catch((err) => {
-        console.log(err)
-    })
-    captcha_id.value = data.captcha_id
-    captcha_img.value = httpApi + `?id=${data.captcha_id}`
+    const { data } = await apis.common.getCaptcha().catch(() => {})
+    captcha_id.value = data?.captcha_id
+    captcha_img.value = httpApi + `?id=${data?.captcha_id}`
 }
 /**
  * 登录
@@ -124,6 +128,8 @@ async function getCaptcha() {
 async function handleLogin() {
     formRef.value.validate().then(async (values) => {
         values.captcha_id = captcha_id.value
+        // 添加 remember_me 字段
+        values.remember_me = formData.value.rememberMe
         if (values.password === 'admin') values.password = md5(values.password)
 
         loading.value = true

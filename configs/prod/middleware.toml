@@ -26,7 +26,7 @@ MaxContentLen = 134217728 # 128MB
 
 [Middleware.Auth]
 Disable = false
-SkippedPathPrefixes = ["/api/v1/captcha/", "/api/v1/login"]
+SkippedPathPrefixes = ["/api/v1/captcha", "/api/v1/login", "/api/v1/refresh-token"]
 SigningMethod = "HS512" # HS256/HS384/HS512
 SigningKey = "XnEsT0S@" # Secret key (CHANGE THIS IN PRODUCTION!)
 OldSigningKey = "" # Old secret key (For change secret key)

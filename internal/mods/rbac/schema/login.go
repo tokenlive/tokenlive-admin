@@ -7,10 +7,11 @@ type Captcha struct {
 }
 
 type LoginForm struct {
-	Username    string `json:"username" binding:"required"`     // Login name
-	Password    string `json:"password" binding:"required"`     // Login password (md5 hash)
-	CaptchaID   string `json:"captcha_id" binding:"required"`   // Captcha verify id
-	CaptchaCode string `json:"captcha_code" binding:"required"` // Captcha verify code
+	Username     string `json:"username" binding:"required"`      // Login name
+	Password     string `json:"password" binding:"required"`      // Login password (md5 hash)
+	CaptchaID    string `json:"captcha_id" binding:"required"`    // Captcha verify id
+	CaptchaCode  string `json:"captcha_code" binding:"required"`  // Captcha verify code
+	RememberMe   bool   `json:"remember_me"`                      // Remember login state (30 days)
 }
 
 func (a *LoginForm) Trim() *LoginForm {
@@ -25,9 +26,14 @@ type UpdateLoginPassword struct {
 }
 
 type LoginToken struct {
-	AccessToken string `json:"access_token"` // Access token (JWT)
-	TokenType   string `json:"token_type"`   // Token type (Usage: Authorization=${token_type} ${access_token})
-	ExpiresAt   int64  `json:"expires_at"`   // Expired time (Unit: second)
+	AccessToken  string `json:"access_token"`  // Access token (JWT)
+	TokenType    string `json:"token_type"`    // Token type (Usage: Authorization=${token_type} ${access_token})
+	ExpiresAt    int64  `json:"expires_at"`    // Expired time (Unit: second)
+	RefreshToken string `json:"refresh_token"` // Refresh token (only when remember_me=true)
+}
+
+type RefreshTokenForm struct {
+	RefreshToken string `json:"refresh_token" binding:"required"` // Refresh token
 }
 
 type UpdateCurrentUser struct {

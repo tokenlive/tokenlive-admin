@@ -38,7 +38,8 @@ type Middleware struct {
 		SigningMethod       string `default:"HS512"`    // HS256/HS384/HS512
 		SigningKey          string `default:"XnEsT0S@"` // secret key
 		OldSigningKey       string // old secret key (for migration)
-		Expired             int    `default:"86400"` // seconds
+		Expired             int    `default:"86400"`   // seconds
+		RefreshExpired      int    `default:"2592000"` // seconds (30 days)
 		Store               struct {
 			Type      string `default:"memory"` // memory/badger/redis
 			Delimiter string `default:":"`      // delimiter for key

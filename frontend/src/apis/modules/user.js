@@ -2,6 +2,8 @@ import request from '@/utils/request'
 
 // 登录
 export const login = (params) => request.basic.post('/api/v1/login', params)
+// 用 refresh token 刷新 access token
+export const refreshToken = (params) => request.basic.post('/api/v1/refresh-token', params)
 // 获取用户详情
 export const getUserDetail = () => request.basic.get('/api/v1/current/user')
 // 更新用户信息

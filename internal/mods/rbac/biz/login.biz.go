@@ -147,6 +147,36 @@ func (a *Login) genUserToken(ctx context.Context, userID string) (*schema.LoginT
 	}, nil
 }
 
+func (a *Login) genLoginResponse(ctx context.Context, userID string, tenant string, rememberMe bool) (*schema.LoginToken, error) {
+	token, err := a.Auth.GenerateToken(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &schema.LoginToken{
+		AccessToken: token.GetAccessToken(),
+		TokenType:   token.GetTokenType(),
+		ExpiresAt:   token.GetExpiresAt(),
+	}
+
+	// Generate refresh token if remember_me is true
+	if rememberMe {
+		refreshToken, err := a.Auth.GenerateRefreshToken(ctx, userID, tenant)
+		if err != nil {
+			return nil, err
+		}
+		resp.RefreshToken = refreshToken.GetRefreshToken()
+	}
+
+	tokenBuf, err := token.EncodeToJSON()
+	if err != nil {
+		return nil, err
+	}
+	logging.Context(ctx).Info("Generate user token", zap.Any("token", string(tokenBuf)))
+
+	return resp, nil
+}
+
 func (a *Login) Login(ctx context.Context, formItem *schema.LoginForm) (*schema.LoginToken, error) {
 	// verify captcha
 	if !captcha.VerifyString(formItem.CaptchaID, formItem.CaptchaCode) {
@@ -164,7 +194,7 @@ func (a *Login) Login(ctx context.Context, formItem *schema.LoginForm) (*schema.
 		userID := config.C.General.Root.ID
 		ctx = logging.NewUserID(ctx, userID)
 		logging.Context(ctx).Info("Login by root")
-		return a.genUserToken(ctx, userID)
+		return a.genLoginResponse(ctx, userID, "", formItem.RememberMe)
 	}
 
 	// get user info
@@ -208,7 +238,7 @@ func (a *Login) Login(ctx context.Context, formItem *schema.LoginForm) (*schema.
 	logging.Context(ctx).Info("Login success", zap.String("username", formItem.Username))
 
 	// generate token
-	return a.genUserToken(ctx, userID)
+	return a.genLoginResponse(ctx, userID, user.Tenant, formItem.RememberMe)
 }
 
 func (a *Login) RefreshToken(ctx context.Context) (*schema.LoginToken, error) {
@@ -228,6 +258,78 @@ func (a *Login) RefreshToken(ctx context.Context) (*schema.LoginToken, error) {
 	}
 
 	return a.genUserToken(ctx, userID)
+}
+
+// RefreshTokenWithRefreshToken uses a refresh token to get new access token (and new refresh token)
+func (a *Login) RefreshTokenWithRefreshToken(ctx context.Context, refreshToken string) (*schema.LoginToken, error) {
+	// Parse and validate refresh token
+	userID, _, jti, err := a.Auth.ParseRefreshToken(ctx, refreshToken)
+	if err != nil {
+		if err == jwtx.ErrInvalidToken || err == jwtx.ErrTokenRevoked {
+			return nil, errors.Unauthorized(config.ErrInvalidTokenID, "Invalid refresh token")
+		}
+		return nil, err
+	}
+
+	// Check user status
+	var userTenant string
+	if userID == config.C.General.Root.ID {
+		// Root user
+		userTenant = ""
+	} else {
+		user, err := a.UserDAL.Get(ctx, userID, schema.UserQueryOptions{
+			QueryOptions: util.QueryOptions{
+				SelectFields: []string{"status", "tenant"},
+			},
+		})
+		if err != nil {
+			return nil, err
+		} else if user == nil {
+			return nil, errors.BadRequest("", "Incorrect user")
+		} else if user.Status != schema.UserStatusActivated {
+			return nil, errors.BadRequest("", "User status is not activated, please contact the administrator")
+		}
+		userTenant = user.Tenant
+	}
+
+	// Revoke the old refresh token (sliding expiration)
+	if err := a.Auth.DestroyRefreshToken(ctx, refreshToken); err != nil {
+		logging.Context(ctx).Warn("Failed to revoke old refresh token", zap.String("jti", jti), zap.Error(err))
+	}
+
+	ctx = logging.NewUserID(ctx, userID)
+	logging.Context(ctx).Info("Refresh token success", zap.String("jti", jti))
+
+	// Generate new tokens (sliding expiration: new refresh token with new 30 days)
+	return a.genLoginResponse(ctx, userID, userTenant, true)
+}
+
+// LogoutWithRefreshToken logs out and revokes both access token and refresh token
+func (a *Login) LogoutWithRefreshToken(ctx context.Context, accessToken string, refreshToken string) error {
+	if accessToken != "" {
+		if err := a.Auth.DestroyToken(ctx, accessToken); err != nil {
+			logging.Context(ctx).Warn("Failed to destroy access token", zap.Error(err))
+		}
+	}
+
+	if refreshToken != "" {
+		if err := a.Auth.DestroyRefreshToken(ctx, refreshToken); err != nil {
+			logging.Context(ctx).Warn("Failed to destroy refresh token", zap.Error(err))
+		}
+	}
+
+	userID := util.FromUserID(ctx)
+	if userID != "" {
+		err := a.Cache.Delete(ctx, config.CacheNSForUser, userID)
+		if err != nil {
+			logging.Context(ctx).Error("Failed to delete user cache", zap.Error(err))
+		}
+	}
+
+	ctx = logging.NewTag(ctx, logging.TagKeyLogout)
+	logging.Context(ctx).Info("Logout success")
+
+	return nil
 }
 
 func (a *Login) Logout(ctx context.Context) error {
