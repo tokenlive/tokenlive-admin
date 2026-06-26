@@ -612,6 +612,10 @@ export default {
     'pages.loadbalance.form.costWeight.placeholder': 'Please enter cost weight (0-1)',
     'pages.loadbalance.form.latencyWeight': 'Latency Weight',
     'pages.loadbalance.form.latencyWeight.placeholder': 'Please enter latency weight (0-1)',
+    'pages.loadbalance.form.sourceType': 'Source Type',
+    'pages.loadbalance.form.sourceType.placeholder': 'Please select source type',
+    'pages.loadbalance.form.sourceKey': 'Source Key',
+    'pages.loadbalance.form.sourceKey.placeholder': 'Please enter source key (e.g. X-Endpoint-Code)',
     // tagRoute
     'pages.tagRoute.add': 'Create Policy',
     'pages.tagRoute.edit': 'Edit Policy',

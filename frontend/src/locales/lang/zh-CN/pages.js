@@ -609,6 +609,10 @@ export default {
     'pages.loadbalance.form.costWeight.placeholder': '请输入成本权重(0-1)',
     'pages.loadbalance.form.latencyWeight': '延迟权重',
     'pages.loadbalance.form.latencyWeight.placeholder': '请输入延迟权重(0-1)',
+    'pages.loadbalance.form.sourceType': '来源类型',
+    'pages.loadbalance.form.sourceType.placeholder': '请选择来源类型',
+    'pages.loadbalance.form.sourceKey': '来源键名',
+    'pages.loadbalance.form.sourceKey.placeholder': '请输入来源键名（例如 X-Endpoint-Code）',
 
     // tagRoute
     'pages.tagRoute.add': '新建策略',

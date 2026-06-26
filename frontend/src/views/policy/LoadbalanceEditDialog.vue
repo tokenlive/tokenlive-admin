@@ -46,6 +46,9 @@
                                 <a-select-option value="cost">最低成本策略 (cost)</a-select-option>
                                 <a-select-option value="sticky">会话保持策略 (sticky)</a-select-option>
                                 <a-select-option value="composite">综合策略 (composite)</a-select-option>
+                                <a-select-option value="endpoint_affinity"
+                                    >端点亲和性策略 (endpoint_affinity)</a-select-option
+                                >
                             </a-select>
                         </a-form-item>
                     </a-col>
@@ -91,6 +94,33 @@
                                 <a-input
                                     v-model:value="formData.session_header"
                                     :placeholder="$t('pages.loadbalance.form.sessionHeader.placeholder')" />
+                            </a-form-item>
+                        </a-col>
+                    </a-row>
+                </template>
+
+                <template v-if="formData.type === 'endpoint_affinity'">
+                    <a-row :gutter="12">
+                        <a-col :span="12">
+                            <a-form-item
+                                :label="$t('pages.loadbalance.form.sourceType')"
+                                name="source_type">
+                                <a-select
+                                    v-model:value="formData.source_type"
+                                    :placeholder="$t('pages.loadbalance.form.sourceType.placeholder')">
+                                    <a-select-option value="header">请求头 (header)</a-select-option>
+                                    <a-select-option value="query">请求参数 (query)</a-select-option>
+                                    <a-select-option value="cookie">Cookie (cookie)</a-select-option>
+                                </a-select>
+                            </a-form-item>
+                        </a-col>
+                        <a-col :span="12">
+                            <a-form-item
+                                :label="$t('pages.loadbalance.form.sourceKey')"
+                                name="source_key">
+                                <a-input
+                                    v-model:value="formData.source_key"
+                                    :placeholder="$t('pages.loadbalance.form.sourceKey.placeholder')" />
                             </a-form-item>
                         </a-col>
                     </a-row>
@@ -156,6 +186,8 @@ function handleCreate() {
     formData.value.cost_weight = 0.5
     formData.value.latency_weight = 0.5
     formData.value.session_header = ''
+    formData.value.source_type = 'header'
+    formData.value.source_key = ''
     showModal({
         type: 'create',
         title: t('pages.loadbalance.add'),
@@ -183,6 +215,8 @@ async function handleCopy(record = {}) {
     let costWeight = 0.5
     let latencyWeight = 0.5
     let sessionHeader = ''
+    let sourceType = 'header'
+    let sourceKey = ''
     if (data.params) {
         try {
             const paramsObj = typeof data.params === 'string' ? JSON.parse(data.params) : data.params
@@ -190,6 +224,8 @@ async function handleCopy(record = {}) {
                 if (paramsObj.cost_weight !== undefined) costWeight = paramsObj.cost_weight
                 if (paramsObj.latency_weight !== undefined) latencyWeight = paramsObj.latency_weight
                 if (paramsObj.session_header !== undefined) sessionHeader = paramsObj.session_header
+                if (paramsObj.source_type !== undefined) sourceType = paramsObj.source_type
+                if (paramsObj.source_key !== undefined) sourceKey = paramsObj.source_key
             }
         } catch (e) {
             console.error('Failed to parse params json', e)
@@ -198,6 +234,8 @@ async function handleCopy(record = {}) {
     data.cost_weight = costWeight
     data.latency_weight = latencyWeight
     data.session_header = sessionHeader
+    data.source_type = sourceType
+    data.source_key = sourceKey
 
     formData.value = cloneDeep(data)
 }
@@ -218,6 +256,8 @@ async function handleEdit(record = {}) {
     let costWeight = 0.5
     let latencyWeight = 0.5
     let sessionHeader = ''
+    let sourceType = 'header'
+    let sourceKey = ''
     if (data.params) {
         try {
             const paramsObj = typeof data.params === 'string' ? JSON.parse(data.params) : data.params
@@ -225,6 +265,8 @@ async function handleEdit(record = {}) {
                 if (paramsObj.cost_weight !== undefined) costWeight = paramsObj.cost_weight
                 if (paramsObj.latency_weight !== undefined) latencyWeight = paramsObj.latency_weight
                 if (paramsObj.session_header !== undefined) sessionHeader = paramsObj.session_header
+                if (paramsObj.source_type !== undefined) sourceType = paramsObj.source_type
+                if (paramsObj.source_key !== undefined) sourceKey = paramsObj.source_key
             }
         } catch (e) {
             console.error('Failed to parse params json', e)
@@ -233,6 +275,8 @@ async function handleEdit(record = {}) {
     data.cost_weight = costWeight
     data.latency_weight = latencyWeight
     data.session_header = sessionHeader
+    data.source_type = sourceType
+    data.source_key = sourceKey
 
     formRecord.value = data
     formData.value = cloneDeep(data)
@@ -257,12 +301,19 @@ function handleOk() {
                     params.params = JSON.stringify({
                         session_header: formData.value.session_header || '',
                     })
+                } else if (values.type === 'endpoint_affinity') {
+                    params.params = JSON.stringify({
+                        source_type: formData.value.source_type || 'header',
+                        source_key: formData.value.source_key || '',
+                    })
                 } else {
                     params.params = null
                 }
                 delete params.cost_weight
                 delete params.latency_weight
                 delete params.session_header
+                delete params.source_type
+                delete params.source_key
 
                 let result = null
                 switch (modal.value.type) {

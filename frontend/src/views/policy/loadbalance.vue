@@ -43,10 +43,22 @@
                                 v-model:value="searchFormData.type"
                                 allow-clear
                                 style="width: 200px">
-                                <a-select-option value="RANDOM">随机策略 (RANDOM)</a-select-option>
-                                <a-select-option value="ROUND_ROBIN">轮询策略 (ROUND_ROBIN)</a-select-option>
-                                <a-select-option value="WEIGHTED">权重策略 (WEIGHTED)</a-select-option>
-                                <a-select-option value="STICKY">粘性会话策略 (STICKY)</a-select-option>
+                                <a-select-option value="round_robin">轮询策略 (round_robin)</a-select-option>
+                                <a-select-option value="weighted_rr">加权轮询策略 (weighted_rr)</a-select-option>
+                                <a-select-option value="weighted_random"
+                                    >权重随机策略 (weighted_random)</a-select-option
+                                >
+                                <a-select-option value="random">随机策略 (random)</a-select-option>
+                                <a-select-option value="least_connections"
+                                    >最少连接策略 (least_connections)</a-select-option
+                                >
+                                <a-select-option value="least_latency">最低延迟策略 (least_latency)</a-select-option>
+                                <a-select-option value="cost">最低成本策略 (cost)</a-select-option>
+                                <a-select-option value="sticky">会话保持策略 (sticky)</a-select-option>
+                                <a-select-option value="composite">综合策略 (composite)</a-select-option>
+                                <a-select-option value="endpoint_affinity"
+                                    >端点亲和性策略 (endpoint_affinity)</a-select-option
+                                >
                             </a-select>
                         </a-form-item>
                         <a-form-item style="margin-bottom: 0">
@@ -152,7 +164,13 @@ const columns = [
             showTitle: true,
         },
     },
-    { title: t('pages.loadbalance.form.policyType'), dataIndex: 'type', key: 'type', width: 150 },
+    {
+        title: t('pages.loadbalance.form.policyType'),
+        dataIndex: 'type',
+        key: 'type',
+        width: 280,
+        ellipsis: true,
+    },
     { title: t('pages.loadbalance.form.enabled'), key: 'enabled', width: 110 },
     { title: t('pages.loadbalance.form.creator'), dataIndex: 'creator', width: 100 },
     { title: t('pages.loadbalance.form.description'), dataIndex: 'description', width: 250, ellipsis: true },
@@ -172,10 +190,16 @@ const editDialogRef = ref()
 const bindingDrawerVisible = ref(false)
 const selectedPolicyId = ref('')
 const policyTypeMap = {
-    RANDOM: '随机策略 (RANDOM)',
-    ROUND_ROBIN: '轮询策略 (ROUND_ROBIN)',
-    WEIGHTED: '权重策略 (WEIGHTED)',
-    STICKY: '粘性会话策略 (STICKY)',
+    round_robin: '轮询策略 (round_robin)',
+    weighted_rr: '加权轮询策略 (weighted_rr)',
+    weighted_random: '权重随机策略 (weighted_random)',
+    random: '随机策略 (random)',
+    least_connections: '最少连接策略 (least_connections)',
+    least_latency: '最低延迟策略 (least_latency)',
+    cost: '最低成本策略 (cost)',
+    sticky: '会话保持策略 (sticky)',
+    composite: '综合策略 (composite)',
+    endpoint_affinity: '端点亲和性策略 (endpoint_affinity)',
 }
 
 onMounted(() => {
