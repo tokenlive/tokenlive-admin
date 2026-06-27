@@ -536,6 +536,7 @@ export default {
     'pages.tagging.edit': 'Edit Policy',
     'pages.tagging.copy': 'Copy Policy',
     'pages.tagging.delTip': 'Are you sure you want to delete this traffic tagging policy?',
+    'pages.tagging.section.basic': 'Basic Settings',
     'pages.tagging.form.name': 'Policy Name',
     'pages.tagging.form.name.placeholder': 'Please enter policy name',
     'pages.tagging.form.name.required': 'Policy name is required!',

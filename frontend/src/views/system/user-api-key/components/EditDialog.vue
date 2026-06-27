@@ -13,7 +13,8 @@
             ref="formRef"
             :model="formData"
             :rules="formRules"
-            layout="vertical">
+            layout="vertical"
+            style="margin-top: 16px">
             <a-row :gutter="16">
                 <!-- 关联用户 -->
                 <a-col :span="24">

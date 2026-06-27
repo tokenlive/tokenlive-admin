@@ -161,6 +161,7 @@
                     :data-source="endpointListData"
                     :loading="endpointLoading"
                     :pagination="endpointPagination"
+                    :scroll="{ x: 1200 }"
                     @change="onEndpointTableChange">
                     <template #bodyCell="{ column, record }">
                         <template v-if="'provider_id' === column.key">
@@ -682,8 +683,7 @@ const endpointColumns = [
     {
         title: t('pages.endpoint.form.code'),
         dataIndex: 'code',
-        minWidth: 180,
-        flex: 1,
+        ellipsis: true,
     },
     {
         title: t('pages.endpoint.form.provider_id'),

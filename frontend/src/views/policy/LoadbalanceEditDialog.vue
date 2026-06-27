@@ -13,142 +13,134 @@
             ref="formRef"
             :model="formData"
             :rules="formRules"
-            :label-col="{ style: { width: '100px' } }">
-            <div class="loadbalance-form-content">
-                <a-row :gutter="12">
-                    <a-col :span="24">
+            layout="vertical"
+            style="margin-top: 16px">
+            <a-row :gutter="16">
+                <a-col :span="12">
+                    <a-form-item
+                        :label="$t('pages.loadbalance.form.name')"
+                        name="name">
+                        <a-input
+                            v-model:value="formData.name"
+                            :placeholder="$t('pages.loadbalance.form.name.placeholder')" />
+                    </a-form-item>
+                </a-col>
+                <a-col :span="12">
+                    <a-form-item
+                        :label="$t('pages.loadbalance.form.policyType')"
+                        name="type">
+                        <a-select
+                            :placeholder="$t('pages.loadbalance.form.policyType.placeholder')"
+                            v-model:value="formData.type">
+                            <a-select-option value="round_robin">轮询策略 (round_robin)</a-select-option>
+                            <a-select-option value="weighted_rr">加权轮询策略 (weighted_rr)</a-select-option>
+                            <a-select-option value="weighted_random">权重随机策略 (weighted_random)</a-select-option>
+                            <a-select-option value="random">随机策略 (random)</a-select-option>
+                            <a-select-option value="least_connections"
+                                >最少连接策略 (least_connections)</a-select-option
+                            >
+                            <a-select-option value="least_latency">最低延迟策略 (least_latency)</a-select-option>
+                            <a-select-option value="cost">最低成本策略 (cost)</a-select-option>
+                            <a-select-option value="sticky">会话保持策略 (sticky)</a-select-option>
+                            <a-select-option value="composite">综合策略 (composite)</a-select-option>
+                            <a-select-option value="endpoint_affinity"
+                                >端点亲和性策略 (endpoint_affinity)</a-select-option
+                            >
+                        </a-select>
+                    </a-form-item>
+                </a-col>
+            </a-row>
+
+            <template v-if="formData.type === 'composite'">
+                <a-row :gutter="16">
+                    <a-col :span="12">
                         <a-form-item
-                            :label="$t('pages.loadbalance.form.name')"
-                            name="name">
-                            <a-input v-model:value="formData.name"></a-input>
+                            :label="$t('pages.loadbalance.form.costWeight')"
+                            name="cost_weight">
+                            <a-input-number
+                                v-model:value="formData.cost_weight"
+                                :min="0"
+                                :max="1"
+                                :step="0.1"
+                                :placeholder="$t('pages.loadbalance.form.costWeight.placeholder')"
+                                style="width: 100%" />
+                        </a-form-item>
+                    </a-col>
+                    <a-col :span="12">
+                        <a-form-item
+                            :label="$t('pages.loadbalance.form.latencyWeight')"
+                            name="latency_weight">
+                            <a-input-number
+                                v-model:value="formData.latency_weight"
+                                :min="0"
+                                :max="1"
+                                :step="0.1"
+                                :placeholder="$t('pages.loadbalance.form.latencyWeight.placeholder')"
+                                style="width: 100%" />
                         </a-form-item>
                     </a-col>
                 </a-row>
+            </template>
 
-                <a-row :gutter="12">
-                    <a-col :span="24">
+            <template v-if="formData.type === 'sticky'">
+                <a-form-item
+                    :label="$t('pages.loadbalance.form.sessionHeader')"
+                    name="session_header">
+                    <a-input
+                        v-model:value="formData.session_header"
+                        :placeholder="$t('pages.loadbalance.form.sessionHeader.placeholder')" />
+                </a-form-item>
+            </template>
+
+            <template v-if="formData.type === 'endpoint_affinity'">
+                <a-row :gutter="16">
+                    <a-col :span="12">
                         <a-form-item
-                            :label="$t('pages.loadbalance.form.policyType')"
-                            name="type">
+                            :label="$t('pages.loadbalance.form.sourceType')"
+                            name="source_type">
                             <a-select
-                                :placeholder="$t('pages.loadbalance.form.policyType.placeholder')"
-                                v-model:value="formData.type">
-                                <a-select-option value="round_robin">轮询策略 (round_robin)</a-select-option>
-                                <a-select-option value="weighted_rr">加权轮询策略 (weighted_rr)</a-select-option>
-                                <a-select-option value="weighted_random"
-                                    >权重随机策略 (weighted_random)</a-select-option
-                                >
-                                <a-select-option value="random">随机策略 (random)</a-select-option>
-                                <a-select-option value="least_connections"
-                                    >最少连接策略 (least_connections)</a-select-option
-                                >
-                                <a-select-option value="least_latency">最低延迟策略 (least_latency)</a-select-option>
-                                <a-select-option value="cost">最低成本策略 (cost)</a-select-option>
-                                <a-select-option value="sticky">会话保持策略 (sticky)</a-select-option>
-                                <a-select-option value="composite">综合策略 (composite)</a-select-option>
-                                <a-select-option value="endpoint_affinity"
-                                    >端点亲和性策略 (endpoint_affinity)</a-select-option
-                                >
+                                v-model:value="formData.source_type"
+                                :placeholder="$t('pages.loadbalance.form.sourceType.placeholder')">
+                                <a-select-option value="header">请求头 (header)</a-select-option>
+                                <a-select-option value="query">请求参数 (query)</a-select-option>
+                                <a-select-option value="cookie">Cookie (cookie)</a-select-option>
                             </a-select>
                         </a-form-item>
                     </a-col>
-                </a-row>
-
-                <template v-if="formData.type === 'composite'">
-                    <a-row :gutter="12">
-                        <a-col :span="12">
-                            <a-form-item
-                                :label="$t('pages.loadbalance.form.costWeight')"
-                                name="cost_weight">
-                                <a-input-number
-                                    v-model:value="formData.cost_weight"
-                                    :min="0"
-                                    :max="1"
-                                    :step="0.1"
-                                    :placeholder="$t('pages.loadbalance.form.costWeight.placeholder')"
-                                    style="width: 100%" />
-                            </a-form-item>
-                        </a-col>
-                        <a-col :span="12">
-                            <a-form-item
-                                :label="$t('pages.loadbalance.form.latencyWeight')"
-                                name="latency_weight">
-                                <a-input-number
-                                    v-model:value="formData.latency_weight"
-                                    :min="0"
-                                    :max="1"
-                                    :step="0.1"
-                                    :placeholder="$t('pages.loadbalance.form.latencyWeight.placeholder')"
-                                    style="width: 100%" />
-                            </a-form-item>
-                        </a-col>
-                    </a-row>
-                </template>
-
-                <template v-if="formData.type === 'sticky'">
-                    <a-row :gutter="12">
-                        <a-col :span="24">
-                            <a-form-item
-                                :label="$t('pages.loadbalance.form.sessionHeader')"
-                                name="session_header">
-                                <a-input
-                                    v-model:value="formData.session_header"
-                                    :placeholder="$t('pages.loadbalance.form.sessionHeader.placeholder')" />
-                            </a-form-item>
-                        </a-col>
-                    </a-row>
-                </template>
-
-                <template v-if="formData.type === 'endpoint_affinity'">
-                    <a-row :gutter="12">
-                        <a-col :span="12">
-                            <a-form-item
-                                :label="$t('pages.loadbalance.form.sourceType')"
-                                name="source_type">
-                                <a-select
-                                    v-model:value="formData.source_type"
-                                    :placeholder="$t('pages.loadbalance.form.sourceType.placeholder')">
-                                    <a-select-option value="header">请求头 (header)</a-select-option>
-                                    <a-select-option value="query">请求参数 (query)</a-select-option>
-                                    <a-select-option value="cookie">Cookie (cookie)</a-select-option>
-                                </a-select>
-                            </a-form-item>
-                        </a-col>
-                        <a-col :span="12">
-                            <a-form-item
-                                :label="$t('pages.loadbalance.form.sourceKey')"
-                                name="source_key">
-                                <a-input
-                                    v-model:value="formData.source_key"
-                                    :placeholder="$t('pages.loadbalance.form.sourceKey.placeholder')" />
-                            </a-form-item>
-                        </a-col>
-                    </a-row>
-                </template>
-
-                <a-row :gutter="12">
-                    <a-col :span="24">
+                    <a-col :span="12">
                         <a-form-item
-                            :label="$t('pages.loadbalance.form.enabled')"
-                            name="enabled">
-                            <a-switch
-                                v-model:checked="enabledSwitch"
-                                :checked-children="$t('pages.loadbalance.form.enabled.active')"
-                                :un-checked-children="$t('pages.loadbalance.form.enabled.inactive')" />
+                            :label="$t('pages.loadbalance.form.sourceKey')"
+                            name="source_key">
+                            <a-input
+                                v-model:value="formData.source_key"
+                                :placeholder="$t('pages.loadbalance.form.sourceKey.placeholder')" />
                         </a-form-item>
                     </a-col>
                 </a-row>
+            </template>
 
-                <a-row :gutter="24">
-                    <a-col :span="24">
-                        <a-form-item
-                            :label="$t('pages.loadbalance.form.description')"
-                            name="description">
-                            <a-textarea v-model:value="formData.description"></a-textarea>
-                        </a-form-item>
-                    </a-col>
-                </a-row>
-            </div>
+            <a-row :gutter="16">
+                <a-col :span="12">
+                    <a-form-item
+                        :label="$t('pages.loadbalance.form.enabled')"
+                        name="enabled">
+                        <a-switch
+                            v-model:checked="enabledSwitch"
+                            :checked-children="$t('pages.loadbalance.form.enabled.active')"
+                            :un-checked-children="$t('pages.loadbalance.form.enabled.inactive')"
+                            style="margin-top: 4px" />
+                    </a-form-item>
+                </a-col>
+            </a-row>
+
+            <a-form-item
+                :label="$t('pages.loadbalance.form.description')"
+                name="description">
+                <a-textarea
+                    v-model:value="formData.description"
+                    :rows="3"
+                    :placeholder="$t('pages.loadbalance.form.description.placeholder')" />
+            </a-form-item>
         </a-form>
     </a-modal>
 </template>
@@ -358,8 +350,4 @@ defineExpose({
 })
 </script>
 
-<style lang="less" scoped>
-.loadbalance-form-content {
-    padding-top: 4px;
-}
-</style>
+<style lang="less" scoped></style>

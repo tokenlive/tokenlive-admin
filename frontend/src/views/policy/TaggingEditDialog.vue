@@ -13,62 +13,80 @@
             ref="formRef"
             :model="formData"
             :rules="formRules"
-            :label-col="{ style: { width: '110px' } }">
-            <!-- 策略名称 -->
-            <a-form-item
-                :label="$t('pages.tagging.form.name')"
-                name="name">
-                <a-input
-                    :placeholder="$t('pages.tagging.form.name.placeholder')"
-                    v-model:value="formData.name" />
-            </a-form-item>
+            layout="vertical"
+            style="margin-top: 16px">
+            <!-- 基础设置 -->
+            <a-divider
+                orientation="left"
+                style="margin-top: 0">
+                {{ $t('pages.tagging.section.basic') }}
+            </a-divider>
 
-            <!-- 执行优先级 -->
-            <a-form-item
-                :label="$t('pages.tagging.form.order')"
-                name="order">
-                <a-input-number
-                    v-model:value="formData.order"
-                    :min="0"
-                    style="width: 100%"
-                    :placeholder="$t('pages.tagging.form.order.placeholder')" />
-            </a-form-item>
+            <!-- 策略名称 + 执行优先级 -->
+            <a-row :gutter="16">
+                <a-col :span="12">
+                    <a-form-item
+                        :label="$t('pages.tagging.form.name')"
+                        name="name">
+                        <a-input
+                            :placeholder="$t('pages.tagging.form.name.placeholder')"
+                            v-model:value="formData.name" />
+                    </a-form-item>
+                </a-col>
+                <a-col :span="12">
+                    <a-form-item
+                        :label="$t('pages.tagging.form.order')"
+                        name="order">
+                        <a-input-number
+                            v-model:value="formData.order"
+                            :min="0"
+                            style="width: 100%"
+                            :placeholder="$t('pages.tagging.form.order.placeholder')" />
+                    </a-form-item>
+                </a-col>
+            </a-row>
 
-            <!-- 多条件逻辑关系 -->
-            <a-form-item
-                :label="$t('pages.tagging.form.relation')"
-                name="relation">
-                <a-radio-group v-model:value="formData.relation">
-                    <a-radio value="AND">AND (同时满足所有条件)</a-radio>
-                    <a-radio value="OR">OR (满足任意一个条件)</a-radio>
-                </a-radio-group>
-            </a-form-item>
+            <!-- 多条件关系 + 生效状态 -->
+            <a-row :gutter="16">
+                <a-col :span="12">
+                    <a-form-item
+                        :label="$t('pages.tagging.form.relation')"
+                        name="relation">
+                        <a-radio-group v-model:value="formData.relation">
+                            <a-radio value="AND">AND</a-radio>
+                            <a-radio value="OR">OR</a-radio>
+                        </a-radio-group>
+                    </a-form-item>
+                </a-col>
+                <a-col :span="12">
+                    <a-form-item
+                        :label="$t('pages.tagging.form.enabled')"
+                        name="enabled">
+                        <a-switch
+                            v-model:checked="formData.enabled"
+                            :checked-value="1"
+                            :un-checked-value="0" />
+                    </a-form-item>
+                </a-col>
+            </a-row>
 
-            <!-- 状态 -->
-            <a-form-item
-                :label="$t('pages.tagging.form.enabled')"
-                name="enabled">
-                <a-switch
-                    v-model:checked="formData.enabled"
-                    :checked-value="1"
-                    :un-checked-value="0">
-                </a-switch>
-            </a-form-item>
-
-            <!-- 描述 -->
+            <!-- 备注说明 -->
             <a-form-item
                 :label="$t('pages.tagging.form.description')"
                 name="description">
                 <a-textarea
                     v-model:value="formData.description"
+                    :rows="2"
                     :placeholder="$t('pages.tagging.form.description.placeholder')" />
             </a-form-item>
 
-            <!-- 条件配置列表 -->
+            <!-- 条件规则配置 -->
+            <a-divider orientation="left">
+                {{ $t('pages.tagging.form.conditions') }}
+            </a-divider>
             <a-card
-                class="mb-4"
-                :title="$t('pages.tagging.form.conditions')"
-                size="small">
+                size="small"
+                style="margin-bottom: 16px">
                 <template #extra>
                     <a-button
                         type="link"
@@ -78,11 +96,27 @@
                         {{ $t('pages.tagging.form.conditions.add') }}
                     </a-button>
                 </template>
+
+                <!-- 表头 -->
                 <div
-                    v-if="!formData.conditions || formData.conditions.length === 0"
-                    class="empty-tip">
-                    {{ $t('pages.tagging.form.conditions.empty') }}
+                    v-if="formData.conditions && formData.conditions.length > 0"
+                    class="rule-header">
+                    <a-row :gutter="8">
+                        <a-col :span="4">{{ $t('pages.tagging.form.conditions.type.placeholder') }}</a-col>
+                        <a-col :span="5">{{ $t('pages.tagging.form.conditions.key.placeholder') }}</a-col>
+                        <a-col :span="5">{{ $t('pages.tagging.form.conditions.opType.placeholder') }}</a-col>
+                        <a-col :span="8">{{ $t('pages.tagging.form.conditions.values.placeholder') }}</a-col>
+                        <a-col :span="2" />
+                    </a-row>
                 </div>
+
+                <!-- 空状态 -->
+                <a-empty
+                    v-if="!formData.conditions || formData.conditions.length === 0"
+                    :description="$t('pages.tagging.form.conditions.empty')"
+                    :image-style="{ height: '40px' }" />
+
+                <!-- 数据行 -->
                 <div
                     v-else
                     class="rule-table-row"
@@ -92,7 +126,6 @@
                         :gutter="8"
                         align="middle"
                         style="width: 100%">
-                        <!-- 类型 -->
                         <a-col :span="4">
                             <a-select
                                 v-model:value="item.type"
@@ -105,13 +138,11 @@
                                 <a-select-option value="tag">TAG</a-select-option>
                             </a-select>
                         </a-col>
-                        <!-- 参数名 -->
                         <a-col :span="5">
                             <a-input
                                 v-model:value="item.key"
                                 :placeholder="$t('pages.tagging.form.conditions.key.placeholder')" />
                         </a-col>
-                        <!-- 算子 -->
                         <a-col :span="5">
                             <a-select
                                 v-model:value="item.op_type"
@@ -125,7 +156,6 @@
                                 <a-select-option value="PREFIX">PREFIX (前缀匹配)</a-select-option>
                             </a-select>
                         </a-col>
-                        <!-- 值列表 -->
                         <a-col :span="8">
                             <a-select
                                 v-model:value="item.values"
@@ -134,22 +164,22 @@
                                 style="width: 100%"
                                 :open="false" />
                         </a-col>
-                        <!-- 删除 -->
                         <a-col
                             :span="2"
                             style="text-align: center">
                             <delete-outlined
-                                class="delete-icon"
+                                style="color: #ff4d4f; cursor: pointer"
                                 @click="removeCondition(index)" />
                         </a-col>
                     </a-row>
                 </div>
             </a-card>
 
-            <!-- 动作配置列表 -->
-            <a-card
-                :title="$t('pages.tagging.form.actions')"
-                size="small">
+            <!-- 打标动作配置 -->
+            <a-divider orientation="left">
+                {{ $t('pages.tagging.form.actions') }}
+            </a-divider>
+            <a-card size="small">
                 <template #extra>
                     <a-button
                         type="link"
@@ -159,11 +189,26 @@
                         {{ $t('pages.tagging.form.actions.add') }}
                     </a-button>
                 </template>
+
+                <!-- 表头 -->
                 <div
-                    v-if="!formData.actions || formData.actions.length === 0"
-                    class="empty-tip text-danger">
-                    {{ $t('pages.tagging.form.actions.empty') }}
+                    v-if="formData.actions && formData.actions.length > 0"
+                    class="rule-header">
+                    <a-row :gutter="8">
+                        <a-col :span="6">{{ $t('pages.tagging.form.actions.type.placeholder') }}</a-col>
+                        <a-col :span="8">{{ $t('pages.tagging.form.actions.key.placeholder') }}</a-col>
+                        <a-col :span="8">{{ $t('pages.tagging.form.actions.value.placeholder') }}</a-col>
+                        <a-col :span="2" />
+                    </a-row>
                 </div>
+
+                <!-- 空状态 -->
+                <a-empty
+                    v-if="!formData.actions || formData.actions.length === 0"
+                    :description="$t('pages.tagging.form.actions.empty')"
+                    :image-style="{ height: '40px' }" />
+
+                <!-- 数据行 -->
                 <div
                     v-else
                     class="rule-table-row"
@@ -172,7 +217,6 @@
                     <a-row
                         :gutter="8"
                         align="middle">
-                        <!-- 操作范围 -->
                         <a-col :span="6">
                             <a-select
                                 v-model:value="item.type"
@@ -186,24 +230,21 @@
                                 <a-select-option value="REQ_BODY">REQ_BODY</a-select-option>
                             </a-select>
                         </a-col>
-                        <!-- 标签键 -->
                         <a-col :span="8">
                             <a-input
                                 v-model:value="item.key"
                                 :placeholder="$t('pages.tagging.form.actions.key.placeholder')" />
                         </a-col>
-                        <!-- 标签值 -->
                         <a-col :span="8">
                             <a-input
                                 v-model:value="item.value"
                                 :placeholder="$t('pages.tagging.form.actions.value.placeholder')" />
                         </a-col>
-                        <!-- 删除 -->
                         <a-col
                             :span="2"
                             style="text-align: center">
                             <delete-outlined
-                                class="delete-icon"
+                                style="color: #ff4d4f; cursor: pointer"
                                 @click="removeAction(index)" />
                         </a-col>
                     </a-row>
@@ -419,32 +460,20 @@ defineExpose({
 </script>
 
 <style lang="less" scoped>
-.mb-4 {
-    margin-bottom: 16px;
+.rule-header {
+    padding: 4px 0 8px;
+    font-size: 12px;
+    opacity: 0.45;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+    margin-bottom: 4px;
 }
+
 .rule-table-row {
-    padding: 8px;
-    border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+
     &:last-child {
         border-bottom: none;
-    }
-}
-.empty-tip {
-    text-align: center;
-    color: #999;
-    padding: 12px 0;
-    font-size: 13px;
-}
-.text-danger {
-    color: #ff4d4f;
-}
-.delete-icon {
-    font-size: 16px;
-    color: #ff4d4f;
-    cursor: pointer;
-    transition: color 0.2s;
-    &:hover {
-        color: #ff7875;
     }
 }
 </style>

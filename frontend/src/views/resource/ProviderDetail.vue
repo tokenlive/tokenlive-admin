@@ -109,6 +109,7 @@
                     :data-source="endpointListData"
                     :loading="endpointLoading"
                     :pagination="endpointPagination"
+                    :scroll="{ x: 1200 }"
                     @change="onEndpointTableChange">
                     <template #bodyCell="{ column, record }">
                         <template v-if="'model_id' === column.key">
@@ -339,6 +340,11 @@ const endpointPagination = reactive({
 })
 
 const endpointColumns = [
+    {
+        title: t('pages.endpoint.form.code'),
+        dataIndex: 'code',
+        ellipsis: true,
+    },
     {
         title: t('pages.endpoint.form.model_id'),
         key: 'model_id',

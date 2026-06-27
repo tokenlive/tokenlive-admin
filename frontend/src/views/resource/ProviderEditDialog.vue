@@ -13,7 +13,8 @@
             ref="formRef"
             :model="formData"
             :rules="formRules"
-            layout="vertical">
+            layout="vertical"
+            style="margin-top: 16px">
             <a-row :gutter="16">
                 <a-col :span="12">
                     <a-form-item
