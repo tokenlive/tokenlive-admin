@@ -682,7 +682,8 @@ const endpointColumns = [
     {
         title: t('pages.endpoint.form.code'),
         dataIndex: 'code',
-        width: 180,
+        minWidth: 180,
+        flex: 1,
     },
     {
         title: t('pages.endpoint.form.provider_id'),

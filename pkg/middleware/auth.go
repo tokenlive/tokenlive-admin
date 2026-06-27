@@ -32,6 +32,8 @@ func AuthWithConfig(config AuthConfig) gin.HandlerFunc {
 
 		ctx := util.NewUserID(c.Request.Context(), userID)
 		ctx = logging.NewUserID(ctx, userID)
+		ctx = util.NewClientIP(ctx, c.ClientIP())
+		ctx = util.NewUserAgent(ctx, c.Request.UserAgent())
 		if userID == config.RootID {
 			ctx = util.NewIsRootUser(ctx)
 			if config.RootUsername != "" {

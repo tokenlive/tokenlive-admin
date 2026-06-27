@@ -89,6 +89,8 @@ func (a *AuditLog) RecordActionWithTenant(ctx context.Context, tenantCode, actio
 		ResourceName: resourceName,
 		BeforeData:   toPtrString(beforeData),
 		AfterData:    toPtrString(afterData),
+		IP:           util.FromClientIP(ctx),
+		UserAgent:    util.FromUserAgent(ctx),
 	}
 	// Audit logging failure should not break the main flow
 	_, _ = a.Create(ctx, form)

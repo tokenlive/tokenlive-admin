@@ -1076,6 +1076,10 @@
                                 "path": "/api/v1/endpoints/{id}"
                             },
                             {
+                                "method": "PUT",
+                                "path": "/api/v1/endpoints/{id}/enabled"
+                            },
+                            {
                                 "method": "POST",
                                 "path": "/api/v1/providers/{id}/fetch-models"
                             },

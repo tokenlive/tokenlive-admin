@@ -212,6 +212,7 @@ const ownerOptions = ref([
     { value: 'DeepSeek', label: 'DeepSeek' },
     { value: 'Google', label: 'Google' },
     { value: 'Anthropic', label: 'Anthropic' },
+    { value: 'XiaoMi', label: 'XiaoMi (小米)' },
     { value: 'Qwen', label: 'Qwen (通义千问)' },
     { value: 'Zhipu AI', label: 'Zhipu AI (智谱清言)' },
     { value: 'Moonshot AI', label: 'Moonshot AI (月之暗面)' },

@@ -235,6 +235,15 @@
                     <template v-else-if="column.key === 'event_time'">
                         {{ formatTime(record.event_time) }}
                     </template>
+                    <template v-else-if="column.key === 'model_code'">
+                        <a
+                            v-if="record.model_code && modelMap[record.model_code]"
+                            @click="goToModelDetail(record.model_code)"
+                            style="cursor: pointer">
+                            {{ record.model_code }}
+                        </a>
+                        <span v-else>{{ record.model_code || '--' }}</span>
+                    </template>
                 </template>
                 <template #expandedRowRender="{ record }">
                     <div class="ops-expanded-container">
@@ -360,6 +369,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useAppStore } from '@/store'
 import useUserStore from '@/store/modules/user'
 import {
@@ -374,6 +384,7 @@ import apis from '@/apis'
 import { config } from '@/config'
 
 const { t } = useI18n()
+const router = useRouter()
 const appStore = useAppStore()
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.userInfo?.username === 'admin')
@@ -401,6 +412,7 @@ const timeRange = ref('24h')
 const stats = ref({})
 const eventList = ref([])
 const searchTimeRange = ref(null)
+const modelMap = ref({}) // model_code -> model_id 映射
 
 const filterForm = reactive({
     event_type: undefined,
@@ -470,7 +482,7 @@ const columns = computed(() => [
     { title: t('pages.ops.table.time'), key: 'event_time', dataIndex: 'event_time', width: 140 },
     { title: t('pages.ops.table.type'), key: 'event_type', dataIndex: 'event_type', width: 80 },
     { title: t('pages.ops.table.tenant'), dataIndex: 'tenant_code', width: 70, ellipsis: true },
-    { title: t('pages.ops.table.model'), dataIndex: 'model_code', width: 120, ellipsis: true },
+    { title: t('pages.ops.table.model'), key: 'model_code', dataIndex: 'model_code', width: 120, ellipsis: true },
     { title: t('pages.ops.table.endpoint_code'), dataIndex: 'endpoint_code', width: 120, ellipsis: true },
     { title: t('pages.ops.table.provider'), dataIndex: 'provider_name', width: 120, ellipsis: true },
     { title: t('pages.ops.table.policy_name'), dataIndex: 'policy_name', width: 160, ellipsis: true },
@@ -817,9 +829,33 @@ const modelRankingOptions = computed(() => {
 
 // Lifecycle
 onMounted(async () => {
-    await Promise.all([fetchData(), fetchEvents()])
+    await Promise.all([fetchData(), fetchEvents(), loadModelMap()])
     connectWebSocket()
 })
+
+// 加载模型映射（model_code -> model_id）
+async function loadModelMap() {
+    try {
+        const { data, success } = await apis.model.getModelList({ pageSize: 1000, current: 1 })
+        if (success && data) {
+            const map = {}
+            data.forEach((m) => {
+                map[m.model_code] = m.id
+            })
+            modelMap.value = map
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
+// 跳转到模型详情
+function goToModelDetail(modelCode) {
+    const modelId = modelMap.value[modelCode]
+    if (modelId) {
+        router.push({ name: 'modelDetail', params: { id: modelId } })
+    }
+}
 
 onUnmounted(() => {
     wsManualClose = true

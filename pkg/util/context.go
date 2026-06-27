@@ -17,6 +17,8 @@ type (
 	userTokenCtx  struct{}
 	isRootUserCtx struct{}
 	userCacheCtx  struct{}
+	clientIPCtx   struct{}
+	userAgentCtx  struct{}
 )
 
 func NewTraceID(ctx context.Context, traceID string) context.Context {
@@ -144,4 +146,28 @@ func FromUserCache(ctx context.Context) UserCache {
 		return v.(UserCache)
 	}
 	return UserCache{}
+}
+
+func NewClientIP(ctx context.Context, ip string) context.Context {
+	return context.WithValue(ctx, clientIPCtx{}, ip)
+}
+
+func FromClientIP(ctx context.Context) string {
+	v := ctx.Value(clientIPCtx{})
+	if v != nil {
+		return v.(string)
+	}
+	return ""
+}
+
+func NewUserAgent(ctx context.Context, userAgent string) context.Context {
+	return context.WithValue(ctx, userAgentCtx{}, userAgent)
+}
+
+func FromUserAgent(ctx context.Context) string {
+	v := ctx.Value(userAgentCtx{})
+	if v != nil {
+		return v.(string)
+	}
+	return ""
 }

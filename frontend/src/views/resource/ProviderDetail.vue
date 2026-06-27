@@ -84,6 +84,9 @@
                 <a-tab-pane
                     key="endpoint"
                     :tab="$t('pages.provider.detail.tab.endpoint')" />
+                <a-tab-pane
+                    key="member"
+                    :tab="$t('pages.provider.detail.tab.member')" />
             </a-tabs>
 
             <!-- 端点管理 Tab 内容 -->
@@ -201,6 +204,73 @@
                     </template>
                 </a-table>
             </div>
+
+            <!-- 成员管理 Tab 内容 -->
+            <div v-else-if="activeTab === 'member'">
+                <div class="tab-toolbar">
+                    <a-button
+                        type="primary"
+                        ghost
+                        @click="$refs.memberEditRef.handleCreate()">
+                        {{ $t('pages.member.add') }}
+                    </a-button>
+                    <div class="tab-toolbar-right">
+                        <a-input-search
+                            v-model:value="memberSearchUser"
+                            :placeholder="$t('pages.member.search.placeholder')"
+                            style="width: 200px"
+                            allow-clear
+                            @search="loadMemberList"
+                            @pressEnter="loadMemberList" />
+                        <a-button @click="loadMemberList">
+                            <template #icon><reload-outlined /></template>
+                        </a-button>
+                    </div>
+                </div>
+                <a-table
+                    :columns="memberColumns"
+                    :data-source="memberListData"
+                    :loading="memberLoading"
+                    :pagination="memberPagination"
+                    @change="onMemberTableChange">
+                    <template #bodyCell="{ column, record }">
+                        <template v-if="'permission' === column.key">
+                            <a-tag
+                                v-if="hasPermission(record.permission, 1)"
+                                color="green"
+                                >{{ $t('pages.member.form.permission.read') }}</a-tag
+                            >
+                            <a-tag
+                                v-if="hasPermission(record.permission, 2)"
+                                color="blue"
+                                >{{ $t('pages.member.form.permission.write') }}</a-tag
+                            >
+                            <a-tag
+                                v-if="hasPermission(record.permission, 4)"
+                                color="red"
+                                >{{ $t('pages.member.form.permission.delete') }}</a-tag
+                            >
+                        </template>
+                        <template v-if="'created_at' === column.key">
+                            {{ formatUtcDateTime(record.created_at) }}
+                        </template>
+                        <template v-if="'action' === column.key">
+                            <x-action-button @click="$refs.memberEditRef.handleEdit(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('pages.member.edit') }}</template>
+                                    <edit-outlined />
+                                </a-tooltip>
+                            </x-action-button>
+                            <x-action-button @click="handleRemoveMember(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('button.delete') }}</template>
+                                    <delete-outlined style="color: #ff4d4f" />
+                                </a-tooltip>
+                            </x-action-button>
+                        </template>
+                    </template>
+                </a-table>
+            </div>
         </a-card>
 
         <!-- 端点编辑弹窗 -->
@@ -215,6 +285,12 @@
         <provider-edit-dialog
             ref="providerEditRef"
             @ok="loadProviderDetail" />
+
+        <!-- 成员编辑弹窗 -->
+        <provider-member-edit-dialog
+            ref="memberEditRef"
+            :provider-id="providerId"
+            @ok="loadMemberList" />
     </div>
 </template>
 
@@ -236,6 +312,7 @@ import { formatUtcDateTime } from '@/utils/util'
 import { useI18n } from 'vue-i18n'
 import EndpointEditDialog from './EndpointEditDialog.vue'
 import ProviderEditDialog from './ProviderEditDialog.vue'
+import ProviderMemberEditDialog from './ProviderMemberEditDialog.vue'
 
 defineOptions({
     name: 'providerDetail',
@@ -247,6 +324,7 @@ const providerId = ref(route.params.id)
 const providerData = ref({})
 const activeTab = ref('endpoint')
 const providerEditRef = ref(null)
+const memberEditRef = ref(null)
 
 const modelOptions = ref([])
 const providerOptions = ref([])
@@ -318,11 +396,61 @@ const endpointColumns = [
     },
 ]
 
+const hasPermission = (permission, bit) => {
+    return (Number(permission) & bit) === bit
+}
+
+// 成员管理
+const memberSearchUser = ref('')
+const memberListData = ref([])
+const memberLoading = ref(false)
+const memberPagination = reactive({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+    showSizeChanger: true,
+    showTotal: (total) => `共 ${total} 条`,
+})
+
+const memberColumns = [
+    {
+        title: t('pages.member.form.user'),
+        dataIndex: 'user',
+        width: 150,
+    },
+    {
+        title: t('pages.member.form.tenant'),
+        dataIndex: 'tenant',
+        width: 150,
+    },
+    {
+        title: t('pages.member.form.role'),
+        dataIndex: 'role',
+        width: 100,
+    },
+    {
+        title: t('pages.member.form.permission'),
+        key: 'permission',
+        width: 200,
+    },
+    {
+        title: t('pages.member.form.created_at'),
+        key: 'created_at',
+        width: 180,
+    },
+    {
+        title: t('button.action'),
+        key: 'action',
+        width: 120,
+    },
+]
+
 onMounted(() => {
     loadProviderDetail()
     loadModelOptions()
     loadProviderOptions()
     loadEndpointList()
+    loadMemberList()
 })
 
 // 供应商编辑
@@ -337,7 +465,7 @@ async function loadProviderDetail() {
             providerData.value = data || {}
         }
     } catch (error) {
-        // ignore
+        message.error(t('pages.provider.detail.load.failed'))
     }
 }
 
@@ -495,6 +623,62 @@ function getPointStyle(point) {
         cursor: 'pointer',
     }
 }
+
+async function loadMemberList() {
+    try {
+        memberLoading.value = true
+        const { data, success, total } = await apis.data_permission
+            .getDataPermissionList({
+                pageSize: memberPagination.pageSize,
+                current: memberPagination.current,
+                type: 'provider',
+                data_id: providerId.value,
+                user: memberSearchUser.value || undefined,
+            })
+            .catch(() => {
+                throw new Error()
+            })
+        memberLoading.value = false
+        if (config('http.code.success') === success) {
+            memberListData.value = data || []
+            memberPagination.total = total || 0
+        }
+    } catch (error) {
+        memberLoading.value = false
+    }
+}
+
+function onMemberTableChange({ current, pageSize }) {
+    memberPagination.current = current
+    memberPagination.pageSize = pageSize
+    loadMemberList()
+}
+
+function handleRemoveMember({ id }) {
+    Modal.confirm({
+        title: t('pages.member.delTip'),
+        okText: t('button.confirm'),
+        okType: 'danger',
+        onOk: () => {
+            return new Promise((resolve, reject) => {
+                ;(async () => {
+                    try {
+                        const { success } = await apis.data_permission.delDataPermission(id).catch(() => {
+                            throw new Error()
+                        })
+                        if (config('http.code.success') === success) {
+                            resolve()
+                            message.success(t('component.message.success.delete'))
+                            await loadMemberList()
+                        }
+                    } catch (error) {
+                        reject()
+                    }
+                })()
+            })
+        },
+    })
+}
 </script>
 
 <style lang="less" scoped>
@@ -502,62 +686,66 @@ function getPointStyle(point) {
 
 .provider-detail {
     padding: 0;
+}
 
-    .info-card {
-        margin-bottom: 16px;
+.info-card {
+    margin-bottom: 16px;
 
-        :deep(.ant-card-head) {
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .info-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 2px;
-
-            .info-label {
-                opacity: 0.6;
-                font-size: 13px;
-            }
-
-            .info-value {
-                font-size: 14px;
-                font-weight: 500;
-                max-width: 100%;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-        }
+    :deep(.ant-card-head-title) {
+        font-size: 14px;
     }
 
-    .detail-card {
-        .detail-tabs {
-            margin-bottom: 16px;
+    :deep(.ant-card-grid) {
+        padding: 8px 16px;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+
+        .info-label {
+            opacity: 0.6;
+            font-size: 13px;
         }
 
-        .tab-toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-
-            .tab-toolbar-right {
-                display: flex;
-                gap: 8px;
-            }
-        }
-
-        .url-text {
-            font-family: monospace;
-            display: inline-block;
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            vertical-align: middle;
+        .info-value {
+            font-size: 14px;
+            font-weight: 500;
         }
     }
+}
+
+.detail-card {
+    .detail-tabs {
+        margin-bottom: 0;
+
+        :deep(.ant-tabs-nav) {
+            margin-bottom: 16px;
+        }
+    }
+}
+
+.tab-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+
+    .tab-toolbar-right {
+        display: flex;
+        gap: 8px;
+    }
+}
+
+.url-text {
+    font-family: monospace;
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
 }
 </style>
