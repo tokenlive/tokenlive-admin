@@ -11,12 +11,15 @@ import (
 )
 
 type Resource struct {
-	DB                *gorm.DB
-	ProviderAPI       *api.Provider
-	EndpointAPI       *api.Endpoint
-	ModelAPI          *api.Model
-	ModelAliasAPI     *api.ModelAlias
-	DataPermissionAPI *api.DataPermission
+	DB                    *gorm.DB
+	ProviderAPI           *api.Provider
+	EndpointAPI           *api.Endpoint
+	ModelAPI              *api.Model
+	ModelAliasAPI         *api.ModelAlias
+	DataPermissionAPI     *api.DataPermission
+	ModelCatalogAPI       *api.ModelCatalog
+	ModelCatalogI18nAPI   *api.ModelCatalogI18n
+	ModelPriceVersionAPI  *api.ModelPriceVersion
 }
 
 func (a *Resource) AutoMigrate(ctx context.Context) error {
@@ -26,6 +29,9 @@ func (a *Resource) AutoMigrate(ctx context.Context) error {
 		new(schema.Model),
 		new(schema.ModelAlias),
 		new(schema.DataPermission),
+		new(schema.ModelCatalog),
+		new(schema.ModelCatalogI18n),
+		new(schema.ModelPriceVersion),
 	)
 }
 
@@ -88,6 +94,41 @@ func (a *Resource) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) e
 		dataPermission.POST("", a.DataPermissionAPI.Create)
 		dataPermission.PUT(":id", a.DataPermissionAPI.Update)
 		dataPermission.DELETE(":id", a.DataPermissionAPI.Delete)
+	}
+
+	modelCatalogs := v1.Group("model-catalogs")
+	{
+		modelCatalogs.GET("", a.ModelCatalogAPI.Query)
+		modelCatalogs.GET("public", a.ModelCatalogAPI.QueryPublic)
+		modelCatalogs.GET("slug/:slug", a.ModelCatalogAPI.GetBySlug)
+		modelCatalogs.GET(":id", a.ModelCatalogAPI.Get)
+		modelCatalogs.POST("", a.ModelCatalogAPI.Create)
+		modelCatalogs.PUT(":id", a.ModelCatalogAPI.Update)
+		modelCatalogs.PUT(":id/publish", a.ModelCatalogAPI.Publish)
+		modelCatalogs.DELETE(":id", a.ModelCatalogAPI.Delete)
+		modelCatalogs.GET(":id/i18n", a.ModelCatalogI18nAPI.QueryByModelID)
+		modelCatalogs.GET(":id/prices", a.ModelPriceVersionAPI.QueryByModelID)
+	}
+
+	modelCatalogI18n := v1.Group("model-catalog-i18n")
+	{
+		modelCatalogI18n.GET("", a.ModelCatalogI18nAPI.Query)
+		modelCatalogI18n.GET(":model_id/:locale", a.ModelCatalogI18nAPI.Get)
+		modelCatalogI18n.POST("", a.ModelCatalogI18nAPI.Create)
+		modelCatalogI18n.PUT(":model_id/:locale", a.ModelCatalogI18nAPI.Update)
+		modelCatalogI18n.PUT("batch", a.ModelCatalogI18nAPI.BatchUpsert)
+		modelCatalogI18n.DELETE(":model_id/:locale", a.ModelCatalogI18nAPI.Delete)
+	}
+
+	modelPriceVersions := v1.Group("model-price-versions")
+	{
+		modelPriceVersions.GET("", a.ModelPriceVersionAPI.Query)
+		modelPriceVersions.GET("current", a.ModelPriceVersionAPI.GetCurrentPrice)
+		modelPriceVersions.GET(":id", a.ModelPriceVersionAPI.Get)
+		modelPriceVersions.POST("", a.ModelPriceVersionAPI.Create)
+		modelPriceVersions.PUT(":id", a.ModelPriceVersionAPI.Update)
+		modelPriceVersions.PUT(":id/deactivate", a.ModelPriceVersionAPI.Deactivate)
+		modelPriceVersions.DELETE(":id", a.ModelPriceVersionAPI.Delete)
 	}
 
 	return nil

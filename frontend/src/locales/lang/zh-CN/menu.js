@@ -16,6 +16,8 @@ export default {
     resource: '基础资源',
     providerList: '供应商管理',
     modelList: '模型管理',
+    modelCatalogList: '模型目录',
+    auditLog: '审计日志',
     policy: '治理策略',
     loadbalanceList: '负载均衡',
     routeList: '标签路由',

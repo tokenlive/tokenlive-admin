@@ -14,6 +14,12 @@ type Config struct {
 	Middleware Middleware
 	Util       Util
 	Dictionary Dictionary
+	Portal     PortalConfig
+}
+
+type PortalConfig struct {
+	BaseURL          string `default:"http://localhost:8080"`
+	InternalAPIToken string `default:"dev-internal-token"`
 }
 
 type General struct {

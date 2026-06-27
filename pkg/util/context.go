@@ -85,7 +85,7 @@ func FromTenant(ctx context.Context) string {
 	if v != nil {
 		return v.(string)
 	}
-	return "admin"
+	return ""
 }
 
 func NewUserToken(ctx context.Context, userToken string) context.Context {

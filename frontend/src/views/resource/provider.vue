@@ -373,6 +373,7 @@ async function onFetchModelsConfirm({ providerId, space_code, base_url, api_key,
 
     importMappingDialogRef.value.handleOpen({
         providerId,
+        providerCode: provider?.code || providerId,
         space_code,
         base_url,
         keysToCreate,

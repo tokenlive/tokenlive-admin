@@ -26,4 +26,16 @@ var Set = wire.NewSet(
 	wire.Struct(new(dal.DataPermission), "*"),
 	wire.Struct(new(biz.DataPermission), "*"),
 	wire.Struct(new(api.DataPermission), "*"),
+	// Model Catalog
+	wire.Struct(new(dal.ModelCatalog), "*"),
+	wire.Struct(new(biz.ModelCatalog), "*"),
+	wire.Struct(new(api.ModelCatalog), "*"),
+	// Model Catalog I18n
+	wire.Struct(new(dal.ModelCatalogI18n), "*"),
+	wire.Struct(new(biz.ModelCatalogI18n), "*"),
+	wire.Struct(new(api.ModelCatalogI18n), "*"),
+	// Model Price Version
+	wire.Struct(new(dal.ModelPriceVersion), "*"),
+	wire.Struct(new(biz.ModelPriceVersion), "*"),
+	wire.Struct(new(api.ModelPriceVersion), "*"),
 )

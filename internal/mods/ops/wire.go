@@ -18,6 +18,13 @@ var Set = wire.NewSet(
 	wire.Struct(new(api.EventAPI), "EventBIZ", "Hub"),
 	api.NewWSHub,
 	ProvideEventSubscriber,
+	// Audit Log
+	wire.Struct(new(dal.AuditLog), "*"),
+	wire.Struct(new(biz.AuditLog), "*"),
+	wire.Struct(new(api.AuditLog), "*"),
+	// Portal User API Proxy
+	wire.Struct(new(biz.PortalUser), "*"),
+	wire.Struct(new(api.PortalUserAPI), "*"),
 )
 
 // ProvideEventSubscriber creates the appropriate EventSubscriber based on config.

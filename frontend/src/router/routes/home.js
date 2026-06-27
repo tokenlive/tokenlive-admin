@@ -1,4 +1,4 @@
-import { LineChartOutlined, DesktopOutlined, HomeOutlined } from '@ant-design/icons-vue'
+import { LineChartOutlined, DesktopOutlined, HomeOutlined, AuditOutlined } from '@ant-design/icons-vue'
 
 export default [
     {
@@ -32,6 +32,18 @@ export default [
                 meta: {
                     icon: DesktopOutlined,
                     title: '运维看板',
+                    isMenu: true,
+                    keepAlive: true,
+                    permission: '*',
+                },
+            },
+            {
+                path: 'audit-log',
+                name: 'auditLog',
+                component: 'ops/audit_log.vue',
+                meta: {
+                    icon: AuditOutlined,
+                    title: '审计日志',
                     isMenu: true,
                     keepAlive: true,
                     permission: '*',

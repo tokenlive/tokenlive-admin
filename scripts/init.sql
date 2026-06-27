@@ -602,3 +602,113 @@ CREATE TABLE IF NOT EXISTS `event_log`
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT = '运维事件日志';
+
+-- =============================================================================
+-- 业务审计日志表
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `audit_log`
+(
+    `id`            CHAR(20) NOT NULL COMMENT '主键ID (XID)',
+    `tenant_code`   VARCHAR(64) DEFAULT NULL COMMENT '租户编码',
+    `actor_user_id` VARCHAR(20) DEFAULT NULL COMMENT '操作人用户ID',
+    `actor_name`    VARCHAR(128) DEFAULT NULL COMMENT '操作人名称（冗余快照）',
+    `action`        VARCHAR(96) NOT NULL COMMENT '操作动作，如 create, update, delete, enable, disable',
+    `resource_type` VARCHAR(64) NOT NULL COMMENT '资源类型，如 model, endpoint, provider, policy',
+    `resource_id`   VARCHAR(64) NOT NULL COMMENT '资源ID',
+    `resource_name` VARCHAR(255) DEFAULT NULL COMMENT '资源名称（冗余快照）',
+    `before_data`   JSON DEFAULT NULL COMMENT '变更前数据快照',
+    `after_data`    JSON DEFAULT NULL COMMENT '变更后数据快照',
+    `ip`            VARCHAR(64) NOT NULL DEFAULT '' COMMENT '请求IP',
+    `user_agent`    VARCHAR(512) NOT NULL DEFAULT '' COMMENT 'User-Agent',
+    `trace_id`      VARCHAR(64) DEFAULT NULL COMMENT '链路追踪ID',
+    `message`       VARCHAR(1024) DEFAULT NULL COMMENT '可读描述',
+    `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_al_tenant_created` (`tenant_code`, `created_at`),
+    KEY `idx_al_actor_created` (`actor_user_id`, `created_at`),
+    KEY `idx_al_action` (`action`),
+    KEY `idx_al_resource` (`resource_type`, `resource_id`),
+    KEY `idx_al_trace_id` (`trace_id`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin COMMENT = '结构化审计日志表';
+
+-- =============================================================================
+-- 面向用户的模型目录表
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `model_catalog`
+(
+    `model_id`          VARCHAR(191) NOT NULL COMMENT '模型ID，关联 model.model_code 或自定义标识',
+    `model_code`        VARCHAR(64) DEFAULT NULL COMMENT '关联 admin model.model_code，桥接内部模型',
+    `slug`              VARCHAR(191) NOT NULL COMMENT 'URL 友好标识，如 gpt-4o, claude-sonnet-4',
+    `status`            VARCHAR(32) NOT NULL DEFAULT 'available' COMMENT '状态: available, paused',
+    `visibility`        VARCHAR(32) NOT NULL DEFAULT 'public' COMMENT '可见性: public, private',
+    `logo_url`          VARCHAR(1024) NOT NULL DEFAULT '' COMMENT '模型 Logo URL',
+    `context_length`    BIGINT DEFAULT NULL COMMENT '最大上下文窗口（Tokens）',
+    `knowledge_cutoff`  DATE DEFAULT NULL COMMENT '知识截止日期',
+    `input_modalities`  JSON DEFAULT NULL COMMENT '支持的输入模态，如 ["text","image"]',
+    `output_modalities` JSON DEFAULT NULL COMMENT '支持的输出模态，如 ["text"]',
+    `capabilities`      JSON DEFAULT NULL COMMENT '模型能力标签，如 ["streaming","tool_use","reasoning"]',
+    `featured`          TINYINT(1) NOT NULL DEFAULT '0' COMMENT '是否精选推荐',
+    `sort_weight`       BIGINT NOT NULL DEFAULT '0' COMMENT '排序权重，数值越大越靠前',
+    `published_at`      DATETIME(3) DEFAULT NULL COMMENT '首次发布时间',
+    `creator`           VARCHAR(255) DEFAULT NULL COMMENT '创建者',
+    `modifier`          VARCHAR(255) DEFAULT NULL COMMENT '修改者',
+    `created_at`        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`model_id`),
+    UNIQUE KEY `uniq_mc_slug` (`slug`),
+    KEY `idx_mc_model_code` (`model_code`),
+    KEY `idx_mc_public_list` (`visibility`, `status`, `featured`, `sort_weight`, `published_at`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin COMMENT = '面向用户的模型目录';
+
+-- =============================================================================
+-- 模型目录多语言内容表
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `model_catalog_i18n`
+(
+    `model_id`          VARCHAR(191) NOT NULL COMMENT '模型ID，关联 model_catalog.model_id',
+    `locale`            VARCHAR(16) NOT NULL COMMENT '语言区域，如 zh-CN, en-US',
+    `display_name`      VARCHAR(255) NOT NULL COMMENT '模型展示名称',
+    `short_description` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '短描述，用于列表展示',
+    `long_description`  TEXT DEFAULT NULL COMMENT '长描述，支持 Markdown，用于详情页',
+    `seo_title`         VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'SEO 标题',
+    `seo_description`   VARCHAR(512) NOT NULL DEFAULT '' COMMENT 'SEO 描述',
+    `tags`              JSON DEFAULT NULL COMMENT '展示标签，如 ["最新","高性价比"]',
+    `creator`           VARCHAR(255) DEFAULT NULL COMMENT '创建者',
+    `modifier`          VARCHAR(255) DEFAULT NULL COMMENT '修改者',
+    `created_at`        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`model_id`, `locale`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin COMMENT = '模型目录多语言内容表';
+
+-- =============================================================================
+-- 模型价格版本表
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS `model_price_version`
+(
+    `id`                                 CHAR(20) NOT NULL COMMENT '主键ID (XID)',
+    `model_id`                           VARCHAR(191) NOT NULL COMMENT '模型ID，关联 model_catalog.model_id',
+    `currency`                           VARCHAR(8) NOT NULL DEFAULT 'CNY' COMMENT '计价货币，如 CNY, USD',
+    `input_micro_cny_per_1m_tokens`     BIGINT NOT NULL COMMENT '每百万输入 Token 价格（微分）',
+    `output_micro_cny_per_1m_tokens`    BIGINT NOT NULL COMMENT '每百万输出 Token 价格（微分）',
+    `cache_read_micro_cny_per_1m_tokens` BIGINT DEFAULT NULL COMMENT '每百万缓存读取 Token 价格（微分），NULL 表示不支持缓存',
+    `effective_from`                     DATETIME(3) NOT NULL COMMENT '生效开始时间',
+    `effective_until`                    DATETIME(3) DEFAULT NULL COMMENT '生效结束时间，NULL 表示永久有效',
+    `status`                             VARCHAR(32) NOT NULL DEFAULT 'active' COMMENT '价格状态: active, inactive',
+    `published_by_user`                  VARCHAR(255) DEFAULT NULL COMMENT '发布人',
+    `published_at`                       DATETIME(3) NOT NULL COMMENT '发布时间',
+    `creator`                            VARCHAR(255) DEFAULT NULL COMMENT '创建者',
+    `modifier`                           VARCHAR(255) DEFAULT NULL COMMENT '修改者',
+    `created_at`                         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`                         TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uniq_mpv_model_effective` (`model_id`, `effective_from`),
+    KEY `idx_mpv_current` (`model_id`, `status`, `effective_from`, `effective_until`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin COMMENT = '模型价格版本表';

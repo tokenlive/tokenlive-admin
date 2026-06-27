@@ -48,6 +48,24 @@
                 "type": "page",
                 "path": "/monitor/ops",
                 "status": "enabled"
+            },
+            {
+                "code": "auditLog",
+                "name": "审计日志",
+                "sequence": 70,
+                "type": "page",
+                "path": "/monitor/audit-log",
+                "status": "enabled",
+                "resources": [
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/audit-logs"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/audit-logs/{id}"
+                    }
+                ]
             }
         ]
     },
@@ -1287,6 +1305,164 @@
                     {
                         "method": "GET",
                         "path": "/api/v1/data-permissions/{id}"
+                    }
+                ]
+            },
+            {
+                "code": "modelCatalogList",
+                "name": "模型目录",
+                "sequence": 65,
+                "type": "page",
+                "path": "/space/model-catalog",
+                "status": "enabled",
+                "children": [
+                    {
+                        "code": "add",
+                        "name": "增加",
+                        "sequence": 9,
+                        "type": "button",
+                        "status": "enabled",
+                        "resources": [
+                            {
+                                "method": "POST",
+                                "path": "/api/v1/model-catalogs"
+                            },
+                            {
+                                "method": "POST",
+                                "path": "/api/v1/model-catalog-i18n"
+                            },
+                            {
+                                "method": "POST",
+                                "path": "/api/v1/model-price-versions"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "edit",
+                        "name": "编辑",
+                        "sequence": 8,
+                        "type": "button",
+                        "status": "enabled",
+                        "resources": [
+                            {
+                                "method": "PUT",
+                                "path": "/api/v1/model-catalogs/{id}"
+                            },
+                            {
+                                "method": "PUT",
+                                "path": "/api/v1/model-catalogs/{id}/publish"
+                            },
+                            {
+                                "method": "PUT",
+                                "path": "/api/v1/model-catalog-i18n/{model_id}/{locale}"
+                            },
+                            {
+                                "method": "PUT",
+                                "path": "/api/v1/model-catalog-i18n/batch"
+                            },
+                            {
+                                "method": "PUT",
+                                "path": "/api/v1/model-price-versions/{id}"
+                            },
+                            {
+                                "method": "PUT",
+                                "path": "/api/v1/model-price-versions/{id}/deactivate"
+                            },
+                            {
+                                "method": "PUT",
+                                "path": "/api/v1/model-service-metrics"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "delete",
+                        "name": "删除",
+                        "sequence": 7,
+                        "type": "button",
+                        "status": "enabled",
+                        "resources": [
+                            {
+                                "method": "DELETE",
+                                "path": "/api/v1/model-catalogs/{id}"
+                            },
+                            {
+                                "method": "DELETE",
+                                "path": "/api/v1/model-catalog-i18n/{model_id}/{locale}"
+                            },
+                            {
+                                "method": "DELETE",
+                                "path": "/api/v1/model-price-versions/{id}"
+                            },
+                            {
+                                "method": "DELETE",
+                                "path": "/api/v1/model-service-metrics/{model_id}"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "search",
+                        "name": "查询",
+                        "sequence": 6,
+                        "type": "button",
+                        "status": "enabled"
+                    }
+                ],
+                "resources": [
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-catalogs"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-catalogs/{id}"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-catalogs/public"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-catalogs/slug/{slug}"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-catalogs/{id}/i18n"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-catalogs/{id}/prices"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-catalogs/{id}/metrics"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-catalog-i18n"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-catalog-i18n/{model_id}/{locale}"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-price-versions"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-price-versions/{id}"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-price-versions/current"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-service-metrics"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/model-service-metrics/{model_id}/{window}"
                     }
                 ]
             }

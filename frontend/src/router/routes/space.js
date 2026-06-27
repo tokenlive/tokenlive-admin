@@ -1,4 +1,10 @@
-import { ApartmentOutlined, ProjectOutlined, ClusterOutlined, DeploymentUnitOutlined } from '@ant-design/icons-vue'
+import {
+    ApartmentOutlined,
+    ProjectOutlined,
+    ClusterOutlined,
+    DeploymentUnitOutlined,
+    AppstoreOutlined,
+} from '@ant-design/icons-vue'
 
 export default [
     {
@@ -80,6 +86,35 @@ export default [
                     breadcrumb: [
                         { name: 'space', meta: { title: '模型空间' } },
                         { name: 'providerList', meta: { title: '供应商管理' } },
+                    ],
+                },
+            },
+            {
+                path: 'model-catalog',
+                name: 'modelCatalogList',
+                component: 'resource/model_catalog.vue',
+                meta: {
+                    icon: AppstoreOutlined,
+                    title: '模型目录',
+                    isMenu: true,
+                    keepAlive: true,
+                    permission: '*',
+                },
+            },
+            {
+                path: 'model-catalog/:id',
+                name: 'modelCatalogDetail',
+                component: 'resource/model_catalog_detail.vue',
+                meta: {
+                    title: '模型目录详情',
+                    isMenu: false,
+                    keepAlive: false,
+                    permission: '*',
+                    active: 'modelCatalogList',
+                    openKeys: ['space'],
+                    breadcrumb: [
+                        { name: 'space', meta: { title: '模型空间' } },
+                        { name: 'modelCatalogList', meta: { title: '模型目录' } },
                     ],
                 },
             },

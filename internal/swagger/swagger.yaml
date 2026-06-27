@@ -115,6 +115,15 @@ definitions:
           type: integer
         type: array
     type: object
+  biz.PortalUserResult:
+    properties:
+      display_name:
+        type: string
+      id:
+        type: string
+      primary_email:
+        type: string
+    type: object
   github_com_tokenlive_tokenlive-admin_pkg_errors.Error:
     properties:
       code:
@@ -124,6 +133,39 @@ definitions:
       id:
         type: string
       status:
+        type: string
+    type: object
+  schema.AuditLog:
+    properties:
+      action:
+        type: string
+      actor_name:
+        type: string
+      actor_user_id:
+        type: string
+      after_data:
+        type: string
+      before_data:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      ip:
+        type: string
+      message:
+        type: string
+      resource_id:
+        type: string
+      resource_name:
+        type: string
+      resource_type:
+        type: string
+      tenant_code:
+        type: string
+      trace_id:
+        type: string
+      user_agent:
         type: string
     type: object
   schema.Captcha:
@@ -500,6 +542,9 @@ definitions:
       password:
         description: Login password (md5 hash)
         type: string
+      remember_me:
+        description: Remember login state (30 days)
+        type: boolean
       username:
         description: Login name
         type: string
@@ -517,6 +562,9 @@ definitions:
       expires_at:
         description: 'Expired time (Unit: second)'
         type: integer
+      refresh_token:
+        description: Refresh token (only when remember_me=true)
+        type: string
       token_type:
         description: 'Token type (Usage: Authorization=${token_type} ${access_token})'
         type: string
@@ -714,6 +762,193 @@ definitions:
     - model_id
     - space_code
     type: object
+  schema.ModelCatalog:
+    properties:
+      capabilities:
+        type: string
+      context_length:
+        type: integer
+      created_at:
+        type: string
+      creator:
+        type: string
+      featured:
+        type: boolean
+      input_modalities:
+        type: string
+      knowledge_cutoff:
+        type: string
+      logo_url:
+        type: string
+      model_code:
+        type: string
+      model_id:
+        type: string
+      modifier:
+        type: string
+      output_modalities:
+        type: string
+      published_at:
+        type: string
+      slug:
+        type: string
+      sort_weight:
+        type: integer
+      status:
+        type: string
+      updated_at:
+        type: string
+      visibility:
+        type: string
+    type: object
+  schema.ModelCatalogForm:
+    properties:
+      capabilities:
+        description: Capabilities
+        type: string
+      context_length:
+        description: Context window
+        type: integer
+      featured:
+        description: Featured
+        type: boolean
+      input_modalities:
+        description: Input modalities
+        type: string
+      knowledge_cutoff:
+        description: Knowledge cutoff
+        type: string
+      logo_url:
+        description: Logo URL
+        maxLength: 1024
+        type: string
+      model_code:
+        description: Link to admin model
+        maxLength: 64
+        type: string
+      model_id:
+        description: Model ID
+        maxLength: 191
+        type: string
+      output_modalities:
+        description: Output modalities
+        type: string
+      slug:
+        description: URL slug
+        maxLength: 191
+        type: string
+      sort_weight:
+        description: Sort weight
+        type: integer
+      status:
+        enum:
+        - available
+        - paused
+        type: string
+      visibility:
+        enum:
+        - public
+        - private
+        type: string
+    required:
+    - model_id
+    - slug
+    - status
+    - visibility
+    type: object
+  schema.ModelCatalogI18n:
+    properties:
+      created_at:
+        type: string
+      creator:
+        type: string
+      display_name:
+        type: string
+      locale:
+        type: string
+      long_description:
+        type: string
+      model_id:
+        type: string
+      modifier:
+        type: string
+      seo_description:
+        type: string
+      seo_title:
+        type: string
+      short_description:
+        type: string
+      tags:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  schema.ModelCatalogI18nBatchForm:
+    properties:
+      entries:
+        description: I18n entries
+        items:
+          $ref: '#/definitions/schema.ModelCatalogI18nForm'
+        type: array
+      model_id:
+        description: Model ID
+        maxLength: 191
+        type: string
+    required:
+    - entries
+    - model_id
+    type: object
+  schema.ModelCatalogI18nForm:
+    properties:
+      display_name:
+        description: Display name
+        maxLength: 255
+        type: string
+      locale:
+        description: Locale
+        maxLength: 16
+        type: string
+      long_description:
+        description: Long description (Markdown)
+        type: string
+      model_id:
+        description: Model ID
+        maxLength: 191
+        type: string
+      seo_description:
+        description: SEO description
+        maxLength: 512
+        type: string
+      seo_title:
+        description: SEO title
+        maxLength: 255
+        type: string
+      short_description:
+        description: Short description
+        maxLength: 512
+        type: string
+      tags:
+        description: Display tags
+        type: string
+    required:
+    - display_name
+    - locale
+    - model_id
+    type: object
+  schema.ModelCatalogPublishForm:
+    properties:
+      published_at:
+        description: Publish time (defaults to now)
+        type: string
+      visibility:
+        description: Visibility
+        enum:
+        - public
+        - private
+        type: string
+    required:
+    - visibility
+    type: object
   schema.ModelEnabledForm:
     properties:
       enabled:
@@ -775,6 +1010,71 @@ definitions:
     - model_name
     - request_types
     - space_code
+    type: object
+  schema.ModelPriceVersion:
+    properties:
+      cache_read_micro_cny_per_1m_tokens:
+        type: integer
+      created_at:
+        type: string
+      creator:
+        type: string
+      currency:
+        type: string
+      effective_from:
+        type: string
+      effective_until:
+        type: string
+      id:
+        type: string
+      input_micro_cny_per_1m_tokens:
+        type: integer
+      model_id:
+        type: string
+      modifier:
+        type: string
+      output_micro_cny_per_1m_tokens:
+        type: integer
+      published_at:
+        type: string
+      published_by_user:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  schema.ModelPriceVersionForm:
+    properties:
+      cache_read_micro_cny_per_1m_tokens:
+        description: Cache read price
+        type: integer
+      currency:
+        description: Currency
+        maxLength: 8
+        type: string
+      effective_from:
+        description: Effective from
+        type: string
+      effective_until:
+        description: Effective until
+        type: string
+      input_micro_cny_per_1m_tokens:
+        description: Input price
+        minimum: 0
+        type: integer
+      model_id:
+        description: Model ID
+        maxLength: 191
+        type: string
+      output_micro_cny_per_1m_tokens:
+        description: Output price
+        minimum: 0
+        type: integer
+    required:
+    - currency
+    - effective_from
+    - model_id
     type: object
   schema.OpType:
     enum:
@@ -1542,6 +1842,14 @@ definitions:
       name:
         type: string
     type: object
+  schema.RefreshTokenForm:
+    properties:
+      refresh_token:
+        description: Refresh token
+        type: string
+    required:
+    - refresh_token
+    type: object
   schema.RelationType:
     enum:
     - AND
@@ -1754,7 +2062,10 @@ definitions:
   schema.TaggingAction:
     properties:
       key:
-        description: 标签名
+        description: 标签名/键名
+        type: string
+      type:
+        description: 动作类型/操作范围，如 TAG, REQ_HEADER, RSP_HEADER 等
         type: string
       value:
         description: 标签值，支持变量插值
@@ -2065,6 +2376,109 @@ info:
   title: tokenlive-admin
   version: v1.0.0
 paths:
+  /api/v1/audit-logs:
+    get:
+      parameters:
+      - default: 1
+        description: pagination index
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: pagination size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: Tenant code
+        in: query
+        name: tenant_code
+        type: string
+      - description: Actor user ID
+        in: query
+        name: actor_user_id
+        type: string
+      - description: Action
+        in: query
+        name: action
+        type: string
+      - description: Resource type
+        in: query
+        name: resource_type
+        type: string
+      - description: Resource ID
+        in: query
+        name: resource_id
+        type: string
+      - description: Trace ID
+        in: query
+        name: trace_id
+        type: string
+      - description: Start time
+        in: query
+        name: start_time
+        type: string
+      - description: End time
+        in: query
+        name: end_time
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.AuditLog'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query audit logs
+      tags:
+      - AuditLogAPI
+  /api/v1/audit-logs/{id}:
+    get:
+      parameters:
+      - description: Audit log ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.AuditLog'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get audit log by ID
+      tags:
+      - AuditLogAPI
   /api/v1/captcha/id:
     get:
       responses:
@@ -2106,6 +2520,12 @@ paths:
       - LoginAPI
   /api/v1/current/logout:
     post:
+      parameters:
+      - description: Request body (optional, for refresh token revocation)
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/schema.RefreshTokenForm'
       responses:
         "200":
           description: OK
@@ -2117,7 +2537,7 @@ paths:
             $ref: '#/definitions/util.ResponseResult'
       security:
       - ApiKeyAuth: []
-      summary: Logout system
+      summary: Logout system with optional refresh token revocation
       tags:
       - LoginAPI
   /api/v1/current/menus:
@@ -2200,7 +2620,7 @@ paths:
             $ref: '#/definitions/util.ResponseResult'
       security:
       - ApiKeyAuth: []
-      summary: Refresh current access token
+      summary: Refresh current access token (requires valid access token)
       tags:
       - LoginAPI
   /api/v1/current/user:
@@ -3088,6 +3508,818 @@ paths:
       summary: Update model alias record by ID
       tags:
       - ModelAliasAPI
+  /api/v1/model-catalog-i18n:
+    get:
+      parameters:
+      - default: 1
+        description: pagination index
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: pagination size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: Model ID
+        in: query
+        name: model_id
+        type: string
+      - description: Locale
+        in: query
+        name: locale
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.ModelCatalogI18n'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query model catalog i18n entries
+      tags:
+      - ModelCatalogI18nAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelCatalogI18nForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.ModelCatalogI18n'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create model catalog i18n entry
+      tags:
+      - ModelCatalogI18nAPI
+  /api/v1/model-catalog-i18n/{model_id}/{locale}:
+    delete:
+      parameters:
+      - description: Model ID
+        in: path
+        name: model_id
+        required: true
+        type: string
+      - description: Locale
+        in: path
+        name: locale
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete model catalog i18n entry
+      tags:
+      - ModelCatalogI18nAPI
+    get:
+      parameters:
+      - description: Model ID
+        in: path
+        name: model_id
+        required: true
+        type: string
+      - description: Locale
+        in: path
+        name: locale
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.ModelCatalogI18n'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get model catalog i18n entry by model_id and locale
+      tags:
+      - ModelCatalogI18nAPI
+    put:
+      parameters:
+      - description: Model ID
+        in: path
+        name: model_id
+        required: true
+        type: string
+      - description: Locale
+        in: path
+        name: locale
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelCatalogI18nForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update model catalog i18n entry
+      tags:
+      - ModelCatalogI18nAPI
+  /api/v1/model-catalog-i18n/batch:
+    put:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelCatalogI18nBatchForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Batch upsert i18n entries for a model
+      tags:
+      - ModelCatalogI18nAPI
+  /api/v1/model-catalogs:
+    get:
+      parameters:
+      - default: 1
+        description: pagination index
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: pagination size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: Slug (like)
+        in: query
+        name: slug
+        type: string
+      - description: Status (available/paused)
+        in: query
+        name: status
+        type: string
+      - description: Visibility (public/private)
+        in: query
+        name: visibility
+        type: string
+      - description: Featured
+        in: query
+        name: featured
+        type: boolean
+      - description: Model code
+        in: query
+        name: model_code
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.ModelCatalog'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query model catalog list
+      tags:
+      - ModelCatalogAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelCatalogForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.ModelCatalog'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create model catalog
+      tags:
+      - ModelCatalogAPI
+  /api/v1/model-catalogs/{id}:
+    delete:
+      parameters:
+      - description: Model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete model catalog
+      tags:
+      - ModelCatalogAPI
+    get:
+      parameters:
+      - description: Model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.ModelCatalog'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get model catalog by ID
+      tags:
+      - ModelCatalogAPI
+    put:
+      parameters:
+      - description: Model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelCatalogForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update model catalog
+      tags:
+      - ModelCatalogAPI
+  /api/v1/model-catalogs/{id}/publish:
+    put:
+      parameters:
+      - description: Model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelCatalogPublishForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Publish model catalog
+      tags:
+      - ModelCatalogAPI
+  /api/v1/model-catalogs/{model_id}/i18n:
+    get:
+      parameters:
+      - description: Model ID
+        in: path
+        name: model_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.ModelCatalogI18n'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get all i18n entries for a model
+      tags:
+      - ModelCatalogI18nAPI
+  /api/v1/model-catalogs/{model_id}/prices:
+    get:
+      parameters:
+      - description: Model ID
+        in: path
+        name: model_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.ModelPriceVersion'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get all price versions for a model
+      tags:
+      - ModelPriceVersionAPI
+  /api/v1/model-catalogs/public:
+    get:
+      parameters:
+      - default: 50
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.ModelCatalog'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query public model catalogs (for portal)
+      tags:
+      - ModelCatalogAPI
+  /api/v1/model-catalogs/slug/{slug}:
+    get:
+      parameters:
+      - description: Slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.ModelCatalog'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get model catalog by slug
+      tags:
+      - ModelCatalogAPI
+  /api/v1/model-price-versions:
+    get:
+      parameters:
+      - default: 1
+        description: pagination index
+        in: query
+        name: current
+        required: true
+        type: integer
+      - default: 10
+        description: pagination size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: Model ID
+        in: query
+        name: model_id
+        type: string
+      - description: Status (active/inactive)
+        in: query
+        name: status
+        type: string
+      - description: Currency
+        in: query
+        name: currency
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.ModelPriceVersion'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query model price versions
+      tags:
+      - ModelPriceVersionAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelPriceVersionForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.ModelPriceVersion'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Create model price version
+      tags:
+      - ModelPriceVersionAPI
+  /api/v1/model-price-versions/{id}:
+    delete:
+      parameters:
+      - description: Price version ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete model price version
+      tags:
+      - ModelPriceVersionAPI
+    get:
+      parameters:
+      - description: Price version ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.ModelPriceVersion'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get model price version by ID
+      tags:
+      - ModelPriceVersionAPI
+    put:
+      parameters:
+      - description: Price version ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelPriceVersionForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Update model price version
+      tags:
+      - ModelPriceVersionAPI
+  /api/v1/model-price-versions/{id}/deactivate:
+    put:
+      parameters:
+      - description: Price version ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Deactivate model price version
+      tags:
+      - ModelPriceVersionAPI
+  /api/v1/model-price-versions/current:
+    get:
+      parameters:
+      - description: Model ID
+        in: query
+        name: model_id
+        required: true
+        type: string
+      - default: CNY
+        description: Currency
+        in: query
+        name: currency
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.ModelPriceVersion'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get current effective price for a model
+      tags:
+      - ModelPriceVersionAPI
   /api/v1/models:
     get:
       parameters:
@@ -3460,6 +4692,43 @@ paths:
       summary: WebSocket endpoint for real-time event push
       tags:
       - EventAPI
+  /api/v1/ops/portal/users:
+    get:
+      parameters:
+      - description: search keyword
+        in: query
+        name: keyword
+        type: string
+      - default: 20
+        description: limit
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/biz.PortalUserResult'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Search portal users
+      tags:
+      - PortalUserAPI
   /api/v1/policy/policy-bindings:
     get:
       responses:
@@ -4972,6 +6241,36 @@ paths:
       summary: Fetch models from upstream provider
       tags:
       - ProviderAPI
+  /api/v1/refresh-token:
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.RefreshTokenForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.LoginToken'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      summary: Refresh access token with refresh token (public endpoint)
+      tags:
+      - LoginAPI
   /api/v1/resource/data-permissions:
     get:
       responses:

@@ -2,7 +2,7 @@
     <a-modal
         :open="modal.open"
         :title="modal.title"
-        :width="580"
+        :width="640"
         :confirm-loading="modal.confirmLoading"
         :after-close="onAfterClose"
         :cancel-text="cancelText"
@@ -13,81 +13,99 @@
             ref="formRef"
             :model="formData"
             :rules="formRules"
-            :label-col="{ style: { width: '100px' } }">
-            <a-card class="mb-8-2">
-                <a-form-item
-                    :label="$t('pages.provider.form.name')"
-                    name="name">
-                    <a-input v-model:value="formData.name"></a-input>
-                </a-form-item>
+            layout="vertical">
+            <a-row :gutter="16">
+                <a-col :span="12">
+                    <a-form-item
+                        :label="$t('pages.provider.form.name')"
+                        name="name">
+                        <a-input
+                            v-model:value="formData.name"
+                            :placeholder="$t('pages.provider.form.name.placeholder')" />
+                    </a-form-item>
+                </a-col>
+                <a-col :span="12">
+                    <a-form-item
+                        :label="$t('pages.provider.form.code')"
+                        name="code">
+                        <a-input
+                            v-model:value="formData.code"
+                            :placeholder="$t('pages.provider.form.code.placeholder')" />
+                    </a-form-item>
+                </a-col>
+            </a-row>
 
-                <a-form-item
-                    :label="$t('pages.provider.form.code')"
-                    name="code">
-                    <a-input v-model:value="formData.code"></a-input>
-                </a-form-item>
+            <a-row :gutter="16">
+                <a-col :span="12">
+                    <a-form-item
+                        :label="$t('pages.provider.form.protocol')"
+                        name="protocol">
+                        <a-select
+                            v-model:value="formData.protocol"
+                            :placeholder="$t('pages.provider.form.protocol.placeholder')">
+                            <a-select-option value="openai">OpenAI</a-select-option>
+                            <a-select-option value="anthropic">Anthropic</a-select-option>
+                            <a-select-option value="google">Google</a-select-option>
+                            <a-select-option value="deepseek">DeepSeek</a-select-option>
+                            <a-select-option value="qwen">Qwen</a-select-option>
+                            <a-select-option value="ollama">Ollama</a-select-option>
+                            <a-select-option value="joycode">JoyCode</a-select-option>
+                        </a-select>
+                    </a-form-item>
+                </a-col>
+                <a-col :span="12">
+                    <a-form-item
+                        :label="$t('pages.provider.form.enabled')"
+                        name="enabled">
+                        <a-switch
+                            v-model:checked="formData.enabled"
+                            :checked-value="1"
+                            :un-checked-value="0"
+                            style="margin-top: 4px" />
+                    </a-form-item>
+                </a-col>
+            </a-row>
 
-                <a-form-item
-                    :label="$t('pages.provider.form.protocol')"
-                    name="protocol">
-                    <a-select v-model:value="formData.protocol">
-                        <a-select-option value="openai">OpenAI</a-select-option>
-                        <a-select-option value="anthropic">Anthropic</a-select-option>
-                        <a-select-option value="google">Google</a-select-option>
-                        <a-select-option value="deepseek">DeepSeek</a-select-option>
-                        <a-select-option value="qwen">Qwen</a-select-option>
-                        <a-select-option value="ollama">Ollama</a-select-option>
-                        <a-select-option value="joycode">JoyCode</a-select-option>
-                    </a-select>
-                </a-form-item>
+            <a-form-item
+                :label="$t('pages.provider.form.url')"
+                name="url">
+                <a-input
+                    v-model:value="formData.url"
+                    :placeholder="$t('pages.provider.form.url.placeholder')" />
+            </a-form-item>
 
-                <a-form-item
-                    :label="$t('pages.provider.form.url')"
-                    name="url">
-                    <a-input
-                        :placeholder="$t('pages.provider.form.url.placeholder')"
-                        v-model:value="formData.url"></a-input>
-                </a-form-item>
+            <a-form-item
+                :label="$t('pages.provider.form.api_keys')"
+                name="api_keys">
+                <div
+                    v-for="(key, index) in formData.api_keys"
+                    :key="index"
+                    style="display: flex; align-items: center; margin-bottom: 8px">
+                    <a-input-password
+                        v-model:value="formData.api_keys[index]"
+                        :placeholder="$t('pages.provider.form.api_keys.placeholder')"
+                        style="flex: 1; margin-right: 8px" />
+                    <minus-circle-outlined
+                        @click="removeApiKey(index)"
+                        style="color: #ff4d4f; cursor: pointer" />
+                </div>
+                <a-button
+                    type="dashed"
+                    @click="addApiKey"
+                    style="width: 100%">
+                    <plus-outlined />
+                    {{ $t('pages.provider.form.api_keys.add') }}
+                </a-button>
+            </a-form-item>
 
-                <a-form-item
-                    :label="$t('pages.provider.form.api_keys')"
-                    name="api_keys">
-                    <div
-                        v-for="(key, index) in formData.api_keys"
-                        :key="index"
-                        style="display: flex; align-items: center; margin-bottom: 8px">
-                        <a-input-password
-                            v-model:value="formData.api_keys[index]"
-                            :placeholder="$t('pages.provider.form.api_keys.placeholder')"
-                            style="flex: 1; margin-right: 8px" />
-                        <minus-circle-outlined
-                            @click="removeApiKey(index)"
-                            style="color: #ff4d4f; cursor: pointer" />
-                    </div>
-                    <a-button
-                        type="dashed"
-                        @click="addApiKey"
-                        style="width: 100%">
-                        <plus-outlined />
-                        {{ $t('pages.provider.form.api_keys.add') }}
-                    </a-button>
-                </a-form-item>
-
-                <a-form-item
-                    :label="$t('pages.provider.form.enabled')"
-                    name="enabled">
-                    <a-switch
-                        v-model:checked="formData.enabled"
-                        :checked-value="1"
-                        :un-checked-value="0" />
-                </a-form-item>
-
-                <a-form-item
-                    :label="$t('pages.provider.form.description')"
-                    name="description">
-                    <a-textarea v-model:value="formData.description"></a-textarea>
-                </a-form-item>
-            </a-card>
+            <a-form-item
+                :label="$t('pages.provider.form.description')"
+                name="description">
+                <a-textarea
+                    v-model:value="formData.description"
+                    :rows="3"
+                    :placeholder="$t('pages.provider.form.description.placeholder')" />
+            </a-form-item>
         </a-form>
     </a-modal>
 </template>

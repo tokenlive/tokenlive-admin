@@ -11,18 +11,23 @@ import (
 	"gorm.io/gorm"
 )
 
-// Ops is the operations module for event monitoring and dashboard.
+// Ops is the operations module for event monitoring, dashboard, and audit logging.
 type Ops struct {
-	DB          *gorm.DB
-	EventAPI    *api.EventAPI
-	Consumer    *biz.Consumer
-	CleanupTask *biz.CleanupTask
-	Hub         *api.WSHub
+	DB            *gorm.DB
+	EventAPI      *api.EventAPI
+	AuditLogAPI   *api.AuditLog
+	PortalUserAPI *api.PortalUserAPI
+	Consumer      *biz.Consumer
+	CleanupTask   *biz.CleanupTask
+	Hub           *api.WSHub
 }
 
-// AutoMigrate creates or updates the event_log table.
+// AutoMigrate creates or updates the event_log and audit_log tables.
 func (a *Ops) AutoMigrate(ctx context.Context) error {
-	return a.DB.AutoMigrate(new(schema.EventLog))
+	return a.DB.AutoMigrate(
+		new(schema.EventLog),
+		new(schema.AuditLog),
+	)
 }
 
 // Init initializes the ops module: auto-migrate, start consumer and cleanup.
@@ -51,7 +56,15 @@ func (a *Ops) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) error 
 		g.GET("events", a.EventAPI.Query)
 		g.GET("events/statistics", a.EventAPI.GetStatistics)
 		g.GET("events/ws", a.EventAPI.HandleWebSocket)
+		g.GET("portal/users", a.PortalUserAPI.Query)
 	}
+
+	auditLogs := v1.Group("audit-logs")
+	{
+		auditLogs.GET("", a.AuditLogAPI.Query)
+		auditLogs.GET(":id", a.AuditLogAPI.Get)
+	}
+
 	return nil
 }
 

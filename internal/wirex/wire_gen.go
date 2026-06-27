@@ -289,13 +289,49 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	apiDataPermission := &api2.DataPermission{
 		DataPermissionBIZ: bizDataPermission,
 	}
+	modelCatalog := &dal2.ModelCatalog{
+		DB: db,
+	}
+	modelCatalogI18n := &dal2.ModelCatalogI18n{
+		DB: db,
+	}
+	bizModelCatalog := &biz2.ModelCatalog{
+		Trans:               trans,
+		ModelCatalogDAL:     modelCatalog,
+		ModelCatalogI18nDAL: modelCatalogI18n,
+	}
+	apiModelCatalog := &api2.ModelCatalog{
+		ModelCatalogBIZ: bizModelCatalog,
+	}
+	bizModelCatalogI18n := &biz2.ModelCatalogI18n{
+		Trans:               trans,
+		ModelCatalogI18nDAL: modelCatalogI18n,
+		ModelCatalogDAL:     modelCatalog,
+	}
+	apiModelCatalogI18n := &api2.ModelCatalogI18n{
+		ModelCatalogI18nBIZ: bizModelCatalogI18n,
+	}
+	modelPriceVersion := &dal2.ModelPriceVersion{
+		DB: db,
+	}
+	bizModelPriceVersion := &biz2.ModelPriceVersion{
+		Trans:                trans,
+		ModelPriceVersionDAL: modelPriceVersion,
+		ModelCatalogDAL:      modelCatalog,
+	}
+	apiModelPriceVersion := &api2.ModelPriceVersion{
+		ModelPriceVersionBIZ: bizModelPriceVersion,
+	}
 	resourceResource := &resource.Resource{
-		DB:                db,
-		ProviderAPI:       apiProvider,
-		EndpointAPI:       apiEndpoint,
-		ModelAPI:          apiModel,
-		ModelAliasAPI:     apiModelAlias,
-		DataPermissionAPI: apiDataPermission,
+		DB:                   db,
+		ProviderAPI:          apiProvider,
+		EndpointAPI:          apiEndpoint,
+		ModelAPI:             apiModel,
+		ModelAliasAPI:        apiModelAlias,
+		DataPermissionAPI:    apiDataPermission,
+		ModelCatalogAPI:      apiModelCatalog,
+		ModelCatalogI18nAPI:  apiModelCatalogI18n,
+		ModelPriceVersionAPI: apiModelPriceVersion,
 	}
 	dalSpace := &dal4.Space{
 		DB: db,
@@ -413,6 +449,20 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		EventBIZ: eventBiz,
 		Hub:      wsHub,
 	}
+	auditLog := &dal5.AuditLog{
+		DB: db,
+	}
+	bizAuditLog := &biz5.AuditLog{
+		Trans:       trans,
+		AuditLogDAL: auditLog,
+	}
+	apiAuditLog := &api6.AuditLog{
+		AuditLogBIZ: bizAuditLog,
+	}
+	portalUser := &biz5.PortalUser{}
+	portalUserAPI := &api6.PortalUserAPI{
+		PortalUserBIZ: portalUser,
+	}
 	eventSubscriber := ops.ProvideEventSubscriber(client)
 	consumer := &biz5.Consumer{
 		Subscriber: eventSubscriber,
@@ -422,11 +472,13 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		DB: db,
 	}
 	opsOps := &ops.Ops{
-		DB:          db,
-		EventAPI:    eventAPI,
-		Consumer:    consumer,
-		CleanupTask: cleanupTask,
-		Hub:         wsHub,
+		DB:            db,
+		EventAPI:      eventAPI,
+		AuditLogAPI:   apiAuditLog,
+		PortalUserAPI: portalUserAPI,
+		Consumer:      consumer,
+		CleanupTask:   cleanupTask,
+		Hub:           wsHub,
 	}
 	modsMods := &mods.Mods{
 		RBAC:      rbacRBAC,

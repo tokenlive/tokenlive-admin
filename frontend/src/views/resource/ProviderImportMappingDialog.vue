@@ -74,6 +74,7 @@ const existingModels = ref([])
 
 const importContext = ref({
     providerId: '',
+    providerCode: '',
     space_code: '',
     base_url: '',
     keysToCreate: [],
@@ -103,6 +104,7 @@ function filterModelOption(input, option) {
 async function handleOpen(context) {
     importContext.value = {
         providerId: context.providerId,
+        providerCode: context.providerCode || context.providerId,
         space_code: context.space_code,
         base_url: context.base_url,
         keysToCreate: context.keysToCreate,
@@ -143,9 +145,18 @@ async function handleOk() {
         for (const selectedModel of models.value) {
             let modelId = mapping.value[selectedModel.id]
 
+            // 确定即将导入/关联的模型 code
+            let modelCodeForEp
+            if (modelId === '__NEW__') {
+                modelCodeForEp = newModelCodes.value[selectedModel.id] || selectedModel.id
+            } else {
+                // 已有模型：从 existingModels 中查找 model_code
+                const existing = existingModels.value.find((m) => m.id === modelId)
+                modelCodeForEp = existing?.model_code || modelId
+            }
+
             if (modelId === '__NEW__') {
                 // 如果选择新建模型，则调用接口生成
-                const customModelCode = newModelCodes.value[selectedModel.id] || selectedModel.id
                 const request_types = selectedModel.id.toLowerCase().includes('embed')
                     ? JSON.stringify(['embedding'])
                     : selectedModel.id.toLowerCase().includes('responses')
@@ -153,8 +164,8 @@ async function handleOk() {
                       : JSON.stringify(['chat_completion'])
 
                 const modelPayload = {
-                    model_name: customModelCode,
-                    model_code: customModelCode,
+                    model_name: modelCodeForEp,
+                    model_code: modelCodeForEp,
                     space_code: importContext.value.space_code,
                     request_types: request_types,
                     context_length: 8192,
@@ -180,7 +191,10 @@ async function handleOk() {
 
             // 循环密钥为端点创建绑定
             for (const key of importContext.value.keysToCreate) {
+                const ts = Date.now()
+                const epCode = `ep-${modelCodeForEp}-${importContext.value.providerCode}-${ts}`
                 const endpointPayload = {
+                    code: epCode,
                     provider_id: importContext.value.providerId,
                     model_id: modelId,
                     url: importContext.value.base_url,

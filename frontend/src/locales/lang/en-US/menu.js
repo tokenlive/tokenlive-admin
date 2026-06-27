@@ -16,6 +16,8 @@ export default {
     resource: 'Resources',
     providerList: 'Provider',
     modelList: 'Model',
+    modelCatalogList: 'Model Catalog',
+    auditLog: 'Audit Log',
     policy: 'Governance Policy',
     loadbalanceList: 'Load Balance',
     routeList: 'Tag Route',

@@ -5,6 +5,16 @@
             :title="$t('pages.model.detail.basicInfo')"
             class="info-card"
             :bordered="false">
+            <template #extra>
+                <a-button
+                    type="primary"
+                    ghost
+                    size="small"
+                    @click="handleEditModel">
+                    <template #icon><edit-outlined /></template>
+                    {{ $t('pages.model.edit') }}
+                </a-button>
+            </template>
             <a-card-grid style="width: 25%; text-align: center">
                 <div class="info-item">
                     <span class="info-label">{{ $t('pages.model.form.model_name') }}</span>
@@ -481,6 +491,12 @@
             ref="policyBindRef"
             :model-code="modelData.model_code"
             @ok="loadPolicyBindingList" />
+
+        <!-- 模型基本信息编辑弹窗 -->
+        <model-edit-dialog
+            ref="modelEditRef"
+            :space-options="spaceOptions"
+            @ok="loadModelDetail" />
     </div>
 </template>
 
@@ -506,6 +522,7 @@ import ModelAliasEditDialog from './ModelAliasEditDialog.vue'
 import ModelMemberEditDialog from './ModelMemberEditDialog.vue'
 import EndpointEditDialog from './EndpointEditDialog.vue'
 import ModelPolicyBindDialog from './ModelPolicyBindDialog.vue'
+import ModelEditDialog from './ModelEditDialog.vue'
 
 defineOptions({
     name: 'modelDetail',
@@ -517,9 +534,35 @@ const { t } = useI18n()
 const modelId = ref(route.params.id)
 const modelData = ref({})
 const activeTab = ref('endpoint')
+const modelEditRef = ref(null)
+const spaceOptions = ref([])
 
 const hasPermission = (permission, bit) => {
     return (Number(permission) & bit) === bit
+}
+
+// 模型编辑
+function handleEditModel() {
+    modelEditRef.value.handleEdit(modelData.value)
+}
+
+// 加载空间选项
+async function loadSpaceOptions() {
+    try {
+        const { data, success } = await apis.space
+            .getSpaceList({
+                pageSize: 100,
+                current: 1,
+            })
+            .catch(() => {
+                throw new Error()
+            })
+        if (config('http.code.success') === success) {
+            spaceOptions.value = data || []
+        }
+    } catch (error) {
+        // ignore
+    }
 }
 
 // 模型别名
@@ -751,6 +794,7 @@ onMounted(() => {
     loadEndpointList()
     loadMemberList()
     loadAllPoliciesForMapping()
+    loadSpaceOptions()
 })
 
 const endpointFilterProviderId = ref(undefined)

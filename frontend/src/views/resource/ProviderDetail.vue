@@ -5,6 +5,16 @@
             :title="$t('pages.provider.detail.basicInfo')"
             class="info-card"
             :bordered="false">
+            <template #extra>
+                <a-button
+                    type="primary"
+                    ghost
+                    size="small"
+                    @click="handleEditProvider">
+                    <template #icon><edit-outlined /></template>
+                    {{ $t('pages.provider.edit') }}
+                </a-button>
+            </template>
             <a-card-grid style="width: 25%; text-align: center">
                 <div class="info-item">
                     <span class="info-label">{{ $t('pages.provider.form.name') }}</span>
@@ -200,6 +210,11 @@
             :model-options="modelOptions"
             :provider-id="providerId"
             @ok="loadEndpointList" />
+
+        <!-- 供应商编辑弹窗 -->
+        <provider-edit-dialog
+            ref="providerEditRef"
+            @ok="loadProviderDetail" />
     </div>
 </template>
 
@@ -220,6 +235,7 @@ import { config } from '@/config'
 import { formatUtcDateTime } from '@/utils/util'
 import { useI18n } from 'vue-i18n'
 import EndpointEditDialog from './EndpointEditDialog.vue'
+import ProviderEditDialog from './ProviderEditDialog.vue'
 
 defineOptions({
     name: 'providerDetail',
@@ -230,6 +246,7 @@ const { t } = useI18n()
 const providerId = ref(route.params.id)
 const providerData = ref({})
 const activeTab = ref('endpoint')
+const providerEditRef = ref(null)
 
 const modelOptions = ref([])
 const providerOptions = ref([])
@@ -307,6 +324,11 @@ onMounted(() => {
     loadProviderOptions()
     loadEndpointList()
 })
+
+// 供应商编辑
+function handleEditProvider() {
+    providerEditRef.value.handleEdit(providerData.value)
+}
 
 async function loadProviderDetail() {
     try {

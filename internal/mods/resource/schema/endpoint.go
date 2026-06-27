@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
@@ -96,6 +97,10 @@ func (e *EndpointForm) Validate() error {
 }
 
 func (e *EndpointForm) FillTo(endpoint *Endpoint) error {
+	// 自动生成 code：ep-{timestamp}
+	if e.Code == "" {
+		e.Code = fmt.Sprintf("ep-%d", time.Now().UnixMilli())
+	}
 	endpoint.Code = e.Code
 	endpoint.ProviderID = e.ProviderID
 	endpoint.ModelID = e.ModelID
