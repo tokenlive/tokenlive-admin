@@ -16,11 +16,7 @@
             layout="vertical"
             style="margin-top: 16px">
             <!-- 基础设置 -->
-            <a-divider
-                orientation="left"
-                style="margin-top: 0">
-                {{ $t('pages.tagging.section.basic') }}
-            </a-divider>
+            <div class="section-title">{{ $t('pages.tagging.section.basic') }}</div>
 
             <!-- 策略名称 + 执行优先级 -->
             <a-row :gutter="16">
@@ -81,9 +77,7 @@
             </a-form-item>
 
             <!-- 条件规则配置 -->
-            <a-divider orientation="left">
-                {{ $t('pages.tagging.form.conditions') }}
-            </a-divider>
+            <div class="section-title">{{ $t('pages.tagging.form.conditions') }}</div>
             <a-card
                 size="small"
                 style="margin-bottom: 16px">
@@ -176,9 +170,7 @@
             </a-card>
 
             <!-- 打标动作配置 -->
-            <a-divider orientation="left">
-                {{ $t('pages.tagging.form.actions') }}
-            </a-divider>
+            <div class="section-title">{{ $t('pages.tagging.form.actions') }}</div>
             <a-card size="small">
                 <template #extra>
                     <a-button
@@ -460,6 +452,28 @@ defineExpose({
 </script>
 
 <style lang="less" scoped>
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0.65;
+    margin: 20px 0 12px;
+
+    &::before,
+    &::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: rgba(128, 128, 128, 0.25);
+    }
+
+    &:first-child {
+        margin-top: 0;
+    }
+}
+
 .rule-header {
     padding: 4px 0 8px;
     font-size: 12px;
