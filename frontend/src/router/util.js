@@ -102,7 +102,7 @@ export function formatRoutes(routes = [], parent = {}) {
                           : [...(parent?.meta?.openKeys ?? []), localRoute?.meta?.active ?? localRoute?.name],
                     isLink,
                     isIframe,
-                    actions: item?.meta?.actions ?? ['*'],
+                    actions: item?.meta?.actions?.length ? item.meta.actions : ['*'],
                     title: item?.meta?.title || '未命名',
                 },
             }

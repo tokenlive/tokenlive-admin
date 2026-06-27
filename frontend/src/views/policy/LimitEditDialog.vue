@@ -10,9 +10,9 @@
             ref="formRef"
             :model="formData"
             :rules="formRules"
-            :label-col="{ style: { width: '140px' } }"
+            :label-col="{ style: { width: '96px' } }"
             :wrapper-col="{ flex: 1 }"
-            :class="{ 'dark-form': appStore.config.theme === 'dark' }">
+            :class="['limit-form', { 'dark-form': appStore.config.theme === 'dark' }]">
             <!-- 规则名称 -->
             <a-form-item
                 :label="$t('pages.limit.form.name')"
@@ -639,6 +639,12 @@ defineExpose({
 </script>
 
 <style lang="less" scoped>
+.limit-form {
+    :deep(.ant-form-item) {
+        margin-bottom: 18px;
+    }
+}
+
 .form-hint {
     color: #999;
     font-size: 12px;

@@ -8,9 +8,10 @@
         @close="handleCancel">
         <a-form
             ref="formRef"
+            class="tag-route-form"
             :model="formData"
             :rules="formRules"
-            :label-col="{ style: { width: '140px' } }"
+            :label-col="{ style: { width: '96px' } }"
             :wrapper-col="{ flex: 1 }">
             <!-- 规则名称 -->
             <a-form-item
@@ -722,6 +723,12 @@ defineExpose({
 </script>
 
 <style lang="less" scoped>
+.tag-route-form {
+    :deep(.ant-form-item) {
+        margin-bottom: 18px;
+    }
+}
+
 .section-form-item {
     :deep(.ant-form-item-control-input-content) {
         overflow: visible;

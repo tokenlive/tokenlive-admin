@@ -61,14 +61,18 @@ func (m *ModelCatalogI18n) Get(c *gin.Context) {
 // @Tags ModelCatalogI18nAPI
 // @Security ApiKeyAuth
 // @Summary Get all i18n entries for a model
-// @Param model_id path string true "Model ID"
+// @Param id path string true "Model ID"
 // @Success 200 {object} util.ResponseResult{data=[]schema.ModelCatalogI18n}
 // @Failure 401 {object} util.ResponseResult
 // @Failure 500 {object} util.ResponseResult
-// @Router /api/v1/model-catalogs/{model_id}/i18n [get]
+// @Router /api/v1/model-catalogs/{id}/i18n [get]
 func (m *ModelCatalogI18n) QueryByModelID(c *gin.Context) {
 	ctx := c.Request.Context()
-	result, err := m.ModelCatalogI18nBIZ.QueryByModelID(ctx, c.Param("model_id"))
+	modelID := c.Param("id")
+	if modelID == "" {
+		modelID = c.Param("model_id")
+	}
+	result, err := m.ModelCatalogI18nBIZ.QueryByModelID(ctx, modelID)
 	if err != nil {
 		util.ResError(c, err)
 		return

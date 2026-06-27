@@ -158,6 +158,7 @@ import { usePagination } from '@/hooks'
 import { config } from '@/config'
 import apis from '@/apis'
 import ModelCatalogEditDialog from './ModelCatalogEditDialog.vue'
+import { PlusOutlined, EditOutlined, RocketOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 
 const router = useRouter()
 const { listData, loading, showLoading, hideLoading, paginationState, searchFormData, resetPagination } =

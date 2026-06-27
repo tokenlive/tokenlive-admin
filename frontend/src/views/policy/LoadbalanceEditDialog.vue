@@ -14,7 +14,7 @@
             :model="formData"
             :rules="formRules"
             :label-col="{ style: { width: '100px' } }">
-            <a-card class="mb-8-2">
+            <div class="loadbalance-form-content">
                 <a-row :gutter="12">
                     <a-col :span="24">
                         <a-form-item
@@ -148,7 +148,7 @@
                         </a-form-item>
                     </a-col>
                 </a-row>
-            </a-card>
+            </div>
         </a-form>
     </a-modal>
 </template>
@@ -358,4 +358,8 @@ defineExpose({
 })
 </script>
 
-<style lang="less" scoped></style>
+<style lang="less" scoped>
+.loadbalance-form-content {
+    padding-top: 4px;
+}
+</style>

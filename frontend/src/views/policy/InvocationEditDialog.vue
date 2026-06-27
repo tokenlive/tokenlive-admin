@@ -10,9 +10,9 @@
             ref="formRef"
             :model="formData"
             :rules="formRules"
-            :label-col="{ style: { width: '140px' } }"
+            :label-col="{ style: { width: '96px' } }"
             :wrapper-col="{ flex: 1 }"
-            :class="{ 'dark-form': appStore.config.theme === 'dark' }">
+            :class="['invocation-form', { 'dark-form': appStore.config.theme === 'dark' }]">
             <!-- 规则名称 -->
             <a-form-item
                 :label="$t('pages.invocation.form.name')"
@@ -851,6 +851,12 @@ defineExpose({
 </script>
 
 <style lang="less" scoped>
+.invocation-form {
+    :deep(.ant-form-item) {
+        margin-bottom: 18px;
+    }
+}
+
 .error-condition-form-item,
 .retry-policy-form-item {
     :deep(.ant-form-item-control-input-content) {
