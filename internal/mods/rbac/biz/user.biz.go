@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/cachex"
@@ -19,11 +21,22 @@ type User struct {
 	Trans       *util.Trans
 	UserDAL     *dal.User
 	UserRoleDAL *dal.UserRole
+	AuditLogBIZ *opsBiz.AuditLog
 }
 
 // Query users from the data access object based on the provided parameters and options.
 func (a *User) Query(ctx context.Context, params schema.UserQueryParam) (*schema.UserQueryResult, error) {
 	params.Pagination = true
+	if !util.FromIsRootUser(ctx) {
+		currentTenant := util.FromTenant(ctx)
+		if currentTenant == "" {
+			return nil, errors.Forbidden("", "Cannot query users without current tenant")
+		}
+		if params.Tenant != "" && params.Tenant != currentTenant {
+			return nil, errors.Forbidden("", "Cannot query users outside current tenant")
+		}
+		params.Tenant = currentTenant
+	}
 
 	result, err := a.UserDAL.Query(ctx, params, schema.UserQueryOptions{
 		QueryOptions: util.QueryOptions{
@@ -120,6 +133,7 @@ func (a *User) Create(ctx context.Context, formItem *schema.UserForm) (*schema.U
 		return nil, err
 	}
 	user.Roles = formItem.Roles
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeUser, user.ID, user.Username, nil, user)
 
 	return user, nil
 }
@@ -139,6 +153,8 @@ func (a *User) Update(ctx context.Context, id string, formItem *schema.UserForm)
 			return errors.BadRequest("", "Username already exists")
 		}
 	}
+
+	beforeUser := *user
 
 	if err := formItem.FillTo(user); err != nil {
 		return err
@@ -167,6 +183,7 @@ func (a *User) Update(ctx context.Context, id string, formItem *schema.UserForm)
 			}
 		}
 
+		a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeUser, user.ID, user.Username, beforeUser, user)
 		return a.Cache.Delete(ctx, config.CacheNSForUser, id)
 	})
 }
@@ -180,12 +197,17 @@ func (a *User) Delete(ctx context.Context, id string) error {
 		return errors.NotFound("", "User not found")
 	}
 
+	user, _ := a.UserDAL.Get(ctx, id)
+
 	return a.Trans.Exec(ctx, func(ctx context.Context) error {
 		if err := a.UserDAL.Delete(ctx, id); err != nil {
 			return err
 		}
 		if err := a.UserRoleDAL.DeleteByUserID(ctx, id); err != nil {
 			return err
+		}
+		if user != nil {
+			a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeUser, user.ID, user.Username, user, nil)
 		}
 		return a.Cache.Delete(ctx, config.CacheNSForUser, id)
 	})
@@ -208,6 +230,7 @@ func (a *User) ResetPassword(ctx context.Context, id string) error {
 		if err := a.UserDAL.UpdatePasswordByID(ctx, id, hashPass); err != nil {
 			return err
 		}
+		a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeUser, id, "", nil, map[string]string{"action": "reset_password"})
 		return nil
 	})
 }

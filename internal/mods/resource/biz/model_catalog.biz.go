@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -15,6 +17,7 @@ type ModelCatalog struct {
 	Trans              *util.Trans
 	ModelCatalogDAL    *dal.ModelCatalog
 	ModelCatalogI18nDAL *dal.ModelCatalogI18n
+	AuditLogBIZ        *opsBiz.AuditLog
 }
 
 // Query model catalogs.
@@ -78,6 +81,7 @@ func (m *ModelCatalog) Create(ctx context.Context, formItem *schema.ModelCatalog
 	if err != nil {
 		return nil, err
 	}
+	m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeModelCatalog, catalog.ModelID, catalog.Slug, nil, catalog)
 	return catalog, nil
 }
 
@@ -98,15 +102,21 @@ func (m *ModelCatalog) Update(ctx context.Context, modelID string, formItem *sch
 		return errors.Conflict("", "Slug already exists: %s", formItem.Slug)
 	}
 
+	beforeCatalog := *catalog
+
 	if err := formItem.FillTo(catalog); err != nil {
 		return err
 	}
 	catalog.Modifier = util.FromUsername(ctx)
 	catalog.UpdatedAt = time.Now()
 
-	return m.Trans.Exec(ctx, func(ctx context.Context) error {
+	err = m.Trans.Exec(ctx, func(ctx context.Context) error {
 		return m.ModelCatalogDAL.Update(ctx, catalog)
 	})
+	if err == nil {
+		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeModelCatalog, catalog.ModelID, catalog.Slug, beforeCatalog, catalog)
+	}
+	return err
 }
 
 // Publish publishes a model catalog (sets visibility and published_at).
@@ -118,6 +128,8 @@ func (m *ModelCatalog) Publish(ctx context.Context, modelID string, formItem *sc
 		return errors.NotFound("", "Model catalog not found")
 	}
 
+	beforeCatalog := *catalog
+
 	catalog.Visibility = formItem.Visibility
 	if formItem.PublishedAt != nil {
 		catalog.PublishedAt = formItem.PublishedAt
@@ -128,9 +140,13 @@ func (m *ModelCatalog) Publish(ctx context.Context, modelID string, formItem *sc
 	catalog.Modifier = util.FromUsername(ctx)
 	catalog.UpdatedAt = time.Now()
 
-	return m.Trans.Exec(ctx, func(ctx context.Context) error {
+	err = m.Trans.Exec(ctx, func(ctx context.Context) error {
 		return m.ModelCatalogDAL.Update(ctx, catalog)
 	})
+	if err == nil {
+		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionPublish, opsSchema.AuditResourceTypeModelCatalog, catalog.ModelID, catalog.Slug, beforeCatalog, catalog)
+	}
+	return err
 }
 
 // Delete the specified model catalog.
@@ -147,7 +163,11 @@ func (m *ModelCatalog) Delete(ctx context.Context, modelID string) error {
 		if err := m.ModelCatalogI18nDAL.DeleteByModelID(ctx, modelID); err != nil {
 			return err
 		}
-		return m.ModelCatalogDAL.Delete(ctx, modelID)
+		if err := m.ModelCatalogDAL.Delete(ctx, modelID); err != nil {
+			return err
+		}
+		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeModelCatalog, catalog.ModelID, catalog.Slug, catalog, nil)
+		return nil
 	})
 }
 

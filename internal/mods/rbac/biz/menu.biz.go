@@ -63,8 +63,10 @@ func (a *Menu) createInBatchByParent(ctx context.Context, items schema.Menus, pa
 
 	for i, item := range items {
 		var parentID string
+		var parentPath string
 		if parent != nil {
 			parentID = parent.ID
+			parentPath = parent.ParentPath + parentID + util.TreePathDelimiter
 		}
 
 		var (
@@ -83,6 +85,12 @@ func (a *Menu) createInBatchByParent(ctx context.Context, items schema.Menus, pa
 		if err != nil {
 			return err
 		}
+		if menuItem == nil && item.Code != "" && item.Type == "page" {
+			menuItem, err = a.MenuDAL.GetUniquePageByCode(ctx, item.Code)
+			if err != nil {
+				return err
+			}
+		}
 
 		if item.Status == "" {
 			item.Status = schema.MenuStatusEnabled
@@ -90,6 +98,8 @@ func (a *Menu) createInBatchByParent(ctx context.Context, items schema.Menus, pa
 
 		if menuItem != nil {
 			changed := false
+			oldDescendantParentPath := menuItem.ParentPath + menuItem.ID + util.TreePathDelimiter
+			newDescendantParentPath := parentPath + menuItem.ID + util.TreePathDelimiter
 			if menuItem.Name != item.Name {
 				menuItem.Name = item.Name
 				changed = true
@@ -114,9 +124,22 @@ func (a *Menu) createInBatchByParent(ctx context.Context, items schema.Menus, pa
 				menuItem.Status = item.Status
 				changed = true
 			}
+			if menuItem.ParentID != parentID {
+				menuItem.ParentID = parentID
+				changed = true
+			}
+			if menuItem.ParentPath != parentPath {
+				menuItem.ParentPath = parentPath
+				changed = true
+			}
 			if changed {
 				menuItem.UpdatedAt = time.Now()
 				if err := a.MenuDAL.Update(ctx, menuItem); err != nil {
+					return err
+				}
+			}
+			if oldDescendantParentPath != newDescendantParentPath {
+				if err := a.updateDescendantParentPaths(ctx, oldDescendantParentPath, newDescendantParentPath); err != nil {
 					return err
 				}
 			}
@@ -128,9 +151,7 @@ func (a *Menu) createInBatchByParent(ctx context.Context, items schema.Menus, pa
 				item.Sequence = total - i
 			}
 			item.ParentID = parentID
-			if parent != nil {
-				item.ParentPath = parent.ParentPath + parentID + util.TreePathDelimiter
-			}
+			item.ParentPath = parentPath
 			menuItem = item
 			if err := a.MenuDAL.Create(ctx, item); err != nil {
 				return err
@@ -168,6 +189,114 @@ func (a *Menu) createInBatchByParent(ctx context.Context, items schema.Menus, pa
 			if err := a.createInBatchByParent(ctx, *item.Children, menuItem); err != nil {
 				return err
 			}
+		}
+		if item.Code != "" && item.Type == "page" {
+			if err := a.mergeDuplicatePageMenus(ctx, item.Code, menuItem); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (a *Menu) mergeDuplicatePageMenus(ctx context.Context, code string, current *schema.Menu) error {
+	items, err := a.MenuDAL.QueryPagesByCode(ctx, code)
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
+		if item.ID == current.ID {
+			continue
+		}
+		if err := a.moveRoleMenus(ctx, item.ID, current.ID); err != nil {
+			return err
+		}
+		if err := a.mergeChildRoleMenus(ctx, item.ID, current.ID); err != nil {
+			return err
+		}
+		item.Status = schema.MenuStatusDisabled
+		item.UpdatedAt = time.Now()
+		if err := a.MenuDAL.Update(ctx, item); err != nil {
+			return err
+		}
+		if err := a.MenuDAL.UpdateStatusByParentPath(ctx, item.ParentPath+item.ID+util.TreePathDelimiter, schema.MenuStatusDisabled); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *Menu) mergeChildRoleMenus(ctx context.Context, fromParentID, toParentID string) error {
+	fromResult, err := a.MenuDAL.Query(ctx, schema.MenuQueryParam{
+		ParentID: fromParentID,
+	})
+	if err != nil {
+		return err
+	}
+	toResult, err := a.MenuDAL.Query(ctx, schema.MenuQueryParam{
+		ParentID: toParentID,
+	})
+	if err != nil {
+		return err
+	}
+	toMenus := make(map[string]*schema.Menu, len(toResult.Data))
+	for _, item := range toResult.Data {
+		toMenus[item.Code+"|"+item.Type] = item
+	}
+	for _, item := range fromResult.Data {
+		toMenu := toMenus[item.Code+"|"+item.Type]
+		if toMenu == nil {
+			continue
+		}
+		if err := a.moveRoleMenus(ctx, item.ID, toMenu.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *Menu) moveRoleMenus(ctx context.Context, fromMenuID, toMenuID string) error {
+	result, err := a.RoleMenuDAL.Query(ctx, schema.RoleMenuQueryParam{
+		MenuID: fromMenuID,
+	})
+	if err != nil {
+		return err
+	}
+	for _, item := range result.Data {
+		exists, err := a.RoleMenuDAL.ExistsRoleIDMenuID(ctx, item.RoleID, toMenuID)
+		if err != nil {
+			return err
+		}
+		if exists {
+			if err := a.RoleMenuDAL.Delete(ctx, item.ID); err != nil {
+				return err
+			}
+			continue
+		}
+		item.MenuID = toMenuID
+		item.UpdatedAt = time.Now()
+		if err := a.RoleMenuDAL.Update(ctx, item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *Menu) updateDescendantParentPaths(ctx context.Context, oldPrefix, newPrefix string) error {
+	result, err := a.MenuDAL.Query(ctx, schema.MenuQueryParam{
+		ParentPathPrefix: oldPrefix,
+	})
+	if err != nil {
+		return err
+	}
+	for _, item := range result.Data {
+		if !strings.HasPrefix(item.ParentPath, oldPrefix) {
+			continue
+		}
+		item.ParentPath = newPrefix + strings.TrimPrefix(item.ParentPath, oldPrefix)
+		item.UpdatedAt = time.Now()
+		if err := a.MenuDAL.Update(ctx, item); err != nil {
+			return err
 		}
 	}
 	return nil

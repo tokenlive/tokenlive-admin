@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -16,6 +18,7 @@ type PolicyLimit struct {
 	PolicyLimitDAL   *dal.PolicyLimit
 	PolicyBindingDAL *dal.PolicyBinding
 	PolicyRedisSync  *PolicyRedisSync
+	AuditLogBIZ      *opsBiz.AuditLog
 }
 
 // Query policy limits from the data access object based on the provided parameters and options.
@@ -80,6 +83,7 @@ func (a *PolicyLimit) Create(ctx context.Context, formItem *schema.PolicyLimitFo
 	if err != nil {
 		return nil, err
 	}
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyLimit.ID, policyLimit.Name, nil, policyLimit)
 	return policyLimit, nil
 }
 
@@ -100,6 +104,8 @@ func (a *PolicyLimit) Update(ctx context.Context, id string, formItem *schema.Po
 			return errors.BadRequest("", "Policy limit with the same name already exists")
 		}
 	}
+
+	beforePolicy := *policyLimit
 
 	if err := formItem.FillTo(policyLimit); err != nil {
 		return err
@@ -123,15 +129,16 @@ func (a *PolicyLimit) Update(ctx context.Context, id string, formItem *schema.Po
 		return err
 	}
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyLimit.ID, policyLimit.Name, beforePolicy, policyLimit)
 	return nil
 }
 
 // Delete the specified policy limit from the data access object.
 func (a *PolicyLimit) Delete(ctx context.Context, id string) error {
-	exists, err := a.PolicyLimitDAL.Exists(ctx, id)
+	policyLimit, err := a.PolicyLimitDAL.Get(ctx, id)
 	if err != nil {
 		return err
-	} else if !exists {
+	} else if policyLimit == nil {
 		return errors.NotFound("", "Policy limit not found")
 	}
 
@@ -156,5 +163,6 @@ func (a *PolicyLimit) Delete(ctx context.Context, id string) error {
 		return err
 	}
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyLimit.ID, policyLimit.Name, policyLimit, nil)
 	return nil
 }

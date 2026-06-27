@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -16,6 +18,7 @@ type PolicyRoute struct {
 	PolicyRouteDAL   *dal.PolicyRoute
 	PolicyBindingDAL *dal.PolicyBinding
 	PolicyRedisSync  *PolicyRedisSync
+	AuditLogBIZ      *opsBiz.AuditLog
 }
 
 // Query policy routes from the data access object based on the provided parameters and options.
@@ -80,6 +83,7 @@ func (a *PolicyRoute) Create(ctx context.Context, formItem *schema.PolicyRouteFo
 	if err != nil {
 		return nil, err
 	}
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyRoute.ID, policyRoute.Name, nil, policyRoute)
 	return policyRoute, nil
 }
 
@@ -100,6 +104,8 @@ func (a *PolicyRoute) Update(ctx context.Context, id string, formItem *schema.Po
 			return errors.BadRequest("", "Policy route with the same name already exists")
 		}
 	}
+
+	beforePolicy := *policyRoute
 
 	if err := formItem.FillTo(policyRoute); err != nil {
 		return err
@@ -123,15 +129,16 @@ func (a *PolicyRoute) Update(ctx context.Context, id string, formItem *schema.Po
 		return err
 	}
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyRoute.ID, policyRoute.Name, beforePolicy, policyRoute)
 	return nil
 }
 
 // Delete the specified policy route from the data access object.
 func (a *PolicyRoute) Delete(ctx context.Context, id string) error {
-	exists, err := a.PolicyRouteDAL.Exists(ctx, id)
+	policyRoute, err := a.PolicyRouteDAL.Get(ctx, id)
 	if err != nil {
 		return err
-	} else if !exists {
+	} else if policyRoute == nil {
 		return errors.NotFound("", "Policy route not found")
 	}
 
@@ -156,5 +163,6 @@ func (a *PolicyRoute) Delete(ctx context.Context, id string) error {
 		return err
 	}
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyRoute.ID, policyRoute.Name, policyRoute, nil)
 	return nil
 }

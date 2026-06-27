@@ -119,5 +119,9 @@ const (
 	AuditResourceTypeTenant        = "tenant"
 	AuditResourceTypeUser          = "user"
 	AuditResourceTypeAPIKey        = "api_key"
-	AuditResourceTypeWorkspace     = "workspace"
+	AuditResourceTypeWorkspace      = "workspace"
+	AuditResourceTypePolicyBinding  = "policy_binding"
+	AuditResourceTypeTenantModel    = "tenant_model"
+	AuditResourceTypeTenantEndpoint = "tenant_endpoint"
+	AuditResourceTypeRole           = "role"
 )

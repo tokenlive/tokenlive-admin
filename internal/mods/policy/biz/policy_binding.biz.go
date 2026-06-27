@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -15,6 +17,7 @@ type PolicyBinding struct {
 	Trans            *util.Trans
 	PolicyBindingDAL *dal.PolicyBinding
 	PolicyRedisSync  *PolicyRedisSync
+	AuditLogBIZ      *opsBiz.AuditLog
 }
 
 // isExclusivePolicy checks if the policy type is exclusive (single active instance per dimension).
@@ -106,6 +109,8 @@ func (a *PolicyBinding) Create(ctx context.Context, formItem *schema.PolicyBindi
 		return nil, err
 	}
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicyBinding, binding.ID, binding.PolicyID, nil, binding)
+
 	return binding, nil
 }
 
@@ -152,6 +157,8 @@ func (a *PolicyBinding) Update(ctx context.Context, id string, formItem *schema.
 		}
 	}
 
+	beforePolicy := *binding
+
 	if err := formItem.FillTo(binding); err != nil {
 		return err
 	}
@@ -179,6 +186,8 @@ func (a *PolicyBinding) Update(ctx context.Context, id string, formItem *schema.
 		}
 	}
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicyBinding, binding.ID, binding.PolicyID, beforePolicy, binding)
+
 	return nil
 }
 
@@ -197,6 +206,8 @@ func (a *PolicyBinding) ToggleEnabled(ctx context.Context, id string, formItem *
 		return nil
 	}
 
+	beforePolicy := *binding
+
 	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
 		return a.PolicyBindingDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
 	})
@@ -204,8 +215,16 @@ func (a *PolicyBinding) ToggleEnabled(ctx context.Context, id string, formItem *
 		return err
 	}
 
+	binding.Enabled = formItem.Enabled
+
 	// The aggregated policy snapshot is filtered by enabled = 1, so the dimension must be re-synced.
-	return a.PolicyRedisSync.SyncDimension(ctx, binding.TenantCode, binding.UserID, binding.ModelCode)
+	if err := a.PolicyRedisSync.SyncDimension(ctx, binding.TenantCode, binding.UserID, binding.ModelCode); err != nil {
+		return err
+	}
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicyBinding, binding.ID, binding.PolicyID, beforePolicy, binding)
+
+	return nil
 }
 
 // Delete the specified policy binding from the data access object.
@@ -228,6 +247,8 @@ func (a *PolicyBinding) Delete(ctx context.Context, id string) error {
 	if err := a.PolicyRedisSync.SyncDimension(ctx, binding.TenantCode, binding.UserID, binding.ModelCode); err != nil {
 		return err
 	}
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicyBinding, binding.ID, binding.PolicyID, binding, nil)
 
 	return nil
 }

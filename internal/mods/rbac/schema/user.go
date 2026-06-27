@@ -28,7 +28,7 @@ type User struct {
 	Status    string    `json:"status" gorm:"type:varchar(20);default:null;index:idx_user_status;comment:状态;"`
 	CreatedAt time.Time `json:"created_at" gorm:"type:datetime(3);default:null;autoCreateTime;comment:创建时间;"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"type:datetime(3);default:null;autoUpdateTime;comment:更新时间;"`
-	Roles     UserRoles `json:"roles" gorm:"-"`                                   // Roles of user
+	Roles     UserRoles `json:"roles" gorm:"-"` // Roles of user
 }
 
 func (a *User) TableName() string {
@@ -40,6 +40,7 @@ type UserQueryParam struct {
 	util.PaginationParam
 	LikeUsername string `form:"username"`                                    // Username for login
 	LikeName     string `form:"name"`                                        // Name of user
+	Tenant       string `form:"tenant"`                                      // Tenant
 	Status       string `form:"status" binding:"oneof=activated freezed ''"` // Status of user (activated, freezed)
 }
 

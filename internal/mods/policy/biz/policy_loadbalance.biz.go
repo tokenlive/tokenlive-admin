@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -16,6 +18,7 @@ type PolicyLoadbalance struct {
 	PolicyLoadbalanceDAL *dal.PolicyLoadbalance
 	PolicyBindingDAL     *dal.PolicyBinding
 	PolicyRedisSync      *PolicyRedisSync
+	AuditLogBIZ          *opsBiz.AuditLog
 }
 
 // Query policy loadbalances from the data access object based on the provided parameters and options.
@@ -77,6 +80,9 @@ func (a *PolicyLoadbalance) Create(ctx context.Context, formItem *schema.PolicyL
 	if err != nil {
 		return nil, err
 	}
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyLoadbalance.ID, policyLoadbalance.Name, nil, policyLoadbalance)
+
 	return policyLoadbalance, nil
 }
 
@@ -98,6 +104,8 @@ func (a *PolicyLoadbalance) Update(ctx context.Context, id string, formItem *sch
 		}
 	}
 
+	beforePolicy := *policyLoadbalance
+
 	if err := formItem.FillTo(policyLoadbalance); err != nil {
 		return err
 	}
@@ -117,15 +125,17 @@ func (a *PolicyLoadbalance) Update(ctx context.Context, id string, formItem *sch
 		return err
 	}
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyLoadbalance.ID, policyLoadbalance.Name, beforePolicy, policyLoadbalance)
+
 	return nil
 }
 
 // Delete the specified policy loadbalance from the data access object.
 func (a *PolicyLoadbalance) Delete(ctx context.Context, id string) error {
-	exists, err := a.PolicyLoadbalanceDAL.Exists(ctx, id)
+	policyLoadbalance, err := a.PolicyLoadbalanceDAL.Get(ctx, id)
 	if err != nil {
 		return err
-	} else if !exists {
+	} else if policyLoadbalance == nil {
 		return errors.NotFound("", "Policy loadbalance not found")
 	}
 
@@ -149,6 +159,8 @@ func (a *PolicyLoadbalance) Delete(ctx context.Context, id string) error {
 	if err := a.PolicyRedisSync.SyncPolicyChange(ctx, "loadbalance", id); err != nil {
 		return err
 	}
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyLoadbalance.ID, policyLoadbalance.Name, policyLoadbalance, nil)
 
 	return nil
 }

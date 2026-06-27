@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -20,6 +22,7 @@ type Provider struct {
 	ProviderDAL       *dal.Provider
 	DataPermissionBIZ *DataPermission
 	ConfigRedisSync   *ConfigRedisSync
+	AuditLogBIZ       *opsBiz.AuditLog
 }
 
 func (p *Provider) Query(ctx context.Context, params schema.ProviderQueryParam) (*schema.ProviderQueryResult, error) {
@@ -85,6 +88,7 @@ func (p *Provider) Create(ctx context.Context, formItem *schema.ProviderForm) (*
 	if err != nil {
 		return nil, err
 	}
+	p.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeProvider, provider.ID, provider.Name, nil, provider)
 	return provider, nil
 }
 
@@ -103,6 +107,8 @@ func (p *Provider) Update(ctx context.Context, id string, formItem *schema.Provi
 		}
 	}
 
+	beforeProvider := *provider
+
 	if err := formItem.FillTo(provider); err != nil {
 		return err
 	}
@@ -114,6 +120,7 @@ func (p *Provider) Update(ctx context.Context, id string, formItem *schema.Provi
 	})
 	if err == nil {
 		_ = p.ConfigRedisSync.SyncProviderID(ctx, provider.ID)
+		p.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeProvider, provider.ID, provider.Name, beforeProvider, provider)
 	}
 	return err
 }
@@ -139,6 +146,9 @@ func (p *Provider) Delete(ctx context.Context, id string) error {
 		}
 		return p.DataPermissionBIZ.DeleteByTypeAndDataId(ctx, schema.DataPermissionTypeProvider, id)
 	})
+	if err == nil {
+		p.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeProvider, provider.ID, provider.Name, provider, nil)
+	}
 	return err
 }
 

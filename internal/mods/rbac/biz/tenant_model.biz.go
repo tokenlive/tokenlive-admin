@@ -5,6 +5,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
@@ -15,6 +17,7 @@ type TenantModel struct {
 	Trans          *util.Trans
 	TenantModelDAL *dal.TenantModel
 	RedisClient    *redis.Client
+	AuditLogBIZ    *opsBiz.AuditLog
 }
 
 // GetAuthorizedModelIDs returns all model IDs authorized for the tenant.
@@ -73,6 +76,8 @@ func (a *TenantModel) SaveBindings(ctx context.Context, tenantCode string, model
 	if err != nil {
 		return err
 	}
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeTenantModel, "", tenantCode, nil, map[string]interface{}{"tenant_code": tenantCode, "model_ids": modelIDs})
 
 	// 5. 同步至 Redis: aigw:tenant:{tenantCode}:models
 	if a.RedisClient != nil {

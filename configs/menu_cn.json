@@ -834,80 +834,6 @@
                 ]
             },
             {
-                "code": "user-api-key",
-                "name": "API Key 管理",
-                "sequence": 60,
-                "type": "page",
-                "path": "/system/user-api-key",
-                "status": "enabled",
-                "children": [
-                    {
-                        "code": "add",
-                        "name": "增加",
-                        "sequence": 9,
-                        "type": "button",
-                        "status": "enabled",
-                        "resources": [
-                            {
-                                "method": "POST",
-                                "path": "/api/v1/user-api-keys"
-                            }
-                        ]
-                    },
-                    {
-                        "code": "edit",
-                        "name": "编辑",
-                        "sequence": 8,
-                        "type": "button",
-                        "status": "enabled",
-                        "resources": [
-                            {
-                                "method": "PUT",
-                                "path": "/api/v1/user-api-keys/{id}"
-                            }
-                        ]
-                    },
-                    {
-                        "code": "delete",
-                        "name": "删除",
-                        "sequence": 7,
-                        "type": "button",
-                        "status": "enabled",
-                        "resources": [
-                            {
-                                "method": "DELETE",
-                                "path": "/api/v1/user-api-keys/{id}"
-                            }
-                        ]
-                    },
-                    {
-                        "code": "search",
-                        "name": "查询",
-                        "sequence": 6,
-                        "type": "button",
-                        "status": "enabled"
-                    }
-                ],
-                "resources": [
-                    {
-                        "method": "GET",
-                        "path": "/api/v1/users"
-                    },
-                    {
-                        "method": "GET",
-                        "path": "/api/v1/user-api-keys"
-                    },
-                    {
-                        "method": "GET",
-                        "path": "/api/v1/user-api-keys/{id}"
-                    },
-                    {
-                        "method": "GET",
-                        "path": "/api/v1/user-api-keys/{id}/plaintext"
-                    }
-                ]
-            },
-            {
                 "code": "tenant",
                 "name": "租户管理",
                 "sequence": 75,
@@ -1463,6 +1389,80 @@
                     {
                         "method": "GET",
                         "path": "/api/v1/model-service-metrics/{model_id}/{window}"
+                    }
+                ]
+            },
+            {
+                "code": "user-api-key",
+                "name": "API Key 管理",
+                "sequence": 60,
+                "type": "page",
+                "path": "/space/user-api-key",
+                "status": "enabled",
+                "children": [
+                    {
+                        "code": "add",
+                        "name": "增加",
+                        "sequence": 9,
+                        "type": "button",
+                        "status": "enabled",
+                        "resources": [
+                            {
+                                "method": "POST",
+                                "path": "/api/v1/user-api-keys"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "edit",
+                        "name": "编辑",
+                        "sequence": 8,
+                        "type": "button",
+                        "status": "enabled",
+                        "resources": [
+                            {
+                                "method": "PUT",
+                                "path": "/api/v1/user-api-keys/{id}"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "delete",
+                        "name": "删除",
+                        "sequence": 7,
+                        "type": "button",
+                        "status": "enabled",
+                        "resources": [
+                            {
+                                "method": "DELETE",
+                                "path": "/api/v1/user-api-keys/{id}"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "search",
+                        "name": "查询",
+                        "sequence": 6,
+                        "type": "button",
+                        "status": "enabled"
+                    }
+                ],
+                "resources": [
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/users"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/user-api-keys"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/user-api-keys/{id}"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/user-api-keys/{id}/plaintext"
                     }
                 ]
             }

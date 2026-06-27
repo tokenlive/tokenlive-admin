@@ -5,6 +5,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -16,6 +18,7 @@ type TenantEndpoint struct {
 	Trans             *util.Trans
 	TenantEndpointDAL *dal.TenantEndpoint
 	RedisClient       *redis.Client
+	AuditLogBIZ       *opsBiz.AuditLog
 }
 
 // GetAllowedEndpointIDs 查询租户指定模型下已经允许的端点 ID 列表
@@ -66,6 +69,8 @@ func (a *TenantEndpoint) SaveEndpoints(ctx context.Context, tenantCode, modelID 
 	if err != nil {
 		return err
 	}
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeTenantEndpoint, modelID, tenantCode, nil, map[string]interface{}{"tenant_code": tenantCode, "model_id": modelID, "endpoint_ids": endpointIDs})
 
 	// 4. 事务执行成功，同步至 Redis
 	if a.RedisClient != nil {

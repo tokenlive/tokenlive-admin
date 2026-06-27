@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -16,6 +18,7 @@ type PolicyInvocation struct {
 	PolicyInvocationDAL *dal.PolicyInvocation
 	PolicyBindingDAL    *dal.PolicyBinding
 	PolicyRedisSync     *PolicyRedisSync
+	AuditLogBIZ         *opsBiz.AuditLog
 }
 
 // Query policy invocations from the data access object based on the provided parameters and options.
@@ -80,6 +83,9 @@ func (a *PolicyInvocation) Create(ctx context.Context, formItem *schema.PolicyIn
 	if err != nil {
 		return nil, err
 	}
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyInvocation.ID, policyInvocation.Name, nil, policyInvocation)
+
 	return policyInvocation, nil
 }
 
@@ -100,6 +106,8 @@ func (a *PolicyInvocation) Update(ctx context.Context, id string, formItem *sche
 			return errors.BadRequest("", "Policy invocation with the same name already exists")
 		}
 	}
+
+	beforePolicy := *policyInvocation
 
 	if err := formItem.FillTo(policyInvocation); err != nil {
 		return err
@@ -123,15 +131,17 @@ func (a *PolicyInvocation) Update(ctx context.Context, id string, formItem *sche
 		return err
 	}
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyInvocation.ID, policyInvocation.Name, beforePolicy, policyInvocation)
+
 	return nil
 }
 
 // Delete the specified policy invocation from the data access object.
 func (a *PolicyInvocation) Delete(ctx context.Context, id string) error {
-	exists, err := a.PolicyInvocationDAL.Exists(ctx, id)
+	policyInvocation, err := a.PolicyInvocationDAL.Get(ctx, id)
 	if err != nil {
 		return err
-	} else if !exists {
+	} else if policyInvocation == nil {
 		return errors.NotFound("", "Policy invocation not found")
 	}
 
@@ -155,6 +165,8 @@ func (a *PolicyInvocation) Delete(ctx context.Context, id string) error {
 	if err := a.PolicyRedisSync.SyncPolicyChange(ctx, "invocation", id); err != nil {
 		return err
 	}
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyInvocation.ID, policyInvocation.Name, policyInvocation, nil)
 
 	return nil
 }

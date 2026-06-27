@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -67,6 +68,7 @@ func TestUser(t *testing.T) {
 		Phone:    "0720",
 		Email:    "test@gmail.com",
 		Remark:   "test user",
+		Tenant:   "tenant-a",
 		Status:   schema.UserStatusActivated,
 		Roles:    schema.UserRoles{{RoleID: role.ID}},
 	}
@@ -79,12 +81,29 @@ func TestUser(t *testing.T) {
 	assert.Equal(userFormItem.Phone, user.Phone)
 	assert.Equal(userFormItem.Email, user.Email)
 	assert.Equal(userFormItem.Remark, user.Remark)
+	assert.Equal(userFormItem.Tenant, user.Tenant)
 	assert.Equal(userFormItem.Status, user.Status)
 	assert.Equal(len(userFormItem.Roles), len(user.Roles))
+
+	otherUserFormItem := schema.UserForm{
+		Username: "test-other-tenant",
+		Name:     "Test Other Tenant",
+		Password: hash.MD5String("test"),
+		Tenant:   "tenant-b",
+		Status:   schema.UserStatusActivated,
+		Roles:    schema.UserRoles{{RoleID: role.ID}},
+	}
+	var otherUser schema.User
+	e.POST(baseAPI + "/users").WithJSON(otherUserFormItem).Expect().Status(http.StatusOK).JSON().Decode(&util.ResponseResult{Data: &otherUser})
 
 	var users schema.Users
 	e.GET(baseAPI+"/users").WithQuery("username", userFormItem.Username).Expect().Status(http.StatusOK).JSON().Decode(&util.ResponseResult{Data: &users})
 	assert.GreaterOrEqual(len(users), 1)
+
+	var tenantUsers schema.Users
+	e.GET(baseAPI+"/users").WithQuery("tenant", "tenant-a").Expect().Status(http.StatusOK).JSON().Decode(&util.ResponseResult{Data: &tenantUsers})
+	assert.Len(tenantUsers, 1)
+	assert.Equal(user.ID, tenantUsers[0].ID)
 
 	newName := "Test 1"
 	newStatus := schema.UserStatusFreezed
@@ -99,10 +118,19 @@ func TestUser(t *testing.T) {
 
 	e.DELETE(baseAPI + "/users/" + user.ID).Expect().Status(http.StatusOK)
 	e.GET(baseAPI + "/users/" + user.ID).Expect().Status(http.StatusNotFound)
+	e.DELETE(baseAPI + "/users/" + otherUser.ID).Expect().Status(http.StatusOK)
+	e.GET(baseAPI + "/users/" + otherUser.ID).Expect().Status(http.StatusNotFound)
 
 	e.DELETE(baseAPI + "/roles/" + role.ID).Expect().Status(http.StatusOK)
 	e.GET(baseAPI + "/roles/" + role.ID).Expect().Status(http.StatusNotFound)
 
 	e.DELETE(baseAPI + "/menus/" + menu.ID).Expect().Status(http.StatusOK)
 	e.GET(baseAPI + "/menus/" + menu.ID).Expect().Status(http.StatusNotFound)
+}
+
+func TestUserQueryLimitsNonRootToCurrentTenant(t *testing.T) {
+	ctx := util.NewTenant(util.NewUsername(context.Background(), "tenant-user"), "tenant-a")
+
+	_, err := testInjector.M.RBAC.UserAPI.UserBIZ.Query(ctx, schema.UserQueryParam{Tenant: "tenant-b"})
+	assert.Error(t, err)
 }

@@ -21,7 +21,7 @@
                 <a-select
                     v-model:value="formData.tenant"
                     show-search
-                    :disabled="modal.type === 'edit'"
+                    :disabled="modal.type === 'edit' || !isRootUser"
                     :placeholder="$t('pages.member.form.tenant.placeholder')"
                     :filter-option="filterTenantOption">
                     <a-select-option
@@ -39,7 +39,7 @@
                 <a-select
                     v-model:value="formData.user"
                     show-search
-                    :disabled="modal.type === 'edit'"
+                    :disabled="modal.type === 'edit' || !formData.tenant"
                     :placeholder="$t('pages.member.form.user.placeholder')"
                     :filter-option="filterUserOption">
                     <a-select-option
@@ -79,10 +79,11 @@
 
 <script setup>
 import { cloneDeep } from 'lodash-es'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { config } from '@/config'
 import apis from '@/apis'
 import { useForm, useModal } from '@/hooks'
+import { useUserStore } from '@/store'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
@@ -93,15 +94,25 @@ const emit = defineEmits(['ok'])
 const { modal, showModal, hideModal, showLoading, hideLoading } = useModal()
 const { formRecord, formData, formRef, formRules, resetForm } = useForm()
 const { t } = useI18n()
+const userStore = useUserStore()
 const cancelText = ref(t('button.cancel'))
 const okText = ref(t('button.confirm'))
 
 const userOptions = ref([])
 const tenantOptions = ref([])
+const currentTenant = computed(() => userStore.userInfo?.tenant || '')
+const isRootUser = computed(
+    () => userStore.userInfo?.id === 'root' || (userStore.userInfo?.username === 'admin' && !currentTenant.value)
+)
 
-async function loadUsers() {
+async function loadUsers(tenant) {
+    if (!tenant) {
+        userOptions.value = []
+        return
+    }
+
     try {
-        const result = await apis.users.getUsersList({ pageSize: 100, current: 1 }).catch(() => null)
+        const result = await apis.users.getUsersList({ pageSize: 100, current: 1, tenant }).catch(() => null)
         const list = []
         if (result && config('http.code.success') === result.success && result.data) {
             list.push(
@@ -122,16 +133,24 @@ async function loadTenants() {
         const result = await apis.tenant.getList({ pageSize: 100, current: 1 }).catch(() => null)
         const list = []
         if (result && config('http.code.success') === result.success && result.data) {
-            list.push(
-                ...result.data.map((tenant) => ({
-                    label: tenant.name ? `${tenant.name} (${tenant.code})` : tenant.code,
-                    value: tenant.code,
-                }))
-            )
+            const tenants = isRootUser.value
+                ? result.data
+                : result.data.filter((tenant) => tenant.code === currentTenant.value)
+            list.push(...tenants.map((tenant) => buildTenantOption(tenant)))
+        }
+        if (!isRootUser.value && currentTenant.value && !list.some((item) => item.value === currentTenant.value)) {
+            list.push({ label: currentTenant.value, value: currentTenant.value })
         }
         tenantOptions.value = list
     } catch (e) {
         console.error('加载租户列表失败:', e)
+    }
+}
+
+function buildTenantOption(tenant) {
+    return {
+        label: tenant.name ? `${tenant.name} (${tenant.code})` : tenant.code,
+        value: tenant.code,
     }
 }
 
@@ -145,7 +164,6 @@ function filterTenantOption(input, option) {
     return label.toLowerCase().includes(input.toLowerCase())
 }
 
-loadUsers()
 loadTenants()
 
 const permToBits = { read: 1, write: 2, delete: 4 }
@@ -177,17 +195,30 @@ formRules.value = {
     role: { required: true, message: t('pages.member.form.role.required') },
 }
 
-function handleCreate() {
+watch(
+    () => formData.value.tenant,
+    async (tenant, previousTenant) => {
+        if (!modal.value.open || modal.value.type !== 'create' || tenant === previousTenant) {
+            return
+        }
+        formData.value.user = undefined
+        await loadUsers(tenant)
+    }
+)
+
+async function handleCreate() {
     showModal({
         type: 'create',
         title: t('pages.member.add'),
     })
     formData.value = {
         user: undefined,
-        tenant: undefined,
+        tenant: isRootUser.value ? undefined : currentTenant.value,
         role: undefined,
         permissions: ['read'],
     }
+    await loadTenants()
+    await loadUsers(formData.value.tenant)
 }
 
 async function handleEdit(record = {}) {
@@ -200,6 +231,8 @@ async function handleEdit(record = {}) {
         ...cloneDeep(record),
         permissions: bitsToPerms(record.permission),
     }
+    await loadTenants()
+    await loadUsers(record.tenant)
 }
 
 function handleOk() {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -16,6 +18,7 @@ type PolicyTagging struct {
 	PolicyTaggingDAL *dal.PolicyTagging
 	PolicyBindingDAL *dal.PolicyBinding
 	PolicyRedisSync  *PolicyRedisSync
+	AuditLogBIZ      *opsBiz.AuditLog
 }
 
 // Query policy taggings from the data access object based on the provided parameters and options.
@@ -77,6 +80,9 @@ func (a *PolicyTagging) Create(ctx context.Context, formItem *schema.PolicyTaggi
 	if err != nil {
 		return nil, err
 	}
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyTagging.ID, policyTagging.Name, nil, policyTagging)
+
 	return policyTagging, nil
 }
 
@@ -98,6 +104,8 @@ func (a *PolicyTagging) Update(ctx context.Context, id string, formItem *schema.
 		}
 	}
 
+	beforePolicy := *policyTagging
+
 	if err := formItem.FillTo(policyTagging); err != nil {
 		return err
 	}
@@ -117,15 +125,17 @@ func (a *PolicyTagging) Update(ctx context.Context, id string, formItem *schema.
 		return err
 	}
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyTagging.ID, policyTagging.Name, beforePolicy, policyTagging)
+
 	return nil
 }
 
 // Delete the specified policy tagging from the data access object.
 func (a *PolicyTagging) Delete(ctx context.Context, id string) error {
-	exists, err := a.PolicyTaggingDAL.Exists(ctx, id)
+	policyTagging, err := a.PolicyTaggingDAL.Get(ctx, id)
 	if err != nil {
 		return err
-	} else if !exists {
+	} else if policyTagging == nil {
 		return errors.NotFound("", "Policy tagging not found")
 	}
 
@@ -149,6 +159,8 @@ func (a *PolicyTagging) Delete(ctx context.Context, id string) error {
 	if err := a.PolicyRedisSync.SyncPolicyChange(ctx, "tagging", id); err != nil {
 		return err
 	}
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyTagging.ID, policyTagging.Name, policyTagging, nil)
 
 	return nil
 }

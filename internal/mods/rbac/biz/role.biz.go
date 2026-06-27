@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/cachex"
@@ -20,6 +22,7 @@ type Role struct {
 	RoleDAL     *dal.Role
 	RoleMenuDAL *dal.RoleMenu
 	UserRoleDAL *dal.UserRole
+	AuditLogBIZ *opsBiz.AuditLog
 }
 
 // Query roles from the data access object based on the provided parameters and options.
@@ -102,6 +105,7 @@ func (a *Role) Create(ctx context.Context, formItem *schema.RoleForm) (*schema.R
 		return nil, err
 	}
 	role.Menus = formItem.Menus
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeRole, role.ID, role.Name, nil, role)
 
 	return role, nil
 }
@@ -120,6 +124,8 @@ func (a *Role) Update(ctx context.Context, id string, formItem *schema.RoleForm)
 			return errors.BadRequest("", "Role code already exists")
 		}
 	}
+
+	beforeRole := *role
 
 	if err := formItem.FillTo(role); err != nil {
 		return err
@@ -146,16 +152,17 @@ func (a *Role) Update(ctx context.Context, id string, formItem *schema.RoleForm)
 				return err
 			}
 		}
+		a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeRole, role.ID, role.Name, beforeRole, role)
 		return a.syncToCasbin(ctx)
 	})
 }
 
 // Delete the specified role from the data access object.
 func (a *Role) Delete(ctx context.Context, id string) error {
-	exists, err := a.RoleDAL.Exists(ctx, id)
+	role, err := a.RoleDAL.Get(ctx, id)
 	if err != nil {
 		return err
-	} else if !exists {
+	} else if role == nil {
 		return errors.NotFound("", "Role not found")
 	}
 
@@ -169,7 +176,7 @@ func (a *Role) Delete(ctx context.Context, id string) error {
 		if err := a.UserRoleDAL.DeleteByRoleID(ctx, id); err != nil {
 			return err
 		}
-
+		a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeRole, role.ID, role.Name, role, nil)
 		return a.syncToCasbin(ctx)
 	})
 }

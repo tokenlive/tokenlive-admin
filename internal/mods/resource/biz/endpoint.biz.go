@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -31,6 +33,7 @@ type Endpoint struct {
 	ProviderDAL       *dal.Provider
 	ConfigRedisSync   *ConfigRedisSync
 	RedisClient       *redis.Client
+	AuditLogBIZ       *opsBiz.AuditLog
 }
 
 // Query endpoints.
@@ -235,6 +238,7 @@ func (e *Endpoint) Create(ctx context.Context, formItem *schema.EndpointForm) (*
 		}
 	}
 
+	e.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeEndpoint, endpoint.ID, endpoint.Code, nil, endpoint)
 	return endpoint, nil
 }
 
@@ -268,6 +272,8 @@ func (e *Endpoint) Update(ctx context.Context, id string, formItem *schema.Endpo
 		oldModelCode = oldModel.ModelCode
 	}
 
+	beforeEndpoint := *endpoint
+
 	if err := formItem.FillTo(endpoint); err != nil {
 		return err
 	}
@@ -284,6 +290,7 @@ func (e *Endpoint) Update(ctx context.Context, id string, formItem *schema.Endpo
 		if newModel, _ := e.ModelDAL.Get(ctx, endpoint.ModelID); newModel != nil && newModel.ModelCode != oldModelCode {
 			_ = e.ConfigRedisSync.SyncModelByCode(ctx, newModel.ModelCode)
 		}
+		e.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeEndpoint, endpoint.ID, endpoint.Code, beforeEndpoint, endpoint)
 	}
 	return err
 }
@@ -309,6 +316,9 @@ func (e *Endpoint) ToggleEnabled(ctx context.Context, id string, formItem *schem
 		if model, _ := e.ModelDAL.Get(ctx, endpoint.ModelID); model != nil {
 			_ = e.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
 		}
+		beforeData := map[string]int{"enabled": endpoint.Enabled}
+		afterData := map[string]int{"enabled": formItem.Enabled}
+		e.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeEndpoint, endpoint.ID, endpoint.Code, beforeData, afterData)
 	}
 	return err
 }
@@ -332,6 +342,7 @@ func (e *Endpoint) Delete(ctx context.Context, id string) error {
 		if model, _ := e.ModelDAL.Get(ctx, endpoint.ModelID); model != nil {
 			_ = e.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
 		}
+		e.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeEndpoint, endpoint.ID, endpoint.Code, endpoint, nil)
 	}
 	return err
 }

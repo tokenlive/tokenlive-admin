@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -16,6 +18,7 @@ type PolicyCircuitBreak struct {
 	PolicyCircuitBreakDAL *dal.PolicyCircuitBreak
 	PolicyBindingDAL      *dal.PolicyBinding
 	PolicyRedisSync       *PolicyRedisSync
+	AuditLogBIZ           *opsBiz.AuditLog
 }
 
 // Query policy circuit breaks from the data access object based on the provided parameters and options.
@@ -80,6 +83,9 @@ func (a *PolicyCircuitBreak) Create(ctx context.Context, formItem *schema.Policy
 	if err != nil {
 		return nil, err
 	}
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyCircuitBreak.ID, policyCircuitBreak.Name, nil, policyCircuitBreak)
+
 	return policyCircuitBreak, nil
 }
 
@@ -100,6 +106,8 @@ func (a *PolicyCircuitBreak) Update(ctx context.Context, id string, formItem *sc
 			return errors.BadRequest("", "Policy circuit break with the same name already exists")
 		}
 	}
+
+	beforePolicy := *policyCircuitBreak
 
 	if err := formItem.FillTo(policyCircuitBreak); err != nil {
 		return err
@@ -123,15 +131,17 @@ func (a *PolicyCircuitBreak) Update(ctx context.Context, id string, formItem *sc
 		return err
 	}
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyCircuitBreak.ID, policyCircuitBreak.Name, beforePolicy, policyCircuitBreak)
+
 	return nil
 }
 
 // Delete the specified policy circuit break from the data access object.
 func (a *PolicyCircuitBreak) Delete(ctx context.Context, id string) error {
-	exists, err := a.PolicyCircuitBreakDAL.Exists(ctx, id)
+	policyCircuitBreak, err := a.PolicyCircuitBreakDAL.Get(ctx, id)
 	if err != nil {
 		return err
-	} else if !exists {
+	} else if policyCircuitBreak == nil {
 		return errors.NotFound("", "Policy circuit break not found")
 	}
 
@@ -155,6 +165,8 @@ func (a *PolicyCircuitBreak) Delete(ctx context.Context, id string) error {
 	if err := a.PolicyRedisSync.SyncPolicyChange(ctx, "circuit_break", id); err != nil {
 		return err
 	}
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyCircuitBreak.ID, policyCircuitBreak.Name, policyCircuitBreak, nil)
 
 	return nil
 }

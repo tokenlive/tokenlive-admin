@@ -9,6 +9,8 @@ import (
 	"github.com/LyricTian/captcha"
 	"github.com/gin-gonic/gin"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/cachex"
@@ -28,6 +30,7 @@ type Login struct {
 	UserRoleDAL *dal.UserRole
 	MenuDAL     *dal.Menu
 	UserBIZ     *User
+	AuditLogBIZ *opsBiz.AuditLog
 }
 
 func (a *Login) ParseUserID(c *gin.Context) (string, error) {
@@ -194,6 +197,7 @@ func (a *Login) Login(ctx context.Context, formItem *schema.LoginForm) (*schema.
 		userID := config.C.General.Root.ID
 		ctx = logging.NewUserID(ctx, userID)
 		logging.Context(ctx).Info("Login by root")
+		a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionLogin, opsSchema.AuditResourceTypeUser, userID, formItem.Username, nil, nil)
 		return a.genLoginResponse(ctx, userID, "", formItem.RememberMe)
 	}
 
@@ -236,6 +240,8 @@ func (a *Login) Login(ctx context.Context, formItem *schema.LoginForm) (*schema.
 		logging.Context(ctx).Error("Failed to set cache", zap.Error(err))
 	}
 	logging.Context(ctx).Info("Login success", zap.String("username", formItem.Username))
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionLogin, opsSchema.AuditResourceTypeUser, userID, formItem.Username, nil, nil)
 
 	// generate token
 	return a.genLoginResponse(ctx, userID, user.Tenant, formItem.RememberMe)
@@ -329,6 +335,8 @@ func (a *Login) LogoutWithRefreshToken(ctx context.Context, accessToken string, 
 	ctx = logging.NewTag(ctx, logging.TagKeyLogout)
 	logging.Context(ctx).Info("Logout success")
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionLogout, opsSchema.AuditResourceTypeUser, userID, "", nil, nil)
+
 	return nil
 }
 
@@ -349,6 +357,8 @@ func (a *Login) Logout(ctx context.Context) error {
 		logging.Context(ctx).Error("Failed to delete user cache", zap.Error(err))
 	}
 	logging.Context(ctx).Info("Logout success")
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionLogout, opsSchema.AuditResourceTypeUser, userID, "", nil, nil)
 
 	return nil
 }

@@ -8,6 +8,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	policyBiz "github.com/tokenlive/tokenlive-admin/internal/mods/policy/biz"
 	policySchema "github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
@@ -27,6 +29,7 @@ type Model struct {
 	ConfigRedisSync   *ConfigRedisSync
 	PolicyRedisSync   *policyBiz.PolicyRedisSync
 	RedisClient       *redis.Client
+	AuditLogBIZ       *opsBiz.AuditLog
 }
 
 // Query models.
@@ -105,6 +108,7 @@ func (m *Model) Create(ctx context.Context, formItem *schema.ModelForm) (*schema
 		return nil, err
 	}
 	_ = m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
+	m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, nil, model)
 	return model, nil
 }
 
@@ -138,6 +142,9 @@ func (m *Model) Update(ctx context.Context, id string, formItem *schema.ModelFor
 	originalModelCode := model.ModelCode
 	originalEnabled := model.Enabled
 
+	// Capture before state for audit
+	beforeModel := *model
+
 	if err := formItem.FillTo(model); err != nil {
 		return err
 	}
@@ -162,6 +169,8 @@ func (m *Model) Update(ctx context.Context, id string, formItem *schema.ModelFor
 				_ = m.ConfigRedisSync.SyncModelEnable(ctx, model.ID, model.ModelCode)
 			}
 		}
+
+		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, beforeModel, model)
 	}
 	return err
 }
@@ -193,6 +202,9 @@ func (m *Model) ToggleEnabled(ctx context.Context, id string, formItem *schema.M
 		} else {
 			_ = m.ConfigRedisSync.SyncModelEnable(ctx, model.ID, model.ModelCode)
 		}
+		beforeData := map[string]int{"enabled": model.Enabled}
+		afterData := map[string]int{"enabled": formItem.Enabled}
+		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, beforeData, afterData)
 	}
 	return err
 }
@@ -306,6 +318,8 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 				_ = m.PolicyRedisSync.SyncDimension(ctx, dim.TenantCode, dim.UserID, dim.ModelCode)
 			}
 		}
+
+		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, model, nil)
 	}
 	return err
 }

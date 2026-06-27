@@ -44,6 +44,10 @@ func (a *DataPermission) Get(ctx context.Context, id string) (*schema.DataPermis
 
 // Create a new data permission in the data access object.
 func (a *DataPermission) Create(ctx context.Context, formItem *schema.DataPermissionForm) (*schema.DataPermission, error) {
+	if err := validateWritableTenant(ctx, formItem.Tenant); err != nil {
+		return nil, err
+	}
+
 	dataPermission := &schema.DataPermission{
 		ID:        util.NewXID(),
 		Creator:   util.FromUsername(ctx),
@@ -65,6 +69,10 @@ func (a *DataPermission) Create(ctx context.Context, formItem *schema.DataPermis
 
 // Update the specified data permission in the data access object.
 func (a *DataPermission) Update(ctx context.Context, id string, formItem *schema.DataPermissionForm) error {
+	if err := validateWritableTenant(ctx, formItem.Tenant); err != nil {
+		return err
+	}
+
 	dataPermission, err := a.DataPermissionDAL.Get(ctx, id)
 	if err != nil {
 		return err
@@ -122,4 +130,15 @@ func (a *DataPermission) CreateByOwner(ctx context.Context, dataType, dataId, te
 // HasReadPermission checks if the current user has read permission for a specific data item.
 func (a *DataPermission) HasReadPermission(ctx context.Context, dataType, dataId string) (bool, error) {
 	return a.DataPermissionDAL.HasReadPermission(ctx, dataType, dataId, util.FromUsername(ctx), util.FromTenant(ctx))
+}
+
+func validateWritableTenant(ctx context.Context, tenant string) error {
+	if util.FromIsRootUser(ctx) {
+		return nil
+	}
+	currentTenant := util.FromTenant(ctx)
+	if currentTenant == "" || tenant != currentTenant {
+		return errors.Forbidden("", "Cannot operate data permissions outside current tenant")
+	}
+	return nil
 }

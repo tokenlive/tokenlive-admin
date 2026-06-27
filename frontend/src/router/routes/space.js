@@ -4,6 +4,7 @@ import {
     ClusterOutlined,
     DeploymentUnitOutlined,
     AppstoreOutlined,
+    KeyOutlined,
 } from '@ant-design/icons-vue'
 
 export default [
@@ -96,6 +97,18 @@ export default [
                 meta: {
                     icon: AppstoreOutlined,
                     title: '模型目录',
+                    isMenu: true,
+                    keepAlive: true,
+                    permission: '*',
+                },
+            },
+            {
+                path: 'user-api-key',
+                name: 'user-api-key',
+                component: 'system/user-api-key/index.vue',
+                meta: {
+                    icon: KeyOutlined,
+                    title: 'API Key 管理',
                     isMenu: true,
                     keepAlive: true,
                     permission: '*',

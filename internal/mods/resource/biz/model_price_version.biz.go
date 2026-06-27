@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -15,6 +17,7 @@ type ModelPriceVersion struct {
 	Trans                *util.Trans
 	ModelPriceVersionDAL *dal.ModelPriceVersion
 	ModelCatalogDAL      *dal.ModelCatalog
+	AuditLogBIZ          *opsBiz.AuditLog
 }
 
 // Query model price versions.
@@ -70,6 +73,7 @@ func (m *ModelPriceVersion) Create(ctx context.Context, formItem *schema.ModelPr
 	if err != nil {
 		return nil, err
 	}
+	m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePriceVersion, version.ID, version.ID, nil, version)
 	return version, nil
 }
 
@@ -82,15 +86,21 @@ func (m *ModelPriceVersion) Update(ctx context.Context, id string, formItem *sch
 		return errors.NotFound("", "Price version not found")
 	}
 
+	beforeVersion := *version
+
 	if err := formItem.FillTo(version); err != nil {
 		return err
 	}
 	version.Modifier = util.FromUsername(ctx)
 	version.UpdatedAt = time.Now()
 
-	return m.Trans.Exec(ctx, func(ctx context.Context) error {
+	err = m.Trans.Exec(ctx, func(ctx context.Context) error {
 		return m.ModelPriceVersionDAL.Update(ctx, version)
 	})
+	if err == nil {
+		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePriceVersion, version.ID, version.ID, beforeVersion, version)
+	}
+	return err
 }
 
 // Deactivate deactivates a price version.
@@ -102,13 +112,19 @@ func (m *ModelPriceVersion) Deactivate(ctx context.Context, id string) error {
 		return errors.NotFound("", "Price version not found")
 	}
 
+	beforeVersion := *version
+
 	version.Status = schema.ModelPriceStatusInactive
 	version.Modifier = util.FromUsername(ctx)
 	version.UpdatedAt = time.Now()
 
-	return m.Trans.Exec(ctx, func(ctx context.Context) error {
+	err = m.Trans.Exec(ctx, func(ctx context.Context) error {
 		return m.ModelPriceVersionDAL.Update(ctx, version)
 	})
+	if err == nil {
+		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDisable, opsSchema.AuditResourceTypePriceVersion, version.ID, version.ID, beforeVersion, version)
+	}
+	return err
 }
 
 // Delete the specified model price version.
@@ -121,7 +137,11 @@ func (m *ModelPriceVersion) Delete(ctx context.Context, id string) error {
 	}
 
 	return m.Trans.Exec(ctx, func(ctx context.Context) error {
-		return m.ModelPriceVersionDAL.Delete(ctx, id)
+		if err := m.ModelPriceVersionDAL.Delete(ctx, id); err != nil {
+			return err
+		}
+		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePriceVersion, version.ID, version.ID, version, nil)
+		return nil
 	})
 }
 

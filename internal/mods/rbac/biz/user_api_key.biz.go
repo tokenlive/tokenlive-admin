@@ -8,6 +8,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -34,11 +36,29 @@ type UserAPIKey struct {
 	UserAPIKeyDAL *dal.UserAPIKey
 	UserDAL       *dal.User
 	RedisClient   *redis.Client
+	AuditLogBIZ   *opsBiz.AuditLog
+}
+
+// checkOwnership 校验当前用户是否有权操作该 API Key。
+// root 用户（超级管理员）跳过校验，普通用户只能操作自己名下的 Key。
+func (a *UserAPIKey) checkOwnership(ctx context.Context, item *schema.UserAPIKey) error {
+	if util.FromIsRootUser(ctx) {
+		return nil
+	}
+	if item.UserID != util.FromUserID(ctx) {
+		return errors.NotFound("", "API key not found")
+	}
+	return nil
 }
 
 // Query 分页查询用户 API Key 列表（已掩码脱敏）
 func (a *UserAPIKey) Query(ctx context.Context, params schema.UserAPIKeyQueryParam) (*schema.UserAPIKeyQueryResult, error) {
 	params.Pagination = true
+
+	// 非 root 用户只能查看自己的 API Key
+	if !util.FromIsRootUser(ctx) {
+		params.UserID = util.FromUserID(ctx)
+	}
 
 	result, err := a.UserAPIKeyDAL.Query(ctx, params, schema.UserAPIKeyQueryOptions{
 		QueryOptions: util.QueryOptions{
@@ -66,6 +86,10 @@ func (a *UserAPIKey) GetPlaintext(ctx context.Context, id string) (string, error
 		return "", errors.NotFound("", "API key not found")
 	}
 
+	if err := a.checkOwnership(ctx, item); err != nil {
+		return "", err
+	}
+
 	// 返回明文 API Key
 	return item.APIKey, nil
 }
@@ -79,6 +103,10 @@ func (a *UserAPIKey) Get(ctx context.Context, id string) (*schema.UserAPIKey, er
 		return nil, errors.NotFound("", "API key not found")
 	}
 
+	if err := a.checkOwnership(ctx, item); err != nil {
+		return nil, err
+	}
+
 	// 详情查询也进行掩码处理，仅在 Create 接口回显明文
 	item.Mask()
 	return item, nil
@@ -86,6 +114,11 @@ func (a *UserAPIKey) Get(ctx context.Context, id string) (*schema.UserAPIKey, er
 
 // Create 创建用户 API Key（仅在此接口返回新生成的明文 API Key 供前台复制）
 func (a *UserAPIKey) Create(ctx context.Context, formItem *schema.UserAPIKeyForm) (*schema.UserAPIKey, error) {
+	// 非 root 用户只能给自己创建 API Key
+	if !util.FromIsRootUser(ctx) {
+		formItem.UserID = util.FromUserID(ctx)
+	}
+
 	// 1. 自动生成密码学安全的高熵 API Key
 	rawKey, err := a.generateRandomAPIKey(ctx)
 	if err != nil {
@@ -119,6 +152,7 @@ func (a *UserAPIKey) Create(ctx context.Context, formItem *schema.UserAPIKeyForm
 	}
 
 	// 注意：此处返回的 apiKey 包含 rawKey (明文)，供前端一次性展示
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeAPIKey, apiKey.ID, apiKey.Name, nil, apiKey)
 	return apiKey, nil
 }
 
@@ -130,6 +164,12 @@ func (a *UserAPIKey) Update(ctx context.Context, id string, formItem *schema.Use
 	} else if apiKey == nil {
 		return errors.NotFound("", "API key not found")
 	}
+
+	if err := a.checkOwnership(ctx, apiKey); err != nil {
+		return err
+	}
+
+	beforeAPIKey := *apiKey
 
 	formItem.FillTo(apiKey)
 	apiKey.UpdatedAt = time.Now()
@@ -148,6 +188,7 @@ func (a *UserAPIKey) Update(ctx context.Context, id string, formItem *schema.Use
 
 	// 同步 Redis
 	_ = a.syncToRedis(ctx, apiKey)
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeAPIKey, apiKey.ID, apiKey.Name, beforeAPIKey, apiKey)
 	return nil
 }
 
@@ -158,6 +199,10 @@ func (a *UserAPIKey) Delete(ctx context.Context, id string) error {
 		return err
 	} else if apiKey == nil {
 		return errors.NotFound("", "API key not found")
+	}
+
+	if err := a.checkOwnership(ctx, apiKey); err != nil {
+		return err
 	}
 
 	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
@@ -172,6 +217,7 @@ func (a *UserAPIKey) Delete(ctx context.Context, id string) error {
 		redisKey := "aigw:apikey:" + apiKey.APIKey
 		_ = a.RedisClient.Del(ctx, redisKey).Err()
 	}
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeAPIKey, apiKey.ID, apiKey.Name, apiKey, nil)
 	return nil
 }
 

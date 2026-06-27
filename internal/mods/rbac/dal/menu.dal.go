@@ -99,6 +99,31 @@ func (a *Menu) GetByCodeAndParentID(ctx context.Context, code, parentID string, 
 	return item, nil
 }
 
+func (a *Menu) GetUniquePageByCode(ctx context.Context, code string) (*schema.Menu, error) {
+	var items schema.Menus
+	err := GetMenuDB(ctx, a.DB).
+		Where("code = ? AND type = ?", code, "page").
+		Limit(2).
+		Find(&items).
+		Error
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if len(items) != 1 {
+		return nil, nil
+	}
+	return items[0], nil
+}
+
+func (a *Menu) QueryPagesByCode(ctx context.Context, code string) (schema.Menus, error) {
+	var items schema.Menus
+	err := GetMenuDB(ctx, a.DB).
+		Where("code = ? AND type = ?", code, "page").
+		Find(&items).
+		Error
+	return items, errors.WithStack(err)
+}
+
 // GetByNameAndParentID get the specified menu from the database.
 func (a *Menu) GetByNameAndParentID(ctx context.Context, name, parentID string, opts ...schema.MenuQueryOptions) (*schema.Menu, error) {
 	var opt schema.MenuQueryOptions

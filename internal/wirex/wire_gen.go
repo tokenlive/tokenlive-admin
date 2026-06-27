@@ -13,24 +13,24 @@ import (
 	api5 "github.com/tokenlive/tokenlive-admin/internal/mods/dashboard/api"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/ops"
 	api6 "github.com/tokenlive/tokenlive-admin/internal/mods/ops/api"
-	biz5 "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
-	dal5 "github.com/tokenlive/tokenlive-admin/internal/mods/ops/dal"
+	biz2 "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	dal2 "github.com/tokenlive/tokenlive-admin/internal/mods/ops/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy"
 	api4 "github.com/tokenlive/tokenlive-admin/internal/mods/policy/api"
-	biz3 "github.com/tokenlive/tokenlive-admin/internal/mods/policy/biz"
-	dal3 "github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
+	biz4 "github.com/tokenlive/tokenlive-admin/internal/mods/policy/biz"
+	dal4 "github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/api"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/biz"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource"
 	api2 "github.com/tokenlive/tokenlive-admin/internal/mods/resource/api"
-	biz2 "github.com/tokenlive/tokenlive-admin/internal/mods/resource/biz"
-	dal2 "github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
+	biz3 "github.com/tokenlive/tokenlive-admin/internal/mods/resource/biz"
+	dal3 "github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/space"
 	api3 "github.com/tokenlive/tokenlive-admin/internal/mods/space/api"
-	biz4 "github.com/tokenlive/tokenlive-admin/internal/mods/space/biz"
-	dal4 "github.com/tokenlive/tokenlive-admin/internal/mods/space/dal"
+	biz5 "github.com/tokenlive/tokenlive-admin/internal/mods/space/biz"
+	dal5 "github.com/tokenlive/tokenlive-admin/internal/mods/space/dal"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
@@ -80,12 +80,20 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	userRole := &dal.UserRole{
 		DB: db,
 	}
+	auditLog := &dal2.AuditLog{
+		DB: db,
+	}
+	bizAuditLog := &biz2.AuditLog{
+		Trans:       trans,
+		AuditLogDAL: auditLog,
+	}
 	bizRole := &biz.Role{
 		Cache:       cacher,
 		Trans:       trans,
 		RoleDAL:     role,
 		RoleMenuDAL: roleMenu,
 		UserRoleDAL: userRole,
+		AuditLogBIZ: bizAuditLog,
 	}
 	apiRole := &api.Role{
 		RoleBIZ: bizRole,
@@ -98,6 +106,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		Trans:       trans,
 		UserDAL:     user,
 		UserRoleDAL: userRole,
+		AuditLogBIZ: bizAuditLog,
 	}
 	apiUser := &api.User{
 		UserBIZ: bizUser,
@@ -109,6 +118,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		UserRoleDAL: userRole,
 		MenuDAL:     menu,
 		UserBIZ:     bizUser,
+		AuditLogBIZ: bizAuditLog,
 	}
 	apiLogin := &api.Login{
 		LoginBIZ: login,
@@ -131,6 +141,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		UserAPIKeyDAL: userAPIKey,
 		UserDAL:       user,
 		RedisClient:   client,
+		AuditLogBIZ:   bizAuditLog,
 	}
 	apiUserAPIKey := &api.UserAPIKey{
 		UserAPIKeyBIZ: bizUserAPIKey,
@@ -143,6 +154,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		TenantDAL:   tenant,
 		UserDAL:     user,
 		RedisClient: client,
+		AuditLogBIZ: bizAuditLog,
 	}
 	apiTenant := &api.Tenant{
 		TenantBIZ: bizTenant,
@@ -154,6 +166,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		Trans:          trans,
 		TenantModelDAL: tenantModel,
 		RedisClient:    client,
+		AuditLogBIZ:    bizAuditLog,
 	}
 	apiTenantModel := &api.TenantModel{
 		TenantModelBIZ: bizTenantModel,
@@ -165,6 +178,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		Trans:             trans,
 		TenantEndpointDAL: tenantEndpoint,
 		RedisClient:       client,
+		AuditLogBIZ:       bizAuditLog,
 	}
 	apiTenantEndpoint := &api.TenantEndpoint{
 		TenantEndpointBIZ: bizTenantEndpoint,
@@ -189,41 +203,42 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		TenantEndpointAPI: apiTenantEndpoint,
 		Casbinx:           casbinx,
 	}
-	provider := &dal2.Provider{
+	provider := &dal3.Provider{
 		DB: db,
 	}
-	dataPermission := &dal2.DataPermission{
+	dataPermission := &dal3.DataPermission{
 		DB: db,
 	}
-	bizDataPermission := &biz2.DataPermission{
+	bizDataPermission := &biz3.DataPermission{
 		Trans:             trans,
 		DataPermissionDAL: dataPermission,
 	}
-	endpoint := &dal2.Endpoint{
+	endpoint := &dal3.Endpoint{
 		DB: db,
 	}
-	model := &dal2.Model{
+	model := &dal3.Model{
 		DB: db,
 	}
-	modelAlias := &dal2.ModelAlias{
+	modelAlias := &dal3.ModelAlias{
 		DB: db,
 	}
-	configRedisSync := &biz2.ConfigRedisSync{
+	configRedisSync := &biz3.ConfigRedisSync{
 		RedisClient:   client,
 		EndpointDAL:   endpoint,
 		ModelDAL:      model,
 		ModelAliasDAL: modelAlias,
 	}
-	bizProvider := &biz2.Provider{
+	bizProvider := &biz3.Provider{
 		Trans:             trans,
 		ProviderDAL:       provider,
 		DataPermissionBIZ: bizDataPermission,
 		ConfigRedisSync:   configRedisSync,
+		AuditLogBIZ:       bizAuditLog,
 	}
 	apiProvider := &api2.Provider{
 		ProviderBIZ: bizProvider,
 	}
-	bizEndpoint := &biz2.Endpoint{
+	bizEndpoint := &biz3.Endpoint{
 		Trans:             trans,
 		EndpointDAL:       endpoint,
 		DataPermissionBIZ: bizDataPermission,
@@ -231,32 +246,33 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		ProviderDAL:       provider,
 		ConfigRedisSync:   configRedisSync,
 		RedisClient:       client,
+		AuditLogBIZ:       bizAuditLog,
 	}
 	apiEndpoint := &api2.Endpoint{
 		EndpointBIZ: bizEndpoint,
 	}
-	policyBinding := &dal3.PolicyBinding{
+	policyBinding := &dal4.PolicyBinding{
 		DB: db,
 	}
-	policyLoadbalance := &dal3.PolicyLoadbalance{
+	policyLoadbalance := &dal4.PolicyLoadbalance{
 		DB: db,
 	}
-	policyRoute := &dal3.PolicyRoute{
+	policyRoute := &dal4.PolicyRoute{
 		DB: db,
 	}
-	policyLimit := &dal3.PolicyLimit{
+	policyLimit := &dal4.PolicyLimit{
 		DB: db,
 	}
-	policyCircuitBreak := &dal3.PolicyCircuitBreak{
+	policyCircuitBreak := &dal4.PolicyCircuitBreak{
 		DB: db,
 	}
-	policyInvocation := &dal3.PolicyInvocation{
+	policyInvocation := &dal4.PolicyInvocation{
 		DB: db,
 	}
-	policyTagging := &dal3.PolicyTagging{
+	policyTagging := &dal4.PolicyTagging{
 		DB: db,
 	}
-	policyRedisSync := &biz3.PolicyRedisSync{
+	policyRedisSync := &biz4.PolicyRedisSync{
 		RedisClient:           client,
 		PolicyBindingDAL:      policyBinding,
 		PolicyLoadbalanceDAL:  policyLoadbalance,
@@ -266,18 +282,19 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		PolicyInvocationDAL:   policyInvocation,
 		PolicyTaggingDAL:      policyTagging,
 	}
-	bizModel := &biz2.Model{
+	bizModel := &biz3.Model{
 		Trans:             trans,
 		ModelDAL:          model,
 		DataPermissionBIZ: bizDataPermission,
 		ConfigRedisSync:   configRedisSync,
 		PolicyRedisSync:   policyRedisSync,
 		RedisClient:       client,
+		AuditLogBIZ:       bizAuditLog,
 	}
 	apiModel := &api2.Model{
 		ModelBIZ: bizModel,
 	}
-	bizModelAlias := &biz2.ModelAlias{
+	bizModelAlias := &biz3.ModelAlias{
 		Trans:           trans,
 		ModelAliasDAL:   modelAlias,
 		ModelDAL:        model,
@@ -289,21 +306,22 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	apiDataPermission := &api2.DataPermission{
 		DataPermissionBIZ: bizDataPermission,
 	}
-	modelCatalog := &dal2.ModelCatalog{
+	modelCatalog := &dal3.ModelCatalog{
 		DB: db,
 	}
-	modelCatalogI18n := &dal2.ModelCatalogI18n{
+	modelCatalogI18n := &dal3.ModelCatalogI18n{
 		DB: db,
 	}
-	bizModelCatalog := &biz2.ModelCatalog{
+	bizModelCatalog := &biz3.ModelCatalog{
 		Trans:               trans,
 		ModelCatalogDAL:     modelCatalog,
 		ModelCatalogI18nDAL: modelCatalogI18n,
+		AuditLogBIZ:         bizAuditLog,
 	}
 	apiModelCatalog := &api2.ModelCatalog{
 		ModelCatalogBIZ: bizModelCatalog,
 	}
-	bizModelCatalogI18n := &biz2.ModelCatalogI18n{
+	bizModelCatalogI18n := &biz3.ModelCatalogI18n{
 		Trans:               trans,
 		ModelCatalogI18nDAL: modelCatalogI18n,
 		ModelCatalogDAL:     modelCatalog,
@@ -311,13 +329,14 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	apiModelCatalogI18n := &api2.ModelCatalogI18n{
 		ModelCatalogI18nBIZ: bizModelCatalogI18n,
 	}
-	modelPriceVersion := &dal2.ModelPriceVersion{
+	modelPriceVersion := &dal3.ModelPriceVersion{
 		DB: db,
 	}
-	bizModelPriceVersion := &biz2.ModelPriceVersion{
+	bizModelPriceVersion := &biz3.ModelPriceVersion{
 		Trans:                trans,
 		ModelPriceVersionDAL: modelPriceVersion,
 		ModelCatalogDAL:      modelCatalog,
+		AuditLogBIZ:          bizAuditLog,
 	}
 	apiModelPriceVersion := &api2.ModelPriceVersion{
 		ModelPriceVersionBIZ: bizModelPriceVersion,
@@ -333,10 +352,10 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		ModelCatalogI18nAPI:  apiModelCatalogI18n,
 		ModelPriceVersionAPI: apiModelPriceVersion,
 	}
-	dalSpace := &dal4.Space{
+	dalSpace := &dal5.Space{
 		DB: db,
 	}
-	bizSpace := &biz4.Space{
+	bizSpace := &biz5.Space{
 		Trans:    trans,
 		SpaceDAL: dalSpace,
 	}
@@ -347,74 +366,81 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		DB:       db,
 		SpaceAPI: apiSpace,
 	}
-	bizPolicyLoadbalance := &biz3.PolicyLoadbalance{
+	bizPolicyLoadbalance := &biz4.PolicyLoadbalance{
 		Trans:                trans,
 		PolicyLoadbalanceDAL: policyLoadbalance,
 		PolicyBindingDAL:     policyBinding,
 		PolicyRedisSync:      policyRedisSync,
+		AuditLogBIZ:          bizAuditLog,
 	}
 	apiPolicyLoadbalance := &api4.PolicyLoadbalance{
 		PolicyLoadbalanceBIZ: bizPolicyLoadbalance,
 	}
-	bizPolicyRoute := &biz3.PolicyRoute{
+	bizPolicyRoute := &biz4.PolicyRoute{
 		Trans:            trans,
 		PolicyRouteDAL:   policyRoute,
 		PolicyBindingDAL: policyBinding,
 		PolicyRedisSync:  policyRedisSync,
+		AuditLogBIZ:      bizAuditLog,
 	}
 	apiPolicyRoute := &api4.PolicyRoute{
 		PolicyRouteBIZ: bizPolicyRoute,
 	}
-	policyRouteDetail := &dal3.PolicyRouteDetail{
+	policyRouteDetail := &dal4.PolicyRouteDetail{
 		DB: db,
 	}
-	bizPolicyRouteDetail := &biz3.PolicyRouteDetail{
+	bizPolicyRouteDetail := &biz4.PolicyRouteDetail{
 		Trans:                trans,
 		PolicyRouteDetailDAL: policyRouteDetail,
 	}
 	apiPolicyRouteDetail := &api4.PolicyRouteDetail{
 		PolicyRouteDetailBIZ: bizPolicyRouteDetail,
 	}
-	bizPolicyLimit := &biz3.PolicyLimit{
+	bizPolicyLimit := &biz4.PolicyLimit{
 		Trans:            trans,
 		PolicyLimitDAL:   policyLimit,
 		PolicyBindingDAL: policyBinding,
 		PolicyRedisSync:  policyRedisSync,
+		AuditLogBIZ:      bizAuditLog,
 	}
 	apiPolicyLimit := &api4.PolicyLimit{
 		PolicyLimitBIZ: bizPolicyLimit,
 	}
-	bizPolicyCircuitBreak := &biz3.PolicyCircuitBreak{
+	bizPolicyCircuitBreak := &biz4.PolicyCircuitBreak{
 		Trans:                 trans,
 		PolicyCircuitBreakDAL: policyCircuitBreak,
 		PolicyBindingDAL:      policyBinding,
 		PolicyRedisSync:       policyRedisSync,
+		AuditLogBIZ:           bizAuditLog,
 	}
 	apiPolicyCircuitBreak := &api4.PolicyCircuitBreak{
 		PolicyCircuitBreakBIZ: bizPolicyCircuitBreak,
 	}
-	bizPolicyInvocation := &biz3.PolicyInvocation{
+	bizPolicyInvocation := &biz4.PolicyInvocation{
 		Trans:               trans,
 		PolicyInvocationDAL: policyInvocation,
 		PolicyBindingDAL:    policyBinding,
 		PolicyRedisSync:     policyRedisSync,
+		AuditLogBIZ:         bizAuditLog,
 	}
 	apiPolicyInvocation := &api4.PolicyInvocation{
 		PolicyInvocationBIZ: bizPolicyInvocation,
 	}
-	bizPolicyBinding := &biz3.PolicyBinding{
+	bizPolicyBinding := &biz4.PolicyBinding{
 		Trans:            trans,
 		PolicyBindingDAL: policyBinding,
 		PolicyRedisSync:  policyRedisSync,
+		AuditLogBIZ:      bizAuditLog,
 	}
 	apiPolicyBinding := &api4.PolicyBinding{
 		PolicyBindingBIZ: bizPolicyBinding,
 	}
-	bizPolicyTagging := &biz3.PolicyTagging{
+	bizPolicyTagging := &biz4.PolicyTagging{
 		Trans:            trans,
 		PolicyTaggingDAL: policyTagging,
 		PolicyBindingDAL: policyBinding,
 		PolicyRedisSync:  policyRedisSync,
+		AuditLogBIZ:      bizAuditLog,
 	}
 	apiPolicyTagging := &api4.PolicyTagging{
 		PolicyTaggingBIZ: bizPolicyTagging,
@@ -438,10 +464,10 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	dashboardDashboard := &dashboard.Dashboard{
 		DashboardAPI: apiDashboard,
 	}
-	eventLog := &dal5.EventLog{
+	eventLog := &dal2.EventLog{
 		DB: db,
 	}
-	eventBiz := &biz5.EventBiz{
+	eventBiz := &biz2.EventBiz{
 		EventDAL: eventLog,
 	}
 	wsHub := api6.NewWSHub()
@@ -449,26 +475,19 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		EventBIZ: eventBiz,
 		Hub:      wsHub,
 	}
-	auditLog := &dal5.AuditLog{
-		DB: db,
-	}
-	bizAuditLog := &biz5.AuditLog{
-		Trans:       trans,
-		AuditLogDAL: auditLog,
-	}
 	apiAuditLog := &api6.AuditLog{
 		AuditLogBIZ: bizAuditLog,
 	}
-	portalUser := &biz5.PortalUser{}
+	portalUser := &biz2.PortalUser{}
 	portalUserAPI := &api6.PortalUserAPI{
 		PortalUserBIZ: portalUser,
 	}
 	eventSubscriber := ops.ProvideEventSubscriber(client)
-	consumer := &biz5.Consumer{
+	consumer := &biz2.Consumer{
 		Subscriber: eventSubscriber,
 		EventDAL:   eventLog,
 	}
-	cleanupTask := &biz5.CleanupTask{
+	cleanupTask := &biz2.CleanupTask{
 		DB: db,
 	}
 	opsOps := &ops.Ops{

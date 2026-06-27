@@ -8,6 +8,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
+	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -20,6 +22,7 @@ type Tenant struct {
 	TenantDAL   *dal.Tenant
 	UserDAL     *dal.User
 	RedisClient *redis.Client
+	AuditLogBIZ *opsBiz.AuditLog
 }
 
 // Query tenants from the data access object based on the provided parameters and options.
@@ -92,6 +95,7 @@ func (a *Tenant) Create(ctx context.Context, formItem *schema.TenantForm) (*sche
 	// 同步 API Key 到 Redis
 	_ = a.syncToRedis(ctx, tenant)
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeTenant, tenant.ID, tenant.Code, nil, tenant)
 	return tenant, nil
 }
 
@@ -124,6 +128,8 @@ func (a *Tenant) Update(ctx context.Context, id string, formItem *schema.TenantF
 	oldCode := tenant.Code
 	oldAPIKey := tenant.APIKey
 
+	beforeTenant := *tenant
+
 	if err := formItem.FillTo(tenant); err != nil {
 		return err
 	}
@@ -155,6 +161,8 @@ func (a *Tenant) Update(ctx context.Context, id string, formItem *schema.TenantF
 
 	// 同步新缓存到 Redis
 	_ = a.syncToRedis(ctx, tenant)
+
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeTenant, tenant.ID, tenant.Code, beforeTenant, tenant)
 
 	// 如果租户 Code 发生变更，且 Redis 可用，则迁移 models、providers 和 endpoints 的 Redis 键
 	if a.RedisClient != nil && oldCode != tenant.Code {
@@ -224,6 +232,7 @@ func (a *Tenant) Delete(ctx context.Context, id string) error {
 		_ = a.RedisClient.Del(ctx, "aigw:apikey:"+tenant.APIKey).Err()
 	}
 
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeTenant, tenant.ID, tenant.Code, tenant, nil)
 	return nil
 }
 

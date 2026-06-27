@@ -30,6 +30,9 @@ func (a *RoleMenu) Query(ctx context.Context, params schema.RoleMenuQueryParam, 
 	if v := params.RoleID; len(v) > 0 {
 		db = db.Where("role_id = ?", v)
 	}
+	if v := params.MenuID; len(v) > 0 {
+		db = db.Where("menu_id = ?", v)
+	}
 
 	var list schema.RoleMenus
 	pageResult, err := util.WrapPageQuery(ctx, db, params.PaginationParam, opt.QueryOptions, &list)
@@ -64,6 +67,11 @@ func (a *RoleMenu) Get(ctx context.Context, id string, opts ...schema.RoleMenuQu
 // Exist checks if the specified role menu exists in the database.
 func (a *RoleMenu) Exists(ctx context.Context, id string) (bool, error) {
 	ok, err := util.Exists(ctx, GetRoleMenuDB(ctx, a.DB).Where("id=?", id))
+	return ok, errors.WithStack(err)
+}
+
+func (a *RoleMenu) ExistsRoleIDMenuID(ctx context.Context, roleID, menuID string) (bool, error) {
+	ok, err := util.Exists(ctx, GetRoleMenuDB(ctx, a.DB).Where("role_id=? AND menu_id=?", roleID, menuID))
 	return ok, errors.WithStack(err)
 }
 

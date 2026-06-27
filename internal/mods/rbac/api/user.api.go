@@ -19,6 +19,7 @@ type User struct {
 // @Param pageSize query int true "pagination size" default(10)
 // @Param username query string false "Username for login"
 // @Param name query string false "Name of user"
+// @Param tenant query string false "Tenant"
 // @Param status query string false "Status of user (activated, freezed)"
 // @Success 200 {object} util.ResponseResult{data=[]schema.User}
 // @Failure 401 {object} util.ResponseResult
