@@ -144,8 +144,8 @@ const { listData, loading, showLoading, hideLoading, paginationState, searchForm
 searchFormData.value = { action: undefined, resource_type: undefined, tenant_code: '' }
 
 const columns = [
-    { title: '时间', key: 'created_at', dataIndex: 'created_at', width: 170 },
-    { title: '操作人', dataIndex: 'actor_name', width: 100 },
+    { title: '时间', key: 'created_at', dataIndex: 'created_at', width: 200 },
+    { title: '操作人', dataIndex: 'actor_name', width: 140 },
     { title: '操作', key: 'action', dataIndex: 'action', width: 80 },
     { title: '资源类型', key: 'resource_type', dataIndex: 'resource_type', width: 100 },
     { title: '资源名称', key: 'resource_name', dataIndex: 'resource_name', width: 160 },

@@ -38,6 +38,14 @@
                     {
                         "method": "GET",
                         "path": "/api/v1/dashboard/model-ranking"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/overview"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/ws"
                     }
                 ]
             },
@@ -47,7 +55,25 @@
                 "sequence": 80,
                 "type": "page",
                 "path": "/monitor/ops",
-                "status": "enabled"
+                "status": "enabled",
+                "resources": [
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/ops/events"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/ops/events/statistics"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/ops/events/ws"
+                    },
+                    {
+                        "method": "POST",
+                        "path": "/api/v1/dashboard/sync-redis"
+                    }
+                ]
             },
             {
                 "code": "auditLog",
