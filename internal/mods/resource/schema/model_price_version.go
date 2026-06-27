@@ -14,9 +14,10 @@ type ModelPriceVersion struct {
 	ID                           string     `json:"id" gorm:"type:char(20);primaryKey;<-:create;comment:主键ID (XID);"`
 	ModelID                      string     `json:"model_id" gorm:"type:varchar(191);not null;uniqueIndex:uniq_mpv_model_effective,priority:1;index:idx_mpv_current,priority:1;comment:模型ID，关联 model_catalog.model_id;"`
 	Currency                     string     `json:"currency" gorm:"type:varchar(8);not null;default:CNY;comment:计价货币，如 CNY, USD;"`
-	InputMicroCNYPer1MTokens     int64      `json:"input_micro_cny_per_1m_tokens" gorm:"type:bigint;not null;comment:每百万输入 Token 价格（微分）;"`
-	OutputMicroCNYPer1MTokens    int64      `json:"output_micro_cny_per_1m_tokens" gorm:"type:bigint;not null;comment:每百万输出 Token 价格（微分）;"`
-	CacheReadMicroCNYPer1MTokens *int64     `json:"cache_read_micro_cny_per_1m_tokens" gorm:"type:bigint;default:null;comment:每百万缓存读取 Token 价格（微分），NULL 表示不支持缓存;"`
+	InputPrice                   float64    `json:"input_price" gorm:"type:decimal(10,6);not null;comment:输入价格（元/百万 Tokens）;"`
+	OutputPrice                  float64    `json:"output_price" gorm:"type:decimal(10,6);not null;comment:输出价格（元/百万 Tokens）;"`
+	CachedPrice                  *float64   `json:"cached_price" gorm:"type:decimal(10,6);default:null;comment:缓存命中价格（元/百万 Tokens）;"`
+	CacheCreationPrice           *float64   `json:"cache_creation_price" gorm:"type:decimal(10,6);default:null;comment:缓存创建价格（元/百万 Tokens）;"`
 	EffectiveFrom                time.Time  `json:"effective_from" gorm:"type:datetime(3);not null;uniqueIndex:uniq_mpv_model_effective,priority:2;index:idx_mpv_current,priority:3;comment:生效开始时间;"`
 	EffectiveUntil               *time.Time `json:"effective_until" gorm:"type:datetime(3);default:null;index:idx_mpv_current,priority:4;comment:生效结束时间，NULL 表示永久有效;"`
 	Status                       string     `json:"status" gorm:"type:varchar(32);not null;default:active;index:idx_mpv_current,priority:2;comment:价格状态: active, inactive;"`
@@ -63,9 +64,10 @@ type ModelPriceVersions []*ModelPriceVersion
 type ModelPriceVersionForm struct {
 	ModelID                      string     `json:"model_id" binding:"required,max=191"`       // Model ID
 	Currency                     string     `json:"currency" binding:"required,max=8"`          // Currency
-	InputMicroCNYPer1MTokens     int64      `json:"input_micro_cny_per_1m_tokens" binding:"min=0"`  // Input price
-	OutputMicroCNYPer1MTokens    int64      `json:"output_micro_cny_per_1m_tokens" binding:"min=0"` // Output price
-	CacheReadMicroCNYPer1MTokens *int64     `json:"cache_read_micro_cny_per_1m_tokens"`              // Cache read price
+	InputPrice                   float64    `json:"input_price" binding:"min=0"`  // 输入价格（元/百万 Tokens）
+	OutputPrice                  float64    `json:"output_price" binding:"min=0"` // 输出价格（元/百万 Tokens）
+	CachedPrice                  *float64   `json:"cached_price"`                  // 缓存命中价格（元/百万 Tokens）
+	CacheCreationPrice           *float64   `json:"cache_creation_price"`          // 缓存创建价格（元/百万 Tokens）
 	EffectiveFrom                time.Time  `json:"effective_from" binding:"required"`           // Effective from
 	EffectiveUntil               *time.Time `json:"effective_until"`                              // Effective until
 }
@@ -74,14 +76,17 @@ func (a *ModelPriceVersionForm) Validate() error {
 	if a.ModelID == "" {
 		return errors.BadRequest("", "ModelID is required")
 	}
-	if a.InputMicroCNYPer1MTokens < 0 {
+	if a.InputPrice < 0 {
 		return errors.BadRequest("", "Input price must be non-negative")
 	}
-	if a.OutputMicroCNYPer1MTokens < 0 {
+	if a.OutputPrice < 0 {
 		return errors.BadRequest("", "Output price must be non-negative")
 	}
-	if a.CacheReadMicroCNYPer1MTokens != nil && *a.CacheReadMicroCNYPer1MTokens < 0 {
-		return errors.BadRequest("", "Cache read price must be non-negative")
+	if a.CachedPrice != nil && *a.CachedPrice < 0 {
+		return errors.BadRequest("", "Cached price must be non-negative")
+	}
+	if a.CacheCreationPrice != nil && *a.CacheCreationPrice < 0 {
+		return errors.BadRequest("", "Cache creation price must be non-negative")
 	}
 	return nil
 }
@@ -89,9 +94,10 @@ func (a *ModelPriceVersionForm) Validate() error {
 func (a *ModelPriceVersionForm) FillTo(version *ModelPriceVersion) error {
 	version.ModelID = a.ModelID
 	version.Currency = a.Currency
-	version.InputMicroCNYPer1MTokens = a.InputMicroCNYPer1MTokens
-	version.OutputMicroCNYPer1MTokens = a.OutputMicroCNYPer1MTokens
-	version.CacheReadMicroCNYPer1MTokens = a.CacheReadMicroCNYPer1MTokens
+	version.InputPrice = a.InputPrice
+	version.OutputPrice = a.OutputPrice
+	version.CachedPrice = a.CachedPrice
+	version.CacheCreationPrice = a.CacheCreationPrice
 	version.EffectiveFrom = a.EffectiveFrom
 	version.EffectiveUntil = a.EffectiveUntil
 	version.Status = ModelPriceStatusActive
