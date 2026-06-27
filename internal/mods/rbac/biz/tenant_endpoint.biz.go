@@ -70,7 +70,7 @@ func (a *TenantEndpoint) SaveEndpoints(ctx context.Context, tenantCode, modelID 
 		return err
 	}
 
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeTenantEndpoint, modelID, tenantCode, nil, map[string]interface{}{"tenant_code": tenantCode, "model_id": modelID, "endpoint_ids": endpointIDs})
+	a.AuditLogBIZ.RecordActionWithTenant(ctx, tenantCode, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeTenantEndpoint, modelID, tenantCode, nil, map[string]interface{}{"tenant_code": tenantCode, "model_id": modelID, "endpoint_ids": endpointIDs})
 
 	// 4. 事务执行成功，同步至 Redis
 	if a.RedisClient != nil {

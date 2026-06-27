@@ -95,7 +95,7 @@ func (a *Tenant) Create(ctx context.Context, formItem *schema.TenantForm) (*sche
 	// 同步 API Key 到 Redis
 	_ = a.syncToRedis(ctx, tenant)
 
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeTenant, tenant.ID, tenant.Code, nil, tenant)
+	a.AuditLogBIZ.RecordActionWithTenant(ctx, tenant.Code, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeTenant, tenant.ID, tenant.Code, nil, tenant)
 	return tenant, nil
 }
 
@@ -162,7 +162,7 @@ func (a *Tenant) Update(ctx context.Context, id string, formItem *schema.TenantF
 	// 同步新缓存到 Redis
 	_ = a.syncToRedis(ctx, tenant)
 
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeTenant, tenant.ID, tenant.Code, beforeTenant, tenant)
+	a.AuditLogBIZ.RecordActionWithTenant(ctx, tenant.Code, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeTenant, tenant.ID, tenant.Code, beforeTenant, tenant)
 
 	// 如果租户 Code 发生变更，且 Redis 可用，则迁移 models、providers 和 endpoints 的 Redis 键
 	if a.RedisClient != nil && oldCode != tenant.Code {
@@ -232,7 +232,7 @@ func (a *Tenant) Delete(ctx context.Context, id string) error {
 		_ = a.RedisClient.Del(ctx, "aigw:apikey:"+tenant.APIKey).Err()
 	}
 
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeTenant, tenant.ID, tenant.Code, tenant, nil)
+	a.AuditLogBIZ.RecordActionWithTenant(ctx, tenant.Code, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeTenant, tenant.ID, tenant.Code, tenant, nil)
 	return nil
 }
 

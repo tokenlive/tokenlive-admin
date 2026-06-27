@@ -26,7 +26,7 @@ func toPtrString(v interface{}) *string {
 
 // AuditLog business logic layer
 type AuditLog struct {
-	Trans      *util.Trans
+	Trans       *util.Trans
 	AuditLogDAL *dal.AuditLog
 }
 
@@ -56,6 +56,7 @@ func (a *AuditLog) Get(ctx context.Context, id string) (*schema.AuditLog, error)
 // Create creates a new audit log entry.
 func (a *AuditLog) Create(ctx context.Context, formItem *schema.AuditLogForm) (*schema.AuditLog, error) {
 	log := &schema.AuditLog{
+		ID:        util.NewXID(),
 		CreatedAt: time.Now(),
 	}
 	if err := formItem.FillTo(log); err != nil {
@@ -73,8 +74,13 @@ func (a *AuditLog) Create(ctx context.Context, formItem *schema.AuditLogForm) (*
 
 // RecordAction is a convenience method to record an audit action.
 func (a *AuditLog) RecordAction(ctx context.Context, action, resourceType, resourceID, resourceName string, beforeData, afterData interface{}) {
+	a.RecordActionWithTenant(ctx, util.FromTenant(ctx), action, resourceType, resourceID, resourceName, beforeData, afterData)
+}
+
+// RecordActionWithTenant records an audit action for a specific resource tenant.
+func (a *AuditLog) RecordActionWithTenant(ctx context.Context, tenantCode, action, resourceType, resourceID, resourceName string, beforeData, afterData interface{}) {
 	form := &schema.AuditLogForm{
-		TenantCode:   util.FromTenant(ctx),
+		TenantCode:   tenantCode,
 		ActorUserID:  util.FromUserID(ctx),
 		ActorName:    util.FromUsername(ctx),
 		Action:       action,

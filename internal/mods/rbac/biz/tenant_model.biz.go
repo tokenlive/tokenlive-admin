@@ -77,7 +77,7 @@ func (a *TenantModel) SaveBindings(ctx context.Context, tenantCode string, model
 		return err
 	}
 
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeTenantModel, "", tenantCode, nil, map[string]interface{}{"tenant_code": tenantCode, "model_ids": modelIDs})
+	a.AuditLogBIZ.RecordActionWithTenant(ctx, tenantCode, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeTenantModel, "", tenantCode, nil, map[string]interface{}{"tenant_code": tenantCode, "model_ids": modelIDs})
 
 	// 5. 同步至 Redis: aigw:tenant:{tenantCode}:models
 	if a.RedisClient != nil {

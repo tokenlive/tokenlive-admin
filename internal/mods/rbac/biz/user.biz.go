@@ -133,7 +133,7 @@ func (a *User) Create(ctx context.Context, formItem *schema.UserForm) (*schema.U
 		return nil, err
 	}
 	user.Roles = formItem.Roles
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeUser, user.ID, user.Username, nil, user)
+	a.AuditLogBIZ.RecordActionWithTenant(ctx, user.Tenant, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeUser, user.ID, user.Username, nil, user)
 
 	return user, nil
 }
@@ -183,7 +183,7 @@ func (a *User) Update(ctx context.Context, id string, formItem *schema.UserForm)
 			}
 		}
 
-		a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeUser, user.ID, user.Username, beforeUser, user)
+		a.AuditLogBIZ.RecordActionWithTenant(ctx, user.Tenant, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeUser, user.ID, user.Username, beforeUser, user)
 		return a.Cache.Delete(ctx, config.CacheNSForUser, id)
 	})
 }
@@ -207,17 +207,17 @@ func (a *User) Delete(ctx context.Context, id string) error {
 			return err
 		}
 		if user != nil {
-			a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeUser, user.ID, user.Username, user, nil)
+			a.AuditLogBIZ.RecordActionWithTenant(ctx, user.Tenant, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeUser, user.ID, user.Username, user, nil)
 		}
 		return a.Cache.Delete(ctx, config.CacheNSForUser, id)
 	})
 }
 
 func (a *User) ResetPassword(ctx context.Context, id string) error {
-	exists, err := a.UserDAL.Exists(ctx, id)
+	user, err := a.UserDAL.Get(ctx, id)
 	if err != nil {
 		return err
-	} else if !exists {
+	} else if user == nil {
 		return errors.NotFound("", "User not found")
 	}
 
@@ -230,7 +230,7 @@ func (a *User) ResetPassword(ctx context.Context, id string) error {
 		if err := a.UserDAL.UpdatePasswordByID(ctx, id, hashPass); err != nil {
 			return err
 		}
-		a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeUser, id, "", nil, map[string]string{"action": "reset_password"})
+		a.AuditLogBIZ.RecordActionWithTenant(ctx, user.Tenant, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeUser, user.ID, user.Username, nil, map[string]string{"action": "reset_password"})
 		return nil
 	})
 }
