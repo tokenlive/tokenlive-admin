@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	RedisKeyConfigModelVersions = "aigw:config:model_versions"
-	RedisKeyConfigAliasPrefix   = "aigw:config:alias:"
+	RedisKeyConfigModelVersions       = "aigw:config:model_versions"
+	RedisKeyConfigAliasPrefix         = "aigw:config:alias:"
+	RedisKeyConfigModelAliasesPrefix  = "aigw:config:model_aliases:"
 )
 
 type ResolvedEndpoint struct {
@@ -288,20 +289,38 @@ func normalizeRequestTypesForProtocol(protocol string, requestTypes []string) []
 }
 
 // SyncAlias synchronizes a single alias mapping to Redis: aigw:config:alias:{alias} → modelCode.
+// It also maintains the reverse index: aigw:config:model_aliases:{modelCode} → Set[aliases].
 func (s *ConfigRedisSync) SyncAlias(ctx context.Context, alias string, modelCode string) error {
 	if s.RedisClient == nil || alias == "" || modelCode == "" {
 		return nil
 	}
+	// 1. 正向映射：alias → modelCode
 	key := RedisKeyConfigAliasPrefix + alias
-	return s.RedisClient.Set(ctx, key, modelCode, 0).Err()
+	if err := s.RedisClient.Set(ctx, key, modelCode, 0).Err(); err != nil {
+		return err
+	}
+
+	// 2. 反向索引：modelCode → Set[aliases]
+	reverseKey := RedisKeyConfigModelAliasesPrefix + modelCode
+	return s.RedisClient.SAdd(ctx, reverseKey, alias).Err()
 }
 
-// DeleteAlias removes a single alias mapping from Redis.
+// DeleteAlias removes a single alias mapping from Redis and updates the reverse index.
 func (s *ConfigRedisSync) DeleteAlias(ctx context.Context, alias string) error {
 	if s.RedisClient == nil || alias == "" {
 		return nil
 	}
+
+	// 1. 先获取 alias 对应的 modelCode（用于更新反向索引）
 	key := RedisKeyConfigAliasPrefix + alias
+	modelCode, err := s.RedisClient.Get(ctx, key).Result()
+	if err == nil && modelCode != "" {
+		// 2. 从反向索引中移除
+		reverseKey := RedisKeyConfigModelAliasesPrefix + modelCode
+		_ = s.RedisClient.SRem(ctx, reverseKey, alias).Err()
+	}
+
+	// 3. 删除正向映射
 	return s.RedisClient.Del(ctx, key).Err()
 }
 
@@ -325,7 +344,7 @@ func (s *ConfigRedisSync) SyncAliasesByModelId(ctx context.Context, modelId stri
 	return nil
 }
 
-// deleteAliasesByModelId deletes all alias Redis keys for a given model ID.
+// deleteAliasesByModelId deletes all alias Redis keys for a given model ID and cleans up the reverse index.
 func (s *ConfigRedisSync) deleteAliasesByModelId(ctx context.Context, modelId string) error {
 	if s.RedisClient == nil || modelId == "" || s.ModelAliasDAL == nil {
 		return nil
@@ -334,9 +353,27 @@ func (s *ConfigRedisSync) deleteAliasesByModelId(ctx context.Context, modelId st
 	if err != nil {
 		return err
 	}
+
+	// 获取 modelCode 用于清理反向索引
+	var modelCode string
+	if len(aliases) > 0 {
+		var model schema.Model
+		db := util.GetDB(ctx, s.ModelDAL.DB)
+		if err := db.Where("id = ? AND deleted = '0'", modelId).First(&model).Error; err == nil {
+			modelCode = model.ModelCode
+		}
+	}
+
 	for _, a := range aliases {
 		_ = s.DeleteAlias(ctx, a.Alias)
 	}
+
+	// 清理反向索引 key
+	if modelCode != "" {
+		reverseKey := RedisKeyConfigModelAliasesPrefix + modelCode
+		_ = s.RedisClient.Del(ctx, reverseKey).Err()
+	}
+
 	return nil
 }
 
