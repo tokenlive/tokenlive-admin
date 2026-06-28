@@ -341,6 +341,15 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	apiModelPriceVersion := &api2.ModelPriceVersion{
 		ModelPriceVersionBIZ: bizModelPriceVersion,
 	}
+	gatewaySync := &biz3.GatewaySync{
+		DB:            db,
+		EndpointDAL:   endpoint,
+		ModelDAL:      model,
+		ModelAliasDAL: modelAlias,
+	}
+	apiGatewaySync := &api2.GatewaySync{
+		GatewaySyncBIZ: gatewaySync,
+	}
 	resourceResource := &resource.Resource{
 		DB:                   db,
 		ProviderAPI:          apiProvider,
@@ -351,6 +360,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		ModelCatalogAPI:      apiModelCatalog,
 		ModelCatalogI18nAPI:  apiModelCatalogI18n,
 		ModelPriceVersionAPI: apiModelPriceVersion,
+		GatewaySyncAPI:       apiGatewaySync,
 	}
 	dalSpace := &dal5.Space{
 		DB: db,

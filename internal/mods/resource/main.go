@@ -20,6 +20,7 @@ type Resource struct {
 	ModelCatalogAPI       *api.ModelCatalog
 	ModelCatalogI18nAPI   *api.ModelCatalogI18n
 	ModelPriceVersionAPI  *api.ModelPriceVersion
+	GatewaySyncAPI        *api.GatewaySync
 }
 
 func (a *Resource) AutoMigrate(ctx context.Context) error {
@@ -131,6 +132,11 @@ func (a *Resource) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) e
 		modelPriceVersions.PUT(":id/deactivate", a.ModelPriceVersionAPI.Deactivate)
 		modelPriceVersions.DELETE(":id", a.ModelPriceVersionAPI.Delete)
 	}
+
+	// Gateway Pull Sync Endpoints
+	v1.GET("gateway/config", a.GatewaySyncAPI.GetConfig)
+	v1.GET("gateway/policies", a.GatewaySyncAPI.GetPolicies)
+	v1.GET("gateway/apikeys", a.GatewaySyncAPI.GetApiKeys)
 
 	return nil
 }

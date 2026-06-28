@@ -38,4 +38,7 @@ var Set = wire.NewSet(
 	wire.Struct(new(dal.ModelPriceVersion), "*"),
 	wire.Struct(new(biz.ModelPriceVersion), "*"),
 	wire.Struct(new(api.ModelPriceVersion), "*"),
+	// Gateway Pull Sync
+	wire.Struct(new(biz.GatewaySync), "*"),
+	wire.Struct(new(api.GatewaySync), "*"),
 )

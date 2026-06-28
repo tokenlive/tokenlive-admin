@@ -104,6 +104,12 @@ func startHTTPServer(ctx context.Context, injector *wirex.Injector) (func(), err
 }
 
 func useHTTPMiddlewares(_ context.Context, e *gin.Engine, injector *wirex.Injector, allowedPrefixes []string) error {
+	// Bypass auth and casbin for the internal gateway config sync endpoints
+	config.C.Middleware.Auth.SkippedPathPrefixes = append(config.C.Middleware.Auth.SkippedPathPrefixes, 
+		"/api/v1/gateway/config", "/api/v1/gateway/policies", "/api/v1/gateway/apikeys")
+	config.C.Middleware.Casbin.SkippedPathPrefixes = append(config.C.Middleware.Casbin.SkippedPathPrefixes, 
+		"/api/v1/gateway/config", "/api/v1/gateway/policies", "/api/v1/gateway/apikeys")
+
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		Enable:                 config.C.Middleware.CORS.Enable,
 		AllowAllOrigins:        config.C.Middleware.CORS.AllowAllOrigins,
