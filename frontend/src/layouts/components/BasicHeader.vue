@@ -111,6 +111,12 @@
                     </template>
                 </a-dropdown>
 
+                <a-tooltip title="GitHub">
+                    <action-button @click="handleGithub">
+                        <github-outlined />
+                    </action-button>
+                </a-tooltip>
+
                 <a-dropdown :trigger="['click']">
                     <action-button :style="{ height: '44px' }">
                         <a-avatar
@@ -148,7 +154,13 @@ import { Modal } from 'ant-design-vue'
 import { storeToRefs } from 'pinia'
 import { computed, useSlots, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { LoginOutlined, SettingOutlined, EditOutlined, TranslationOutlined } from '@ant-design/icons-vue'
+import {
+    LoginOutlined,
+    SettingOutlined,
+    EditOutlined,
+    TranslationOutlined,
+    GithubOutlined,
+} from '@ant-design/icons-vue'
 import { useAppStore, useUserStore } from '@/store'
 import ActionButton from './ActionButton.vue'
 import { theme as antTheme } from 'ant-design-vue'
@@ -268,6 +280,13 @@ function handleThemeToggle() {
  */
 function handleConfig() {
     emit('config')
+}
+
+/**
+ * 跳转 GitHub 开源项目地址
+ */
+function handleGithub() {
+    window.open('https://github.com/tokenlive', '_blank')
 }
 </script>
 
