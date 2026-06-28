@@ -328,6 +328,7 @@ export default {
     'pages.provider.detail.tab.endpoint': '端点管理',
     'pages.provider.detail.tab.member': '成员管理',
     'pages.provider.detail.load.failed': '加载供应商详情失败',
+    'pages.provider.detail.importEndpoint': '导入端点',
     // model policy binding
     'pages.model.policy.bind': '绑定策略',
     'pages.model.policy.unbind': '解除绑定',

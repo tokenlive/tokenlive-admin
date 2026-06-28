@@ -92,12 +92,18 @@
             <!-- 端点管理 Tab 内容 -->
             <div v-if="activeTab === 'endpoint'">
                 <div class="tab-toolbar">
-                    <a-button
-                        type="primary"
-                        ghost
-                        @click="$refs.endpointEditRef.handleCreate()">
-                        {{ $t('pages.endpoint.add') }}
-                    </a-button>
+                    <a-space>
+                        <a-button
+                            type="primary"
+                            ghost
+                            @click="$refs.endpointEditRef.handleCreate()">
+                            {{ $t('pages.endpoint.add') }}
+                        </a-button>
+                        <a-button @click="handleFetchModels">
+                            <template #icon><import-outlined /></template>
+                            {{ $t('pages.provider.detail.importEndpoint') }}
+                        </a-button>
+                    </a-space>
                     <div class="tab-toolbar-right">
                         <a-button @click="loadEndpointList">
                             <template #icon><reload-outlined /></template>
@@ -292,13 +298,23 @@
             ref="memberEditRef"
             :provider-id="providerId"
             @ok="loadMemberList" />
+
+        <!-- 获取模型抽屉 -->
+        <fetch-models-drawer
+            ref="fetchModelsDrawerRef"
+            @confirm="onFetchModelsConfirm"></fetch-models-drawer>
+
+        <!-- 导入映射对话框 -->
+        <import-mapping-dialog
+            ref="importMappingDialogRef"
+            @ok="onImportEndpointsOk"></import-mapping-dialog>
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, h } from 'vue'
 import { useRoute } from 'vue-router'
-import { message, Modal } from 'ant-design-vue'
+import { message, Modal, Radio } from 'ant-design-vue'
 import {
     ReloadOutlined,
     EditOutlined,
@@ -306,6 +322,7 @@ import {
     ApiOutlined,
     LoadingOutlined,
     PoweroffOutlined,
+    ImportOutlined,
 } from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { config } from '@/config'
@@ -314,6 +331,8 @@ import { useI18n } from 'vue-i18n'
 import EndpointEditDialog from './EndpointEditDialog.vue'
 import ProviderEditDialog from './ProviderEditDialog.vue'
 import ProviderMemberEditDialog from './ProviderMemberEditDialog.vue'
+import FetchModelsDrawer from './ProviderFetchModelsDrawer.vue'
+import ImportMappingDialog from './ProviderImportMappingDialog.vue'
 
 defineOptions({
     name: 'providerDetail',
@@ -326,6 +345,8 @@ const providerData = ref({})
 const activeTab = ref('endpoint')
 const providerEditRef = ref(null)
 const memberEditRef = ref(null)
+const fetchModelsDrawerRef = ref(null)
+const importMappingDialogRef = ref(null)
 
 const modelOptions = ref([])
 const providerOptions = ref([])
@@ -462,6 +483,109 @@ onMounted(() => {
 // 供应商编辑
 function handleEditProvider() {
     providerEditRef.value.handleEdit(providerData.value)
+}
+
+// 导入端点（获取上游模型列表）
+function handleFetchModels() {
+    fetchModelsDrawerRef.value.handleOpen(providerData.value)
+}
+
+async function onFetchModelsConfirm({ providerId, space_code, base_url, api_key, api_keys, models }) {
+    if (!models || models.length === 0) return
+
+    const provider = providerData.value
+    const protocol = provider?.protocol || ''
+
+    let keysToCreate = []
+
+    if (Array.isArray(api_keys) && api_keys.length > 1) {
+        const importMode = ref('all')
+        try {
+            await new Promise((resolve, reject) => {
+                Modal.confirm({
+                    title: t('pages.provider.fetchModels.api_keys_confirm_title', '检测到多个 API 密钥'),
+                    width: 600,
+                    okText: t('button.confirm', '确认'),
+                    cancelText: t('button.cancel', '取消'),
+                    content: () => {
+                        return h('div', { style: { marginTop: '12px' } }, [
+                            h(
+                                'p',
+                                { style: { marginBottom: '16px', color: 'var(--color-text-secondary)' } },
+                                `当前供应商配置了 ${api_keys.length} 个 API 密钥。请选择端点（Endpoint）创建模式：`
+                            ),
+                            h(
+                                Radio.Group,
+                                {
+                                    value: importMode.value,
+                                    'onUpdate:value': (val) => {
+                                        importMode.value = val
+                                    },
+                                },
+                                [
+                                    h(
+                                        Radio,
+                                        {
+                                            value: 'current',
+                                            style: { display: 'block', marginBottom: '8px' },
+                                        },
+                                        `仅为当前选择/输入的密钥创建端点（每个模型创建 1 个端点）`
+                                    ),
+                                    h(
+                                        Radio,
+                                        {
+                                            value: 'all',
+                                            style: { display: 'block' },
+                                        },
+                                        `为所有配置的密钥分别创建端点（每个模型创建 ${api_keys.length} 个端点）`
+                                    ),
+                                ]
+                            ),
+                        ])
+                    },
+                    onOk: () => {
+                        if (importMode.value === 'current') {
+                            keysToCreate = [api_key || '']
+                        } else {
+                            keysToCreate = api_keys
+                        }
+                        resolve()
+                    },
+                    onCancel: () => {
+                        reject(new Error('USER_CANCEL'))
+                    },
+                })
+            })
+        } catch (err) {
+            if (err?.message === 'USER_CANCEL') {
+                return
+            }
+            throw err
+        }
+    } else {
+        if (api_key && (!Array.isArray(api_keys) || !api_keys.includes(api_key))) {
+            keysToCreate = [api_key]
+        } else if (Array.isArray(api_keys) && api_keys.length > 0) {
+            keysToCreate = api_keys
+        } else {
+            keysToCreate = [api_key || '']
+        }
+    }
+
+    importMappingDialogRef.value.handleOpen({
+        providerId,
+        providerCode: provider?.code || providerId,
+        space_code,
+        base_url,
+        keysToCreate,
+        protocol,
+        models,
+    })
+}
+
+async function onImportEndpointsOk() {
+    await loadEndpointList()
+    await loadModelOptions()
 }
 
 async function loadProviderDetail() {

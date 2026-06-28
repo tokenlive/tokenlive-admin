@@ -50,7 +50,6 @@
                             <a-select-option value="deepseek">DeepSeek</a-select-option>
                             <a-select-option value="qwen">Qwen</a-select-option>
                             <a-select-option value="ollama">Ollama</a-select-option>
-                            <a-select-option value="joycode">JoyCode</a-select-option>
                         </a-select>
                     </a-form-item>
                 </a-col>

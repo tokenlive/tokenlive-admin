@@ -329,6 +329,7 @@ export default {
     'pages.provider.detail.tab.endpoint': 'Endpoints',
     'pages.provider.detail.tab.member': 'Members',
     'pages.provider.detail.load.failed': 'Failed to load provider details',
+    'pages.provider.detail.importEndpoint': 'Import Endpoints',
     // model policy binding
     'pages.model.policy.bind': 'Bind Policy',
     'pages.model.policy.unbind': 'Unbind Policy',

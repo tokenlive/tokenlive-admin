@@ -270,11 +270,6 @@ func normalizeRequestTypesForProtocol(protocol string, requestTypes []string) []
 			case "messages", "chat_completion":
 				add("messages")
 			}
-		case "joycode":
-			switch rt {
-			case "chat_completion", "responses":
-				add(rt)
-			}
 		case "openai":
 			switch rt {
 			case "chat_completion", "embedding", "responses", "messages":

@@ -31,12 +31,6 @@ func TestNormalizeRequestTypesForProtocol(t *testing.T) {
 			want:     []string{"chat_completion", "messages", "responses", "embedding"},
 		},
 		{
-			name:     "joycode drops messages because gateway has no messages invoker",
-			protocol: "joycode",
-			in:       []string{"chat_completion", "messages", "responses"},
-			want:     []string{"chat_completion", "responses"},
-		},
-		{
 			name:     "unknown protocol preserves unique declared request types",
 			protocol: "custom",
 			in:       []string{"chat_completion", "chat_completion"},
