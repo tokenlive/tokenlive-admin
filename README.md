@@ -18,7 +18,9 @@
 
 TokenLive Admin is the admin console for the [TokenLive](https://github.com/tokenlive/tokenlive-gateway) ecosystem. This project is a high-performance, enterprise-grade large model (LLM) gateway designed specifically for the LLM computing power ecosystem. The gateway is designed based on a mature microservice governance model, with built-in rich intelligent routing and traffic governance strategies, and naturally supports massive concurrent traffic and elastic horizontal scaling. By deeply optimizing the request chain, the gateway can greatly reduce the failure rate of LLM calls, providing a solid stability guarantee for high-concurrency, high-availability AI application scenarios.
 
-![Dashboard Screenshot](./docs/images/dashboard.jpg)
+![Dashboard Screenshot](./docs/images/dashboard.png)
+
+![Ops Screenshot](./docs/images/ops.png)
 
 ## Features
 
@@ -112,11 +114,11 @@ tokenlive-admin/
 Create the database and import the schema:
 
 ```sql
-CREATE DATABASE ai_gateway CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+CREATE DATABASE tokenlive CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
 ```
 
 ```bash
-mysql -u root ai_gateway < scripts/init.sql
+mysql -u root tokenlive < scripts/init.sql
 ```
 
 #### 3. Configure

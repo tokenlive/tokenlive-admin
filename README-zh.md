@@ -18,7 +18,9 @@
 
 TokenLive Admin (TokenLive 控制台) 是 [TokenLive](https://github.com/tokenlive/tokenlive-gateway) 的管理控制台。本项目是一款专为大模型（LLM）算力生态打造的高性能、企业级大模型网关。网关基于成熟的微服务治理模型设计，内置丰富的智能路由与流量治理策略，天然支持海量并发流量与弹性横向扩容。通过深度优化请求链路，网关能够极大降低LLM调用失败率，为高并发、高可用的AI应用场景提供坚如磐石的稳定性保障。
 
-![控制台截图](./docs/images/dashboard.jpg)
+![控制台截图](./docs/images/dashboard.png)
+
+![运维面板截图](./docs/images/ops.png)
 
 ## 功能特性
 
@@ -112,11 +114,11 @@ tokenlive-admin/
 创建数据库并导入表结构：
 
 ```sql
-CREATE DATABASE ai_gateway CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+CREATE DATABASE tokenlive CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
 ```
 
 ```bash
-mysql -u root ai_gateway < scripts/init.sql
+mysql -u root tokenlive < scripts/init.sql
 ```
 
 #### 3. 修改配置

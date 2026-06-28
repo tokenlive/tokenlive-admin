@@ -44,7 +44,7 @@
                         type="primary"
                         danger
                         size="small"
-                        @click="goTo('/resource/model')">
+                        @click="goTo('/space/model')">
                         {{ $t('pages.dashboard.alert.action') }}
                     </a-button>
                 </div>
@@ -812,7 +812,7 @@
                         </a-col>
                         <a-col
                             :span="8"
-                            @click="goTo('/resource/provider')"
+                            @click="goTo('/space/provider')"
                             style="cursor: pointer">
                             <a-statistic
                                 :title="$t('pages.dashboard.providers')"
@@ -824,7 +824,7 @@
                         </a-col>
                         <a-col
                             :span="8"
-                            @click="goTo('/resource/model')"
+                            @click="goTo('/space/model')"
                             style="cursor: pointer">
                             <a-statistic
                                 :title="$t('pages.dashboard.models')"
@@ -858,7 +858,7 @@
                                 <a-card
                                     hoverable
                                     class="quick-link-card"
-                                    @click="goTo('/resource/provider')"
+                                    @click="goTo('/space/provider')"
                                     size="small">
                                     <appstore-outlined style="color: var(--color-success); font-size: 20px" />
                                     <span class="quick-link-text">{{ $t('pages.dashboard.providers') }}</span>
@@ -870,7 +870,7 @@
                                 <a-card
                                     hoverable
                                     class="quick-link-card"
-                                    @click="goTo('/resource/model')"
+                                    @click="goTo('/space/model')"
                                     size="small">
                                     <cloud-server-outlined style="color: var(--color-chart-5); font-size: 20px" />
                                     <span class="quick-link-text">{{ $t('pages.dashboard.models') }}</span>

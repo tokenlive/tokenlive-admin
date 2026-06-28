@@ -124,3 +124,18 @@ type ModelCatalogPublishForm struct {
 func (a *ModelCatalogPublishForm) Validate() error {
 	return nil
 }
+
+// ModelCatalogMetric represents model service metrics from Prometheus
+type ModelCatalogMetric struct {
+	Window         string  `json:"window"`          // Time window: "1h", "24h", "7d"
+	Availability   float64 `json:"availability"`    // Availability rate (0-1)
+	SuccessRate    float64 `json:"success_rate"`    // Success rate (0-1)
+	TtftP50Ms      float64 `json:"ttft_p50_ms"`     // TTFT p50 in milliseconds
+	TtftP95Ms      float64 `json:"ttft_p95_ms"`     // TTFT p95 in milliseconds
+	ResponseSpeed  float64 `json:"response_speed"`  // Response speed (tokens per second)
+	SampleCount    int64   `json:"sample_count"`    // Number of samples/requests
+	UpdatedAt      string  `json:"updated_at"`      // Last update time
+}
+
+// ModelCatalogMetricResponse is the response for metrics API
+type ModelCatalogMetricResponse []ModelCatalogMetric

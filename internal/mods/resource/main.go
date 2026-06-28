@@ -108,6 +108,7 @@ func (a *Resource) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) e
 		modelCatalogs.DELETE(":id", a.ModelCatalogAPI.Delete)
 		modelCatalogs.GET(":id/i18n", a.ModelCatalogI18nAPI.QueryByModelID)
 		modelCatalogs.GET(":id/prices", a.ModelPriceVersionAPI.QueryByModelID)
+		modelCatalogs.GET(":id/metrics", a.ModelCatalogAPI.GetMetrics)
 	}
 
 	modelCatalogI18n := v1.Group("model-catalog-i18n")
