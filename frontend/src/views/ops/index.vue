@@ -248,6 +248,7 @@
                 <template #expandedRowRender="{ record }">
                     <div class="ops-expanded-container">
                         <a-descriptions
+                            class="ops-expanded-descriptions"
                             :column="2"
                             size="small"
                             bordered>
@@ -255,9 +256,9 @@
                                 :label="$t('pages.ops.table.policy_id')"
                                 v-if="record.policy_id">
                                 <a-typography-text
+                                    class="ops-expanded-code"
                                     copyable
-                                    :ellipsis="{ tooltip: true }"
-                                    style="font-family: monospace; max-width: 200px">
+                                    :ellipsis="{ tooltip: true }">
                                     {{ record.policy_id }}
                                 </a-typography-text>
                             </a-descriptions-item>
@@ -265,9 +266,9 @@
                                 :label="$t('pages.ops.table.endpoint_code')"
                                 v-if="record.endpoint_code">
                                 <a-typography-text
+                                    class="ops-expanded-code"
                                     copyable
-                                    :ellipsis="{ tooltip: true }"
-                                    style="font-family: monospace; max-width: 200px">
+                                    :ellipsis="{ tooltip: true }">
                                     {{ record.endpoint_code }}
                                 </a-typography-text>
                             </a-descriptions-item>
@@ -275,9 +276,9 @@
                                 :label="$t('pages.ops.table.endpoint_id')"
                                 v-if="record.endpoint_id">
                                 <a-typography-text
+                                    class="ops-expanded-code"
                                     copyable
-                                    :ellipsis="{ tooltip: true }"
-                                    style="font-family: monospace; max-width: 200px">
+                                    :ellipsis="{ tooltip: true }">
                                     {{ record.endpoint_id }}
                                 </a-typography-text>
                             </a-descriptions-item>
@@ -285,9 +286,9 @@
                                 :label="$t('pages.ops.table.request_id')"
                                 v-if="record.request_id">
                                 <a-typography-text
+                                    class="ops-expanded-code"
                                     copyable
-                                    :ellipsis="{ tooltip: true }"
-                                    style="font-family: monospace; max-width: 200px">
+                                    :ellipsis="{ tooltip: true }">
                                     {{ record.request_id }}
                                 </a-typography-text>
                             </a-descriptions-item>
@@ -295,9 +296,9 @@
                                 :label="$t('pages.ops.table.trace_id')"
                                 v-if="record.trace_id">
                                 <a-typography-text
+                                    class="ops-expanded-code"
                                     copyable
-                                    :ellipsis="{ tooltip: true }"
-                                    style="font-family: monospace; max-width: 200px">
+                                    :ellipsis="{ tooltip: true }">
                                     {{ record.trace_id }}
                                 </a-typography-text>
                             </a-descriptions-item>
@@ -997,6 +998,32 @@ onUnmounted(() => {
     background: #fafafa;
     border-radius: 6px;
     border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.ops-expanded-descriptions :deep(.ant-descriptions-view table) {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.ops-expanded-descriptions :deep(.ant-descriptions-item-label) {
+    width: 16%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.ops-expanded-descriptions :deep(.ant-descriptions-item-content) {
+    width: 34%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.ops-expanded-code {
+    display: inline-block;
+    max-width: 100%;
+    font-family: monospace;
+    vertical-align: bottom;
 }
 
 [data-theme='dark'] .ops-expanded-container {

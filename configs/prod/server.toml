@@ -44,7 +44,7 @@ DB = 0
 
 [Storage.DB]
 Debug = false
-Type = "mysql"
+Type = "${DB_TYPE:mysql}"
 # SQLite3 DSN
 # DSN = "data/tokenlive-admin.db"
 # MySQL DSN
