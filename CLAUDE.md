@@ -136,7 +136,7 @@ All APIs are prefixed with `/api/v1/`. Routes registered in each module's `Regis
 
 ### Issue tracker
 
-Issues live in GitHub Issues (`chenzhiguo/tokenlive-admin`). See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues (`tokenlive/tokenlive-admin`). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

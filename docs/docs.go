@@ -6659,7 +6659,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_chenzhiguo_tokenlive-admin_pkg_errors.Error": {
+        "github_com_tokenlive_tokenlive-admin_pkg_errors.Error": {
             "type": "object",
             "properties": {
                 "code": {
@@ -9432,7 +9432,7 @@ const docTemplate = `{
             "properties": {
                 "data": {},
                 "error": {
-                    "$ref": "#/definitions/github_com_chenzhiguo_tokenlive-admin_pkg_errors.Error"
+                    "$ref": "#/definitions/github_com_tokenlive_tokenlive-admin_pkg_errors.Error"
                 },
                 "success": {
                     "type": "boolean"

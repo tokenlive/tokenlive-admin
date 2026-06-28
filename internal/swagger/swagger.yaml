@@ -935,6 +935,33 @@ definitions:
     - locale
     - model_id
     type: object
+  schema.ModelCatalogMetric:
+    properties:
+      availability:
+        description: Availability rate (0-1)
+        type: number
+      response_speed:
+        description: Response speed (tokens per second)
+        type: number
+      sample_count:
+        description: Number of samples/requests
+        type: integer
+      success_rate:
+        description: Success rate (0-1)
+        type: number
+      ttft_p50_ms:
+        description: TTFT p50 in milliseconds
+        type: number
+      ttft_p95_ms:
+        description: TTFT p95 in milliseconds
+        type: number
+      updated_at:
+        description: Last update time
+        type: string
+      window:
+        description: 'Time window: "1h", "24h", "7d"'
+        type: string
+    type: object
   schema.ModelCatalogPublishForm:
     properties:
       published_at:
@@ -1013,8 +1040,10 @@ definitions:
     type: object
   schema.ModelPriceVersion:
     properties:
-      cache_read_micro_cny_per_1m_tokens:
-        type: integer
+      cache_creation_price:
+        type: number
+      cached_price:
+        type: number
       created_at:
         type: string
       creator:
@@ -1027,14 +1056,14 @@ definitions:
         type: string
       id:
         type: string
-      input_micro_cny_per_1m_tokens:
-        type: integer
+      input_price:
+        type: number
       model_id:
         type: string
       modifier:
         type: string
-      output_micro_cny_per_1m_tokens:
-        type: integer
+      output_price:
+        type: number
       published_at:
         type: string
       published_by_user:
@@ -1046,9 +1075,12 @@ definitions:
     type: object
   schema.ModelPriceVersionForm:
     properties:
-      cache_read_micro_cny_per_1m_tokens:
-        description: Cache read price
-        type: integer
+      cache_creation_price:
+        description: 缓存创建价格（元/百万 Tokens）
+        type: number
+      cached_price:
+        description: 缓存命中价格（元/百万 Tokens）
+        type: number
       currency:
         description: Currency
         maxLength: 8
@@ -1059,18 +1091,18 @@ definitions:
       effective_until:
         description: Effective until
         type: string
-      input_micro_cny_per_1m_tokens:
-        description: Input price
+      input_price:
+        description: 输入价格（元/百万 Tokens）
         minimum: 0
-        type: integer
+        type: number
       model_id:
         description: Model ID
         maxLength: 191
         type: string
-      output_micro_cny_per_1m_tokens:
-        description: Output price
+      output_price:
+        description: 输出价格（元/百万 Tokens）
         minimum: 0
-        type: integer
+        type: number
     required:
     - currency
     - effective_from
@@ -3914,6 +3946,73 @@ paths:
       summary: Update model catalog
       tags:
       - ModelCatalogAPI
+  /api/v1/model-catalogs/{id}/i18n:
+    get:
+      parameters:
+      - description: Model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.ModelCatalogI18n'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get all i18n entries for a model
+      tags:
+      - ModelCatalogI18nAPI
+  /api/v1/model-catalogs/{id}/metrics:
+    get:
+      description: 获取模型的服务质量指标（可用性、成功率、TTFT、响应速度等）
+      parameters:
+      - description: Model ID or Slug
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.ModelCatalogMetric'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get model metrics from Prometheus
+      tags:
+      - ModelCatalogAPI
   /api/v1/model-catalogs/{id}/publish:
     put:
       parameters:
@@ -3950,39 +4049,6 @@ paths:
       summary: Publish model catalog
       tags:
       - ModelCatalogAPI
-  /api/v1/model-catalogs/{model_id}/i18n:
-    get:
-      parameters:
-      - description: Model ID
-        in: path
-        name: model_id
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/util.ResponseResult'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/schema.ModelCatalogI18n'
-                  type: array
-              type: object
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-      security:
-      - ApiKeyAuth: []
-      summary: Get all i18n entries for a model
-      tags:
-      - ModelCatalogI18nAPI
   /api/v1/model-catalogs/{model_id}/prices:
     get:
       parameters:
@@ -7314,6 +7380,10 @@ paths:
       - description: Name of user
         in: query
         name: name
+        type: string
+      - description: Tenant
+        in: query
+        name: tenant
         type: string
       - description: Status of user (activated, freezed)
         in: query

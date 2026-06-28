@@ -5,7 +5,7 @@
   <br>
   <br>
 
-[![license](https://img.shields.io/github/license/chenzhiguo/tokenlive-admin.svg)](LICENSE)
+[![license](https://img.shields.io/github/license/tokenlive/tokenlive-admin.svg)](LICENSE)
 
   <h1>TokenLive Admin</h1>
 </div>

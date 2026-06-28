@@ -2,7 +2,7 @@
 
 Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
-Repo: `chenzhiguo/tokenlive-admin`
+Repo: `tokenlive/tokenlive-admin`
 
 ## Conventions
 

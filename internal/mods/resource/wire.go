@@ -29,7 +29,7 @@ var Set = wire.NewSet(
 	// Model Catalog
 	wire.Struct(new(dal.ModelCatalog), "*"),
 	wire.Struct(new(biz.ModelCatalog), "*"),
-	wire.Struct(new(api.ModelCatalog), "*"),
+	wire.Struct(new(api.ModelCatalog), "ModelCatalogBIZ"),
 	// Model Catalog I18n
 	wire.Struct(new(dal.ModelCatalogI18n), "*"),
 	wire.Struct(new(biz.ModelCatalogI18n), "*"),

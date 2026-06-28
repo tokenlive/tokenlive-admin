@@ -2689,6 +2689,121 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/model-catalogs/{id}/i18n": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "ModelCatalogI18nAPI"
+                ],
+                "summary": "Get all i18n entries for a model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/schema.ModelCatalogI18n"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/model-catalogs/{id}/metrics": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "获取模型的服务质量指标（可用性、成功率、TTFT、响应速度等）",
+                "tags": [
+                    "ModelCatalogAPI"
+                ],
+                "summary": "Get model metrics from Prometheus",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model ID or Slug",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/schema.ModelCatalogMetric"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/model-catalogs/{id}/publish": {
             "put": {
                 "security": [
@@ -2729,63 +2844,6 @@ const docTemplate = `{
                         "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/model-catalogs/{model_id}/i18n": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "ModelCatalogI18nAPI"
-                ],
-                "summary": "Get all i18n entries for a model",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Model ID",
-                        "name": "model_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/util.ResponseResult"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/schema.ModelCatalogI18n"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
                         }
                     },
                     "401": {
@@ -8247,6 +8305,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "Tenant",
+                        "name": "tenant",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Status of user (activated, freezed)",
                         "name": "status",
                         "in": "query"
@@ -9894,6 +9958,43 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ModelCatalogMetric": {
+            "type": "object",
+            "properties": {
+                "availability": {
+                    "description": "Availability rate (0-1)",
+                    "type": "number"
+                },
+                "response_speed": {
+                    "description": "Response speed (tokens per second)",
+                    "type": "number"
+                },
+                "sample_count": {
+                    "description": "Number of samples/requests",
+                    "type": "integer"
+                },
+                "success_rate": {
+                    "description": "Success rate (0-1)",
+                    "type": "number"
+                },
+                "ttft_p50_ms": {
+                    "description": "TTFT p50 in milliseconds",
+                    "type": "number"
+                },
+                "ttft_p95_ms": {
+                    "description": "TTFT p95 in milliseconds",
+                    "type": "number"
+                },
+                "updated_at": {
+                    "description": "Last update time",
+                    "type": "string"
+                },
+                "window": {
+                    "description": "Time window: \"1h\", \"24h\", \"7d\"",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ModelCatalogPublishForm": {
             "type": "object",
             "required": [
@@ -10000,8 +10101,11 @@ const docTemplate = `{
         "schema.ModelPriceVersion": {
             "type": "object",
             "properties": {
-                "cache_read_micro_cny_per_1m_tokens": {
-                    "type": "integer"
+                "cache_creation_price": {
+                    "type": "number"
+                },
+                "cached_price": {
+                    "type": "number"
                 },
                 "created_at": {
                     "type": "string"
@@ -10021,8 +10125,8 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
-                "input_micro_cny_per_1m_tokens": {
-                    "type": "integer"
+                "input_price": {
+                    "type": "number"
                 },
                 "model_id": {
                     "type": "string"
@@ -10030,8 +10134,8 @@ const docTemplate = `{
                 "modifier": {
                     "type": "string"
                 },
-                "output_micro_cny_per_1m_tokens": {
-                    "type": "integer"
+                "output_price": {
+                    "type": "number"
                 },
                 "published_at": {
                     "type": "string"
@@ -10055,9 +10159,13 @@ const docTemplate = `{
                 "model_id"
             ],
             "properties": {
-                "cache_read_micro_cny_per_1m_tokens": {
-                    "description": "Cache read price",
-                    "type": "integer"
+                "cache_creation_price": {
+                    "description": "缓存创建价格（元/百万 Tokens）",
+                    "type": "number"
+                },
+                "cached_price": {
+                    "description": "缓存命中价格（元/百万 Tokens）",
+                    "type": "number"
                 },
                 "currency": {
                     "description": "Currency",
@@ -10072,9 +10180,9 @@ const docTemplate = `{
                     "description": "Effective until",
                     "type": "string"
                 },
-                "input_micro_cny_per_1m_tokens": {
-                    "description": "Input price",
-                    "type": "integer",
+                "input_price": {
+                    "description": "输入价格（元/百万 Tokens）",
+                    "type": "number",
                     "minimum": 0
                 },
                 "model_id": {
@@ -10082,9 +10190,9 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 191
                 },
-                "output_micro_cny_per_1m_tokens": {
-                    "description": "Output price",
-                    "type": "integer",
+                "output_price": {
+                    "description": "输出价格（元/百万 Tokens）",
+                    "type": "number",
                     "minimum": 0
                 }
             }
