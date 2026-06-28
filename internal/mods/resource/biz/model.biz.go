@@ -16,6 +16,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
 	"github.com/tokenlive/tokenlive-admin/pkg/logging"
+	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -377,7 +378,22 @@ func (m *Model) fillModelsStatusPoints(ctx context.Context, models []*schema.Mod
 				zap.Any("firstFewValues", values[0:limit]))
 		}
 	} else {
-		err = fmt.Errorf("redis client is nil")
+		// 从内存获取
+		values = make([]interface{}, len(keys))
+		idx = 0
+		for _, model := range models {
+			for i := 0; i < numMinutes; i++ {
+				minute := currentMin - int64(numMinutes-1-i)
+				succ, fail := metrics.GlobalStore.GetModelStatus(model.ModelCode, minute)
+				if succ > 0 {
+					values[idx] = strconv.FormatInt(succ, 10)
+				}
+				if fail > 0 {
+					values[idx+1] = strconv.FormatInt(fail, 10)
+				}
+				idx += 2
+			}
+		}
 	}
 
 	idx = 0

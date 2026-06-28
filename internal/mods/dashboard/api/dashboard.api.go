@@ -18,6 +18,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/biz"
 	rschema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
 )
@@ -236,14 +237,16 @@ func (a *Dashboard) QueryQPS(c *gin.Context) {
 // @Success 200 {object} util.ResponseResult{data=[]CircuitBreakerInfo}
 // @Router /api/v1/dashboard/circuit-breakers [get]
 func (a *Dashboard) QueryCircuitBreakers(c *gin.Context) {
-	if a.RedisClient == nil {
-		util.ResSuccess(c, []CircuitBreakerInfo{})
-		return
-	}
-
 	ctx := c.Request.Context()
-	endpoints, _ := a.RedisClient.SMembers(ctx, "aigw:cb:open_endpoints").Result()
-	services, _ := a.RedisClient.SMembers(ctx, "aigw:cb:open_services").Result()
+	var endpoints []string
+	var services []string
+	if a.RedisClient != nil {
+		endpoints, _ = a.RedisClient.SMembers(ctx, "aigw:cb:open_endpoints").Result()
+		services, _ = a.RedisClient.SMembers(ctx, "aigw:cb:open_services").Result()
+	} else {
+		endpoints = metrics.GlobalStore.GetOpenEndpoints()
+		services = metrics.GlobalStore.GetOpenServices()
+	}
 
 	var endpointInfos []CircuitBreakerInfo
 	if len(endpoints) > 0 {
@@ -340,43 +343,55 @@ func (a *Dashboard) getOverview(ctx context.Context) (*OverviewResponse, error) 
 
 	// 1. 获取 QPS：优先 Prometheus
 	qps := a.getQPSFromPrometheus()
-	if qps <= 0 && a.RedisClient != nil {
-		// 降级：从 Redis 计算 QPS
-		minute := time.Now().Unix() / 60
-		sKey := fmt.Sprintf("aigw:status:global:%d:s", minute-1)
-		fKey := fmt.Sprintf("aigw:status:global:%d:f", minute-1)
+	if qps <= 0 {
+		if a.RedisClient != nil {
+			// 降级：从 Redis 计算 QPS
+			minute := time.Now().Unix() / 60
+			sKey := fmt.Sprintf("aigw:status:global:%d:s", minute-1)
+			fKey := fmt.Sprintf("aigw:status:global:%d:f", minute-1)
 
-		vals, err := a.RedisClient.MGet(ctx, sKey, fKey).Result()
-		if err == nil && len(vals) == 2 {
-			var succ, fail int64
-			if vals[0] != nil {
-				succ, _ = strconv.ParseInt(vals[0].(string), 10, 64)
-			}
-			if vals[1] != nil {
-				fail, _ = strconv.ParseInt(vals[1].(string), 10, 64)
-			}
-			total := succ + fail
-			if total <= 0 {
-				sKeyCurr := fmt.Sprintf("aigw:status:global:%d:s", minute)
-				fKeyCurr := fmt.Sprintf("aigw:status:global:%d:f", minute)
-				valsCurr, errCurr := a.RedisClient.MGet(ctx, sKeyCurr, fKeyCurr).Result()
-				if errCurr == nil && len(valsCurr) == 2 {
-					var succC, failC int64
-					if valsCurr[0] != nil {
-						succC, _ = strconv.ParseInt(valsCurr[0].(string), 10, 64)
-					}
-					if valsCurr[1] != nil {
-						failC, _ = strconv.ParseInt(valsCurr[1].(string), 10, 64)
-					}
-					total = succC + failC
+			vals, err := a.RedisClient.MGet(ctx, sKey, fKey).Result()
+			if err == nil && len(vals) == 2 {
+				var succ, fail int64
+				if vals[0] != nil {
+					succ, _ = strconv.ParseInt(vals[0].(string), 10, 64)
 				}
+				if vals[1] != nil {
+					fail, _ = strconv.ParseInt(vals[1].(string), 10, 64)
+				}
+				total := succ + fail
+				if total <= 0 {
+					sKeyCurr := fmt.Sprintf("aigw:status:global:%d:s", minute)
+					fKeyCurr := fmt.Sprintf("aigw:status:global:%d:f", minute)
+					valsCurr, errCurr := a.RedisClient.MGet(ctx, sKeyCurr, fKeyCurr).Result()
+					if errCurr == nil && len(valsCurr) == 2 {
+						var succC, failC int64
+						if valsCurr[0] != nil {
+							succC, _ = strconv.ParseInt(valsCurr[0].(string), 10, 64)
+						}
+						if valsCurr[1] != nil {
+							failC, _ = strconv.ParseInt(valsCurr[1].(string), 10, 64)
+						}
+						total = succC + failC
+					}
+				}
+				qps = float64(total) / 60.0
+			}
+		} else {
+			// 降级：从内存计算 QPS
+			minute := time.Now().Unix() / 60
+			succ1, fail1 := metrics.GlobalStore.GetGlobalStatus(minute - 1)
+			total := succ1 + fail1
+			if total <= 0 {
+				succ0, fail0 := metrics.GlobalStore.GetGlobalStatus(minute)
+				total = succ0 + fail0
 			}
 			qps = float64(total) / 60.0
 		}
 	}
 	res.QPS = qps
 
-	// 2. 获取今日自然日累计值 (Redis)
+	// 2. 获取今日自然日累计值 (Redis 或 内存)
 	if a.RedisClient != nil {
 		dateStr := time.Now().Format("2006-01-02")
 		dailyReqKey := fmt.Sprintf("aigw:status:daily:req:%s", dateStr)
@@ -407,6 +422,15 @@ func (a *Dashboard) getOverview(ctx context.Context) (*OverviewResponse, error) 
 				res.DailyCost, _ = strconv.ParseFloat(vals[5].(string), 64)
 			}
 		}
+	} else {
+		dateStr := time.Now().Format("2006-01-02")
+		stats := metrics.GlobalStore.GetDailyStats(dateStr)
+		res.DailyRequests = stats.ReqCount
+		res.DailyPromptTokens = stats.InputTokens
+		res.DailyCompletionTokens = stats.OutputTokens
+		res.DailyCachedTokens = stats.CachedTokens
+		res.DailyCacheCreationTokens = stats.CacheCreationTokens
+		res.DailyCost = stats.Cost
 	}
 
 	// 3. 获取最近 5 分钟的滚动平均延迟与首包延迟 (TTFT)，转换为毫秒
@@ -437,12 +461,15 @@ func (a *Dashboard) QueryOverview(c *gin.Context) {
 }
 
 func (a *Dashboard) getCircuitBreakers(ctx context.Context) []CircuitBreakerInfo {
-	if a.RedisClient == nil {
-		return []CircuitBreakerInfo{}
+	var endpoints []string
+	var services []string
+	if a.RedisClient != nil {
+		endpoints, _ = a.RedisClient.SMembers(ctx, "aigw:cb:open_endpoints").Result()
+		services, _ = a.RedisClient.SMembers(ctx, "aigw:cb:open_services").Result()
+	} else {
+		endpoints = metrics.GlobalStore.GetOpenEndpoints()
+		services = metrics.GlobalStore.GetOpenServices()
 	}
-
-	endpoints, _ := a.RedisClient.SMembers(ctx, "aigw:cb:open_endpoints").Result()
-	services, _ := a.RedisClient.SMembers(ctx, "aigw:cb:open_services").Result()
 
 	var endpointInfos []CircuitBreakerInfo
 	if len(endpoints) > 0 {
@@ -741,17 +768,34 @@ func (a *Dashboard) getTrends(ctx context.Context, groupBy, timeRange string) (*
 		}
 	}
 
-	// Redis 降级路径：只返回全局汇总（仅在 Redis 可覆盖的范围内）
-	if rangeConfig.redisMinutes > 0 && a.RedisClient != nil {
-		minute := end.Unix() / 60
-		keys := make([]string, rangeConfig.redisMinutes*2)
-		for i := 0; i < rangeConfig.redisMinutes; i++ {
-			ts := minute - int64(rangeConfig.redisMinutes-1-i)
-			keys[i*2] = fmt.Sprintf("aigw:status:global:%d:s", ts)
-			keys[i*2+1] = fmt.Sprintf("aigw:status:global:%d:f", ts)
+	// Redis 或 内存 降级路径：只返回全局汇总
+	if rangeConfig.redisMinutes > 0 {
+		var vals []interface{}
+		var err error
+		if a.RedisClient != nil {
+			minute := end.Unix() / 60
+			keys := make([]string, rangeConfig.redisMinutes*2)
+			for i := 0; i < rangeConfig.redisMinutes; i++ {
+				ts := minute - int64(rangeConfig.redisMinutes-1-i)
+				keys[i*2] = fmt.Sprintf("aigw:status:global:%d:s", ts)
+				keys[i*2+1] = fmt.Sprintf("aigw:status:global:%d:f", ts)
+			}
+			vals, err = a.RedisClient.MGet(ctx, keys...).Result()
+		} else {
+			minute := end.Unix() / 60
+			vals = make([]interface{}, rangeConfig.redisMinutes*2)
+			for i := 0; i < rangeConfig.redisMinutes; i++ {
+				ts := minute - int64(rangeConfig.redisMinutes-1-i)
+				succ, fail := metrics.GlobalStore.GetGlobalStatus(ts)
+				if succ > 0 {
+					vals[i*2] = strconv.FormatInt(succ, 10)
+				}
+				if fail > 0 {
+					vals[i*2+1] = strconv.FormatInt(fail, 10)
+				}
+			}
 		}
 
-		vals, err := a.RedisClient.MGet(ctx, keys...).Result()
 		if err == nil && len(vals) == rangeConfig.redisMinutes*2 {
 			series := TrendsSeries{
 				Label:   "global",
@@ -760,7 +804,7 @@ func (a *Dashboard) getTrends(ctx context.Context, groupBy, timeRange string) (*
 				Total:   make([]int64, rangeConfig.numPoints),
 			}
 
-			aggregateRedisTrendValues(&series, vals, minute, start.Unix()/60, rangeConfig.stepSeconds/60)
+			aggregateRedisTrendValues(&series, vals, end.Unix()/60, start.Unix()/60, rangeConfig.stepSeconds/60)
 
 			res.Series = []TrendsSeries{series}
 		} else {
@@ -1002,23 +1046,42 @@ func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange strin
 			items[i].TotalTokens = int64(tokensMap[code])
 			items[i].TotalCost = costMap[code]
 		}
-	} else if redisMinutes > 0 && a.RedisClient != nil {
-		// Redis 降级路径
+	} else if redisMinutes > 0 {
+		var values []interface{}
+		var err error
 		currentMin := time.Now().Unix() / 60
 		numMinutes := redisMinutes
 
-		keys := make([]string, 0, len(models)*numMinutes*2)
-		for _, m := range models {
-			for i := 0; i < numMinutes; i++ {
-				minute := currentMin - int64(numMinutes-1-i)
-				keys = append(keys,
-					fmt.Sprintf("aigw:status:model:%s:%d:s", m.ModelCode, minute),
-					fmt.Sprintf("aigw:status:model:%s:%d:f", m.ModelCode, minute),
-				)
+		if a.RedisClient != nil {
+			keys := make([]string, 0, len(models)*numMinutes*2)
+			for _, m := range models {
+				for i := 0; i < numMinutes; i++ {
+					minute := currentMin - int64(numMinutes-1-i)
+					keys = append(keys,
+						fmt.Sprintf("aigw:status:model:%s:%d:s", m.ModelCode, minute),
+						fmt.Sprintf("aigw:status:model:%s:%d:f", m.ModelCode, minute),
+					)
+				}
+			}
+
+			values, err = a.RedisClient.MGet(ctx, keys...).Result()
+		} else {
+			values = make([]interface{}, len(models)*numMinutes*2)
+			idx := 0
+			for _, m := range models {
+				for i := 0; i < numMinutes; i++ {
+					minute := currentMin - int64(numMinutes-1-i)
+					succ, fail := metrics.GlobalStore.GetModelStatus(m.ModelCode, minute)
+					if succ > 0 {
+						values[idx] = strconv.FormatInt(succ, 10)
+					}
+					if fail > 0 {
+						values[idx+1] = strconv.FormatInt(fail, 10)
+					}
+					idx += 2
+				}
 			}
 		}
-
-		values, err := a.RedisClient.MGet(ctx, keys...).Result()
 		if err == nil {
 			idx := 0
 			for i := range models {

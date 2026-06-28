@@ -26,6 +26,14 @@ func (a *EventBiz) QueryEvents(ctx context.Context, params schema.EventQueryPara
 	})
 }
 
+// CreateEvent creates a new event log.
+func (a *EventBiz) CreateEvent(ctx context.Context, item *schema.EventLog) error {
+	if item.ID == "" {
+		item.ID = util.NewXID()
+	}
+	return a.EventDAL.Create(ctx, item)
+}
+
 // GetStatistics returns aggregated event statistics for the given time range.
 func (a *EventBiz) GetStatistics(ctx context.Context, timeRange string) (*schema.EventStatistics, error) {
 	startTime, endTime, trendFunc := resolveTimeRange(timeRange)

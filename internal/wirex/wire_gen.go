@@ -347,8 +347,15 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		ModelDAL:      model,
 		ModelAliasDAL: modelAlias,
 	}
+	eventLog := &dal2.EventLog{
+		DB: db,
+	}
+	eventBiz := &biz2.EventBiz{
+		EventDAL: eventLog,
+	}
 	apiGatewaySync := &api2.GatewaySync{
 		GatewaySyncBIZ: gatewaySync,
+		EventBiz:       eventBiz,
 	}
 	resourceResource := &resource.Resource{
 		DB:                   db,
@@ -473,12 +480,6 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	}
 	dashboardDashboard := &dashboard.Dashboard{
 		DashboardAPI: apiDashboard,
-	}
-	eventLog := &dal2.EventLog{
-		DB: db,
-	}
-	eventBiz := &biz2.EventBiz{
-		EventDAL: eventLog,
 	}
 	wsHub := api6.NewWSHub()
 	eventAPI := &api6.EventAPI{

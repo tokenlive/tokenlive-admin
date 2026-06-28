@@ -137,6 +137,8 @@ func (a *Resource) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) e
 	v1.GET("gateway/config", a.GatewaySyncAPI.GetConfig)
 	v1.GET("gateway/policies", a.GatewaySyncAPI.GetPolicies)
 	v1.GET("gateway/apikeys", a.GatewaySyncAPI.GetApiKeys)
+	v1.POST("gateway/metrics", a.GatewaySyncAPI.ReportMetrics)
+	v1.POST("gateway/events", a.GatewaySyncAPI.ReportEvent)
 
 	return nil
 }
