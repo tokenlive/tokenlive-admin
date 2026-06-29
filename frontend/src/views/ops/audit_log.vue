@@ -153,7 +153,7 @@ const columns = [
     { title: '租户', dataIndex: 'tenant_code', width: 100 },
     { title: '变更前', key: 'before_data', width: 80 },
     { title: '变更后', key: 'after_data', width: 80 },
-    { title: 'IP', dataIndex: 'ip', width: 120 },
+    { title: 'IP', dataIndex: 'ip', width: 140 },
     { title: '消息', dataIndex: 'message', ellipsis: true },
 ]
 
