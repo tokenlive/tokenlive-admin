@@ -201,6 +201,12 @@
                                     <edit-outlined />
                                 </a-tooltip>
                             </x-action-button>
+                            <x-action-button @click="$refs.endpointEditRef.handleCopy(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('pages.endpoint.copy') }}</template>
+                                    <copy-outlined />
+                                </a-tooltip>
+                            </x-action-button>
                             <x-action-button @click="handleRemoveEndpoint(record)">
                                 <a-tooltip>
                                     <template #title> {{ $t('button.delete') }}</template>
@@ -318,6 +324,7 @@ import { message, Modal, Radio } from 'ant-design-vue'
 import {
     ReloadOutlined,
     EditOutlined,
+    CopyOutlined,
     DeleteOutlined,
     ApiOutlined,
     LoadingOutlined,
@@ -419,7 +426,7 @@ const endpointColumns = [
     {
         title: t('button.action'),
         key: 'action',
-        width: 200,
+        width: 220,
     },
 ]
 

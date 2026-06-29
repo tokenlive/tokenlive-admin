@@ -242,16 +242,16 @@
                                     <poweroff-outlined :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }"
                                 /></a-tooltip>
                             </x-action-button>
-                            <x-action-button @click="$refs.endpointEditRef.handleCopy(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('pages.endpoint.copy') }}</template>
-                                    <copy-outlined />
-                                </a-tooltip>
-                            </x-action-button>
                             <x-action-button @click="$refs.endpointEditRef.handleEdit(record)">
                                 <a-tooltip>
                                     <template #title> {{ $t('pages.endpoint.edit') }}</template>
                                     <edit-outlined />
+                                </a-tooltip>
+                            </x-action-button>
+                            <x-action-button @click="$refs.endpointEditRef.handleCopy(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('pages.endpoint.copy') }}</template>
+                                    <copy-outlined />
                                 </a-tooltip>
                             </x-action-button>
                             <x-action-button @click="handleRemoveEndpoint(record)">

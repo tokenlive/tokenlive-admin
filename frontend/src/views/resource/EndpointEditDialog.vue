@@ -381,13 +381,19 @@ async function handleCopy(record = {}) {
         type: 'create',
         title: t('pages.endpoint.copy'),
     })
-    // 复制所有字段，但移除 id 和 api_key
     const copiedData = cloneDeep(record)
     delete copiedData.id
-    delete copiedData.api_key
+    delete copiedData.code
     delete copiedData.created_at
     delete copiedData.updated_at
     delete copiedData.status_points
+    // 供应商详情页:保留 api_key,清空 real_model
+    // 模型详情页:清空 api_key,保留 real_model
+    if (props.providerId) {
+        delete copiedData.real_model
+    } else {
+        delete copiedData.api_key
+    }
 
     formData.value = copiedData
     metadataList.value = jsonToMetadata(record.metadata)
