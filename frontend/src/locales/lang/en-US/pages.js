@@ -349,7 +349,7 @@ export default {
     'pages.model.policy.form.priority.placeholder': 'Please enter priority (smaller number has higher priority)',
     'pages.model.policy.form.enabled': 'Enabled',
     'pages.model.policy.form.exclusive.warning':
-        'Tip: Invocation (invocation) and Load Balance (loadbalance) policies are exclusive at the same dimension (model/tenant/user). Conflicting bindings will fail.',
+        'Tip: Multiple Invocation (invocation) and Load Balance (loadbalance) policies can be bound to the same dimension (model/tenant/user), but only the one with the highest priority (smaller value has higher priority) will take effect.',
     // model alias
     'pages.model.alias.create': 'Add Alias',
     'pages.model.alias.edit': 'Edit Alias',

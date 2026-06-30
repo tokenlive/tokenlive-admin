@@ -20,10 +20,7 @@ type PolicyBinding struct {
 	AuditLogBIZ      *opsBiz.AuditLog
 }
 
-// isExclusivePolicy checks if the policy type is exclusive (single active instance per dimension).
-func isExclusivePolicy(policyType string) bool {
-	return policyType == "invocation" || policyType == "loadbalance"
-}
+
 
 // Query policy bindings from the data access object based on the provided parameters.
 func (a *PolicyBinding) Query(ctx context.Context, params schema.PolicyBindingQueryParam) (*schema.PolicyBindingQueryResult, error) {
@@ -72,15 +69,7 @@ func (a *PolicyBinding) Create(ctx context.Context, formItem *schema.PolicyBindi
 		return nil, err
 	}
 
-	// 2. Industrial Spec: check exclusive policy types (invocation, loadbalance)
-	if isExclusivePolicy(formItem.PolicyType) {
-		existsDim, err := a.PolicyBindingDAL.ExistsByDimensions(ctx, formItem.TenantCode, formItem.UserID, formItem.ModelCode, formItem.PolicyType)
-		if err != nil {
-			return nil, err
-		} else if existsDim {
-			return nil, errors.BadRequest("", "An exclusive policy of type '%s' is already bound to this dimension. Please remove or modify the existing binding first", formItem.PolicyType)
-		}
-	}
+
 
 	binding := &schema.PolicyBinding{
 		ID:        util.NewXID(),
@@ -148,14 +137,7 @@ func (a *PolicyBinding) Update(ctx context.Context, id string, formItem *schema.
 		}
 	}
 
-	if dimChanged && isExclusivePolicy(formItem.PolicyType) {
-		existsDim, err := a.PolicyBindingDAL.ExistsByDimensions(ctx, formItem.TenantCode, formItem.UserID, formItem.ModelCode, formItem.PolicyType)
-		if err != nil {
-			return err
-		} else if existsDim {
-			return errors.BadRequest("", "An exclusive policy of type '%s' is already bound to this dimension. Please remove or modify the existing binding first", formItem.PolicyType)
-		}
-	}
+
 
 	beforePolicy := *binding
 

@@ -29,12 +29,13 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		return nil
 	}
 
-	// 1. 获取该维度下所有启用的有效绑定 (未删除)
+	// 1. 获取该维度下所有启用的有效绑定 (未删除)，按照优先级排序，数字越小越优先，其次按创建时间降序
 	var bindings []schema.PolicyBinding
 	db := util.GetDB(ctx, s.PolicyBindingDAL.DB).
 		Model(new(schema.PolicyBinding)).
 		Where("tenant_code = ? AND user_id = ? AND model_code = ?", tenantCode, userID, modelCode).
-		Where("enabled = 1 AND deleted = '0'")
+		Where("enabled = 1 AND deleted = '0'").
+		Order("priority ASC, created_at DESC")
 	if err := db.Find(&bindings).Error; err != nil {
 		return err
 	}
@@ -66,6 +67,9 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 	for _, b := range bindings {
 		switch b.PolicyType {
 		case "loadbalance":
+			if policyAgg.LoadBalancePolicy != nil {
+				continue
+			}
 			var lb schema.PolicyLoadbalance
 			err := util.GetDB(ctx, s.PolicyLoadbalanceDAL.DB).
 				Where("id = ? AND enabled = 1 AND deleted = '0'", b.PolicyID).
@@ -83,6 +87,9 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 			}
 
 		case "invocation":
+			if policyAgg.InvocationPolicy != nil {
+				continue
+			}
 			var inv schema.PolicyInvocation
 			err := util.GetDB(ctx, s.PolicyInvocationDAL.DB).
 				Where("id = ? AND enabled = 1 AND deleted = '0'", b.PolicyID).
