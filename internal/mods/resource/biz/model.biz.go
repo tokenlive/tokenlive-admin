@@ -19,7 +19,6 @@ import (
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 // Model business logic layer
@@ -219,14 +218,11 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 		return errors.NotFound("", "Model not found")
 	}
 
-	var tenantCodes []string
-	type Dimension struct {
-		TenantCode string
-		UserID     string
-		ModelCode  string
+	if err := m.ensureModelCanDelete(ctx, model); err != nil {
+		return err
 	}
-	var affectedDimensions []Dimension
 
+	var tenantCodes []string
 	err = m.Trans.Exec(ctx, func(ctx context.Context) error {
 		tx := util.GetDB(ctx, m.ModelDAL.DB)
 
@@ -244,58 +240,8 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 			return err
 		}
 
-		// 级联删除 tenant_model 表中绑定关系
+		// 删除模型后清理租户绑定关系，避免留下无效 model_id。
 		if err := tx.Table(tenantModelTable).Where("model_id = ?", id).Delete(nil).Error; err != nil {
-			return err
-		}
-
-		// 1. 级联逻辑删除相关的模型别名
-		modelAliasTable := config.C.FormatTableName("model_alias")
-		if err := tx.Table(modelAliasTable).Where("model_id = ? AND deleted = '0'", id).Update("deleted", gorm.Expr("id")).Error; err != nil {
-			return err
-		}
-
-		// 2. 级联逻辑删除关联的治理策略
-		var bindings []*policySchema.PolicyBinding
-		policyBindingTable := config.C.FormatTableName("policy_binding")
-		if err := tx.Table(policyBindingTable).Where("model_code = ? AND deleted = '0'", model.ModelCode).Find(&bindings).Error; err != nil {
-			return err
-		}
-
-		for _, b := range bindings {
-			affectedDimensions = append(affectedDimensions, Dimension{
-				TenantCode: b.TenantCode,
-				UserID:     b.UserID,
-				ModelCode:  b.ModelCode,
-			})
-
-			// 检查策略是否被其它模型绑定 (排除当前 model.ModelCode)
-			var otherCount int64
-			err := tx.Table(policyBindingTable).
-				Where("policy_type = ? AND policy_id = ? AND model_code != ? AND deleted = '0'", b.PolicyType, b.PolicyID, model.ModelCode).
-				Count(&otherCount).Error
-			if err != nil {
-				return err
-			}
-
-			// 若没有其它绑定关系，说明该具体策略记录由该模型独占，可以将其逻辑删除
-			if otherCount == 0 {
-				tableName := config.C.FormatTableName("policy_" + b.PolicyType)
-				// 特殊处理 route, 级联逻辑删除 policy_route_detail 子表记录
-				if b.PolicyType == "route" {
-					routeDetailTable := config.C.FormatTableName("policy_route_detail")
-					if err := tx.Table(routeDetailTable).Where("route_id = ? AND deleted = '0'", b.PolicyID).Update("deleted", gorm.Expr("id")).Error; err != nil {
-						return err
-					}
-				}
-				if err := tx.Table(tableName).Where("id = ? AND deleted = '0'", b.PolicyID).Update("deleted", gorm.Expr("id")).Error; err != nil {
-					return err
-				}
-			}
-		}
-
-		// 逻辑删除 policy_binding 记录本身
-		if err := tx.Table(policyBindingTable).Where("model_code = ? AND deleted = '0'", model.ModelCode).Update("deleted", gorm.Expr("id")).Error; err != nil {
 			return err
 		}
 
@@ -306,23 +252,50 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 		// 删除时，同步清理 Redis 相关租户的缓存
 		_ = m.ConfigRedisSync.SyncModelDisable(ctx, model.ID, model.ModelCode, tenantCodes...)
 
-		// 重新同步/清理受影响维度的策略缓存
-		if m.PolicyRedisSync != nil && len(affectedDimensions) > 0 {
-			// 对维度去重
-			seen := make(map[string]bool)
-			for _, dim := range affectedDimensions {
-				dimKey := fmt.Sprintf("%s:%s:%s", dim.TenantCode, dim.UserID, dim.ModelCode)
-				if seen[dimKey] {
-					continue
-				}
-				seen[dimKey] = true
-				_ = m.PolicyRedisSync.SyncDimension(ctx, dim.TenantCode, dim.UserID, dim.ModelCode)
-			}
-		}
-
 		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, model, nil)
 	}
 	return err
+}
+
+func (m *Model) ensureModelCanDelete(ctx context.Context, model *schema.Model) error {
+	db := util.GetDB(ctx, m.ModelDAL.DB)
+
+	checks := []struct {
+		table   string
+		where   string
+		args    []interface{}
+		message string
+	}{
+		{
+			table:   config.C.FormatTableName("endpoint"),
+			where:   "model_id = ? AND deleted = '0'",
+			args:    []interface{}{model.ID},
+			message: "模型存在关联端点，请先清理后再执行删除操作",
+		},
+		{
+			table:   config.C.FormatTableName("model_alias"),
+			where:   "model_id = ? AND deleted = '0'",
+			args:    []interface{}{model.ID},
+			message: "模型存在关联别名，请先清理后再执行删除操作",
+		},
+		{
+			table:   config.C.FormatTableName("policy_binding"),
+			where:   "model_code = ? AND deleted = '0'",
+			args:    []interface{}{model.ModelCode},
+			message: "模型存在关联策略，请先清理后再执行删除操作",
+		},
+	}
+
+	for _, check := range checks {
+		var count int64
+		if err := db.Table(check.table).Where(check.where, check.args...).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return errors.BadRequest("", "%s", check.message)
+		}
+	}
+	return nil
 }
 
 func (m *Model) fillModelsStatusPoints(ctx context.Context, models []*schema.Model) {

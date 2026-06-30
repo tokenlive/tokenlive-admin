@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tokenlive/tokenlive-admin/internal/config"
 	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
 	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
@@ -134,10 +135,8 @@ func (p *Provider) Delete(ctx context.Context, id string) error {
 		return errors.NotFound("", "Provider not found")
 	}
 
-	// Check if provider has associated models
-	affectedModelCodes, _ := p.ConfigRedisSync.GetModelCodesByProvider(ctx, id)
-	if len(affectedModelCodes) > 0 {
-		return errors.BadRequest("", "Cannot delete provider with associated models. Please remove all model associations first.")
+	if err := p.ensureProviderCanDelete(ctx, id); err != nil {
+		return err
 	}
 
 	err = p.Trans.Exec(ctx, func(ctx context.Context) error {
@@ -150,6 +149,22 @@ func (p *Provider) Delete(ctx context.Context, id string) error {
 		p.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeProvider, provider.ID, provider.Name, provider, nil)
 	}
 	return err
+}
+
+func (p *Provider) ensureProviderCanDelete(ctx context.Context, id string) error {
+	var count int64
+	endpointTable := config.C.FormatTableName("endpoint")
+	err := util.GetDB(ctx, p.ProviderDAL.DB).
+		Table(endpointTable).
+		Where("provider_id = ? AND deleted = '0'", id).
+		Count(&count).Error
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.BadRequest("", "供应商存在关联端点，请先清理后再执行删除操作")
+	}
+	return nil
 }
 
 // FetchModels calls the upstream provider's /v1/models API and returns the model list.
