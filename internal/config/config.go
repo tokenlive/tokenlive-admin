@@ -15,6 +15,12 @@ type Config struct {
 	Util       Util
 	Dictionary Dictionary
 	Portal     PortalConfig
+	Sync       Sync
+}
+
+type Sync struct {
+	Endpoints bool `default:"true"`
+	Policies  bool `default:"true"`
 }
 
 type PortalConfig struct {

@@ -96,3 +96,7 @@ Password = "${PROMETHEUS_SERVER_PASSWORD:}"
 
 [Dictionary]
 UserCacheExp = 4 # hours
+
+[Sync]
+Endpoints = true
+Policies = true

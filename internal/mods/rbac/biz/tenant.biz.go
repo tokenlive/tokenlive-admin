@@ -176,25 +176,27 @@ func (a *Tenant) Update(ctx context.Context, id string, formItem *schema.TenantF
 		}
 
 		// 2. 迁移 aigw:tenant:{oldCode}:model:{modelCode}:endpoints
-		tx := util.GetDB(ctx, a.TenantDAL.DB)
-		var modelCodes []string
-		tenantModelTable := config.C.FormatTableName("tenant_model")
-		modelTable := config.C.FormatTableName("model")
+		if config.C.Sync.Endpoints {
+			tx := util.GetDB(ctx, a.TenantDAL.DB)
+			var modelCodes []string
+			tenantModelTable := config.C.FormatTableName("tenant_model")
+			modelTable := config.C.FormatTableName("model")
 
-		err = tx.Table(tenantModelTable).
-			Joins("JOIN "+modelTable+" ON "+tenantModelTable+".model_id = "+modelTable+".id").
-			Where(tenantModelTable+".tenant_code = ? AND "+modelTable+".deleted = '0'", tenant.Code).
-			Pluck(modelTable+".model_code", &modelCodes).Error
+			err = tx.Table(tenantModelTable).
+				Joins("JOIN "+modelTable+" ON "+tenantModelTable+".model_id = "+modelTable+".id").
+				Where(tenantModelTable+".tenant_code = ? AND "+modelTable+".deleted = '0'", tenant.Code).
+				Pluck(modelTable+".model_code", &modelCodes).Error
 
-		if err == nil {
-			for _, modelCode := range modelCodes {
-				// 迁移 endpoints key（新）
-				oldEndpointsKey := "aigw:tenant:" + oldCode + ":model:" + modelCode + ":endpoints"
-				newEndpointsKey := "aigw:tenant:" + tenant.Code + ":model:" + modelCode + ":endpoints"
+			if err == nil {
+				for _, modelCode := range modelCodes {
+					// 迁移 endpoints key（新）
+					oldEndpointsKey := "aigw:tenant:" + oldCode + ":model:" + modelCode + ":endpoints"
+					newEndpointsKey := "aigw:tenant:" + tenant.Code + ":model:" + modelCode + ":endpoints"
 
-				existsEndpoints, err := a.RedisClient.Exists(ctx, oldEndpointsKey).Result()
-				if err == nil && existsEndpoints > 0 {
-					_ = a.RedisClient.Rename(ctx, oldEndpointsKey, newEndpointsKey).Err()
+					existsEndpoints, err := a.RedisClient.Exists(ctx, oldEndpointsKey).Result()
+					if err == nil && existsEndpoints > 0 {
+						_ = a.RedisClient.Rename(ctx, oldEndpointsKey, newEndpointsKey).Err()
+					}
 				}
 			}
 		}

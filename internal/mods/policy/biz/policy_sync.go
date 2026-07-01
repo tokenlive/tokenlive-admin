@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
@@ -26,6 +27,9 @@ type PolicyRedisSync struct {
 // SyncDimension 同步一个维度下的所有策略到 Redis
 func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID, modelCode string) error {
 	if s.RedisClient == nil {
+		return nil
+	}
+	if !config.C.Sync.Policies {
 		return nil
 	}
 
@@ -224,6 +228,9 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 // SyncPolicyChange 当某个具体的策略配置变更时，反查所有关联维度并同步
 func (s *PolicyRedisSync) SyncPolicyChange(ctx context.Context, policyType, policyID string) error {
 	if s.RedisClient == nil || policyID == "" {
+		return nil
+	}
+	if !config.C.Sync.Policies {
 		return nil
 	}
 

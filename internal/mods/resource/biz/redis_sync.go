@@ -56,193 +56,197 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 	}
 
 	// 同步模型默认费率策略到 Redis (aigw:policies:model:<model_code> -> "*")
-	var model schema.Model
-	db := util.GetDB(ctx, s.ModelDAL.DB)
-	err := db.Where("model_code = ? AND deleted = '0'", modelCode).First(&model).Error
-	policyKey := "aigw:policies:model:" + modelCode
-	if err == nil {
-		if model.Enabled == 1 {
-			// 先读取已有的配置，防止冲掉 policy_binding 绑定的其它策略
-			var existingPolicy map[string]interface{}
-			if oldData, err := s.RedisClient.HGet(ctx, policyKey, "*").Result(); err == nil && oldData != "" {
-				_ = json.Unmarshal([]byte(oldData), &existingPolicy)
-			}
-			if existingPolicy == nil {
-				existingPolicy = make(map[string]interface{})
-			}
+	if config.C.Sync.Policies {
+		var model schema.Model
+		db := util.GetDB(ctx, s.ModelDAL.DB)
+		err := db.Where("model_code = ? AND deleted = '0'", modelCode).First(&model).Error
+		policyKey := "aigw:policies:model:" + modelCode
+		if err == nil {
+			if model.Enabled == 1 {
+				// 先读取已有的配置，防止冲掉 policy_binding 绑定的其它策略
+				var existingPolicy map[string]interface{}
+				if oldData, err := s.RedisClient.HGet(ctx, policyKey, "*").Result(); err == nil && oldData != "" {
+					_ = json.Unmarshal([]byte(oldData), &existingPolicy)
+				}
+				if existingPolicy == nil {
+					existingPolicy = make(map[string]interface{})
+				}
 
-			// 更新计费价格策略
-			existingPolicy["billing"] = map[string]interface{}{
-				"input_price":          model.InputPrice,
-				"output_price":         model.OutputPrice,
-				"cached_price":         model.CachedPrice,
-				"cache_creation_price": model.CacheCreationPrice,
-			}
+				// 更新计费价格策略
+				existingPolicy["billing"] = map[string]interface{}{
+					"input_price":          model.InputPrice,
+					"output_price":         model.OutputPrice,
+					"cached_price":         model.CachedPrice,
+					"cache_creation_price": model.CacheCreationPrice,
+				}
 
-			policyData, err := json.Marshal(existingPolicy)
-			if err == nil {
-				_ = s.RedisClient.HSet(ctx, policyKey, "*", string(policyData)).Err()
+				policyData, err := json.Marshal(existingPolicy)
+				if err == nil {
+					_ = s.RedisClient.HSet(ctx, policyKey, "*", string(policyData)).Err()
+				}
+			} else {
+				_ = s.RedisClient.Del(ctx, policyKey).Err()
 			}
-		} else {
-			_ = s.RedisClient.Del(ctx, policyKey).Err()
 		}
 	}
 
 	// 1. Query endpoints associated with the model code, preloading Model and Provider relations.
-	endpoints, err := s.queryResolvedEndpointsByCode(ctx, modelCode)
-	if err != nil {
-		return err
-	}
-
-	redisKey := "aigw:config:endpoints:" + modelCode
-
-	// 2. If no active endpoints exist, remove the key and its Hash version
-	// 注意：不调用 incrementVersion，避免重新创建已删除的 version 记录
-	if len(endpoints) == 0 {
-		_ = s.RedisClient.Del(ctx, redisKey).Err()
-		_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, modelCode).Err()
-		return nil
-	}
-
-	// 3. Map to ResolvedEndpoint structures applying inheritance rules
-	var resolvedList []ResolvedEndpoint
-	for _, ep := range endpoints {
-		if ep.Model == nil || ep.Provider == nil {
-			continue
+	if config.C.Sync.Endpoints {
+		endpoints, err := s.queryResolvedEndpointsByCode(ctx, modelCode)
+		if err != nil {
+			return err
 		}
 
-		// Inheritance: API Keys (endpoint > provider)
-		var apiKeys []string
-		if ep.ApiKey != "" {
-			apiKeys = []string{ep.ApiKey}
-		} else {
-			apiKeys = ep.Provider.GetApiKeys()
-		}
-		if len(apiKeys) == 0 {
-			apiKeys = []string{""}
-		}
+		redisKey := "aigw:config:endpoints:" + modelCode
 
-		// Inheritance: Protocol (endpoint > provider)
-		protocol := ep.Protocol
-		if protocol == "" {
-			protocol = ep.Provider.Protocol
+		// 2. If no active endpoints exist, remove the key and its Hash version
+		// 注意：不调用 incrementVersion，避免重新创建已删除的 version 记录
+		if len(endpoints) == 0 {
+			_ = s.RedisClient.Del(ctx, redisKey).Err()
+			_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, modelCode).Err()
+			return nil
 		}
 
-		// Defaults in milliseconds/counts
-		var timeout int64 = 60000 // default 60s
-		var maxRetries int = 3    // default 3
+		// 3. Map to ResolvedEndpoint structures applying inheritance rules
+		var resolvedList []ResolvedEndpoint
+		for _, ep := range endpoints {
+			if ep.Model == nil || ep.Provider == nil {
+				continue
+			}
 
-		// Parse metadata overrides
-		var metadataMap map[string]interface{}
-		var stringMetadataMap map[string]string
-		if len(ep.Metadata) > 0 {
-			_ = json.Unmarshal(ep.Metadata, &metadataMap)
-			_ = json.Unmarshal(ep.Metadata, &stringMetadataMap)
-		}
+			// Inheritance: API Keys (endpoint > provider)
+			var apiKeys []string
+			if ep.ApiKey != "" {
+				apiKeys = []string{ep.ApiKey}
+			} else {
+				apiKeys = ep.Provider.GetApiKeys()
+			}
+			if len(apiKeys) == 0 {
+				apiKeys = []string{""}
+			}
 
-		if metadataMap != nil {
-			if v, ok := metadataMap["timeout"]; ok {
-				switch val := v.(type) {
-				case float64:
-					timeout = int64(val)
-				case string:
-					if parsed, err := strconv.ParseInt(val, 10, 64); err == nil {
-						timeout = parsed
+			// Inheritance: Protocol (endpoint > provider)
+			protocol := ep.Protocol
+			if protocol == "" {
+				protocol = ep.Provider.Protocol
+			}
+
+			// Defaults in milliseconds/counts
+			var timeout int64 = 60000 // default 60s
+			var maxRetries int = 3    // default 3
+
+			// Parse metadata overrides
+			var metadataMap map[string]interface{}
+			var stringMetadataMap map[string]string
+			if len(ep.Metadata) > 0 {
+				_ = json.Unmarshal(ep.Metadata, &metadataMap)
+				_ = json.Unmarshal(ep.Metadata, &stringMetadataMap)
+			}
+
+			if metadataMap != nil {
+				if v, ok := metadataMap["timeout"]; ok {
+					switch val := v.(type) {
+					case float64:
+						timeout = int64(val)
+					case string:
+						if parsed, err := strconv.ParseInt(val, 10, 64); err == nil {
+							timeout = parsed
+						}
+					}
+				}
+				if v, ok := metadataMap["max_retries"]; ok {
+					switch val := v.(type) {
+					case float64:
+						maxRetries = int(val)
+					case string:
+						if parsed, err := strconv.Atoi(val); err == nil {
+							maxRetries = parsed
+						}
 					}
 				}
 			}
-			if v, ok := metadataMap["max_retries"]; ok {
-				switch val := v.(type) {
-				case float64:
-					maxRetries = int(val)
-				case string:
-					if parsed, err := strconv.Atoi(val); err == nil {
-						maxRetries = parsed
-					}
-				}
+
+			realModel := ep.RealModel
+			if realModel == "" {
+				realModel = ep.Model.ModelCode
+			}
+
+			var headersMap map[string]string
+			if len(ep.Headers) > 0 {
+				_ = json.Unmarshal(ep.Headers, &headersMap)
+			}
+
+			var apis []string
+			if ep.Model != nil && ep.Model.RequestTypes != "" {
+				_ = json.Unmarshal([]byte(ep.Model.RequestTypes), &apis)
+			}
+			if len(apis) == 0 {
+				return fmt.Errorf("model %s has no request_types configured", modelCode)
+			}
+			apis = normalizeRequestTypesForProtocol(protocol, apis)
+			if len(apis) == 0 {
+				return fmt.Errorf("model %s has no request_types compatible with protocol %s", modelCode, protocol)
+			}
+
+			// 价格继承前置 (Admin 写入 Redis 缓存时完成继承)
+			var (
+				inputPriceVal         = ep.Model.InputPrice
+				outputPriceVal        = ep.Model.OutputPrice
+				cachedPriceVal        = ep.Model.CachedPrice
+				cacheCreationPriceVal = ep.Model.CacheCreationPrice
+			)
+
+			if ep.InputPrice != nil {
+				inputPriceVal = *ep.InputPrice
+			}
+			if ep.OutputPrice != nil {
+				outputPriceVal = *ep.OutputPrice
+			}
+			if ep.CachedPrice != nil {
+				cachedPriceVal = *ep.CachedPrice
+			} else if ep.InputPrice != nil {
+				cachedPriceVal = *ep.InputPrice
+			}
+			if ep.CacheCreationPrice != nil {
+				cacheCreationPriceVal = *ep.CacheCreationPrice
+			} else if ep.InputPrice != nil {
+				cacheCreationPriceVal = *ep.InputPrice
+			}
+
+			for _, apiKey := range apiKeys {
+				resolvedList = append(resolvedList, ResolvedEndpoint{
+					ID:                 ep.ID,
+					Code:               ep.Code,
+					Description:        ep.Description,
+					RealModel:          realModel,
+					ProviderName:       ep.Provider.Name,
+					ProviderProtocol:   protocol,
+					APIKey:             apiKey,
+					URL:                ep.URL,
+					Timeout:            timeout,
+					MaxRetries:         maxRetries,
+					Priority:           ep.Priority,
+					Weight:             ep.Weight,
+					Headers:            headersMap,
+					Metadata:           stringMetadataMap,
+					RequestTypes:       apis,
+					InputPrice:         &inputPriceVal,
+					OutputPrice:        &outputPriceVal,
+					CachedPrice:        &cachedPriceVal,
+					CacheCreationPrice: &cacheCreationPriceVal,
+				})
 			}
 		}
 
-		realModel := ep.RealModel
-		if realModel == "" {
-			realModel = ep.Model.ModelCode
+		// 4. Serialize to JSON and write to Redis
+		jsonData, err := json.Marshal(resolvedList)
+		if err != nil {
+			return err
 		}
 
-		var headersMap map[string]string
-		if len(ep.Headers) > 0 {
-			_ = json.Unmarshal(ep.Headers, &headersMap)
+		if err := s.RedisClient.Set(ctx, redisKey, string(jsonData), 0).Err(); err != nil {
+			return err
 		}
-
-		var apis []string
-		if ep.Model != nil && ep.Model.RequestTypes != "" {
-			_ = json.Unmarshal([]byte(ep.Model.RequestTypes), &apis)
-		}
-		if len(apis) == 0 {
-			return fmt.Errorf("model %s has no request_types configured", modelCode)
-		}
-		apis = normalizeRequestTypesForProtocol(protocol, apis)
-		if len(apis) == 0 {
-			return fmt.Errorf("model %s has no request_types compatible with protocol %s", modelCode, protocol)
-		}
-
-		// 价格继承前置 (Admin 写入 Redis 缓存时完成继承)
-		var (
-			inputPriceVal         = ep.Model.InputPrice
-			outputPriceVal        = ep.Model.OutputPrice
-			cachedPriceVal        = ep.Model.CachedPrice
-			cacheCreationPriceVal = ep.Model.CacheCreationPrice
-		)
-
-		if ep.InputPrice != nil {
-			inputPriceVal = *ep.InputPrice
-		}
-		if ep.OutputPrice != nil {
-			outputPriceVal = *ep.OutputPrice
-		}
-		if ep.CachedPrice != nil {
-			cachedPriceVal = *ep.CachedPrice
-		} else if ep.InputPrice != nil {
-			cachedPriceVal = *ep.InputPrice
-		}
-		if ep.CacheCreationPrice != nil {
-			cacheCreationPriceVal = *ep.CacheCreationPrice
-		} else if ep.InputPrice != nil {
-			cacheCreationPriceVal = *ep.InputPrice
-		}
-
-		for _, apiKey := range apiKeys {
-			resolvedList = append(resolvedList, ResolvedEndpoint{
-				ID:                 ep.ID,
-				Code:               ep.Code,
-				Description:        ep.Description,
-				RealModel:          realModel,
-				ProviderName:       ep.Provider.Name,
-				ProviderProtocol:   protocol,
-				APIKey:             apiKey,
-				URL:                ep.URL,
-				Timeout:            timeout,
-				MaxRetries:         maxRetries,
-				Priority:           ep.Priority,
-				Weight:             ep.Weight,
-				Headers:            headersMap,
-				Metadata:           stringMetadataMap,
-				RequestTypes:       apis,
-				InputPrice:         &inputPriceVal,
-				OutputPrice:        &outputPriceVal,
-				CachedPrice:        &cachedPriceVal,
-				CacheCreationPrice: &cacheCreationPriceVal,
-			})
-		}
-	}
-
-	// 4. Serialize to JSON and write to Redis
-	jsonData, err := json.Marshal(resolvedList)
-	if err != nil {
-		return err
-	}
-
-	if err := s.RedisClient.Set(ctx, redisKey, string(jsonData), 0).Err(); err != nil {
-		return err
 	}
 
 	// 5. Increment version
@@ -464,21 +468,23 @@ func (s *ConfigRedisSync) SyncModelCodeChange(ctx context.Context, modelID, oldM
 		_ = s.RedisClient.SAdd(ctx, oldModelsKey, newModelCode).Err()
 
 
-		// 4. 迁移 aigw:tenant:{tenantCode}:model:{modelCode}:endpoints 集合（新）
-		oldEndpointsKey := "aigw:tenant:" + tenantCode + ":model:" + oldModelCode + ":endpoints"
-		newEndpointsKey := "aigw:tenant:" + tenantCode + ":model:" + newModelCode + ":endpoints"
+		if config.C.Sync.Endpoints {
+			// 4. 迁移 aigw:tenant:{tenantCode}:model:{modelCode}:endpoints 集合（新）
+			oldEndpointsKey := "aigw:tenant:" + tenantCode + ":model:" + oldModelCode + ":endpoints"
+			newEndpointsKey := "aigw:tenant:" + tenantCode + ":model:" + newModelCode + ":endpoints"
 
-		// 获取并迁移端点白名单
-		epMembers, err := s.RedisClient.SMembers(ctx, oldEndpointsKey).Result()
-		if err == nil && len(epMembers) > 0 {
-			var interfaces []interface{}
-			for _, m := range epMembers {
-				interfaces = append(interfaces, m)
+			// 获取并迁移端点白名单
+			epMembers, err := s.RedisClient.SMembers(ctx, oldEndpointsKey).Result()
+			if err == nil && len(epMembers) > 0 {
+				var interfaces []interface{}
+				for _, m := range epMembers {
+					interfaces = append(interfaces, m)
+				}
+				_ = s.RedisClient.SAdd(ctx, newEndpointsKey, interfaces...).Err()
 			}
-			_ = s.RedisClient.SAdd(ctx, newEndpointsKey, interfaces...).Err()
+			// 删除低端点白名单缓存
+			_ = s.RedisClient.Del(ctx, oldEndpointsKey).Err()
 		}
-		// 删除低端点白名单缓存
-		_ = s.RedisClient.Del(ctx, oldEndpointsKey).Err()
 	}
 
 	// 5. 更新该模型所有别名的 Redis value 为新 modelCode
@@ -521,9 +527,11 @@ func (s *ConfigRedisSync) SyncModelDisable(ctx context.Context, modelID, modelCo
 		_ = s.RedisClient.SRem(ctx, modelsKey, modelCode).Err()
 
 
-		// 4. 删除 endpoints 白名单缓存（新）
-		endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":endpoints"
-		_ = s.RedisClient.Del(ctx, endpointsKey).Err()
+		if config.C.Sync.Endpoints {
+			// 4. 删除 endpoints 白名单缓存（新）
+			endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":endpoints"
+			_ = s.RedisClient.Del(ctx, endpointsKey).Err()
+		}
 	}
 
 	// 5. 清理该模型所有别名的 Redis key
@@ -557,24 +565,26 @@ func (s *ConfigRedisSync) SyncModelEnable(ctx context.Context, modelID, modelCod
 		modelsKey := "aigw:tenant:" + tenantCode + ":models"
 		_ = s.RedisClient.SAdd(ctx, modelsKey, modelCode).Err()
 
-		// 3. 重新同步该租户此模型的 endpoints 限制白名单（新）
-		endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":endpoints"
+		if config.C.Sync.Endpoints {
+			// 3. 重新同步该租户此模型的 endpoints 限制白名单（新）
+			endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":endpoints"
 
-		var endpointIDs []string
-		err = db.Table(tenantEndpointTable+" AS te").
-			Select("te.endpoint_id").
-			Joins("JOIN "+endpointTable+" AS ep ON te.endpoint_id = ep.id AND ep.deleted = '0'").
-			Where("te.tenant_code = ? AND ep.model_id = ?", tenantCode, modelID).
-			Pluck("te.endpoint_id", &endpointIDs).Error
+			var endpointIDs []string
+			err = db.Table(tenantEndpointTable+" AS te").
+				Select("te.endpoint_id").
+				Joins("JOIN "+endpointTable+" AS ep ON te.endpoint_id = ep.id AND ep.deleted = '0'").
+				Where("te.tenant_code = ? AND ep.model_id = ?", tenantCode, modelID).
+				Pluck("te.endpoint_id", &endpointIDs).Error
 
-		if err == nil {
-			_ = s.RedisClient.Del(ctx, endpointsKey).Err()
-			if len(endpointIDs) > 0 {
-				var members []interface{}
-				for _, id := range endpointIDs {
-					members = append(members, id)
+			if err == nil {
+				_ = s.RedisClient.Del(ctx, endpointsKey).Err()
+				if len(endpointIDs) > 0 {
+					var members []interface{}
+					for _, id := range endpointIDs {
+						members = append(members, id)
+					}
+					_ = s.RedisClient.SAdd(ctx, endpointsKey, members...).Err()
 				}
-				_ = s.RedisClient.SAdd(ctx, endpointsKey, members...).Err()
 			}
 		}
 	}
@@ -663,38 +673,40 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 			_ = s.RedisClient.Del(ctx, modelsKey).Err()
 		}
 
-		// 为租户所绑定的每一个模型，同步其 endpoints 白名单
-		for _, m := range models {
-			if m.Enabled == 1 {
-				// 同步 endpoints 白名单（新）
-				endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + m.ModelCode + ":endpoints"
+		if config.C.Sync.Endpoints {
+			// 为租户所绑定的每一个模型，同步其 endpoints 白名单
+			for _, m := range models {
+				if m.Enabled == 1 {
+					// 同步 endpoints 白名单（新）
+					endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + m.ModelCode + ":endpoints"
 
-				var endpointIDs []string
-				err = db.Table(tenantEndpointTable+" AS te").
-					Select("te.endpoint_id").
-					Joins("JOIN "+endpointTable+" AS ep ON te.endpoint_id = ep.id AND ep.deleted = '0'").
-					Where("te.tenant_code = ? AND ep.model_id = ?", tenantCode, m.ID).
-					Pluck("te.endpoint_id", &endpointIDs).Error
+					var endpointIDs []string
+					err = db.Table(tenantEndpointTable+" AS te").
+						Select("te.endpoint_id").
+						Joins("JOIN "+endpointTable+" AS ep ON te.endpoint_id = ep.id AND ep.deleted = '0'").
+						Where("te.tenant_code = ? AND ep.model_id = ?", tenantCode, m.ID).
+						Pluck("te.endpoint_id", &endpointIDs).Error
 
-				if err == nil {
-					if len(endpointIDs) > 0 {
-						// 原子替换 endpoints 集合
-						tmpEndpointsKey := endpointsKey + ":tmp"
-						_ = s.RedisClient.Del(ctx, tmpEndpointsKey).Err()
+					if err == nil {
+						if len(endpointIDs) > 0 {
+							// 原子替换 endpoints 集合
+							tmpEndpointsKey := endpointsKey + ":tmp"
+							_ = s.RedisClient.Del(ctx, tmpEndpointsKey).Err()
 
-						var members []interface{}
-						for _, id := range endpointIDs {
-							members = append(members, id)
+							var members []interface{}
+							for _, id := range endpointIDs {
+								members = append(members, id)
+							}
+							if err := s.RedisClient.SAdd(ctx, tmpEndpointsKey, members...).Err(); err != nil {
+								return err
+							}
+							if err := s.RedisClient.Rename(ctx, tmpEndpointsKey, endpointsKey).Err(); err != nil {
+								return err
+							}
+						} else {
+							// 若无限制，物理 Del 白名单
+							_ = s.RedisClient.Del(ctx, endpointsKey).Err()
 						}
-						if err := s.RedisClient.SAdd(ctx, tmpEndpointsKey, members...).Err(); err != nil {
-							return err
-						}
-						if err := s.RedisClient.Rename(ctx, tmpEndpointsKey, endpointsKey).Err(); err != nil {
-							return err
-						}
-					} else {
-						// 若无限制，物理 Del 白名单
-						_ = s.RedisClient.Del(ctx, endpointsKey).Err()
 					}
 				}
 			}
@@ -708,18 +720,24 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 				return err
 			}
 		} else {
-			redisKey := "aigw:config:endpoints:" + m.ModelCode
-			_ = s.RedisClient.Del(ctx, redisKey).Err()
+			if config.C.Sync.Endpoints {
+				redisKey := "aigw:config:endpoints:" + m.ModelCode
+				_ = s.RedisClient.Del(ctx, redisKey).Err()
+			}
 			_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, m.ModelCode).Err()
-			_ = s.RedisClient.Del(ctx, "aigw:policies:model:"+m.ModelCode).Err()
+			if config.C.Sync.Policies {
+				_ = s.RedisClient.Del(ctx, "aigw:policies:model:"+m.ModelCode).Err()
+			}
 
 			// 物理清理各租户中被禁用模型的授权与 endpoints 缓存
 			for _, tenantCode := range tenantCodes {
 				modelsKey := "aigw:tenant:" + tenantCode + ":models"
 				_ = s.RedisClient.SRem(ctx, modelsKey, m.ModelCode).Err()
 
-				endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + m.ModelCode + ":endpoints"
-				_ = s.RedisClient.Del(ctx, endpointsKey).Err()
+				if config.C.Sync.Endpoints {
+					endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + m.ModelCode + ":endpoints"
+					_ = s.RedisClient.Del(ctx, endpointsKey).Err()
+				}
 			}
 		}
 	}
