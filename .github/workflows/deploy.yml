@@ -40,6 +40,17 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-w -s -X main.VERSION=v1.0.0" -o ./bin/tokenlive-admin_linux_amd64
 
+      - name: Customize Systemd Service
+        run: |
+          SSH_USER="${{ secrets.SSH_USER }}"
+          if [ "$SSH_USER" = "root" ]; then
+            SSH_HOME="/root"
+          else
+            SSH_HOME="/home/$SSH_USER"
+          fi
+          sed -i "s|__USER__|$SSH_USER|g" ./scripts/tokenlive-admin.service
+          sed -i "s|__HOME__|$SSH_HOME|g" ./scripts/tokenlive-admin.service
+
       - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
@@ -57,6 +68,7 @@ jobs:
           cp ./configs/menu_cn.json ./deploy_temp/configs/
           cp ./configs/rbac_model.conf ./deploy_temp/configs/
           cp -r ./frontend/dist ./deploy_temp/frontend/
+          cp ./scripts/tokenlive-admin.service ./deploy_temp/
           
           tar -czf deploy_admin.tar.gz -C ./deploy_temp .
           rm -rf ./deploy_temp
@@ -71,6 +83,11 @@ jobs:
             tar -xzf ~/tokenlive-admin/deploy_admin.tar.gz -C ~/tokenlive-admin/ && \
             rm -f ~/tokenlive-admin/deploy_admin.tar.gz && \
             chmod +x ~/tokenlive-admin/tokenlive-admin && \
-            systemctl restart tokenlive-admin && \
-            systemctl status tokenlive-admin --no-pager
+            ( [ -f /etc/systemd/system/tokenlive-admin.service ] || ( \
+              sudo cp ~/tokenlive-admin/tokenlive-admin.service /etc/systemd/system/ && \
+              sudo systemctl daemon-reload && \
+              sudo systemctl enable tokenlive-admin \
+            ) ) && \
+            sudo systemctl restart tokenlive-admin && \
+            sudo systemctl status tokenlive-admin --no-pager
           "

@@ -1,0 +1,15 @@
+[Unit]
+Description=TokenLive Admin Service
+After=network.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__HOME__/tokenlive-admin
+ExecStart=__HOME__/tokenlive-admin/tokenlive-admin start -d __HOME__/tokenlive-admin/configs -c prod -s __HOME__/tokenlive-admin/frontend/dist
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
