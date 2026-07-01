@@ -161,3 +161,20 @@ func minDuration(a, b time.Duration) time.Duration {
 	}
 	return b
 }
+
+// NoOpSubscriber implements EventSubscriber and does nothing.
+type NoOpSubscriber struct{}
+
+func NewNoOpSubscriber() *NoOpSubscriber {
+	return &NoOpSubscriber{}
+}
+
+func (s *NoOpSubscriber) Subscribe(ctx context.Context, handler EventHandler) error {
+	zap.L().Warn("No-Op event queue subscriber is active. Event processing is disabled because Redis is not configured.")
+	<-ctx.Done()
+	return nil
+}
+
+func (s *NoOpSubscriber) Close() error {
+	return nil
+}

@@ -7,6 +7,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/ops/api"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/ops/dal"
+	"go.uber.org/zap"
 )
 
 var Set = wire.NewSet(
@@ -38,6 +39,10 @@ func ProvideEventSubscriber(redisClient *redis.Client) biz.EventSubscriber {
 			ConsumerGroup: queueCfg.ConsumerGroup,
 		})
 	default: // "redis"
+		if redisClient == nil {
+			zap.L().Warn("Redis stream queue is requested, but Redis client is nil. Fallback to NoOp subscriber.")
+			return biz.NewNoOpSubscriber()
+		}
 		return biz.NewRedisStreamSubscriber(redisClient, biz.RedisStreamConfig{
 			StreamKey:     queueCfg.Topic,
 			ConsumerGroup: queueCfg.ConsumerGroup,
