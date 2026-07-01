@@ -142,13 +142,8 @@ func (a *PolicyLimit) Delete(ctx context.Context, id string) error {
 		return errors.NotFound("", "Policy limit not found")
 	}
 
-	// Check if the policy is bound to any dimension
-	isBound, err := a.PolicyBindingDAL.ExistsByPolicyID(ctx, "limit", id)
-	if err != nil {
+	if err := ensurePolicyUnbound(ctx, a.PolicyBindingDAL, "limit", id); err != nil {
 		return err
-	}
-	if isBound {
-		return errors.BadRequest("", "Cannot delete policy: it is currently bound to one or more dimensions. Please unbind it first.")
 	}
 
 	err = a.Trans.Exec(ctx, func(ctx context.Context) error {

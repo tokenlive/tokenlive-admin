@@ -139,13 +139,8 @@ func (a *PolicyTagging) Delete(ctx context.Context, id string) error {
 		return errors.NotFound("", "Policy tagging not found")
 	}
 
-	// Check if the policy is bound to any dimension
-	isBound, err := a.PolicyBindingDAL.ExistsByPolicyID(ctx, "tagging", id)
-	if err != nil {
+	if err := ensurePolicyUnbound(ctx, a.PolicyBindingDAL, "tagging", id); err != nil {
 		return err
-	}
-	if isBound {
-		return errors.BadRequest("", "Cannot delete policy: it is currently bound to one or more dimensions. Please unbind it first.")
 	}
 
 	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
