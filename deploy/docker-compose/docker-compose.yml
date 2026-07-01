@@ -2,14 +2,16 @@ version: '3.8'
 
 services:
   tokenlive:
-    build: .
+    build:
+      context: ../../
+      dockerfile: deploy/build/Dockerfile
     image: tokenlive-admin:latest
     container_name: tokenlive-admin
     ports:
       - "8040:8040"
     volumes:
-      - ./data:/app/data
-      - ./configs/prod:/app/configs/prod
+      - ../../data:/app/data
+      - ../../configs/prod:/app/configs/prod
     environment:
       - GIN_MODE=release
     restart: unless-stopped

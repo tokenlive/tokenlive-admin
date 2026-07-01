@@ -80,7 +80,7 @@ gen-application-code:
 	gin-admin-cli gen -d ./ -m Resource -c gen/prototype/application.yaml
 
 docker-build:
-	docker buildx build --load -t $(REGISTRY)$(APP):$(RELEASE_TAG) -t $(REGISTRY)$(APP):latest .
+	docker buildx build --load -t $(REGISTRY)$(APP):$(RELEASE_TAG) -t $(REGISTRY)$(APP):latest -f deploy/build/Dockerfile .
 
 docker-push:
-	docker buildx build --platform $(PLATFORMS) --push -t $(REGISTRY)$(APP):$(RELEASE_TAG) -t $(REGISTRY)$(APP):latest .
+	docker buildx build --platform $(PLATFORMS) --push -t $(REGISTRY)$(APP):$(RELEASE_TAG) -t $(REGISTRY)$(APP):latest -f deploy/build/Dockerfile .
