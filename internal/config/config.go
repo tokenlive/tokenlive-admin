@@ -15,6 +15,7 @@ type Config struct {
 	Util       Util
 	Dictionary Dictionary
 	Portal     PortalConfig
+	Gateway    GatewayConfig
 	Sync       Sync
 }
 
@@ -26,6 +27,10 @@ type Sync struct {
 type PortalConfig struct {
 	BaseURL          string `default:"http://localhost:8080"`
 	InternalAPIToken string `default:"dev-internal-token"`
+}
+
+type GatewayConfig struct {
+	APIKeyPepper string
 }
 
 type General struct {

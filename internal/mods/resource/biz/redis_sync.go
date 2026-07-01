@@ -12,13 +12,14 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaykeys"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
 const (
-	RedisKeyConfigModelVersions       = "aigw:config:model_versions"
-	RedisKeyConfigAliasPrefix         = "aigw:config:alias:"
-	RedisKeyConfigModelAliasesPrefix  = "aigw:config:model_aliases:"
+	RedisKeyConfigModelVersions      = "aigw:config:model_versions"
+	RedisKeyConfigAliasPrefix        = "aigw:config:alias:"
+	RedisKeyConfigModelAliasesPrefix = "aigw:config:model_aliases:"
 )
 
 type ResolvedEndpoint struct {
@@ -467,7 +468,6 @@ func (s *ConfigRedisSync) SyncModelCodeChange(ctx context.Context, modelID, oldM
 		_ = s.RedisClient.SRem(ctx, oldModelsKey, oldModelCode).Err()
 		_ = s.RedisClient.SAdd(ctx, oldModelsKey, newModelCode).Err()
 
-
 		if config.C.Sync.Endpoints {
 			// 4. 迁移 aigw:tenant:{tenantCode}:model:{modelCode}:endpoints 集合（新）
 			oldEndpointsKey := "aigw:tenant:" + tenantCode + ":model:" + oldModelCode + ":endpoints"
@@ -525,7 +525,6 @@ func (s *ConfigRedisSync) SyncModelDisable(ctx context.Context, modelID, modelCo
 		// 2. 从 aigw:tenant:{tenantCode}:models 集合中移除该 modelCode
 		modelsKey := "aigw:tenant:" + tenantCode + ":models"
 		_ = s.RedisClient.SRem(ctx, modelsKey, modelCode).Err()
-
 
 		if config.C.Sync.Endpoints {
 			// 4. 删除 endpoints 白名单缓存（新）
@@ -793,7 +792,7 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 			if key.APIKey == "" {
 				continue
 			}
-			redisKey := "aigw:apikey:" + key.APIKey
+			redisKey := runtimeAPIKeyRedisKey(key.APIKey)
 			var expiresAtVal int64 = 0
 			if key.ExpiresAt != nil {
 				expiresAtVal = key.ExpiresAt.Unix()
@@ -819,7 +818,7 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 	err = db.Table(tenantTable).Where("deleted = '0' AND api_key IS NOT NULL AND api_key != ''").Find(&tenantKeys).Error
 	if err == nil {
 		for _, t := range tenantKeys {
-			redisKey := "aigw:apikey:" + t.APIKey
+			redisKey := runtimeAPIKeyRedisKey(t.APIKey)
 			if t.Status == "activated" {
 				fields := map[string]interface{}{
 					"tenant":     t.Code,
@@ -829,10 +828,19 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 				}
 				_ = s.RedisClient.HSet(ctx, redisKey, fields).Err()
 			} else {
-				_ = s.RedisClient.Del(ctx, redisKey).Err()
+				_ = s.RedisClient.Del(ctx, runtimeAPIKeyRedisKeys(t.APIKey)...).Err()
 			}
 		}
 	}
 
 	return nil
+}
+
+func runtimeAPIKeyRedisKey(apiKey string) string {
+	keyHash := gatewaykeys.HashAPIKey(apiKey, config.C.Gateway.APIKeyPepper)
+	return gatewaykeys.RedisKeyAPIKeyHash(keyHash)
+}
+
+func runtimeAPIKeyRedisKeys(apiKey string) []string {
+	return []string{runtimeAPIKeyRedisKey(apiKey)}
 }

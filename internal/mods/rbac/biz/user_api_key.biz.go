@@ -13,6 +13,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaykeys"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
@@ -214,8 +215,7 @@ func (a *UserAPIKey) Delete(ctx context.Context, id string) error {
 
 	// 逻辑删除时直接从 Redis 清除 Key
 	if a.RedisClient != nil {
-		redisKey := "aigw:apikey:" + apiKey.APIKey
-		_ = a.RedisClient.Del(ctx, redisKey).Err()
+		_ = a.RedisClient.Del(ctx, apiKeyRuntimeRedisKeys(apiKey.APIKey)...).Err()
 	}
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeAPIKey, apiKey.ID, apiKey.Name, apiKey, nil)
 	return nil
@@ -247,11 +247,11 @@ func (a *UserAPIKey) syncToRedis(ctx context.Context, apiKey *schema.UserAPIKey)
 		return nil
 	}
 
-	redisKey := "aigw:apikey:" + apiKey.APIKey
+	redisKey := apiKeyRuntimeRedisKey(apiKey.APIKey)
 
 	// 逻辑删除或者已删除，直接清除 Redis 缓存
 	if apiKey.Deleted != "0" {
-		return a.RedisClient.Del(ctx, redisKey).Err()
+		return a.RedisClient.Del(ctx, apiKeyRuntimeRedisKeys(apiKey.APIKey)...).Err()
 	}
 
 	// 转换 ExpiresAt 转换为 Unix 时间戳 (秒)
@@ -275,6 +275,17 @@ func (a *UserAPIKey) syncToRedis(ctx context.Context, apiKey *schema.UserAPIKey)
 		"expires_at":  expiresAtVal,
 	}
 
-	// 执行 HSET 写入 Redis
-	return a.RedisClient.HSet(ctx, redisKey, fields).Err()
+	if err := a.RedisClient.HSet(ctx, redisKey, fields).Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func apiKeyRuntimeRedisKey(apiKey string) string {
+	keyHash := gatewaykeys.HashAPIKey(apiKey, config.C.Gateway.APIKeyPepper)
+	return gatewaykeys.RedisKeyAPIKeyHash(keyHash)
+}
+
+func apiKeyRuntimeRedisKeys(apiKey string) []string {
+	return []string{apiKeyRuntimeRedisKey(apiKey)}
 }

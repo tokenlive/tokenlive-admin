@@ -24,3 +24,11 @@ func TestMD5(t *testing.T) {
 		t.Error("Failed to generate MD5 hash: ", v)
 	}
 }
+
+func TestHMACSHA256StringMatchesGatewayAPIKeyHash(t *testing.T) {
+	got := HMACSHA256String("tl_live_example", "pepper")
+	want := "06bfbed9282f1dcb96bd25c7bef96d9b49de0be5f3777b44f4f71cfcca8821b1"
+	if got != want {
+		t.Fatalf("HMACSHA256String() = %q, want %q", got, want)
+	}
+}

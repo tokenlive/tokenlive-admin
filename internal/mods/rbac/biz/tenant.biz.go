@@ -156,7 +156,7 @@ func (a *Tenant) Update(ctx context.Context, id string, formItem *schema.TenantF
 
 	// 若 API Key 发生变更，删除旧的缓存
 	if a.RedisClient != nil && oldAPIKey != "" && oldAPIKey != tenant.APIKey {
-		_ = a.RedisClient.Del(ctx, "aigw:apikey:"+oldAPIKey).Err()
+		_ = a.RedisClient.Del(ctx, apiKeyRuntimeRedisKeys(oldAPIKey)...).Err()
 	}
 
 	// 同步新缓存到 Redis
@@ -231,7 +231,7 @@ func (a *Tenant) Delete(ctx context.Context, id string) error {
 
 	// 清除 Redis 缓存
 	if a.RedisClient != nil && tenant.APIKey != "" {
-		_ = a.RedisClient.Del(ctx, "aigw:apikey:"+tenant.APIKey).Err()
+		_ = a.RedisClient.Del(ctx, apiKeyRuntimeRedisKeys(tenant.APIKey)...).Err()
 	}
 
 	a.AuditLogBIZ.RecordActionWithTenant(ctx, tenant.Code, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeTenant, tenant.ID, tenant.Code, tenant, nil)
@@ -253,11 +253,11 @@ func (a *Tenant) syncToRedis(ctx context.Context, tenant *schema.Tenant) error {
 		return nil
 	}
 
-	redisKey := "aigw:apikey:" + tenant.APIKey
+	redisKey := apiKeyRuntimeRedisKey(tenant.APIKey)
 
 	// 逻辑删除或租户处于冻结状态，直接从 Redis 清除 Key
 	if tenant.Deleted != "0" || tenant.Status != schema.TenantStatusActivated {
-		return a.RedisClient.Del(ctx, redisKey).Err()
+		return a.RedisClient.Del(ctx, apiKeyRuntimeRedisKeys(tenant.APIKey)...).Err()
 	}
 
 	fields := map[string]interface{}{
@@ -267,5 +267,8 @@ func (a *Tenant) syncToRedis(ctx context.Context, tenant *schema.Tenant) error {
 		"expires_at": 0,  // 0 代表永不过期
 	}
 
-	return a.RedisClient.HSet(ctx, redisKey, fields).Err()
+	if err := a.RedisClient.HSet(ctx, redisKey, fields).Err(); err != nil {
+		return err
+	}
+	return nil
 }

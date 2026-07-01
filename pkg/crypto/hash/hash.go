@@ -1,8 +1,11 @@
 package hash
 
 import (
+	"crypto/hmac"
 	"crypto/md5"
 	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
@@ -30,6 +33,13 @@ func SHA1(b []byte) string {
 // sha1 hash
 func SHA1String(s string) string {
 	return SHA1([]byte(s))
+}
+
+// HMACSHA256String returns a lowercase hex HMAC-SHA256 digest.
+func HMACSHA256String(message string, secret string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(message))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 // Use bcrypt generate password hash

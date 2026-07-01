@@ -97,6 +97,9 @@ Password = "${PROMETHEUS_SERVER_PASSWORD:}"
 [Dictionary]
 UserCacheExp = 4 # hours
 
+[Gateway]
+APIKeyPepper = "${GATEWAY_API_KEY_PEPPER:}"
+
 [Sync]
 Endpoints = true
 Policies = true
