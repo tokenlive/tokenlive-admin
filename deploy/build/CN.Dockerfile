@@ -23,6 +23,8 @@ ARG TARGETOS
 ARG TARGETARCH
 
 WORKDIR /go/src/${APP}
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
 
 # Copy frontend build output
