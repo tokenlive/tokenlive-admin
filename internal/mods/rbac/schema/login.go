@@ -7,11 +7,11 @@ type Captcha struct {
 }
 
 type LoginForm struct {
-	Username     string `json:"username" binding:"required"`      // Login name
-	Password     string `json:"password" binding:"required"`      // Login password (md5 hash)
-	CaptchaID    string `json:"captcha_id" binding:"required"`    // Captcha verify id
-	CaptchaCode  string `json:"captcha_code" binding:"required"`  // Captcha verify code
-	RememberMe   bool   `json:"remember_me"`                      // Remember login state (30 days)
+	Username    string `json:"username" binding:"required"`     // Login name
+	Password    string `json:"password" binding:"required"`     // Login password (md5 hash)
+	CaptchaID   string `json:"captcha_id" binding:"required"`   // Captcha verify id
+	CaptchaCode string `json:"captcha_code" binding:"required"` // Captcha verify code
+	RememberMe  bool   `json:"remember_me"`                     // Remember login state (30 days)
 }
 
 func (a *LoginForm) Trim() *LoginForm {

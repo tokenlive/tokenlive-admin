@@ -11,16 +11,16 @@ import (
 )
 
 type Resource struct {
-	DB                    *gorm.DB
-	ProviderAPI           *api.Provider
-	EndpointAPI           *api.Endpoint
-	ModelAPI              *api.Model
-	ModelAliasAPI         *api.ModelAlias
-	DataPermissionAPI     *api.DataPermission
-	ModelCatalogAPI       *api.ModelCatalog
-	ModelCatalogI18nAPI   *api.ModelCatalogI18n
-	ModelPriceVersionAPI  *api.ModelPriceVersion
-	GatewaySyncAPI        *api.GatewaySync
+	DB                   *gorm.DB
+	ProviderAPI          *api.Provider
+	EndpointAPI          *api.Endpoint
+	ModelAPI             *api.Model
+	ModelAliasAPI        *api.ModelAlias
+	DataPermissionAPI    *api.DataPermission
+	ModelCatalogAPI      *api.ModelCatalog
+	ModelCatalogI18nAPI  *api.ModelCatalogI18n
+	ModelPriceVersionAPI *api.ModelPriceVersion
+	GatewaySyncAPI       *api.GatewaySync
 }
 
 func (a *Resource) AutoMigrate(ctx context.Context) error {

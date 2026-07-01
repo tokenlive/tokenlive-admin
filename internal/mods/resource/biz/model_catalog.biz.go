@@ -14,10 +14,10 @@ import (
 
 // ModelCatalog business logic layer
 type ModelCatalog struct {
-	Trans              *util.Trans
-	ModelCatalogDAL    *dal.ModelCatalog
+	Trans               *util.Trans
+	ModelCatalogDAL     *dal.ModelCatalog
 	ModelCatalogI18nDAL *dal.ModelCatalogI18n
-	AuditLogBIZ        *opsBiz.AuditLog
+	AuditLogBIZ         *opsBiz.AuditLog
 }
 
 // Query model catalogs.

@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	defaultBatchSize     = 100
-	defaultBlockTimeout  = 5 * time.Second
-	defaultMaxBackoff    = 30 * time.Second
+	defaultBatchSize      = 100
+	defaultBlockTimeout   = 5 * time.Second
+	defaultMaxBackoff     = 30 * time.Second
 	defaultInitialBackoff = 1 * time.Second
 )
 

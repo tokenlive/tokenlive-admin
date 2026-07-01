@@ -36,13 +36,13 @@ var (
 )
 
 type options struct {
-	signingMethod jwt.SigningMethod
-	signingKey    []byte
-	signingKey2   []byte
-	keyFuncs      []func(*jwt.Token) (interface{}, error)
-	expired       int
+	signingMethod  jwt.SigningMethod
+	signingKey     []byte
+	signingKey2    []byte
+	keyFuncs       []func(*jwt.Token) (interface{}, error)
+	expired        int
 	refreshExpired int
-	tokenType     string
+	tokenType      string
 }
 
 type Option func(*options)
@@ -76,11 +76,11 @@ func SetRefreshExpired(expired int) Option {
 
 func New(store Storer, opts ...Option) Auther {
 	o := options{
-		tokenType:     "Bearer",
-		expired:       7200,
+		tokenType:      "Bearer",
+		expired:        7200,
 		refreshExpired: 2592000, // 30 days
-		signingMethod: jwt.SigningMethodHS512,
-		signingKey:    []byte(defaultKey),
+		signingMethod:  jwt.SigningMethodHS512,
+		signingKey:     []byte(defaultKey),
 	}
 
 	for _, opt := range opts {

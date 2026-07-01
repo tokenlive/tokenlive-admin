@@ -9,9 +9,9 @@ import (
 
 	"github.com/patrickmn/go-cache"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
+	policySchema "github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
-	policySchema "github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
 )
@@ -42,9 +42,9 @@ func ClearGatewayConfigCache() {
 }
 
 type GatewayConfig struct {
-	Models    map[string]ModelConfig `json:"models"`
+	Models    map[string]ModelConfig    `json:"models"`
 	Providers map[string]ProviderConfig `json:"providers"`
-	Fallbacks map[string][]string    `json:"fallbacks"`
+	Fallbacks map[string][]string       `json:"fallbacks"`
 }
 
 type ModelConfig struct {
@@ -75,13 +75,13 @@ type EndpointConfig struct {
 }
 
 type HTTPPolicyValue struct {
-	LoadBalancePolicy    *policySchema.PolicyLoadbalanceForm     `json:"load_balance_policy,omitempty"`
-	InvocationPolicy     *policySchema.PolicyInvocationForm      `json:"invocation_policy,omitempty"`
-	LimitPolicies        []*policySchema.PolicyLimitForm         `json:"limit_policies,omitempty"`
-	RoutePolicies        []*policySchema.PolicyRouteForm         `json:"route_policies,omitempty"`
-	CircuitBreakPolicies []*policySchema.PolicyCircuitBreakForm  `json:"circuit_break_policies,omitempty"`
-	TaggingPolicies      []*policySchema.PolicyTaggingForm       `json:"tagging_policies,omitempty"`
-	Billing              *BillingPolicy                          `json:"billing,omitempty"`
+	LoadBalancePolicy    *policySchema.PolicyLoadbalanceForm    `json:"load_balance_policy,omitempty"`
+	InvocationPolicy     *policySchema.PolicyInvocationForm     `json:"invocation_policy,omitempty"`
+	LimitPolicies        []*policySchema.PolicyLimitForm        `json:"limit_policies,omitempty"`
+	RoutePolicies        []*policySchema.PolicyRouteForm        `json:"route_policies,omitempty"`
+	CircuitBreakPolicies []*policySchema.PolicyCircuitBreakForm `json:"circuit_break_policies,omitempty"`
+	TaggingPolicies      []*policySchema.PolicyTaggingForm      `json:"tagging_policies,omitempty"`
+	Billing              *BillingPolicy                         `json:"billing,omitempty"`
 }
 
 type BillingPolicy struct {
@@ -130,8 +130,8 @@ func (s *GatewaySync) GetGatewayConfig(ctx context.Context, modelCode string) (*
 	query := db.Table(endpointTable).
 		Preload("Model").
 		Preload("Provider").
-		Joins("JOIN "+modelTable+" ON "+endpointTable+".model_id = "+modelTable+".id").
-		Joins("JOIN "+providerTable+" ON "+endpointTable+".provider_id = "+providerTable+".id").
+		Joins("JOIN " + modelTable + " ON " + endpointTable + ".model_id = " + modelTable + ".id").
+		Joins("JOIN " + providerTable + " ON " + endpointTable + ".provider_id = " + providerTable + ".id").
 		Where(endpointTable + ".enabled = 1").
 		Where(modelTable + ".enabled = 1").
 		Where(providerTable + ".enabled = 1").

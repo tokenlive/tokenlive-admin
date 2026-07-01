@@ -20,10 +20,10 @@ import (
 
 // ModelCatalog management
 type ModelCatalog struct {
-	ModelCatalogBIZ      *biz.ModelCatalog
-	prometheusAvail      bool
-	prometheusMu         sync.RWMutex
-	prometheusLastChk    time.Time
+	ModelCatalogBIZ   *biz.ModelCatalog
+	prometheusAvail   bool
+	prometheusMu      sync.RWMutex
+	prometheusLastChk time.Time
 }
 
 // metricName 根据配置的 MetricPrefix 拼接完整的 Prometheus 指标名
@@ -421,7 +421,7 @@ func (m *ModelCatalog) GetMetrics(c *gin.Context) {
 
 	// 查询多个时间窗口的指标
 	windows := []struct {
-		label    string
+		label     string
 		promRange string
 	}{
 		{"1h", "1h"},

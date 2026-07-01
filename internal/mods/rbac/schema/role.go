@@ -23,9 +23,9 @@ type Role struct {
 	Sequence    int       `json:"sequence" gorm:"type:bigint;default:null;index:idx_role_sequence;comment:角色序列;"`
 	Tenant      string    `json:"tenant" gorm:"type:varchar(255);default:null;comment:租户信息;"`
 	Status      string    `json:"status" gorm:"type:varchar(20);default:null;index:idx_role_status;comment:状态;"`
-	CreatedAt   time.Time `json:"created_at" gorm:"type:datetime(3);default:null;autoCreateTime;comment:创建时间;"`
-	UpdatedAt   time.Time `json:"updated_at" gorm:"type:datetime(3);default:null;autoUpdateTime;comment:更新时间;"`
-	Menus       RoleMenus `json:"menus" gorm:"-"`                                   // Role menu list
+	CreatedAt   time.Time `json:"created_at" gorm:"type:datetime;default:null;autoCreateTime;comment:创建时间;"`
+	UpdatedAt   time.Time `json:"updated_at" gorm:"type:datetime;default:null;autoUpdateTime;comment:更新时间;"`
+	Menus       RoleMenus `json:"menus" gorm:"-"` // Role menu list
 }
 
 func (a *Role) TableName() string {

@@ -27,7 +27,7 @@ Name = "Admin"
 [Storage]
 
 [Storage.Cache]
-Type = "memory" # memory/badger/redis
+Type = "${STORAGE_CACHE_TYPE:memory}" # memory/badger/redis
 Delimiter = ":"
 
 [Storage.Cache.Memory]
@@ -37,14 +37,14 @@ CleanupInterval = 60
 Path = "data/cache"
 
 [Storage.Cache.Redis]
-Addr = "${REDIS_ADDR:localhost:6379}"
+Addr = "${REDIS_ADDR:}"
 Username = "${REDIS_USERNAME:}"
 Password = "${REDIS_PASSWORD:}"
 DB = 0
 
 [Storage.DB]
 Debug = true
-Type = "${DB_TYPE:mysql}" # sqlite3/mysql/postgres
+Type = "${DB_TYPE:sqlite3}" # sqlite3/mysql/postgres
 # DSN
 DSN = "${DB_DSN:data/tokenlive-admin.db}"
 # MySQL DSN (example)
@@ -74,7 +74,7 @@ Height = 160
 CacheType = "memory" # memory/redis
 
 [Util.Captcha.Redis]
-Addr = "${CAPTCHA_REDIS_ADDR:${REDIS_ADDR:localhost:6379}}" # If empty, then use the same configuration as Storage.Cache.Redis
+Addr = "${CAPTCHA_REDIS_ADDR:${REDIS_ADDR:}}" # If empty, then use the same configuration as Storage.Cache.Redis
 Username = "${CAPTCHA_REDIS_USERNAME:${REDIS_USERNAME:}}"
 Password = "${CAPTCHA_REDIS_PASSWORD:${REDIS_PASSWORD:}}"
 DB = 1
@@ -90,7 +90,7 @@ LogMethods = [] # Log HTTP methods, e.g. ["GET"]
 DefaultCollect = true
 
 [Util.PrometheusServer]
-Address = "${PROMETHEUS_SERVER_URL:http://localhost:9090}"
+Address = "${PROMETHEUS_SERVER_URL:}"
 Username = "${PROMETHEUS_SERVER_USERNAME:admin}"
 Password = "${PROMETHEUS_SERVER_PASSWORD:}"
 

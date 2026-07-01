@@ -27,7 +27,7 @@ Name = "Admin"
 [Storage]
 
 [Storage.Cache]
-Type = "redis" # memory/badger/redis
+Type = "${STORAGE_CACHE_TYPE:memory}" # memory/badger/redis
 Delimiter = ":"
 
 [Storage.Cache.Memory]
@@ -37,20 +37,15 @@ CleanupInterval = 60
 Path = "data/cache"
 
 [Storage.Cache.Redis]
-Addr = "${REDIS_ADDR:localhost:6379}"
+Addr = "${REDIS_ADDR:}"
 Username = "${REDIS_USERNAME:}"
 Password = "${REDIS_PASSWORD:}"
 DB = 0
 
 [Storage.DB]
 Debug = false
-Type = "${DB_TYPE:mysql}"
-# SQLite3 DSN
-# DSN = "data/tokenlive-admin.db"
-# MySQL DSN
+Type = "${DB_TYPE:sqlite3}"
 DSN = "${DB_DSN:data/tokenlive-admin.db}"
-# PostgreSQL DSN
-# DSN = "host=db user=postgres password=123456 dbname=tokenlive-admin port=5432 sslmode=disable TimeZone=Asia/Shanghai"
 MaxLifetime = 86400
 MaxIdleTime = 3600
 MaxOpenConns = 100

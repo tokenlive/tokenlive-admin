@@ -20,8 +20,6 @@ type PolicyBinding struct {
 	AuditLogBIZ      *opsBiz.AuditLog
 }
 
-
-
 // Query policy bindings from the data access object based on the provided parameters.
 func (a *PolicyBinding) Query(ctx context.Context, params schema.PolicyBindingQueryParam) (*schema.PolicyBindingQueryResult, error) {
 	params.Pagination = false
@@ -68,8 +66,6 @@ func (a *PolicyBinding) Create(ctx context.Context, formItem *schema.PolicyBindi
 	if err := a.PolicyBindingDAL.CleanDeletedConflict(ctx, formItem.TenantCode, formItem.UserID, formItem.ModelCode, formItem.PolicyType, formItem.PolicyID); err != nil {
 		return nil, err
 	}
-
-
 
 	binding := &schema.PolicyBinding{
 		ID:        util.NewXID(),
@@ -136,8 +132,6 @@ func (a *PolicyBinding) Update(ctx context.Context, id string, formItem *schema.
 			return err
 		}
 	}
-
-
 
 	beforePolicy := *binding
 

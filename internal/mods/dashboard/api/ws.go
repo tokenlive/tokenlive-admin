@@ -36,9 +36,9 @@ type WSConfigMsg struct {
 
 // WSDashboardPayload represents the unified push data payload
 type WSDashboardPayload struct {
-	Overview     *OverviewResponse    `json:"overview"`
-	Trends       *TrendsResponse      `json:"trends"`
-	ModelRanking []ModelRankingItem   `json:"model_ranking"`
+	Overview     *OverviewResponse  `json:"overview"`
+	Trends       *TrendsResponse    `json:"trends"`
+	ModelRanking []ModelRankingItem `json:"model_ranking"`
 }
 
 // HandleWebSocket upgrades the HTTP request to WebSocket and pushes dashboard metrics

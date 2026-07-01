@@ -16,10 +16,10 @@ type Space struct {
 	Creator     string     `json:"creator" gorm:"type:varchar(255);default:null;comment:创建人;"`
 	Description string     `json:"description" gorm:"type:varchar(255);default:null;comment:描述;"`
 	Metadata    *string    `json:"metadata,omitempty" gorm:"type:json;default:null;comment:元数据;"`
-	CreatedAt   time.Time  `json:"created_at" gorm:"type:datetime(3);default:null;autoCreateTime;comment:创建时间;"`
-	UpdatedAt   time.Time  `json:"updated_at" gorm:"type:datetime(3);default:null;autoUpdateTime;comment:更新时间;"`
+	CreatedAt   time.Time  `json:"created_at" gorm:"type:datetime;default:null;autoCreateTime;comment:创建时间;"`
+	UpdatedAt   time.Time  `json:"updated_at" gorm:"type:datetime;default:null;autoUpdateTime;comment:更新时间;"`
 	Deleted     string     `json:"-" gorm:"type:varchar(20);default:'0';comment:逻辑删除标识;"`
-	DeletedAt   *time.Time `json:"-" gorm:"type:datetime(3);default:null;comment:逻辑删除时间;"`
+	DeletedAt   *time.Time `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
 func (a *Space) TableName() string {

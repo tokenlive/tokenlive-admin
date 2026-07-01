@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
+	sqlite "github.com/glebarez/sqlite"
 	sdmysql "github.com/go-sql-driver/mysql"
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	sqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/migrator"
@@ -215,7 +215,7 @@ func createDatabaseWithMySQL(dsn string) error {
 	defer db.Close()
 
 	query := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` DEFAULT CHARACTER SET = `utf8mb4`;", dbName)
-	
+
 	zap.L().Info("Executing CREATE DATABASE query...", zap.String("query", query))
 	// 针对数据库初始连接做最多 3 次退避重试，防止由于瞬时网络唤醒延迟导致创建数据库执行失败
 	var execErr error

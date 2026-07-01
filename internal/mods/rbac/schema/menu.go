@@ -35,10 +35,10 @@ type Menu struct {
 	Status      string        `json:"status" gorm:"type:varchar(20);default:null;index:idx_menu_status;comment:状态;"`
 	ParentID    string        `json:"parent_id" gorm:"type:varchar(20);default:null;index:idx_menu_parent_id;comment:父ID;"`
 	ParentPath  string        `json:"parent_path" gorm:"type:varchar(255);default:null;index:idx_menu_parent_path;comment:父路径;"`
-	Children    *Menus        `json:"children" gorm:"-"`                                 // Child menus
-	CreatedAt   time.Time     `json:"created_at" gorm:"type:datetime(3);default:null;autoCreateTime;comment:创建时间;"`
-	UpdatedAt   time.Time     `json:"updated_at" gorm:"type:datetime(3);default:null;autoUpdateTime;comment:更新时间;"`
-	Resources   MenuResources `json:"resources" gorm:"-"`                                // Resources of menu
+	Children    *Menus        `json:"children" gorm:"-"` // Child menus
+	CreatedAt   time.Time     `json:"created_at" gorm:"type:datetime;default:null;autoCreateTime;comment:创建时间;"`
+	UpdatedAt   time.Time     `json:"updated_at" gorm:"type:datetime;default:null;autoUpdateTime;comment:更新时间;"`
+	Resources   MenuResources `json:"resources" gorm:"-"` // Resources of menu
 }
 
 func (a *Menu) TableName() string {

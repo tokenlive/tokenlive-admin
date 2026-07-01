@@ -14,11 +14,11 @@ import (
 
 // KafkaConfig holds Kafka consumer configuration.
 type KafkaConfig struct {
-	Brokers       []string // e.g. ["localhost:9092"]
-	Topic         string   // e.g. "aigw-events-policy"
-	ConsumerGroup string   // e.g. "admin-consumer"
-	MinBytes      int      // minimum bytes to fetch (default 1)
-	MaxBytes      int      // maximum bytes to fetch (default 10MB)
+	Brokers       []string      // e.g. ["localhost:9092"]
+	Topic         string        // e.g. "aigw-events-policy"
+	ConsumerGroup string        // e.g. "admin-consumer"
+	MinBytes      int           // minimum bytes to fetch (default 1)
+	MaxBytes      int           // maximum bytes to fetch (default 10MB)
 	MaxWait       time.Duration // max wait time for new data (default 1s)
 }
 
@@ -50,12 +50,12 @@ func NewKafkaSubscriber(cfg KafkaConfig) *KafkaSubscriber {
 	}
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  cfg.Brokers,
-		Topic:    cfg.Topic,
-		GroupID:  groupID,
-		MinBytes: cfg.MinBytes,
-		MaxBytes: cfg.MaxBytes,
-		MaxWait:  cfg.MaxWait,
+		Brokers:     cfg.Brokers,
+		Topic:       cfg.Topic,
+		GroupID:     groupID,
+		MinBytes:    cfg.MinBytes,
+		MaxBytes:    cfg.MaxBytes,
+		MaxWait:     cfg.MaxWait,
 		StartOffset: kafka.LastOffset,
 	})
 

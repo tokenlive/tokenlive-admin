@@ -15,17 +15,17 @@ import (
 )
 
 type RBAC struct {
-	DB                     *gorm.DB
-	MenuAPI                *api.Menu
-	RoleAPI                *api.Role
-	UserAPI                *api.User
-	LoginAPI               *api.Login
-	LoggerAPI              *api.Logger
-	UserAPIKeyAPI          *api.UserAPIKey
-	TenantAPI              *api.Tenant
-	TenantModelAPI         *api.TenantModel
-	TenantEndpointAPI      *api.TenantEndpoint
-	Casbinx                *Casbinx
+	DB                *gorm.DB
+	MenuAPI           *api.Menu
+	RoleAPI           *api.Role
+	UserAPI           *api.User
+	LoginAPI          *api.Login
+	LoggerAPI         *api.Logger
+	UserAPIKeyAPI     *api.UserAPIKey
+	TenantAPI         *api.Tenant
+	TenantModelAPI    *api.TenantModel
+	TenantEndpointAPI *api.TenantEndpoint
+	Casbinx           *Casbinx
 }
 
 func (a *RBAC) AutoMigrate(ctx context.Context) error {

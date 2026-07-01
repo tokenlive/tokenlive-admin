@@ -26,8 +26,8 @@ type User struct {
 	Remark    string    `json:"remark" gorm:"type:varchar(1024);default:null;comment:备注;"`
 	Tenant    string    `json:"tenant" gorm:"type:varchar(255);default:null;comment:租户信息;"`
 	Status    string    `json:"status" gorm:"type:varchar(20);default:null;index:idx_user_status;comment:状态;"`
-	CreatedAt time.Time `json:"created_at" gorm:"type:datetime(3);default:null;autoCreateTime;comment:创建时间;"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"type:datetime(3);default:null;autoUpdateTime;comment:更新时间;"`
+	CreatedAt time.Time `json:"created_at" gorm:"type:datetime;default:null;autoCreateTime;comment:创建时间;"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"type:datetime;default:null;autoUpdateTime;comment:更新时间;"`
 	Roles     UserRoles `json:"roles" gorm:"-"` // Roles of user
 }
 
