@@ -18,6 +18,7 @@ export default {
     modelList: 'Model',
     modelCatalogList: 'Model Catalog',
     auditLog: 'Audit Log',
+    portalWorkspaceOps: 'Portal Workspaces',
     policy: 'Governance Policy',
     loadbalanceList: 'Load Balance',
     routeList: 'Tag Route',

@@ -27,6 +27,7 @@ type PolicyLimit struct {
 	SlidingWindows *string         `json:"sliding_windows,omitempty" gorm:"type:json;default:null;comment:滑动窗口配额配置列表，嵌套 SlidingWindow 数组;"`
 	Conditions     *string         `json:"conditions,omitempty" gorm:"type:json;default:null;comment:匹配条件列表，嵌套 Condition 数组;"`
 	Estimator      *string         `json:"estimator,omitempty" gorm:"type:json;default:null;comment:估算器配置，包含 type 和 ratio;"`
+	LimitBy        *string         `json:"limit_by,omitempty" gorm:"type:json;default:null;comment:限流键提取维度组合：tenant, user, model 等;"`
 	Enabled        int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
 	Description    *string         `json:"description,omitempty" gorm:"type:varchar(255);default:null;comment:备注描述;"`
 	Creator        *string         `json:"creator,omitempty" gorm:"type:varchar(255);default:null;comment:创建者;"`
@@ -63,6 +64,11 @@ func (a PolicyLimit) ConvertTo(limit *PolicyLimitForm) error {
 		est := new(Estimator)
 		json.UnMarshalToObject(*a.Estimator, est)
 		limit.Estimator = est
+	}
+	if !util.IsNilOrEmpty(a.LimitBy) {
+		lb := make([]string, 0)
+		json.UnMarshalToObject(*a.LimitBy, &lb)
+		limit.LimitBy = &lb
 	}
 	limit.Enabled = a.Enabled
 	limit.Description = a.Description
@@ -104,6 +110,7 @@ type PolicyLimitForm struct {
 	SlidingWindows *[]SlidingWindow `json:"sliding_windows"`                         // Sliding windows (JSON)
 	Conditions     *[]TagCondition  `json:"conditions"`                              // Match conditions (JSON)
 	Estimator      *Estimator       `json:"estimator"`                               // Estimator config (JSON)
+	LimitBy        *[]string        `json:"limit_by"`                                // Limit key dimensions (JSON)
 	Enabled        int              `json:"enabled"`                                 // Enabled
 	Description    *string          `json:"description"`                             // Details
 	Creator        *string          `json:"creator,omitempty"`                       // Creator
@@ -149,6 +156,7 @@ func (a *PolicyLimitForm) FillTo(policyLimit *PolicyLimit) error {
 		return json.MarshalToString(&validConds)
 	}()
 	policyLimit.Estimator = func() *string { return json.MarshalToString(a.Estimator) }()
+	policyLimit.LimitBy = func() *string { return json.MarshalToString(a.LimitBy) }()
 	policyLimit.Enabled = a.Enabled
 	policyLimit.Description = a.Description
 	policyLimit.Version = time.Now().UnixMilli()

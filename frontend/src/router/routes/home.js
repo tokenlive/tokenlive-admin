@@ -1,4 +1,4 @@
-import { LineChartOutlined, DesktopOutlined, HomeOutlined, AuditOutlined } from '@ant-design/icons-vue'
+import { LineChartOutlined, DesktopOutlined, HomeOutlined, AuditOutlined, KeyOutlined } from '@ant-design/icons-vue'
 
 export default [
     {
@@ -44,6 +44,18 @@ export default [
                 meta: {
                     icon: AuditOutlined,
                     title: '审计日志',
+                    isMenu: true,
+                    keepAlive: true,
+                    permission: '*',
+                },
+            },
+            {
+                path: 'portal-workspaces',
+                name: 'portalWorkspaceOps',
+                component: 'ops/portal_workspace.vue',
+                meta: {
+                    icon: KeyOutlined,
+                    title: 'Portal Workspaces',
                     isMenu: true,
                     keepAlive: true,
                     permission: '*',

@@ -92,6 +92,24 @@
                         "path": "/api/v1/audit-logs/{id}"
                     }
                 ]
+            },
+            {
+                "code": "portalWorkspaceOps",
+                "name": "Portal空间",
+                "sequence": 65,
+                "type": "page",
+                "path": "/monitor/portal-workspaces",
+                "status": "enabled",
+                "resources": [
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/ops/portal/workspaces/{workspace_id}/api-keys"
+                    },
+                    {
+                        "method": "POST",
+                        "path": "/api/v1/ops/portal/workspaces/{workspace_id}/runtime-sync"
+                    }
+                ]
             }
         ]
     },

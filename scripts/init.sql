@@ -351,6 +351,7 @@ CREATE TABLE IF NOT EXISTS `policy_limit`
     `sliding_windows` JSON                                                  DEFAULT NULL COMMENT '滑动窗口配额配置列表，嵌套 SlidingWindow 数组',
     `conditions`      JSON COMMENT '匹配条件列表，嵌套 Condition 数组',
     `estimator`       JSON COMMENT '估算器配置，包含 type 和 ratio',
+    `limit_by`        JSON                                                  DEFAULT NULL COMMENT '限流键提取维度组合，嵌套字符串数组：tenant, user, model 等',
     `enabled`         INT                                                   NOT NULL DEFAULT 0 COMMENT '启用状态: 0-未启用，1-启用',
     `description`     VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '备注描述',
     `creator`         VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '创建者',

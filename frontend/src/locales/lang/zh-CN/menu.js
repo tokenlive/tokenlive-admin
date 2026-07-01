@@ -18,6 +18,7 @@ export default {
     modelList: '模型管理',
     modelCatalogList: '模型目录',
     auditLog: '审计日志',
+    portalWorkspaceOps: 'Portal 工作空间',
     policy: '治理策略',
     loadbalanceList: '负载均衡',
     routeList: '标签路由',

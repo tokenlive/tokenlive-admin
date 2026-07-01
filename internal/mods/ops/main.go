@@ -57,6 +57,8 @@ func (a *Ops) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) error 
 		g.GET("events/statistics", a.EventAPI.GetStatistics)
 		g.GET("events/ws", a.EventAPI.HandleWebSocket)
 		g.GET("portal/users", a.PortalUserAPI.Query)
+		g.GET("portal/workspaces/:workspace_id/api-keys", a.PortalUserAPI.ListWorkspaceAPIKeys)
+		g.POST("portal/workspaces/:workspace_id/runtime-sync", a.PortalUserAPI.SyncWorkspaceRuntime)
 	}
 
 	auditLogs := v1.Group("audit-logs")

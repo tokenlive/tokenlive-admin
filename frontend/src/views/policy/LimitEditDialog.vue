@@ -34,6 +34,17 @@
                 </a-radio-group>
             </a-form-item>
 
+            <!-- 限流键维度 -->
+            <a-form-item
+                :label="$t('pages.limit.form.limitBy')"
+                name="limit_by">
+                <a-checkbox-group v-model:value="formData.limit_by">
+                    <a-checkbox value="tenant">{{ $t('pages.limit.form.limitBy.tenant') }}</a-checkbox>
+                    <a-checkbox value="user">{{ $t('pages.limit.form.limitBy.user') }}</a-checkbox>
+                    <a-checkbox value="model">{{ $t('pages.limit.form.limitBy.model') }}</a-checkbox>
+                </a-checkbox-group>
+            </a-form-item>
+
             <!-- 估算器配置 (当限流维度为 token 时展示) -->
             <template v-if="formData.type === 'token'">
                 <a-form-item
@@ -459,6 +470,7 @@ function handleCreate() {
     formData.value = {
         name: '',
         type: 'request',
+        limit_by: ['tenant', 'model'],
         relation_type: 'AND',
         conditions: [createEmptyCondition()],
         sliding_windows: [createEmptySlidingWindow()],
@@ -556,8 +568,17 @@ function populateFormData(cloned) {
         cloned.estimator = { type: 'length_ratio', ratio: 0.25 }
     }
 
-    cloned.effect = cloned.max_wait_ms > 0 ? 'queuing' : 'failFast'
-    cloned.max_queue_time_seconds = cloned.max_wait_ms > 0 ? cloned.max_wait_ms / 1000 : 1
+    // 解析 limit_by
+    if (typeof cloned.limit_by === 'string') {
+        try {
+            cloned.limit_by = JSON.parse(cloned.limit_by)
+        } catch {
+            cloned.limit_by = []
+        }
+    }
+    if (!Array.isArray(cloned.limit_by)) {
+        cloned.limit_by = ['tenant', 'model'] // 兜底默认值
+    }
 
     formData.value = cloned
 }
@@ -585,6 +606,7 @@ function handleOk() {
                 const params = {
                     name: values.name,
                     type: values.type,
+                    limit_by: formData.value.limit_by || [],
                     relation_type: formData.value.relation_type,
                     conditions: formData.value.conditions || [],
                     sliding_windows: slidingWindows,
