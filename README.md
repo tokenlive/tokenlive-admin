@@ -154,6 +154,10 @@ docker-compose up -d
 
 See [DEPLOY.md](DEPLOY.md) for detailed deployment instructions.
 
+### Production Deployment
+
+For production environments, it is highly recommended to use the unified orchestration repository [tokenlive-deploy](https://github.com/tokenlive/tokenlive-deploy). It provides a production-ready, one-click Docker Compose deployment configuration containing Admin Console, Gateway, Caddy reverse proxy, Redis, and Prometheus.
+
 ## Build Commands
 
 ```bash
