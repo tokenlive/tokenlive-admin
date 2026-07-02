@@ -7,11 +7,13 @@
 ### tokenlive-gateway
 
 1. **复制配置模板**：
+
    ```bash
    cp config/local.yml.example config/local.yml
    ```
 
 2. **创建 .env 文件**：
+
    ```bash
    cp .env.example .env
    ```
@@ -22,6 +24,7 @@
    - 其他敏感配置
 
 4. **启动服务**：
+
    ```bash
    # 环境变量会自动注入到配置文件中
    go run cmd/server/main.go -conf config/local.yml
@@ -30,11 +33,13 @@
 ### tokenlive-admin
 
 1. **复制配置模板**：
+
    ```bash
    cp configs/dev/server.toml.example configs/dev/server.toml
    ```
 
 2. **创建 .env 文件**：
+
    ```bash
    cp .env.example .env
    ```
@@ -45,6 +50,7 @@
    - 其他敏感配置
 
 4. **启动服务**：
+
    ```bash
    # 使用 godotenv 加载 .env 文件，然后启动
    go run main.go server -c configs/dev

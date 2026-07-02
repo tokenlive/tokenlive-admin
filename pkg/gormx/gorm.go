@@ -291,7 +291,7 @@ type safeMigrator struct {
 }
 
 func (m *safeMigrator) CreateTable(values ...interface{}) error {
-	if m.dbType == "sqlite" {
+	if m.dbType == "sqlite3" {
 		return m.Migrator.CreateTable(values...)
 	}
 	for _, value := range values {
@@ -303,7 +303,7 @@ func (m *safeMigrator) CreateTable(values ...interface{}) error {
 }
 
 func (m *safeMigrator) AddColumn(value interface{}, name string) error {
-	if m.dbType == "sqlite" {
+	if m.dbType == "sqlite3" {
 		return m.Migrator.AddColumn(value, name)
 	}
 	zap.L().Warn("SafeMigrator: table column addition detected! AddColumn skipped.",
@@ -314,7 +314,7 @@ func (m *safeMigrator) AddColumn(value interface{}, name string) error {
 }
 
 func (m *safeMigrator) AlterColumn(value interface{}, field string) error {
-	if m.dbType == "sqlite" {
+	if m.dbType == "sqlite3" {
 		return m.Migrator.AlterColumn(value, field)
 	}
 	zap.L().Warn("SafeMigrator: table column structure discrepancy detected! AlterColumn skipped.",
@@ -325,7 +325,7 @@ func (m *safeMigrator) AlterColumn(value interface{}, field string) error {
 }
 
 func (m *safeMigrator) DropColumn(value interface{}, name string) error {
-	if m.dbType == "sqlite" {
+	if m.dbType == "sqlite3" {
 		return m.Migrator.DropColumn(value, name)
 	}
 	zap.L().Warn("SafeMigrator: table column extra discrepancy detected (column in DB but not in struct)! DropColumn skipped.",
@@ -336,7 +336,7 @@ func (m *safeMigrator) DropColumn(value interface{}, name string) error {
 }
 
 func (m *safeMigrator) DropIndex(value interface{}, name string) error {
-	if m.dbType == "sqlite" {
+	if m.dbType == "sqlite3" {
 		return m.Migrator.DropIndex(value, name)
 	}
 	zap.L().Warn("SafeMigrator: table index discrepancy detected! DropIndex skipped.",
@@ -347,7 +347,7 @@ func (m *safeMigrator) DropIndex(value interface{}, name string) error {
 }
 
 func (m *safeMigrator) DropConstraint(value interface{}, name string) error {
-	if m.dbType == "sqlite" {
+	if m.dbType == "sqlite3" {
 		return m.Migrator.DropConstraint(value, name)
 	}
 	zap.L().Warn("SafeMigrator: table constraint discrepancy detected! DropConstraint skipped.",
@@ -358,7 +358,7 @@ func (m *safeMigrator) DropConstraint(value interface{}, name string) error {
 }
 
 func (m *safeMigrator) CreateConstraint(value interface{}, name string) error {
-	if m.dbType == "sqlite" {
+	if m.dbType == "sqlite3" {
 		return m.Migrator.CreateConstraint(value, name)
 	}
 	zap.L().Warn("SafeMigrator: table constraint creation detected! CreateConstraint skipped.",
@@ -369,7 +369,7 @@ func (m *safeMigrator) CreateConstraint(value interface{}, name string) error {
 }
 
 func (m *safeMigrator) CreateIndex(value interface{}, name string) error {
-	if m.dbType == "sqlite" {
+	if m.dbType == "sqlite3" {
 		return m.Migrator.CreateIndex(value, name)
 	}
 	zap.L().Warn("SafeMigrator: table index creation detected! CreateIndex skipped.",

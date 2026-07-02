@@ -22,10 +22,10 @@ type Model struct {
 	Owner              string          `json:"owner,omitempty" gorm:"type:varchar(64);default:null;comment:模型所属企业/厂商，如 OpenAI, Google, DeepSeek;"`
 	Abilities          string          `json:"abilities" gorm:"type:json;default:null;comment:能力列表,如:流式输出,工具调用,思维链,结构化输出等;"`
 	Enabled            int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
-	InputPrice         float64         `json:"input_price" gorm:"type:decimal(10,6);not null;default:0.002000;comment:输入价格（元/百万 Tokens）;"`
-	OutputPrice        float64         `json:"output_price" gorm:"type:decimal(10,6);not null;default:0.002000;comment:输出价格（元/百万 Tokens）;"`
-	CachedPrice        float64         `json:"cached_price" gorm:"type:decimal(10,6);not null;default:0.002000;comment:缓存命中价格（元/百万 Tokens）;"`
-	CacheCreationPrice float64         `json:"cache_creation_price" gorm:"type:decimal(10,6);not null;default:0.002000;comment:缓存创建价格（元/百万 Tokens）;"`
+	InputPrice         float64         `json:"input_price" gorm:"type:decimal(10,6);not null;default:3.000000;comment:输入价格（元/百万 Tokens）;"`
+	OutputPrice        float64         `json:"output_price" gorm:"type:decimal(10,6);not null;default:10.000000;comment:输出价格（元/百万 Tokens）;"`
+	CachedPrice        float64         `json:"cached_price" gorm:"type:decimal(10,6);not null;default:1.000000;comment:缓存命中价格（元/百万 Tokens）;"`
+	CacheCreationPrice float64         `json:"cache_creation_price" gorm:"type:decimal(10,6);not null;default:3.000000;comment:缓存创建价格（元/百万 Tokens）;"`
 	Description        string          `json:"description" gorm:"type:varchar(255);default:null;comment:备注描述;"`
 	Extra              *string         `json:"extra,omitempty" gorm:"type:json;default:null;comment:其他信息;"`
 	Creator            string          `json:"creator" gorm:"type:varchar(255);default:null;comment:创建者;"`

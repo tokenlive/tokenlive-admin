@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
 	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
 	opsDal "github.com/tokenlive/tokenlive-admin/internal/mods/ops/dal"
@@ -14,7 +15,6 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 

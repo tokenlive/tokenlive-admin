@@ -3981,6 +3981,105 @@
                 }
             }
         },
+        "/api/v1/ops/portal/workspaces/{workspace_id}/api-keys": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PortalUserAPI"
+                ],
+                "summary": "List portal workspace API keys",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "workspace ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/biz.PortalWorkspaceAPIKey"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ops/portal/workspaces/{workspace_id}/runtime-sync": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PortalUserAPI"
+                ],
+                "summary": "Sync portal workspace API keys to gateway runtime",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "workspace ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/policy/policy-bindings": {
             "get": {
                 "security": [
@@ -8785,6 +8884,38 @@
                 }
             }
         },
+        "biz.PortalWorkspaceAPIKey": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "key_prefix": {
+                    "type": "string"
+                },
+                "last_used_at": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "secret_last4": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_tokenlive_tokenlive-admin_pkg_errors.Error": {
             "type": "object",
             "properties": {
@@ -10675,6 +10806,9 @@
                 "id": {
                     "type": "string"
                 },
+                "limit_by": {
+                    "type": "string"
+                },
                 "max_wait_ms": {
                     "type": "integer"
                 },
@@ -10742,6 +10876,13 @@
                 },
                 "id": {
                     "type": "string"
+                },
+                "limit_by": {
+                    "description": "Limit key dimensions (JSON)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "max_wait_ms": {
                     "description": "Max queue wait time (ms)",

@@ -124,6 +124,27 @@ definitions:
       primary_email:
         type: string
     type: object
+  biz.PortalWorkspaceAPIKey:
+    properties:
+      created_at:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      key_prefix:
+        type: string
+      last_used_at:
+        type: string
+      name:
+        type: string
+      secret_last4:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
   github_com_tokenlive_tokenlive-admin_pkg_errors.Error:
     properties:
       code:
@@ -1444,6 +1465,8 @@ definitions:
         type: string
       id:
         type: string
+      limit_by:
+        type: string
       max_wait_ms:
         type: integer
       modifier:
@@ -1486,6 +1509,11 @@ definitions:
         description: Estimator config (JSON)
       id:
         type: string
+      limit_by:
+        description: Limit key dimensions (JSON)
+        items:
+          type: string
+        type: array
       max_wait_ms:
         description: Max queue wait time (ms)
         type: integer
@@ -4793,6 +4821,65 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Search portal users
+      tags:
+      - PortalUserAPI
+  /api/v1/ops/portal/workspaces/{workspace_id}/api-keys:
+    get:
+      parameters:
+      - description: workspace ID
+        in: path
+        name: workspace_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/biz.PortalWorkspaceAPIKey'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: List portal workspace API keys
+      tags:
+      - PortalUserAPI
+  /api/v1/ops/portal/workspaces/{workspace_id}/runtime-sync:
+    post:
+      parameters:
+      - description: workspace ID
+        in: path
+        name: workspace_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Sync portal workspace API keys to gateway runtime
       tags:
       - PortalUserAPI
   /api/v1/policy/policy-bindings:

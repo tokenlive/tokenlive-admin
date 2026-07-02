@@ -249,10 +249,10 @@ function handleCreate() {
     formData.value.space_code = initSpaceCode(props.spaceOptions)
     formData.value.max_output_tokens = 8192
     formData.value.abilities = []
-    formData.value.input_price = 0.002
-    formData.value.output_price = 0.002
-    formData.value.cached_price = 0.002
-    formData.value.cache_creation_price = 0.002
+    formData.value.input_price = 3.0
+    formData.value.output_price = 10.0
+    formData.value.cached_price = 1.0
+    formData.value.cache_creation_price = 3.0
 }
 
 async function handleEdit(record = {}) {
