@@ -18,6 +18,12 @@
 
 TokenLive Admin is the admin console for the [TokenLive](https://github.com/tokenlive/tokenlive-gateway) ecosystem. This project is a high-performance, enterprise-grade large model (LLM) gateway designed specifically for the LLM computing power ecosystem. The gateway is designed based on a mature microservice governance model, with built-in rich intelligent routing and traffic governance strategies, and naturally supports massive concurrent traffic and elastic horizontal scaling. By deeply optimizing the request chain, the gateway can greatly reduce the failure rate of LLM calls, providing a solid stability guarantee for high-concurrency, high-availability AI application scenarios.
 
+### Online Demo
+
+- **Demo URL**: [https://tokenlive.store](https://tokenlive.store)
+- **Username**: `admin`
+- **Password**: `tokenlive`
+
 ![Dashboard Screenshot](./docs/images/dashboard.png)
 
 ![Ops Screenshot](./docs/images/ops.png)
