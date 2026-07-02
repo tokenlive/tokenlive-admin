@@ -28,8 +28,8 @@ MaxContentLen = 134217728 # 128MB
 Disable = false
 SkippedPathPrefixes = ["/api/v1/captcha", "/api/v1/login", "/api/v1/refresh-token"]
 SigningMethod = "HS512" # HS256/HS384/HS512
-SigningKey = "XnEsT0S@" # Secret key (CHANGE THIS IN PRODUCTION!)
-OldSigningKey = "" # Old secret key (For change secret key)
+SigningKey = "${JWT_SIGNING_KEY:XnEsT0S@}" # Secret key (CHANGE THIS IN PRODUCTION!)
+OldSigningKey = "${JWT_OLD_SIGNING_KEY:}" # Old secret key (For change secret key)
 Expired = 86400 # seconds
 
 [Middleware.Auth.Store]
@@ -43,9 +43,9 @@ CleanupInterval = 60 # seconds
 Path = "data/auth"
 
 [Middleware.Auth.Store.Redis]
-Addr = "" # If empty, then use the same configuration as Storage.Cache.Redis
-Username = ""
-Password = ""
+Addr = "${AUTH_REDIS_ADDR:}" # If empty, then use the same configuration as Storage.Cache.Redis
+Username = "${AUTH_REDIS_USERNAME:}"
+Password = "${AUTH_REDIS_PASSWORD:}"
 DB = 2
 
 [Middleware.RateLimiter]
@@ -62,9 +62,9 @@ Expiration = 3600
 CleanupInterval = 60
 
 [Middleware.RateLimiter.Store.Redis]
-Addr = "" # If empty, then use the same configuration as Storage.Cache.Redis
-Username = ""
-Password = ""
+Addr = "${RATELIMITER_REDIS_ADDR:}" # If empty, then use the same configuration as Storage.Cache.Redis
+Username = "${RATELIMITER_REDIS_USERNAME:}"
+Password = "${RATELIMITER_REDIS_PASSWORD:}"
 DB = 10
 
 [Middleware.Casbin]

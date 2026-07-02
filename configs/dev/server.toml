@@ -100,6 +100,10 @@ UserCacheExp = 4 # hours
 [Gateway]
 APIKeyPepper = "${GATEWAY_API_KEY_PEPPER:}"
 
+[Portal]
+BaseURL = "${PORTAL_BASE_URL:}"
+InternalAPIToken = "${PORTAL_INTERNAL_API_TOKEN:}"
+
 [Sync]
 Endpoints = true
 Policies = true

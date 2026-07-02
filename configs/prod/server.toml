@@ -69,17 +69,17 @@ Height = 160
 CacheType = "memory" # memory/redis
 
 [Util.Captcha.Redis]
-Addr = "" # If empty, then use the same configuration as Storage.Cache.Redis
-Username = ""
-Password = ""
+Addr = "${CAPTCHA_REDIS_ADDR:}" # If empty, then use the same configuration as Storage.Cache.Redis
+Username = "${CAPTCHA_REDIS_USERNAME:}"
+Password = "${CAPTCHA_REDIS_PASSWORD:}"
 DB = 0
 KeyPrefix = "captcha:"
 
 [Util.Prometheus]
 Enable = true
 Port = 9100
-BasicUsername = "admin"
-BasicPassword = "admin"
+BasicUsername = "${PROMETHEUS_USERNAME:admin}"
+BasicPassword = "${PROMETHEUS_PASSWORD:admin}"
 LogApis = [] # Log APIs, e.g. ["/api/v1/users"]
 LogMethods = [] # Log HTTP methods, e.g. ["GET"]
 DefaultCollect = true
@@ -94,6 +94,10 @@ UserCacheExp = 4 # hours
 
 [Gateway]
 APIKeyPepper = "${GATEWAY_API_KEY_PEPPER:}"
+
+[Portal]
+BaseURL = "${PORTAL_BASE_URL:}"
+InternalAPIToken = "${PORTAL_INTERNAL_API_TOKEN:}"
 
 [Sync]
 Endpoints = true
