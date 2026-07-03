@@ -148,7 +148,7 @@ const columns = [
         title: t('pages.circuitBreak.form.level'),
         dataIndex: 'level',
         key: 'level',
-        width: 80,
+        width: 100,
     },
     {
         title: t('pages.circuitBreak.form.slidingWindowType'),
@@ -166,7 +166,7 @@ const columns = [
         key: 'enabled',
         width: 110,
     },
-    { title: t('pages.circuitBreak.form.creator'), dataIndex: 'creator', width: 80 },
+    { title: t('pages.circuitBreak.form.creator'), dataIndex: 'creator', width: 100 },
     {
         title: t('pages.circuitBreak.form.description'),
         dataIndex: 'description',

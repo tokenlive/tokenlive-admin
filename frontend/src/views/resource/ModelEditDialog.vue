@@ -247,6 +247,7 @@ function handleCreate() {
     })
     formData.value.enabled = 1
     formData.value.space_code = initSpaceCode(props.spaceOptions)
+    formData.value.context_length = 128000
     formData.value.max_output_tokens = 8192
     formData.value.abilities = []
     formData.value.input_price = 3.0

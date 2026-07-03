@@ -143,9 +143,9 @@ const columns = [
         },
     },
     { title: t('pages.limit.form.relationType'), dataIndex: 'relation_type', key: 'relation_type', width: 120 },
-    { title: t('pages.limit.form.type'), dataIndex: 'type', key: 'type', width: 80 },
+    { title: t('pages.limit.form.type'), dataIndex: 'type', key: 'type', width: 100 },
     { title: t('pages.limit.form.enabled'), key: 'enabled', width: 110 },
-    { title: t('pages.limit.form.creator'), dataIndex: 'creator', width: 80 },
+    { title: t('pages.limit.form.creator'), dataIndex: 'creator', width: 100 },
     { title: t('pages.limit.form.description'), dataIndex: 'description', width: 250, ellipsis: true },
     {
         title: t('pages.limit.form.created_at'),

@@ -137,8 +137,8 @@ const columns = [
             showTitle: true,
         },
     },
-    { title: t('pages.invocation.form.type'), dataIndex: 'type', key: 'type', width: 80 },
-    { title: t('pages.invocation.form.enabled'), key: 'enabled', width: 110 },
+    { title: t('pages.invocation.form.type'), dataIndex: 'type', key: 'type', width: 100 },
+    { title: t('pages.invocation.form.enabled'), key: 'enabled', width: 100 },
     { title: t('pages.invocation.form.creator'), dataIndex: 'creator', width: 100 },
     { title: t('pages.invocation.form.description'), dataIndex: 'description', width: 300, ellipsis: true },
     {
