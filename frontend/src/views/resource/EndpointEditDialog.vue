@@ -129,10 +129,7 @@
                     <a-select-option value="">{{ $t('pages.endpoint.form.protocol.inherit') }}</a-select-option>
                     <a-select-option value="openai">OpenAI</a-select-option>
                     <a-select-option value="anthropic">Anthropic</a-select-option>
-                    <a-select-option value="google">Google</a-select-option>
-                    <a-select-option value="deepseek">DeepSeek</a-select-option>
-                    <a-select-option value="qwen">Qwen</a-select-option>
-                    <a-select-option value="ollama">Ollama</a-select-option>
+                    <a-select-option value="gemini">Gemini</a-select-option>
                 </a-select>
             </a-form-item>
             <a-form-item

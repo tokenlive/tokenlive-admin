@@ -97,9 +97,9 @@ func (e *EndpointForm) Validate() error {
 }
 
 func (e *EndpointForm) FillTo(endpoint *Endpoint) error {
-	// 自动生成 code：ep-{timestamp}
+	// 自动生成 code：ep-{second_timestamp}
 	if e.Code == "" {
-		e.Code = fmt.Sprintf("ep-%d", time.Now().UnixMilli())
+		e.Code = fmt.Sprintf("ep-%d", time.Now().Unix())
 	}
 	endpoint.Code = e.Code
 	endpoint.ProviderID = e.ProviderID

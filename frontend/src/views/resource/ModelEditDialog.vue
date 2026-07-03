@@ -48,6 +48,7 @@
                     :placeholder="$t('pages.model.form.request_types.placeholder')">
                     <a-select-option value="chat_completion">Chat Completion</a-select-option>
                     <a-select-option value="messages">Messages (Claude)</a-select-option>
+                    <a-select-option value="gemini_generate_content">Gemini Generate Content</a-select-option>
                     <a-select-option value="embedding">Embedding</a-select-option>
                     <a-select-option value="image_generation">Image Generation</a-select-option>
                     <a-select-option value="audio">Audio</a-select-option>

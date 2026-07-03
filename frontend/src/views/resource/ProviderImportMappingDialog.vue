@@ -157,11 +157,14 @@ async function handleOk() {
 
             if (modelId === '__NEW__') {
                 // 如果选择新建模型，则调用接口生成
-                const request_types = selectedModel.id.toLowerCase().includes('embed')
-                    ? JSON.stringify(['embedding'])
-                    : selectedModel.id.toLowerCase().includes('responses')
-                      ? JSON.stringify(['responses'])
-                      : JSON.stringify(['chat_completion'])
+                const request_types =
+                    importContext.value.protocol === 'gemini'
+                        ? JSON.stringify(['gemini_generate_content'])
+                        : selectedModel.id.toLowerCase().includes('embed')
+                          ? JSON.stringify(['embedding'])
+                          : selectedModel.id.toLowerCase().includes('responses')
+                            ? JSON.stringify(['responses'])
+                            : JSON.stringify(['chat_completion'])
 
                 const modelPayload = {
                     model_name: modelCodeForEp,
@@ -190,9 +193,10 @@ async function handleOk() {
             }
 
             // 循环密钥为端点创建绑定
-            for (const key of importContext.value.keysToCreate) {
-                const ts = Date.now()
-                const epCode = `ep-${modelCodeForEp}-${importContext.value.providerCode}-${ts}`
+            const endpointCodeTs = Math.floor(Date.now() / 1000)
+            for (const [keyIndex, key] of importContext.value.keysToCreate.entries()) {
+                const keySuffix = importContext.value.keysToCreate.length > 1 ? `-${keyIndex + 1}` : ''
+                const epCode = `ep-${modelCodeForEp}-${importContext.value.providerCode}-${endpointCodeTs}${keySuffix}`
                 const endpointPayload = {
                     code: epCode,
                     provider_id: importContext.value.providerId,
