@@ -119,6 +119,59 @@
                 </a-row>
             </template>
 
+            <template v-if="formData.type === 'least_latency'">
+                <a-row :gutter="16">
+                    <a-col :span="12">
+                        <a-form-item
+                            :label="$t('pages.loadbalance.form.latencyWindow')"
+                            name="latency_window">
+                            <a-input
+                                v-model:value="formData.latency_window"
+                                :placeholder="$t('pages.loadbalance.form.latencyWindow.placeholder')" />
+                        </a-form-item>
+                    </a-col>
+                    <a-col :span="12">
+                        <a-form-item
+                            :label="$t('pages.loadbalance.form.latencyMetric')"
+                            name="latency_metric">
+                            <a-select
+                                v-model:value="formData.latency_metric"
+                                :placeholder="$t('pages.loadbalance.form.latencyMetric.placeholder')">
+                                <a-select-option value="total">{{
+                                    $t('pages.loadbalance.form.latencyMetric.total')
+                                }}</a-select-option>
+                                <a-select-option value="ttft">{{
+                                    $t('pages.loadbalance.form.latencyMetric.ttft')
+                                }}</a-select-option>
+                            </a-select>
+                        </a-form-item>
+                    </a-col>
+                </a-row>
+                <a-row :gutter="16">
+                    <a-col :span="12">
+                        <a-form-item
+                            :label="$t('pages.loadbalance.form.latencyFailurePenalty')"
+                            name="latency_failure_penalty">
+                            <a-input-number
+                                v-model:value="formData.latency_failure_penalty"
+                                :min="0"
+                                :step="0.1"
+                                :placeholder="$t('pages.loadbalance.form.latencyFailurePenalty.placeholder')"
+                                style="width: 100%" />
+                        </a-form-item>
+                    </a-col>
+                    <a-col :span="12">
+                        <a-form-item
+                            :label="$t('pages.loadbalance.form.latencyFailureMax')"
+                            name="latency_failure_max">
+                            <a-input
+                                v-model:value="formData.latency_failure_max"
+                                :placeholder="$t('pages.loadbalance.form.latencyFailureMax.placeholder')" />
+                        </a-form-item>
+                    </a-col>
+                </a-row>
+            </template>
+
             <a-row :gutter="16">
                 <a-col :span="12">
                     <a-form-item
@@ -180,6 +233,10 @@ function handleCreate() {
     formData.value.session_header = ''
     formData.value.source_type = 'header'
     formData.value.source_key = ''
+    formData.value.latency_window = ''
+    formData.value.latency_metric = 'total'
+    formData.value.latency_failure_penalty = 3
+    formData.value.latency_failure_max = ''
     showModal({
         type: 'create',
         title: t('pages.loadbalance.add'),
@@ -209,6 +266,10 @@ async function handleCopy(record = {}) {
     let sessionHeader = ''
     let sourceType = 'header'
     let sourceKey = ''
+    let latencyWindow = ''
+    let latencyMetric = 'total'
+    let latencyFailurePenalty = 3
+    let latencyFailureMax = ''
     if (data.params) {
         try {
             const paramsObj = typeof data.params === 'string' ? JSON.parse(data.params) : data.params
@@ -218,6 +279,11 @@ async function handleCopy(record = {}) {
                 if (paramsObj.session_header !== undefined) sessionHeader = paramsObj.session_header
                 if (paramsObj.source_type !== undefined) sourceType = paramsObj.source_type
                 if (paramsObj.source_key !== undefined) sourceKey = paramsObj.source_key
+                if (paramsObj.latency_window !== undefined) latencyWindow = paramsObj.latency_window
+                if (paramsObj.latency_metric !== undefined) latencyMetric = paramsObj.latency_metric
+                if (paramsObj.latency_failure_penalty !== undefined)
+                    latencyFailurePenalty = paramsObj.latency_failure_penalty
+                if (paramsObj.latency_failure_max !== undefined) latencyFailureMax = paramsObj.latency_failure_max
             }
         } catch (e) {
             console.error('Failed to parse params json', e)
@@ -228,6 +294,10 @@ async function handleCopy(record = {}) {
     data.session_header = sessionHeader
     data.source_type = sourceType
     data.source_key = sourceKey
+    data.latency_window = latencyWindow
+    data.latency_metric = latencyMetric
+    data.latency_failure_penalty = latencyFailurePenalty
+    data.latency_failure_max = latencyFailureMax
 
     formData.value = cloneDeep(data)
 }
@@ -250,6 +320,10 @@ async function handleEdit(record = {}) {
     let sessionHeader = ''
     let sourceType = 'header'
     let sourceKey = ''
+    let latencyWindow = ''
+    let latencyMetric = 'total'
+    let latencyFailurePenalty = 3
+    let latencyFailureMax = ''
     if (data.params) {
         try {
             const paramsObj = typeof data.params === 'string' ? JSON.parse(data.params) : data.params
@@ -259,6 +333,11 @@ async function handleEdit(record = {}) {
                 if (paramsObj.session_header !== undefined) sessionHeader = paramsObj.session_header
                 if (paramsObj.source_type !== undefined) sourceType = paramsObj.source_type
                 if (paramsObj.source_key !== undefined) sourceKey = paramsObj.source_key
+                if (paramsObj.latency_window !== undefined) latencyWindow = paramsObj.latency_window
+                if (paramsObj.latency_metric !== undefined) latencyMetric = paramsObj.latency_metric
+                if (paramsObj.latency_failure_penalty !== undefined)
+                    latencyFailurePenalty = paramsObj.latency_failure_penalty
+                if (paramsObj.latency_failure_max !== undefined) latencyFailureMax = paramsObj.latency_failure_max
             }
         } catch (e) {
             console.error('Failed to parse params json', e)
@@ -269,6 +348,10 @@ async function handleEdit(record = {}) {
     data.session_header = sessionHeader
     data.source_type = sourceType
     data.source_key = sourceKey
+    data.latency_window = latencyWindow
+    data.latency_metric = latencyMetric
+    data.latency_failure_penalty = latencyFailurePenalty
+    data.latency_failure_max = latencyFailureMax
 
     formRecord.value = data
     formData.value = cloneDeep(data)
@@ -298,6 +381,21 @@ function handleOk() {
                         source_type: formData.value.source_type || 'header',
                         source_key: formData.value.source_key || '',
                     })
+                } else if (values.type === 'least_latency') {
+                    const p = {}
+                    if (formData.value.latency_window) {
+                        p.latency_window = formData.value.latency_window
+                    }
+                    if (formData.value.latency_metric) {
+                        p.latency_metric = formData.value.latency_metric
+                    }
+                    if (formData.value.latency_failure_penalty !== undefined) {
+                        p.latency_failure_penalty = formData.value.latency_failure_penalty
+                    }
+                    if (formData.value.latency_failure_max) {
+                        p.latency_failure_max = formData.value.latency_failure_max
+                    }
+                    params.params = Object.keys(p).length > 0 ? JSON.stringify(p) : null
                 } else {
                     params.params = null
                 }
@@ -306,6 +404,10 @@ function handleOk() {
                 delete params.session_header
                 delete params.source_type
                 delete params.source_key
+                delete params.latency_window
+                delete params.latency_metric
+                delete params.latency_failure_penalty
+                delete params.latency_failure_max
 
                 let result = null
                 switch (modal.value.type) {

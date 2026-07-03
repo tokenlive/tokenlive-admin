@@ -621,6 +621,22 @@ export default {
     'pages.loadbalance.form.sourceType.placeholder': 'Please select source type',
     'pages.loadbalance.form.sourceKey': 'Source Key',
     'pages.loadbalance.form.sourceKey.placeholder': 'Please enter source key (e.g. X-Endpoint-Code)',
+
+    // least_latency
+    'pages.loadbalance.form.latencyWindow': 'Latency Window',
+    'pages.loadbalance.form.latencyWindow.placeholder':
+        'Please enter the latency window (e.g. 300 seconds or 5m), default 5 minutes',
+    'pages.loadbalance.form.latencyMetric': 'Latency Metric',
+    'pages.loadbalance.form.latencyMetric.placeholder': 'Please select latency metric',
+    'pages.loadbalance.form.latencyMetric.total': 'Total Latency (total)',
+    'pages.loadbalance.form.latencyMetric.ttft': 'Time To First Token (TTFT)',
+    'pages.loadbalance.form.latencyFailurePenalty': 'Failure Penalty Multiplier',
+    'pages.loadbalance.form.latencyFailurePenalty.placeholder':
+        'Please enter failure penalty multiplier (default 3, set to 0 to disable failure count)',
+    'pages.loadbalance.form.latencyFailureMax': 'Max Failure Penalty',
+    'pages.loadbalance.form.latencyFailureMax.placeholder':
+        'Please enter max failure penalty (e.g. 30 seconds), default 30 seconds',
+
     // tagRoute
     'pages.tagRoute.add': 'Create Policy',
     'pages.tagRoute.edit': 'Edit Policy',

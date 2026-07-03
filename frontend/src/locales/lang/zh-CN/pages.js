@@ -619,6 +619,18 @@ export default {
     'pages.loadbalance.form.sourceKey': '来源键名',
     'pages.loadbalance.form.sourceKey.placeholder': '请输入来源键名（例如 X-Endpoint-Code）',
 
+    // least_latency
+    'pages.loadbalance.form.latencyWindow': '统计窗口',
+    'pages.loadbalance.form.latencyWindow.placeholder': '请输入统计窗口（例如 300 秒或 5m），默认 5 分钟',
+    'pages.loadbalance.form.latencyMetric': '延迟指标',
+    'pages.loadbalance.form.latencyMetric.placeholder': '请选择延迟指标',
+    'pages.loadbalance.form.latencyMetric.total': '整单耗时 (total)',
+    'pages.loadbalance.form.latencyMetric.ttft': '首包耗时 (TTFT)',
+    'pages.loadbalance.form.latencyFailurePenalty': '失败惩罚倍数',
+    'pages.loadbalance.form.latencyFailurePenalty.placeholder': '请输入失败惩罚倍数（默认 3，设为 0 关闭失败计入）',
+    'pages.loadbalance.form.latencyFailureMax': '失败惩罚上限',
+    'pages.loadbalance.form.latencyFailureMax.placeholder': '请输入失败惩罚上限（例如 30 秒），默认 30 秒',
+
     // tagRoute
     'pages.tagRoute.add': '新建策略',
     'pages.tagRoute.edit': '编辑策略',
