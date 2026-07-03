@@ -201,7 +201,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 rippleCenter = 2.0 * mouse - 1.0;
     vec2 distortion = centeredUv;
 
-    for (float i = 1.0; i < 8.0; i++) {
+    for (float i = 1.0; i < 6.0; i++) {
         distortion.x += 0.5 / i * cos(i * 2.0 * distortion.y + time + rippleCenter.x * 3.1415);
         distortion.y += 0.5 / i * cos(i * 2.0 * distortion.x + time + rippleCenter.y * 3.1415);
     }
@@ -265,8 +265,27 @@ function initSmokeBackground() {
     const mouse = { x: 0, y: 0, active: false }
     const startTime = Date.now()
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const targetFrameMs = 1000 / 24
+    let lastRenderAt = 0
+    let canvasHeight = 0
+    let pixelRatio = 1
 
     gl.uniform3f(colorLocation, 0.12, 0.34, 0.78)
+
+    const resizeCanvas = () => {
+        const width = canvas.clientWidth
+        const height = canvas.clientHeight
+        pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25)
+        const nextWidth = Math.floor(width * pixelRatio)
+        const nextHeight = Math.floor(height * pixelRatio)
+
+        if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+            canvas.width = nextWidth
+            canvas.height = nextHeight
+        }
+
+        canvasHeight = height
+    }
 
     const handleMouseMove = (event) => {
         const rect = canvas.getBoundingClientRect()
@@ -280,25 +299,24 @@ function initSmokeBackground() {
         mouse.active = false
     }
 
-    const render = () => {
-        const width = canvas.clientWidth
-        const height = canvas.clientHeight
-        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2)
-        const nextWidth = Math.floor(width * pixelRatio)
-        const nextHeight = Math.floor(height * pixelRatio)
-
-        if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
-            canvas.width = nextWidth
-            canvas.height = nextHeight
+    const render = (frameTime = 0) => {
+        if (document.hidden) {
+            return
         }
 
+        if (!reduceMotion && frameTime - lastRenderAt < targetFrameMs) {
+            smokeFrameId = requestAnimationFrame(render)
+            return
+        }
+
+        lastRenderAt = frameTime
         gl.viewport(0, 0, canvas.width, canvas.height)
         gl.uniform2f(resolutionLocation, canvas.width, canvas.height)
         gl.uniform1f(timeLocation, reduceMotion ? 0 : (Date.now() - startTime) / 1000)
         gl.uniform2f(
             mouseLocation,
             mouse.active ? mouse.x * pixelRatio : canvas.width / 2,
-            mouse.active ? (height - mouse.y) * pixelRatio : canvas.height / 2
+            mouse.active ? (canvasHeight - mouse.y) * pixelRatio : canvas.height / 2
         )
         gl.drawArrays(gl.TRIANGLES, 0, 6)
 
@@ -307,9 +325,24 @@ function initSmokeBackground() {
         }
     }
 
+    const handleVisibilityChange = () => {
+        if (document.hidden) {
+            cancelAnimationFrame(smokeFrameId)
+            return
+        }
+
+        lastRenderAt = 0
+        smokeFrameId = requestAnimationFrame(render)
+    }
+
     canvas.addEventListener('mousemove', handleMouseMove)
     canvas.addEventListener('mouseenter', handleMouseEnter)
     canvas.addEventListener('mouseleave', handleMouseLeave)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    resizeCanvas()
+    const resizeObserver = window.ResizeObserver ? new ResizeObserver(resizeCanvas) : null
+    resizeObserver?.observe(canvas)
+    window.addEventListener('resize', resizeCanvas)
     render()
 
     smokeCleanup = () => {
@@ -317,6 +350,9 @@ function initSmokeBackground() {
         canvas.removeEventListener('mousemove', handleMouseMove)
         canvas.removeEventListener('mouseenter', handleMouseEnter)
         canvas.removeEventListener('mouseleave', handleMouseLeave)
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
+        resizeObserver?.disconnect()
+        window.removeEventListener('resize', resizeCanvas)
         gl.deleteBuffer(positionBuffer)
         gl.deleteProgram(program)
         gl.deleteShader(vertexShader)

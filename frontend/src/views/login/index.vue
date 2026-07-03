@@ -53,7 +53,9 @@
                         </a-space>
                     </a-form-item>
                     <a-form-item name="rememberMe">
-                        <a-checkbox v-model:checked="formData.rememberMe"> 记住登录状态（30天） </a-checkbox>
+                        <a-checkbox v-model:checked="formData.rememberMe">
+                            {{ $t('pages.login.rememberMe') }}
+                        </a-checkbox>
                     </a-form-item>
                     <a-form-item>
                         <a-button
