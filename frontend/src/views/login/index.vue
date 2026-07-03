@@ -1,6 +1,6 @@
 <template>
-    <div>
-        <a-tabs>
+    <div class="login-panel">
+        <a-tabs class="login-panel__tabs">
             <!-- 账号登录 -->
             <a-tab-pane
                 key="account"
@@ -32,7 +32,7 @@
                         </a-input>
                     </a-form-item>
                     <a-form-item name="captcha_code">
-                        <a-space>
+                        <a-space class="login-panel__captcha">
                             <a-input
                                 v-model:value="formData.captcha_code"
                                 size="large"
@@ -44,6 +44,7 @@
                                 </template>
                             </a-input>
                             <a-image
+                                class="login-panel__captcha-image"
                                 @click="getCaptcha"
                                 :preview="false"
                                 :width="140"
@@ -191,7 +192,118 @@ function goIndex() {
 </script>
 
 <style lang="less" scoped>
-:deep(.ant-tabs-tab) {
-    font-size: 15px;
+.login-panel {
+    :deep(.ant-tabs-nav) {
+        display: none;
+    }
+
+    :deep(.ant-tabs-content-holder) {
+        overflow: visible;
+    }
+
+    :deep(.ant-form-item) {
+        margin-bottom: 18px;
+    }
+
+    :deep(.ant-form-item-explain) {
+        display: none;
+    }
+
+    :deep(.ant-input-affix-wrapper) {
+        height: 46px;
+        border-color: rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        transition:
+            border-color 0.2s ease,
+            box-shadow 0.2s ease,
+            background 0.2s ease;
+    }
+
+    :deep(.ant-input-affix-wrapper:hover),
+    :deep(.ant-input-affix-wrapper-focused) {
+        border-color: rgba(104, 213, 196, 0.52);
+        background: rgba(255, 255, 255, 0.12);
+        box-shadow: 0 0 0 3px rgba(104, 213, 196, 0.1);
+    }
+
+    :deep(.ant-input) {
+        color: rgba(245, 249, 255, 0.88);
+        background: transparent;
+    }
+
+    :deep(.ant-input::placeholder) {
+        color: rgba(245, 249, 255, 0.5);
+    }
+
+    :deep(.ant-input-prefix) {
+        margin-inline-end: 10px;
+        color: #68d5c4;
+    }
+
+    :deep(.ant-checkbox-wrapper) {
+        color: rgba(245, 249, 255, 0.72);
+        font-size: 13px;
+    }
+
+    :deep(.ant-btn-primary) {
+        height: 46px;
+        border: none;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #147fc7 0%, #13b69d 100%);
+        box-shadow: 0 14px 28px rgba(20, 127, 199, 0.22);
+        font-weight: 600;
+    }
+
+    :deep(.ant-btn-primary:hover),
+    :deep(.ant-btn-primary:focus-visible) {
+        background: linear-gradient(135deg, #0f70b5 0%, #0fa98f 100%);
+        box-shadow: 0 16px 34px rgba(20, 127, 199, 0.3);
+    }
+
+    &__captcha {
+        width: 100%;
+
+        :deep(.ant-space-item:first-child) {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+
+    &__captcha-image {
+        cursor: pointer;
+
+        :deep(.ant-image-img) {
+            border-radius: 14px;
+            box-shadow: 0 10px 24px rgba(30, 80, 110, 0.12);
+        }
+    }
+}
+
+:global(.user-layout--dark) {
+    .login-panel {
+        :deep(.ant-input-affix-wrapper) {
+            border-color: rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        :deep(.ant-input-affix-wrapper:hover),
+        :deep(.ant-input-affix-wrapper-focused) {
+            border-color: rgba(104, 213, 196, 0.52);
+            background: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 0 0 3px rgba(104, 213, 196, 0.1);
+        }
+
+        :deep(.ant-input),
+        :deep(.ant-input::placeholder),
+        :deep(.ant-checkbox-wrapper) {
+            color: rgba(245, 249, 255, 0.72);
+        }
+
+        :deep(.ant-input-prefix) {
+            color: #68d5c4;
+        }
+    }
 }
 </style>
