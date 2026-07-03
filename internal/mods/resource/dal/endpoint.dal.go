@@ -142,11 +142,11 @@ func (e *Endpoint) QueryEndpointsByModelID(ctx context.Context, modelID string) 
 	return list, nil
 }
 
-// QueryEndpointsByProviderID queries endpoints by Provider ID (only enabled endpoints).
+// QueryEndpointsByProviderID queries active endpoints by Provider ID.
 func (e *Endpoint) QueryEndpointsByProviderID(ctx context.Context, providerID string) (schema.Endpoints, error) {
 	var list schema.Endpoints
 	db := GetEndpointDB(ctx, e.DB).
-		Where("provider_id = ? AND enabled = 1", providerID).
+		Where("provider_id = ?", providerID).
 		Order("priority ASC, weight DESC")
 	if err := db.Find(&list).Error; err != nil {
 		return nil, errors.WithStack(err)
