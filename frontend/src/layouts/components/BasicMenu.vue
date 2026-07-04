@@ -204,20 +204,127 @@ function onOpenChange(value) {
 
         :deep(.ant-menu-item-group-title) {
             font-size: 12px;
+            height: 32px;
+            line-height: 32px;
+            letter-spacing: 0.04em;
             .basic-menu__name {
-                font-size: 12px;
+                font-size: 11px;
             }
         }
 
         &.ant-menu-dark {
+            background: transparent;
+
+            :deep(.ant-menu-item),
+            :deep(.ant-menu-submenu-title) {
+                height: 38px;
+                line-height: 38px;
+                margin: 3px 10px;
+                border-radius: 8px;
+                color: rgba(196, 207, 224, 0.68);
+                transition:
+                    background 0.2s ease,
+                    color 0.2s ease,
+                    transform 0.2s ease;
+            }
+
+            :deep(.ant-menu-item .anticon),
+            :deep(.ant-menu-submenu-title .anticon) {
+                color: rgba(196, 207, 224, 0.54);
+            }
+
+            :deep(.ant-menu-item:hover),
+            :deep(.ant-menu-submenu-title:hover) {
+                color: rgba(238, 244, 255, 0.92);
+                background: rgba(148, 163, 184, 0.075);
+            }
+
+            :deep(.ant-menu-item-selected) {
+                color: #eef4ff;
+                background: linear-gradient(90deg, rgba(47, 140, 255, 0.2), rgba(47, 140, 255, 0.08));
+                box-shadow: inset 0 0 0 1px rgba(47, 140, 255, 0.1);
+
+                &::after {
+                    display: none;
+                }
+
+                &::before {
+                    content: '';
+                    position: absolute;
+                    top: 10px;
+                    left: 0;
+                    width: 2px;
+                    height: 18px;
+                    border-radius: 999px;
+                    background: #2f8cff;
+                    box-shadow: 0 0 10px rgba(47, 140, 255, 0.55);
+                }
+            }
+
+            :deep(.ant-menu-item-selected .anticon) {
+                color: #6eb6ff;
+            }
+
             :deep(.ant-menu-item-group-title) {
-                color: rgba(255, 255, 255, 0.45);
+                color: rgba(196, 207, 224, 0.42);
             }
         }
 
         &.ant-menu-light {
+            background: transparent;
+
+            :deep(.ant-menu-item),
+            :deep(.ant-menu-submenu-title) {
+                height: 38px;
+                line-height: 38px;
+                margin: 3px 10px;
+                border-radius: 8px;
+                color: rgba(31, 41, 55, 0.68);
+                transition:
+                    background 0.2s ease,
+                    color 0.2s ease,
+                    transform 0.2s ease;
+            }
+
+            :deep(.ant-menu-item .anticon),
+            :deep(.ant-menu-submenu-title .anticon) {
+                color: rgba(31, 41, 55, 0.48);
+            }
+
+            :deep(.ant-menu-item:hover),
+            :deep(.ant-menu-submenu-title:hover) {
+                color: rgba(17, 24, 39, 0.9);
+                background: rgba(47, 140, 255, 0.055);
+            }
+
+            :deep(.ant-menu-item-selected) {
+                color: #0f4fa8;
+                background: linear-gradient(90deg, rgba(47, 140, 255, 0.13), rgba(47, 140, 255, 0.055));
+                box-shadow: inset 0 0 0 1px rgba(47, 140, 255, 0.08);
+
+                &::after {
+                    display: none;
+                }
+
+                &::before {
+                    content: '';
+                    position: absolute;
+                    top: 10px;
+                    left: 0;
+                    width: 2px;
+                    height: 18px;
+                    border-radius: 999px;
+                    background: #2f8cff;
+                    box-shadow: 0 0 10px rgba(47, 140, 255, 0.32);
+                }
+            }
+
+            :deep(.ant-menu-item-selected .anticon) {
+                color: #2f8cff;
+            }
+
             :deep(.ant-menu-item-group-title) {
-                color: rgba(0, 0, 0, 0.45);
+                color: rgba(31, 41, 55, 0.42);
             }
         }
     }

@@ -3,6 +3,7 @@
         <!-- 核心报警：熔断隔离横幅 -->
         <a-alert
             v-if="circuitBreakers.length > 0"
+            class="dashboard-health-alert dashboard-health-alert--error"
             type="error"
             show-icon
             style="
@@ -52,6 +53,7 @@
         </a-alert>
         <a-alert
             v-else
+            class="dashboard-health-alert dashboard-health-alert--success"
             type="success"
             show-icon
             style="
@@ -190,6 +192,7 @@
                 :lg="16"
                 style="margin-bottom: 16px">
                 <a-card
+                    class="dashboard-panel"
                     :title="$t('pages.dashboard.trends.title')"
                     :bordered="false"
                     hoverable>
@@ -395,6 +398,7 @@
                 :lg="8"
                 style="margin-bottom: 16px">
                 <a-card
+                    class="dashboard-panel"
                     :title="$t('pages.dashboard.tokens.distribution')"
                     :bordered="false"
                     hoverable>
@@ -497,6 +501,7 @@
                 :xs="24"
                 style="margin-bottom: 16px">
                 <a-card
+                    class="dashboard-panel dashboard-ranking-panel"
                     :title="$t('pages.dashboard.modelRanking.title')"
                     :bordered="false"
                     hoverable>
@@ -595,6 +600,7 @@
                         </div>
                         <div v-else-if="modelRanking.length > 0">
                             <a-table
+                                class="dashboard-ranking-table"
                                 :data-source="modelRanking"
                                 :columns="columns"
                                 :pagination="false"
@@ -694,6 +700,7 @@
                 :lg="8"
                 style="margin-bottom: 16px; display: flex">
                 <a-card
+                    class="dashboard-panel"
                     :title="$t('pages.dashboard.policyDistribution')"
                     :bordered="false"
                     hoverable
@@ -791,6 +798,7 @@
                 :lg="16"
                 style="margin-bottom: 16px; display: flex">
                 <a-card
+                    class="dashboard-panel dashboard-resource-panel"
                     :title="$t('pages.dashboard.resourceOverview')"
                     :bordered="false"
                     hoverable
@@ -799,6 +807,7 @@
                         :gutter="16"
                         style="padding: 10px 0; text-align: center">
                         <a-col
+                            class="resource-stat-item"
                             :span="8"
                             @click="goTo('/space/list')"
                             style="cursor: pointer">
@@ -811,6 +820,7 @@
                             </a-statistic>
                         </a-col>
                         <a-col
+                            class="resource-stat-item"
                             :span="8"
                             @click="goTo('/space/provider')"
                             style="cursor: pointer">
@@ -823,6 +833,7 @@
                             </a-statistic>
                         </a-col>
                         <a-col
+                            class="resource-stat-item"
                             :span="8"
                             @click="goTo('/space/model')"
                             style="cursor: pointer">
@@ -1049,7 +1060,7 @@ const POLICY_META = [
     { key: 'circuitBreak', fetch: apis.policy.getCircuitBreakList },
 ]
 
-const COLORS = ['#7c5cfc', '#ffc53d', '#36cfc9', '#52c41a', '#597ef7', '#ff7875']
+const COLORS = ['#2f8cff', '#23c7b7', '#ffb020', '#8b5cf6', '#ff4d5e', '#6ee7d8']
 
 async function fetchStaticCounts() {
     try {
@@ -1250,6 +1261,16 @@ onUnmounted(() => {
 // 计算双线渐变面积趋势图配置
 const trendsChartOptions = computed(() => {
     const isDark = appStore.config.theme === 'dark'
+    const chartTextColor = isDark ? 'rgba(231, 236, 246, 0.68)' : 'rgba(31, 41, 55, 0.68)'
+    const chartTooltip = {
+        backgroundColor: isDark ? 'rgba(18, 24, 38, 0.96)' : 'rgba(255, 255, 255, 0.98)',
+        borderColor: isDark ? 'rgba(126, 145, 178, 0.18)' : 'rgba(15, 23, 42, 0.1)',
+        textStyle: { color: isDark ? '#e7ecf6' : '#1f2937' },
+        extraCssText: 'box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18); border-radius: 8px;',
+    }
+    const splitLineStyle = {
+        lineStyle: { color: isDark ? 'rgba(126, 145, 178, 0.11)' : 'rgba(15, 23, 42, 0.08)' },
+    }
 
     // 判断是否为分组模式
     const isGroupMode = trends.series.length > 1
@@ -1257,41 +1278,43 @@ const trendsChartOptions = computed(() => {
     if (isGroupMode) {
         // 分组模式：每条 series 一条 total 折线
         const seriesColors = [
-            '#7c5cfc',
-            '#52c41a',
-            '#ff7875',
-            '#ffc53d',
-            '#36cfc9',
-            '#597ef7',
-            '#f759ab',
-            '#ffa940',
-            '#9578ff',
-            '#73d13d',
+            '#2f8cff',
+            '#23c7b7',
+            '#ff4d5e',
+            '#ffb020',
+            '#8b5cf6',
+            '#6ee7d8',
+            '#f472b6',
+            '#7bb8ff',
+            '#a78bfa',
+            '#58d68d',
         ]
 
         return {
             tooltip: {
+                ...chartTooltip,
                 trigger: 'axis',
                 axisPointer: { type: 'cross' },
             },
             legend: {
                 data: trends.series.map((s) => s.label),
-                textStyle: { color: isDark ? 'rgba(255, 255, 255, 0.65)' : '#333' },
+                textStyle: { color: chartTextColor },
             },
             grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
             xAxis: {
                 type: 'category',
                 boundaryGap: false,
                 data: trends.times,
-                axisLabel: { color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#666' },
+                axisLabel: { color: chartTextColor },
+                axisLine: { lineStyle: { color: isDark ? 'rgba(126, 145, 178, 0.18)' : 'rgba(15, 23, 42, 0.12)' } },
             },
             yAxis: [
                 {
                     type: 'value',
                     name: t('pages.dashboard.trends.requests'),
                     minInterval: 1,
-                    axisLabel: { color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#666' },
-                    splitLine: { lineStyle: { color: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' } },
+                    axisLabel: { color: chartTextColor },
+                    splitLine: splitLineStyle,
                 },
             ],
             series: trends.series.map((s, index) => ({
@@ -1320,6 +1343,7 @@ const trendsChartOptions = computed(() => {
 
         return {
             tooltip: {
+                ...chartTooltip,
                 trigger: 'axis',
                 axisPointer: { type: 'cross' },
             },
@@ -1329,22 +1353,23 @@ const trendsChartOptions = computed(() => {
                     t('pages.dashboard.trends.failed_requests'),
                     t('pages.dashboard.trends.success_rate'),
                 ],
-                textStyle: { color: isDark ? 'rgba(255, 255, 255, 0.65)' : '#333' },
+                textStyle: { color: chartTextColor },
             },
             grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
             xAxis: {
                 type: 'category',
                 boundaryGap: false,
                 data: trends.times,
-                axisLabel: { color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#666' },
+                axisLabel: { color: chartTextColor },
+                axisLine: { lineStyle: { color: isDark ? 'rgba(126, 145, 178, 0.18)' : 'rgba(15, 23, 42, 0.12)' } },
             },
             yAxis: [
                 {
                     type: 'value',
                     name: t('pages.dashboard.trends.requests'),
                     minInterval: 1,
-                    axisLabel: { color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#666' },
-                    splitLine: { lineStyle: { color: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' } },
+                    axisLabel: { color: chartTextColor },
+                    splitLine: splitLineStyle,
                 },
                 {
                     type: 'value',
@@ -1353,7 +1378,7 @@ const trendsChartOptions = computed(() => {
                     max: 100,
                     axisLabel: {
                         formatter: '{value} %',
-                        color: isDark ? 'rgba(255, 255, 255, 0.45)' : '#666',
+                        color: chartTextColor,
                     },
                     splitLine: { show: false },
                 },
@@ -1366,11 +1391,11 @@ const trendsChartOptions = computed(() => {
                     showSymbol: false,
                     areaStyle: {
                         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: 'rgba(82, 196, 26, 0.4)' },
-                            { offset: 1, color: 'rgba(82, 196, 26, 0.02)' },
+                            { offset: 0, color: 'rgba(35, 199, 183, 0.32)' },
+                            { offset: 1, color: 'rgba(35, 199, 183, 0.02)' },
                         ]),
                     },
-                    itemStyle: { color: '#52c41a' },
+                    itemStyle: { color: '#23c7b7' },
                     data: successData,
                 },
                 {
@@ -1380,11 +1405,11 @@ const trendsChartOptions = computed(() => {
                     showSymbol: false,
                     areaStyle: {
                         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: 'rgba(255, 77, 79, 0.4)' },
-                            { offset: 1, color: 'rgba(255, 77, 79, 0.02)' },
+                            { offset: 0, color: 'rgba(255, 77, 94, 0.3)' },
+                            { offset: 1, color: 'rgba(255, 77, 94, 0.02)' },
                         ]),
                     },
-                    itemStyle: { color: '#ff7875' },
+                    itemStyle: { color: '#ff4d5e' },
                     data: failureData,
                 },
                 {
@@ -1394,8 +1419,8 @@ const trendsChartOptions = computed(() => {
                     smooth: true,
                     showSymbol: true,
                     symbolSize: 6,
-                    itemStyle: { color: '#7c5cfc' },
-                    lineStyle: { width: 3, type: 'dashed' },
+                    itemStyle: { color: '#8b5cf6' },
+                    lineStyle: { width: 2, type: 'dashed' },
                     data: successRates,
                 },
             ],
@@ -1406,6 +1431,13 @@ const trendsChartOptions = computed(() => {
 // 计算 Token 占比饼图配置
 const tokenChartOptions = computed(() => {
     const isDark = appStore.config.theme === 'dark'
+    const chartTextColor = isDark ? 'rgba(231, 236, 246, 0.72)' : 'rgba(31, 41, 55, 0.72)'
+    const chartTooltip = {
+        backgroundColor: isDark ? 'rgba(18, 24, 38, 0.96)' : 'rgba(255, 255, 255, 0.98)',
+        borderColor: isDark ? 'rgba(126, 145, 178, 0.18)' : 'rgba(15, 23, 42, 0.1)',
+        textStyle: { color: isDark ? '#e7ecf6' : '#1f2937' },
+        extraCssText: 'box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18); border-radius: 8px;',
+    }
     const input = metrics.dailyPromptTokens
     const output = metrics.dailyCompletionTokens
     const cached = metrics.dailyCachedTokens
@@ -1422,19 +1454,19 @@ const tokenChartOptions = computed(() => {
             textStyle: {
                 fontSize: 20,
                 fontWeight: 'bold',
-                color: isDark ? 'rgba(255, 255, 255, 0.85)' : '#000',
+                color: isDark ? '#e7ecf6' : '#111827',
             },
             subtextStyle: {
                 fontSize: 12,
-                color: isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0,0,0,0.45)',
+                color: chartTextColor,
             },
         },
-        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+        tooltip: { ...chartTooltip, trigger: 'item', formatter: '{b}: {c} ({d}%)' },
         legend: {
             orient: 'vertical',
             left: '6%',
             bottom: '25',
-            textStyle: { color: isDark ? 'var(--color-text-secondary)' : '#333' },
+            textStyle: { color: chartTextColor },
         },
         series: [
             {
@@ -1444,31 +1476,31 @@ const tokenChartOptions = computed(() => {
                 avoidLabelOverlap: false,
                 itemStyle: {
                     borderRadius: 6,
-                    borderColor: isDark ? '#141722' : '#fff',
+                    borderColor: isDark ? '#111827' : '#fff',
                     borderWidth: 2,
                 },
                 label: {
                     show: true,
                     formatter: '{b}: {c} ({d}%)',
                     fontSize: 11,
-                    color: isDark ? 'rgba(255, 255, 255, 0.85)' : '#333',
+                    color: chartTextColor,
                 },
                 data: [
-                    { value: inputNonCache, name: t('pages.dashboard.tokens.input'), itemStyle: { color: '#7c5cfc' } },
+                    { value: inputNonCache, name: t('pages.dashboard.tokens.input'), itemStyle: { color: '#2f8cff' } },
                     {
                         value: output,
                         name: t('pages.dashboard.tokens.output'),
-                        itemStyle: { color: '#b37feb' },
+                        itemStyle: { color: '#8b5cf6' },
                     },
                     {
                         value: cached,
                         name: t('pages.dashboard.tokens.cached'),
-                        itemStyle: { color: '#73d13d' },
+                        itemStyle: { color: '#58d68d' },
                     },
                     {
                         value: cacheCreation,
                         name: t('pages.dashboard.tokens.cache_creation'),
-                        itemStyle: { color: '#5cdbd3' },
+                        itemStyle: { color: '#6ee7d8' },
                     },
                 ],
             },
@@ -1479,13 +1511,21 @@ const tokenChartOptions = computed(() => {
 // 策略分布饼图
 const pieChartOptions = computed(() => {
     const isDark = appStore.config.theme === 'dark'
+    const chartTextColor = isDark ? 'rgba(231, 236, 246, 0.72)' : 'rgba(31, 41, 55, 0.72)'
     return {
-        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+        tooltip: {
+            trigger: 'item',
+            formatter: '{b}: {c} ({d}%)',
+            backgroundColor: isDark ? 'rgba(18, 24, 38, 0.96)' : 'rgba(255, 255, 255, 0.98)',
+            borderColor: isDark ? 'rgba(126, 145, 178, 0.18)' : 'rgba(15, 23, 42, 0.1)',
+            textStyle: { color: isDark ? '#e7ecf6' : '#1f2937' },
+            extraCssText: 'box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18); border-radius: 8px;',
+        },
         legend: {
             orient: 'vertical',
             left: '6%',
             top: 'middle',
-            textStyle: { color: isDark ? 'rgba(255, 255, 255, 0.65)' : '#333' },
+            textStyle: { color: chartTextColor },
         },
         series: [
             {
@@ -1495,7 +1535,7 @@ const pieChartOptions = computed(() => {
                 avoidLabelOverlap: false,
                 itemStyle: {
                     borderRadius: 6,
-                    borderColor: isDark ? '#141722' : '#fff',
+                    borderColor: isDark ? '#111827' : '#fff',
                     borderWidth: 2,
                 },
                 label: { show: false },
@@ -1568,10 +1608,22 @@ function goToModel(modelId) {
 
 <style lang="less" scoped>
 .dashboard {
+    --dashboard-panel: #ffffff;
+    --dashboard-panel-soft: #f8fafc;
+    --dashboard-panel-elevated: #ffffff;
+    --dashboard-border: rgba(15, 23, 42, 0.08);
+    --dashboard-border-strong: rgba(15, 23, 42, 0.14);
+    --dashboard-text: #111827;
+    --dashboard-text-secondary: rgba(31, 41, 55, 0.68);
+    --dashboard-text-tertiary: rgba(31, 41, 55, 0.48);
+    --dashboard-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
+    --dashboard-shadow-hover: 0 18px 42px rgba(15, 23, 42, 0.1);
+    --dashboard-control-bg: #f8fafc;
+    --dashboard-row-hover: rgba(47, 140, 255, 0.06);
+    --dashboard-accent: #2f8cff;
     padding: 0;
     position: relative;
 
-    // 签名元素：微妙的紫色流动光效
     &::before {
         content: '';
         position: absolute;
@@ -1579,29 +1631,33 @@ function goToModel(modelId) {
         left: 0;
         right: 0;
         height: 200px;
-        background: radial-gradient(ellipse at 30% 50%, rgba(124, 92, 252, 0.06) 0%, transparent 70%);
+        background:
+            radial-gradient(ellipse at 24% 18%, rgba(47, 140, 255, 0.08) 0%, transparent 58%),
+            radial-gradient(ellipse at 84% 10%, rgba(35, 199, 183, 0.06) 0%, transparent 54%);
         pointer-events: none;
         z-index: 0;
-        animation: breathe 8s ease-in-out infinite;
+        opacity: 0.9;
     }
 
-    // 让内容在光效之上
     > * {
         position: relative;
         z-index: 1;
     }
 }
 
-@keyframes breathe {
-    0%,
-    100% {
-        opacity: 0.5;
-        transform: translateX(0);
-    }
-    50% {
-        opacity: 1;
-        transform: translateX(10px);
-    }
+[data-theme='dark'] .dashboard {
+    --dashboard-panel: #141926;
+    --dashboard-panel-soft: #101520;
+    --dashboard-panel-elevated: #171c2a;
+    --dashboard-border: rgba(126, 145, 178, 0.12);
+    --dashboard-border-strong: rgba(126, 145, 178, 0.2);
+    --dashboard-text: #e7ecf6;
+    --dashboard-text-secondary: rgba(231, 236, 246, 0.68);
+    --dashboard-text-tertiary: rgba(231, 236, 246, 0.46);
+    --dashboard-shadow: 0 14px 42px rgba(0, 0, 0, 0.18);
+    --dashboard-shadow-hover: 0 20px 48px rgba(0, 0, 0, 0.24);
+    --dashboard-control-bg: rgba(255, 255, 255, 0.035);
+    --dashboard-row-hover: rgba(47, 140, 255, 0.1);
 }
 
 .equal-height-row {
@@ -1609,75 +1665,134 @@ function goToModel(modelId) {
     flex-wrap: wrap;
 }
 
-// 遥测卡片现代发光渐变样式
-.telemetry-card {
-    border-radius: 12px;
-    padding: 2px;
-    color: #fff;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-    position: relative;
+.dashboard-health-alert {
+    :deep(.ant-alert-message) {
+        width: 100%;
+    }
+}
+
+.dashboard-health-alert--success {
+    background: linear-gradient(90deg, rgba(82, 196, 26, 0.08), rgba(35, 199, 183, 0.04));
+}
+
+.dashboard-health-alert--error {
+    background: linear-gradient(90deg, rgba(255, 77, 94, 0.1), rgba(255, 176, 32, 0.04));
+}
+
+.dashboard-panel {
+    border: 1px solid var(--dashboard-border);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent), var(--dashboard-panel);
+    box-shadow: var(--dashboard-shadow);
     overflow: hidden;
 
-    &::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
-        transition: left 0.6s ease;
+    :deep(.ant-card-head) {
+        min-height: 46px;
+        border-bottom: 1px solid var(--dashboard-border);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+    }
+
+    :deep(.ant-card-head-title) {
+        color: var(--dashboard-text);
+        font-size: 14px;
+        font-weight: 650;
+    }
+
+    :deep(.ant-card-body) {
+        background: transparent;
+    }
+
+    :deep(.ant-select-selector) {
+        border-color: var(--dashboard-border);
+        background: var(--dashboard-control-bg);
     }
 
     &:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 16px 32px rgba(124, 92, 252, 0.2);
+        border-color: var(--dashboard-border-strong);
+        box-shadow: var(--dashboard-shadow-hover);
+    }
+}
+
+.telemetry-card {
+    --telemetry-accent: #2f8cff;
+    --telemetry-accent-rgb: 47, 140, 255;
+    min-height: 118px;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 8px;
+    color: var(--dashboard-text);
+    background:
+        radial-gradient(circle at 88% 16%, rgba(var(--telemetry-accent-rgb), 0.18), transparent 34%),
+        linear-gradient(180deg, rgba(var(--telemetry-accent-rgb), 0.07), rgba(var(--telemetry-accent-rgb), 0.02)),
+        var(--dashboard-panel);
+    box-shadow: var(--dashboard-shadow);
+    transition:
+        transform 0.22s ease,
+        border-color 0.22s ease,
+        box-shadow 0.22s ease;
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, var(--telemetry-accent), rgba(var(--telemetry-accent-rgb), 0.25));
     }
 
-    &:hover::after {
-        left: 100%;
+    &:hover {
+        transform: translateY(-3px);
+        border-color: rgba(var(--telemetry-accent-rgb), 0.45);
+        box-shadow: 0 18px 42px rgba(var(--telemetry-accent-rgb), 0.16);
     }
 }
 
 .telemetry-card--blue {
-    background: linear-gradient(135deg, #7c5cfc 0%, #9578ff 100%);
+    --telemetry-accent: #2f8cff;
+    --telemetry-accent-rgb: 47, 140, 255;
 }
 
 .telemetry-card--green {
-    background: linear-gradient(135deg, #36cfc9 0%, #5cdbd3 100%);
+    --telemetry-accent: #23c7b7;
+    --telemetry-accent-rgb: 35, 199, 183;
 }
 
 .telemetry-card--purple {
-    background: linear-gradient(135deg, #6347e0 0%, #9578ff 100%);
+    --telemetry-accent: #8b5cf6;
+    --telemetry-accent-rgb: 139, 92, 246;
 }
 
 .telemetry-card--orange {
-    background: linear-gradient(135deg, #ffa940 0%, #ffc53d 100%);
+    --telemetry-accent: #ffb020;
+    --telemetry-accent-rgb: 255, 176, 32;
 }
 
 .telemetry-card--cyan {
-    background: linear-gradient(135deg, #13c2c2 0%, #36cfc9 100%);
+    --telemetry-accent: #1fb6c1;
+    --telemetry-accent-rgb: 31, 182, 193;
 }
 
 .telemetry-card--magenta {
-    background: linear-gradient(135deg, #f759ab 0%, #ff85c0 100%);
+    --telemetry-accent: #f15bb5;
+    --telemetry-accent-rgb: 241, 91, 181;
 }
 
 .telemetry-title {
     font-size: 13px;
-    opacity: 0.9;
-    font-weight: 500;
+    color: var(--dashboard-text-secondary);
+    font-weight: 600;
     margin-bottom: 6px;
     display: flex;
     align-items: center;
 }
 
 .telemetry-value {
-    font-size: 28px;
+    color: var(--dashboard-text);
+    font-size: 27px;
     font-weight: 700;
     font-feature-settings: 'tnum'; /* 等宽数字，对齐更整齐 */
-    letter-spacing: -0.02em; /* 标题收紧，更精致 */
     line-height: 1.1;
     margin-bottom: 6px;
 }
@@ -1686,12 +1801,13 @@ function goToModel(modelId) {
     font-size: 14px;
     font-weight: normal;
     margin-left: 4px;
+    color: var(--dashboard-text-tertiary);
 }
 
 .telemetry-footer {
     font-size: 11px;
-    opacity: 0.75;
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--dashboard-text-tertiary);
+    border-top: 1px solid var(--dashboard-border);
     padding-top: 6px;
     margin-top: 4px;
     white-space: nowrap;
@@ -1704,55 +1820,115 @@ function goToModel(modelId) {
     display: inline-block;
     width: 8px;
     height: 8px;
-    background-color: #fff;
+    background-color: var(--telemetry-accent);
     border-radius: 50%;
     margin-left: 8px;
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+    box-shadow: 0 0 0 0 rgba(var(--telemetry-accent-rgb), 0.58);
     animation: pulse 1.6s infinite;
 }
 
 @keyframes pulse {
     0% {
         transform: scale(0.95);
-        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+        box-shadow: 0 0 0 0 rgba(var(--telemetry-accent-rgb), 0.58);
     }
     70% {
         transform: scale(1);
-        box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+        box-shadow: 0 0 0 8px rgba(var(--telemetry-accent-rgb), 0);
     }
     100% {
         transform: scale(0.95);
-        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+        box-shadow: 0 0 0 0 rgba(var(--telemetry-accent-rgb), 0);
+    }
+}
+
+.dashboard-ranking-panel {
+    :deep(.ant-table) {
+        background: transparent;
+        color: var(--dashboard-text-secondary);
+    }
+
+    :deep(.ant-table-thead > tr > th) {
+        border-bottom: 1px solid var(--dashboard-border);
+        background: var(--dashboard-panel-soft);
+        color: var(--dashboard-text-secondary);
+        font-size: 12px;
+        font-weight: 650;
+    }
+
+    :deep(.ant-table-tbody > tr > td) {
+        border-bottom: 1px solid var(--dashboard-border);
+        background: transparent;
+    }
+
+    :deep(.ant-table-tbody > tr:hover > td) {
+        background: var(--dashboard-row-hover);
+    }
+}
+
+.dashboard-ranking-table {
+    border: 1px solid var(--dashboard-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.dashboard-resource-panel {
+    :deep(.ant-statistic-title) {
+        color: var(--dashboard-text-tertiary);
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    :deep(.ant-statistic-content) {
+        color: var(--dashboard-text);
+        font-size: 24px;
+        font-weight: 650;
+    }
+}
+
+.resource-stat-item {
+    border-radius: 8px;
+    padding: 14px 8px;
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease;
+
+    &:hover {
+        background: var(--dashboard-row-hover);
+        transform: translateY(-2px);
     }
 }
 
 // 快捷导航区域与标题
 .quick-links-section {
-    border-top: 1px solid var(--color-border-secondary);
+    border-top: 1px solid var(--dashboard-border);
     padding-top: 16px;
     margin-top: 12px;
 }
 
 .quick-links-title {
     margin-bottom: 12px;
-    font-weight: 500;
+    font-weight: 650;
     font-size: 13px;
-    color: var(--color-text-tertiary);
+    color: var(--dashboard-text-tertiary);
 }
 
 // 快捷连接卡片
 .quick-link-card {
     text-align: center;
     cursor: pointer;
-    transition: all 0.3s;
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
     margin-top: 8px;
-    border: 1px dashed var(--color-border);
+    border: 1px solid var(--dashboard-border);
     border-radius: 8px;
-    background: var(--color-bg-container);
+    background: var(--dashboard-panel-soft);
 
     &:hover {
-        box-shadow: 0 4px 12px var(--color-primary-bg);
-        border-color: var(--color-primary);
+        box-shadow: 0 12px 24px rgba(47, 140, 255, 0.12);
+        border-color: rgba(47, 140, 255, 0.45);
         transform: translateY(-2px);
     }
 }
@@ -1761,7 +1937,7 @@ function goToModel(modelId) {
     display: block;
     margin-top: 4px;
     font-size: 12px;
-    color: var(--color-text-secondary);
+    color: var(--dashboard-text-secondary);
 }
 
 // 模型链接

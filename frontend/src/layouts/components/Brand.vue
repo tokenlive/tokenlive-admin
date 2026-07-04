@@ -58,13 +58,16 @@ const cpStyle = computed(() => {
     justify-content: center;
     white-space: nowrap;
     position: relative;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
 
     img {
         height: 28px;
     }
 
     h1 {
-        font-size: 18px;
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
         margin: 0;
         padding: 0 12px;
         text-overflow: ellipsis;
@@ -79,7 +82,7 @@ const cpStyle = computed(() => {
 
     &--dark {
         h1 {
-            color: #fff;
+            color: #eef4ff;
         }
     }
 

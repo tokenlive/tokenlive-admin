@@ -10,8 +10,8 @@ const defaultConfig = {
     sideWidth: 220,
     headerHeight: 60,
     sideTheme: 'dark', // 侧边菜单主题【dark=暗色，light=亮色】
-    headerTheme: 'light', // 侧边菜单主题【dark=暗色，light=亮色】
-    theme: 'light', // 整体主题【dark=暗色，light=亮色】
+    headerTheme: 'dark', // 顶部栏主题【dark=暗色，light=亮色】
+    theme: 'dark', // 整体主题【dark=暗色，light=亮色】
     multiTab: true,
     multiTabHeight: 48,
     mainMargin: 16,

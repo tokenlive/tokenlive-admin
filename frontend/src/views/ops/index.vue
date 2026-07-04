@@ -66,9 +66,9 @@
                 :xs="24"
                 :lg="16">
                 <a-card
+                    class="ops-panel"
                     :title="$t('pages.ops.trend.title')"
-                    :bordered="false"
-                    style="border-radius: 8px">
+                    :bordered="false">
                     <template #extra>
                         <a-select
                             v-model:value="timeRange"
@@ -93,9 +93,9 @@
                 :xs="24"
                 :lg="8">
                 <a-card
+                    class="ops-panel"
                     :title="$t('pages.ops.distribution.title')"
-                    :bordered="false"
-                    style="border-radius: 8px">
+                    :bordered="false">
                     <x-chart
                         :options="distributionChartOptions"
                         height="320"
@@ -112,9 +112,9 @@
                 :xs="24"
                 :lg="12">
                 <a-card
+                    class="ops-panel"
                     :title="$t('pages.ops.tenant_ranking')"
-                    :bordered="false"
-                    style="border-radius: 8px">
+                    :bordered="false">
                     <x-chart
                         :options="tenantRankingOptions"
                         height="280"
@@ -125,9 +125,9 @@
                 :xs="24"
                 :lg="12">
                 <a-card
+                    class="ops-panel"
                     :title="$t('pages.ops.model_ranking')"
-                    :bordered="false"
-                    style="border-radius: 8px">
+                    :bordered="false">
                     <x-chart
                         :options="modelRankingOptions"
                         height="280"
@@ -138,12 +138,13 @@
 
         <!-- 第四行：事件列表 -->
         <a-card
-            :bordered="false"
-            style="border-radius: 8px">
+            class="ops-panel ops-table-panel"
+            :bordered="false">
             <!-- 筛选栏 -->
             <a-form
+                class="ops-filter-form"
                 layout="inline"
-                style="margin-bottom: 16px">
+                style="margin-bottom: 12px">
                 <a-form-item>
                     <a-select
                         v-model:value="filterForm.event_type"
@@ -502,10 +503,10 @@ const eventTypeName = (type) => {
 
 const eventTypeColor = (type) => {
     const map = {
-        circuit_break: 'error',
-        rate_limit: 'warning',
-        invocation_fail: 'purple',
-        lb_switch: 'blue',
+        circuit_break: opsChartPalette.error,
+        rate_limit: opsChartPalette.warning,
+        invocation_fail: opsChartPalette.strategy,
+        lb_switch: opsChartPalette.system,
     }
     return map[type] || 'default'
 }
@@ -644,13 +645,63 @@ const connectWebSocket = () => {
 
 // Chart options
 const isDark = computed(() => appStore.config.theme === 'dark')
+const opsChartPalette = {
+    system: '#2f8cff',
+    traffic: '#23c7b7',
+    warning: '#ffb020',
+    error: '#ff4d5e',
+    strategy: '#8b5cf6',
+}
+
+function chartTextColor(isD, level = 'secondary') {
+    if (level === 'primary') return isD ? 'rgba(238, 244, 255, 0.92)' : '#162033'
+    return isD ? 'rgba(196, 207, 224, 0.62)' : 'rgba(22, 32, 51, 0.62)'
+}
+
+function chartTooltip(isD, trigger = 'axis') {
+    return {
+        trigger,
+        backgroundColor: isD ? 'rgba(13, 19, 32, 0.94)' : 'rgba(255, 255, 255, 0.96)',
+        borderColor: isD ? 'rgba(148, 163, 184, 0.18)' : 'rgba(22, 32, 51, 0.1)',
+        borderWidth: 1,
+        padding: [10, 12],
+        textStyle: {
+            color: chartTextColor(isD, 'primary'),
+            fontSize: 12,
+        },
+        extraCssText: 'border-radius: 8px; box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);',
+    }
+}
+
+function axisStyle(isD) {
+    return {
+        axisLine: { lineStyle: { color: isD ? 'rgba(148, 163, 184, 0.18)' : 'rgba(22, 32, 51, 0.12)' } },
+        axisTick: { lineStyle: { color: isD ? 'rgba(148, 163, 184, 0.16)' : 'rgba(22, 32, 51, 0.12)' } },
+        axisLabel: { color: chartTextColor(isD) },
+    }
+}
+
+function splitLineStyle(isD) {
+    return {
+        lineStyle: {
+            color: isD ? 'rgba(148, 163, 184, 0.08)' : 'rgba(22, 32, 51, 0.07)',
+        },
+    }
+}
 
 const trendChartOptions = computed(() => {
     const trend = stats.value.trend || []
     const times = trend.map((p) => p.time?.split(' ')[1] || p.time || '')
     const isD = isDark.value
     return {
-        tooltip: { trigger: 'axis' },
+        color: [opsChartPalette.error, opsChartPalette.warning, opsChartPalette.strategy, opsChartPalette.system],
+        tooltip: {
+            ...chartTooltip(isD),
+            axisPointer: {
+                type: 'line',
+                lineStyle: { color: isD ? 'rgba(148, 163, 184, 0.32)' : 'rgba(47, 140, 255, 0.22)' },
+            },
+        },
         legend: {
             data: [
                 t('pages.ops.circuit_break'),
@@ -658,51 +709,69 @@ const trendChartOptions = computed(() => {
                 t('pages.ops.invocation_fail'),
                 t('pages.ops.lb_switch'),
             ],
-            textStyle: { color: isD ? 'rgba(255, 255, 255, 0.65)' : '#333' },
+            top: 6,
+            right: 8,
+            icon: 'roundRect',
+            itemWidth: 12,
+            itemHeight: 4,
+            textStyle: { color: chartTextColor(isD), fontSize: 12 },
         },
-        grid: { left: 50, right: 20, bottom: 30, top: 40 },
+        grid: { left: 50, right: 20, bottom: 30, top: 48 },
         xAxis: {
             type: 'category',
             data: times,
-            axisLabel: { color: isD ? 'rgba(255, 255, 255, 0.45)' : '#666' },
+            boundaryGap: false,
+            ...axisStyle(isD),
         },
         yAxis: {
             type: 'value',
-            axisLabel: { color: isD ? 'rgba(255, 255, 255, 0.45)' : '#666' },
-            splitLine: { lineStyle: { color: isD ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' } },
+            ...axisStyle(isD),
+            splitLine: splitLineStyle(isD),
         },
         series: [
             {
                 name: t('pages.ops.circuit_break'),
                 type: 'line',
                 smooth: true,
+                symbol: 'circle',
+                symbolSize: 5,
                 data: trend.map((p) => p.circuit_break || 0),
-                itemStyle: { color: '#ff4d4f' },
-                areaStyle: { opacity: 0.1 },
+                itemStyle: { color: opsChartPalette.error },
+                lineStyle: { width: 2 },
             },
             {
                 name: t('pages.ops.rate_limit'),
                 type: 'line',
                 smooth: true,
+                symbol: 'circle',
+                symbolSize: 5,
                 data: trend.map((p) => p.rate_limit || 0),
-                itemStyle: { color: '#faad14' },
-                areaStyle: { opacity: 0.1 },
+                itemStyle: { color: opsChartPalette.warning },
+                lineStyle: { width: 2 },
             },
             {
                 name: t('pages.ops.invocation_fail'),
                 type: 'line',
                 smooth: true,
+                symbol: 'circle',
+                symbolSize: 5,
                 data: trend.map((p) => p.invocation_fail || 0),
-                itemStyle: { color: '#722ed1' },
-                areaStyle: { opacity: 0.1 },
+                itemStyle: { color: opsChartPalette.strategy },
+                lineStyle: { width: 2.4 },
+                areaStyle: {
+                    color: opsChartPalette.strategy,
+                    opacity: isD ? 0.12 : 0.08,
+                },
             },
             {
                 name: t('pages.ops.lb_switch'),
                 type: 'line',
                 smooth: true,
+                symbol: 'circle',
+                symbolSize: 5,
                 data: trend.map((p) => p.lb_switch || 0),
-                itemStyle: { color: '#1890ff' },
-                areaStyle: { opacity: 0.1 },
+                itemStyle: { color: opsChartPalette.system },
+                lineStyle: { width: 2 },
             },
         ],
     }
@@ -711,40 +780,45 @@ const trendChartOptions = computed(() => {
 const distributionChartOptions = computed(() => {
     const isD = isDark.value
     return {
-        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+        color: [opsChartPalette.error, opsChartPalette.warning, opsChartPalette.strategy, opsChartPalette.system],
+        tooltip: { ...chartTooltip(isD, 'item'), formatter: '{b}: {c} ({d}%)' },
         legend: {
             orient: 'vertical',
-            right: 10,
+            right: 16,
             top: 'center',
-            textStyle: { color: isD ? 'rgba(255, 255, 255, 0.65)' : '#333' },
+            icon: 'roundRect',
+            itemWidth: 12,
+            itemHeight: 8,
+            itemGap: 14,
+            textStyle: { color: chartTextColor(isD), fontSize: 12 },
         },
         series: [
             {
                 type: 'pie',
-                radius: ['40%', '70%'],
-                center: ['40%', '50%'],
+                radius: ['46%', '68%'],
+                center: ['38%', '50%'],
                 avoidLabelOverlap: false,
                 label: { show: false },
+                itemStyle: {
+                    borderColor: isD ? '#111827' : '#ffffff',
+                    borderWidth: 2,
+                },
                 data: [
                     {
                         value: stats.value.circuit_break_count || 0,
                         name: t('pages.ops.circuit_break'),
-                        itemStyle: { color: '#ff4d4f' },
                     },
                     {
                         value: stats.value.rate_limit_count || 0,
                         name: t('pages.ops.rate_limit'),
-                        itemStyle: { color: '#faad14' },
                     },
                     {
                         value: stats.value.invocation_fail_count || 0,
                         name: t('pages.ops.invocation_fail'),
-                        itemStyle: { color: '#722ed1' },
                     },
                     {
                         value: stats.value.lb_switch_count || 0,
                         name: t('pages.ops.lb_switch'),
-                        itemStyle: { color: '#1890ff' },
                     },
                 ],
             },
@@ -756,35 +830,37 @@ const tenantRankingOptions = computed(() => {
     const ranking = stats.value.tenant_ranking || []
     const isD = isDark.value
     return {
-        tooltip: { trigger: 'axis' },
-        grid: { left: 120, right: 40, bottom: 10, top: 10 },
+        tooltip: chartTooltip(isD),
+        grid: { left: 110, right: 42, bottom: 12, top: 14 },
         xAxis: {
             type: 'value',
             name: t('pages.circuitBreak.form.slidingWindow.unit.count'),
-            axisLabel: { color: isD ? 'rgba(255, 255, 255, 0.45)' : '#666' },
-            splitLine: { lineStyle: { color: isD ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' } },
+            nameTextStyle: { color: chartTextColor(isD), padding: [0, 0, 0, 8] },
+            ...axisStyle(isD),
+            splitLine: splitLineStyle(isD),
         },
         yAxis: {
             type: 'category',
             data: ranking.map((r) => r.name).reverse(),
-            axisLabel: { color: isD ? 'rgba(255, 255, 255, 0.65)' : '#666' },
+            ...axisStyle(isD),
         },
         series: [
             {
                 name: t('pages.ops.event_count'),
                 type: 'bar',
-                barWidth: 16,
+                barWidth: 14,
                 showBackground: true,
                 backgroundStyle: {
-                    color: isD ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                    color: isD ? 'rgba(148, 163, 184, 0.06)' : 'rgba(22, 32, 51, 0.04)',
                 },
                 label: {
                     show: true,
                     position: 'right',
-                    color: isD ? 'rgba(255, 255, 255, 0.65)' : '#666',
+                    color: chartTextColor(isD),
+                    fontSize: 11,
                 },
                 data: ranking.map((r) => r.count).reverse(),
-                itemStyle: { color: '#1890ff', borderRadius: [0, 4, 4, 0] },
+                itemStyle: { color: opsChartPalette.system, borderRadius: [0, 6, 6, 0] },
             },
         ],
     }
@@ -794,35 +870,37 @@ const modelRankingOptions = computed(() => {
     const ranking = stats.value.model_ranking || []
     const isD = isDark.value
     return {
-        tooltip: { trigger: 'axis' },
-        grid: { left: 120, right: 40, bottom: 10, top: 10 },
+        tooltip: chartTooltip(isD),
+        grid: { left: 120, right: 42, bottom: 12, top: 14 },
         xAxis: {
             type: 'value',
             name: t('pages.circuitBreak.form.slidingWindow.unit.count'),
-            axisLabel: { color: isD ? 'rgba(255, 255, 255, 0.45)' : '#666' },
-            splitLine: { lineStyle: { color: isD ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' } },
+            nameTextStyle: { color: chartTextColor(isD), padding: [0, 0, 0, 8] },
+            ...axisStyle(isD),
+            splitLine: splitLineStyle(isD),
         },
         yAxis: {
             type: 'category',
             data: ranking.map((r) => r.name).reverse(),
-            axisLabel: { color: isD ? 'rgba(255, 255, 255, 0.65)' : '#666' },
+            ...axisStyle(isD),
         },
         series: [
             {
                 name: t('pages.ops.event_count'),
                 type: 'bar',
-                barWidth: 16,
+                barWidth: 14,
                 showBackground: true,
                 backgroundStyle: {
-                    color: isD ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+                    color: isD ? 'rgba(148, 163, 184, 0.06)' : 'rgba(22, 32, 51, 0.04)',
                 },
                 label: {
                     show: true,
                     position: 'right',
-                    color: isD ? 'rgba(255, 255, 255, 0.65)' : '#666',
+                    color: chartTextColor(isD),
+                    fontSize: 11,
                 },
                 data: ranking.map((r) => r.count).reverse(),
-                itemStyle: { color: '#722ed1', borderRadius: [0, 4, 4, 0] },
+                itemStyle: { color: opsChartPalette.strategy, borderRadius: [0, 6, 6, 0] },
             },
         ],
     }
@@ -873,115 +951,287 @@ onUnmounted(() => {
 <style scoped>
 .ops-dashboard {
     padding: 0;
+    --ops-bg-panel: #ffffff;
+    --ops-bg-panel-soft: #f7f9fc;
+    --ops-bg-control: rgba(248, 250, 252, 0.94);
+    --ops-border: rgba(22, 32, 51, 0.08);
+    --ops-border-strong: rgba(22, 32, 51, 0.14);
+    --ops-text: #162033;
+    --ops-text-muted: rgba(22, 32, 51, 0.58);
+    --ops-filter-bg: rgba(248, 250, 252, 0.76);
+    --ops-panel-glow: rgba(47, 140, 255, 0.06);
+    --ops-card-shadow: rgba(22, 32, 51, 0.08);
+    --ops-card-shadow-hover: rgba(22, 32, 51, 0.12);
+    --ops-table-head-bg: rgba(22, 32, 51, 0.035);
+    --ops-table-head-text: rgba(22, 32, 51, 0.68);
+    --ops-table-row-border: rgba(22, 32, 51, 0.06);
+    --ops-expanded-bg: rgba(248, 250, 252, 0.88);
+    --ops-expanded-cell-bg: #ffffff;
+    --ops-expanded-label-bg: rgba(47, 140, 255, 0.055);
+    --ops-shine: rgba(47, 140, 255, 0.08);
+    --ops-blue: #2f8cff;
+    --ops-cyan: #23c7b7;
+    --ops-amber: #ffb020;
+    --ops-red: #ff4d5e;
+    --ops-purple: #8b5cf6;
 }
 
-/* 统计卡片 — 现代化、轻量化与高保真暗黑模式配色 */
+[data-theme='dark'] .ops-dashboard {
+    --ops-bg-panel: #111827;
+    --ops-bg-panel-soft: #151c2b;
+    --ops-bg-control: rgba(15, 23, 42, 0.82);
+    --ops-border: rgba(148, 163, 184, 0.1);
+    --ops-border-strong: rgba(148, 163, 184, 0.16);
+    --ops-text: #eef4ff;
+    --ops-text-muted: rgba(196, 207, 224, 0.62);
+    --ops-filter-bg: rgba(15, 23, 42, 0.36);
+    --ops-panel-glow: rgba(255, 255, 255, 0.025);
+    --ops-card-shadow: rgba(0, 0, 0, 0.16);
+    --ops-card-shadow-hover: rgba(0, 0, 0, 0.24);
+    --ops-table-head-bg: rgba(148, 163, 184, 0.065);
+    --ops-table-head-text: rgba(238, 244, 255, 0.72);
+    --ops-table-row-border: rgba(148, 163, 184, 0.07);
+    --ops-expanded-bg: rgba(15, 23, 42, 0.72);
+    --ops-expanded-cell-bg: rgba(15, 23, 42, 0.48);
+    --ops-expanded-label-bg: rgba(148, 163, 184, 0.07);
+    --ops-shine: rgba(255, 255, 255, 0.055);
+}
+
+.ops-panel {
+    border: 1px solid var(--ops-border);
+    border-radius: 8px;
+    background: linear-gradient(180deg, var(--ops-panel-glow), transparent 52%), var(--ops-bg-panel);
+    box-shadow: 0 16px 44px var(--ops-card-shadow);
+    overflow: hidden;
+}
+
+.ops-panel :deep(.ant-card-head) {
+    min-height: 44px;
+    padding: 0 16px;
+    border-bottom-color: var(--ops-border);
+}
+
+.ops-panel :deep(.ant-card-head-title) {
+    color: var(--ops-text);
+    font-size: 14px;
+    font-weight: 650;
+}
+
+.ops-panel :deep(.ant-card-extra) {
+    padding: 8px 0;
+}
+
+.ops-panel :deep(.ant-card-body) {
+    background: transparent;
+}
+
+.ops-panel :deep(.ant-select-selector),
+.ops-panel :deep(.ant-picker),
+.ops-panel :deep(.ant-input) {
+    border-color: var(--ops-border-strong) !important;
+    background: var(--ops-bg-control) !important;
+    color: var(--ops-text) !important;
+}
+
+.ops-panel :deep(.ant-select-selection-placeholder),
+.ops-panel :deep(.ant-input::placeholder),
+.ops-panel :deep(.ant-picker-input > input::placeholder) {
+    color: rgba(196, 207, 224, 0.38) !important;
+}
+
+.ops-panel :deep(.ant-select-arrow),
+.ops-panel :deep(.ant-picker-suffix),
+.ops-panel :deep(.ant-input-clear-icon),
+.ops-panel :deep(.ant-picker-clear) {
+    color: var(--ops-text-muted);
+}
+
 .ops-stat-card {
-    border-radius: 12px;
-    background: var(--color-bg-container, #ffffff);
-    border: 1px solid var(--color-border-secondary, rgba(0, 0, 0, 0.06));
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    border: 1px solid var(--ops-border);
+    border-radius: 8px;
+    background:
+        radial-gradient(circle at 82% 22%, rgba(47, 140, 255, 0.08), transparent 34%),
+        linear-gradient(180deg, var(--ops-panel-glow), transparent 62%), var(--ops-bg-panel);
+    box-shadow: 0 14px 34px var(--ops-card-shadow);
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
     position: relative;
     overflow: hidden;
     margin-bottom: 16px;
 }
 
-[data-theme='dark'] .ops-stat-card {
-    background: #141722;
-    border-color: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-}
-
 .ops-stat-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+    border-color: rgba(47, 140, 255, 0.28);
+    box-shadow: 0 18px 44px var(--ops-card-shadow-hover);
 }
 
-[data-theme='dark'] .ops-stat-card:hover {
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
-    border-color: var(--color-primary, #7c5cfc);
-}
-
-/* 顶部加一条精致的彩色边框线 */
 .ops-stat-card::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 4px;
+    top: 16px;
+    left: 18px;
+    width: 34px;
+    height: 2px;
+    border-radius: 999px;
+    opacity: 0.9;
+}
+
+.ops-stat-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 0%, var(--ops-shine) 46%, transparent 58%);
+    opacity: 0;
+    transform: translateX(-35%);
+    transition:
+        opacity 0.2s ease,
+        transform 0.42s ease;
+}
+
+.ops-stat-card:hover::after {
+    opacity: 1;
+    transform: translateX(35%);
 }
 
 .ops-stat-card--blue::before {
-    background: linear-gradient(90deg, #1890ff, #40a9ff);
+    background: var(--ops-blue);
 }
 
 .ops-stat-card--red::before {
-    background: linear-gradient(90deg, #ff4d4f, #ff7875);
+    background: var(--ops-red);
 }
 
 .ops-stat-card--orange::before {
-    background: linear-gradient(90deg, #faad14, #ffc53d);
+    background: var(--ops-amber);
 }
 
 .ops-stat-card--purple::before {
-    background: linear-gradient(90deg, #722ed1, #b37feb);
+    background: var(--ops-purple);
 }
 
 .ops-stat-card :deep(.ant-card-body) {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 24px 20px;
+    padding: 22px 20px 20px;
     background: transparent;
+    position: relative;
+    z-index: 1;
 }
 
 .ops-stat-card__value {
-    font-size: 28px;
-    font-weight: 700;
+    font-size: 27px;
+    font-weight: 750;
     line-height: 1.2;
-    color: var(--color-text-primary, #1f1f1f);
-}
-
-[data-theme='dark'] .ops-stat-card__value {
-    color: #e0dbff;
+    color: var(--ops-text);
+    letter-spacing: 0;
 }
 
 .ops-stat-card__label {
-    font-size: 14px;
-    color: var(--color-text-secondary, #8c8c8c);
-    margin-top: 4px;
+    margin-top: 5px;
+    color: var(--ops-text-muted);
+    font-size: 12px;
+    font-weight: 500;
 }
 
-/* 统计卡片的图标：右侧展示，带有圆形气泡背景 */
 .ops-stat-card__icon {
-    font-size: 22px;
-    padding: 12px;
+    width: 38px;
+    height: 38px;
+    padding: 0;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 18px;
+    border: 1px solid currentColor;
 }
 
 .ops-stat-card--blue .ops-stat-card__icon {
-    color: #1890ff;
-    background: rgba(24, 144, 255, 0.1);
+    color: var(--ops-blue);
+    background: rgba(47, 140, 255, 0.12);
 }
 
 .ops-stat-card--red .ops-stat-card__icon {
-    color: #ff4d4f;
-    background: rgba(255, 77, 79, 0.1);
+    color: var(--ops-red);
+    background: rgba(255, 77, 94, 0.12);
 }
 
 .ops-stat-card--orange .ops-stat-card__icon {
-    color: #faad14;
-    background: rgba(250, 173, 20, 0.1);
+    color: var(--ops-amber);
+    background: rgba(255, 176, 32, 0.12);
 }
 
 .ops-stat-card--purple .ops-stat-card__icon {
-    color: #722ed1;
-    background: rgba(114, 46, 209, 0.1);
+    color: var(--ops-purple);
+    background: rgba(139, 92, 246, 0.12);
+}
+
+.ops-filter-form {
+    padding: 12px;
+    border: 1px solid var(--ops-border);
+    border-radius: 8px;
+    background: var(--ops-filter-bg);
+}
+
+.ops-filter-form :deep(.ant-form-item) {
+    margin-bottom: 0;
+}
+
+.ops-filter-form :deep(.ant-btn) {
+    height: 32px;
+    border-radius: 6px;
+}
+
+.ops-filter-form :deep(.ant-btn-primary) {
+    border-color: rgba(47, 140, 255, 0.52);
+    background: linear-gradient(135deg, rgba(47, 140, 255, 0.92), rgba(35, 199, 183, 0.82));
+    box-shadow: 0 8px 18px rgba(47, 140, 255, 0.18);
+}
+
+.ops-filter-form :deep(.ant-btn-default) {
+    border-color: var(--ops-border-strong);
+    background: var(--ops-bg-control);
+    color: var(--ops-text-muted);
+}
+
+.ops-table-panel :deep(.ant-table) {
+    color: var(--ops-text-muted);
+    background: transparent;
+}
+
+.ops-table-panel :deep(.ant-table-thead > tr > th) {
+    border-bottom-color: var(--ops-border);
+    background: var(--ops-table-head-bg) !important;
+    color: var(--ops-table-head-text);
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.ops-table-panel :deep(.ant-table-tbody > tr > td) {
+    border-bottom-color: var(--ops-table-row-border);
+    background: transparent;
+}
+
+.ops-table-panel :deep(.ant-table-tbody > tr:hover > td) {
+    background: rgba(47, 140, 255, 0.07) !important;
+}
+
+.ops-table-panel :deep(.ant-pagination-item),
+.ops-table-panel :deep(.ant-pagination-prev .ant-pagination-item-link),
+.ops-table-panel :deep(.ant-pagination-next .ant-pagination-item-link) {
+    border-color: var(--ops-border-strong);
+    background: var(--ops-bg-control);
+}
+
+.ops-table-panel :deep(.ant-tag) {
+    border-radius: 5px;
+    font-size: 12px;
+    border-color: transparent;
+    color: #fff;
+    font-weight: 500;
 }
 
 .ops-detail-text {
@@ -995,9 +1245,9 @@ onUnmounted(() => {
 /* 行展开详情容器样式 */
 .ops-expanded-container {
     padding: 16px 24px;
-    background: #fafafa;
-    border-radius: 6px;
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    background: var(--ops-expanded-bg);
+    border-radius: 8px;
+    border: 1px solid var(--ops-border);
 }
 
 .ops-expanded-descriptions :deep(.ant-descriptions-view table) {
@@ -1026,30 +1276,24 @@ onUnmounted(() => {
     vertical-align: bottom;
 }
 
-[data-theme='dark'] .ops-expanded-container {
-    background: #141414;
-    border-color: rgba(255, 255, 255, 0.05);
+.ops-expanded-container :deep(.ant-descriptions-bordered .ant-descriptions-item-label) {
+    background-color: var(--ops-expanded-label-bg);
+    color: var(--ops-table-head-text);
+    border-color: var(--ops-border);
 }
 
-/* 行展开 descriptions 组件暗黑模式深度覆盖 */
-[data-theme='dark'] .ops-expanded-container :deep(.ant-descriptions-bordered .ant-descriptions-item-label) {
-    background-color: #1c1c1e;
-    color: rgba(255, 255, 255, 0.85);
-    border-right-color: #303030;
+.ops-expanded-container :deep(.ant-descriptions-bordered .ant-descriptions-item-content) {
+    background-color: var(--ops-expanded-cell-bg);
+    color: var(--ops-text-muted);
+    border-color: var(--ops-border);
 }
 
-[data-theme='dark'] .ops-expanded-container :deep(.ant-descriptions-bordered .ant-descriptions-item-content) {
-    background-color: #141414;
-    color: rgba(255, 255, 255, 0.65);
-    border-right-color: #303030;
+.ops-expanded-container :deep(.ant-descriptions-bordered .ant-descriptions-row) {
+    border-bottom-color: var(--ops-border);
 }
 
-[data-theme='dark'] .ops-expanded-container :deep(.ant-descriptions-bordered .ant-descriptions-row) {
-    border-bottom-color: #303030;
-}
-
-[data-theme='dark'] .ops-expanded-container :deep(.ant-descriptions-title) {
-    color: rgba(255, 255, 255, 0.85);
+.ops-expanded-container :deep(.ant-descriptions-title) {
+    color: var(--ops-text);
 }
 
 /* 异常详情文字折行及样式 */
@@ -1076,14 +1320,14 @@ onUnmounted(() => {
     margin-top: 16px;
     padding: 12px 16px;
     border-radius: 8px;
-    background: var(--color-bg-container);
-    border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-sm);
+    background: var(--ops-bg-panel);
+    border: 1px solid var(--ops-border);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
 }
 
 .cache-control-title {
     font-weight: 500;
     font-size: 14px;
-    color: var(--color-text-primary);
+    color: var(--ops-text);
 }
 </style>
