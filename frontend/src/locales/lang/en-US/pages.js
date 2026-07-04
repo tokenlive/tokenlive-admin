@@ -41,8 +41,10 @@ export default {
     'pages.welcome.remove': 'Remove Struct',
     // dashboard
     'pages.dashboard.spaces': 'Spaces',
+    'pages.dashboard.tenants': 'Tenants',
     'pages.dashboard.providers': 'Providers',
     'pages.dashboard.models': 'Models',
+    'pages.dashboard.endpoints': 'Endpoints',
     'pages.dashboard.policyDistribution': 'Policy Distribution',
     'pages.dashboard.resourceOverview': 'Resource Overview',
     'pages.dashboard.quickLinks': 'Quick Links',

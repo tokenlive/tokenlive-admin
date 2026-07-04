@@ -40,8 +40,10 @@ export default {
     'pages.welcome.remove': '删除结构体',
     // dashboard
     'pages.dashboard.spaces': '模型空间',
+    'pages.dashboard.tenants': '租户',
     'pages.dashboard.providers': '供应商',
     'pages.dashboard.models': '模型',
+    'pages.dashboard.endpoints': '端点',
     'pages.dashboard.policyDistribution': '治理策略分布',
     'pages.dashboard.resourceOverview': '资源概览',
     'pages.dashboard.quickLinks': '快捷导航',

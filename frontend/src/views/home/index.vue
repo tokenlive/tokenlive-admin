@@ -808,20 +808,20 @@
                         style="padding: 10px 0; text-align: center">
                         <a-col
                             class="resource-stat-item"
-                            :span="8"
-                            @click="goTo('/space/list')"
+                            :span="6"
+                            @click="goTo('/system/tenant')"
                             style="cursor: pointer">
                             <a-statistic
-                                :title="$t('pages.dashboard.spaces')"
-                                :value="counts.spaces">
+                                :title="$t('pages.dashboard.tenants')"
+                                :value="counts.tenants">
                                 <template #prefix
-                                    ><database-outlined style="color: var(--color-primary); margin-right: 8px"
+                                    ><team-outlined style="color: var(--color-primary); margin-right: 8px"
                                 /></template>
                             </a-statistic>
                         </a-col>
                         <a-col
                             class="resource-stat-item"
-                            :span="8"
+                            :span="6"
                             @click="goTo('/space/provider')"
                             style="cursor: pointer">
                             <a-statistic
@@ -834,7 +834,7 @@
                         </a-col>
                         <a-col
                             class="resource-stat-item"
-                            :span="8"
+                            :span="6"
                             @click="goTo('/space/model')"
                             style="cursor: pointer">
                             <a-statistic
@@ -845,6 +845,17 @@
                                 /></template>
                             </a-statistic>
                         </a-col>
+                        <a-col
+                            class="resource-stat-item"
+                            :span="6">
+                            <a-statistic
+                                :title="$t('pages.dashboard.endpoints')"
+                                :value="counts.endpoints">
+                                <template #prefix
+                                    ><api-outlined style="color: var(--color-warning); margin-right: 8px"
+                                /></template>
+                            </a-statistic>
+                        </a-col>
                     </a-row>
 
                     <!-- 快捷导航 -->
@@ -852,51 +863,20 @@
                         <h4 class="quick-links-title">{{ $t('pages.dashboard.quickLinks') }}:</h4>
                         <a-row :gutter="16">
                             <a-col
+                                v-for="link in policyQuickLinks"
+                                :key="link.path"
                                 :xs="12"
-                                :sm="6">
+                                :sm="8"
+                                :lg="4">
                                 <a-card
                                     hoverable
                                     class="quick-link-card"
-                                    @click="goTo('/space/list')"
+                                    @click="goTo(link.path)"
                                     size="small">
-                                    <database-outlined style="color: var(--color-primary); font-size: 20px" />
-                                    <span class="quick-link-text">{{ $t('pages.dashboard.spaces') }}</span>
-                                </a-card>
-                            </a-col>
-                            <a-col
-                                :xs="12"
-                                :sm="6">
-                                <a-card
-                                    hoverable
-                                    class="quick-link-card"
-                                    @click="goTo('/space/provider')"
-                                    size="small">
-                                    <appstore-outlined style="color: var(--color-success); font-size: 20px" />
-                                    <span class="quick-link-text">{{ $t('pages.dashboard.providers') }}</span>
-                                </a-card>
-                            </a-col>
-                            <a-col
-                                :xs="12"
-                                :sm="6">
-                                <a-card
-                                    hoverable
-                                    class="quick-link-card"
-                                    @click="goTo('/space/model')"
-                                    size="small">
-                                    <cloud-server-outlined style="color: var(--color-chart-5); font-size: 20px" />
-                                    <span class="quick-link-text">{{ $t('pages.dashboard.models') }}</span>
-                                </a-card>
-                            </a-col>
-                            <a-col
-                                :xs="12"
-                                :sm="6">
-                                <a-card
-                                    hoverable
-                                    class="quick-link-card"
-                                    @click="goTo('/policy/loadbalance')"
-                                    size="small">
-                                    <safety-outlined style="color: var(--color-warning); font-size: 20px" />
-                                    <span class="quick-link-text">{{ $t('pages.dashboard.policies') }}</span>
+                                    <component
+                                        :is="link.icon"
+                                        :style="{ color: link.color, fontSize: '20px' }" />
+                                    <span class="quick-link-text">{{ $t(link.label) }}</span>
                                 </a-card>
                             </a-col>
                         </a-row>
@@ -917,10 +897,16 @@ import { config } from '@/config'
 
 import * as echarts from 'echarts'
 import {
-    DatabaseOutlined,
+    TeamOutlined,
     AppstoreOutlined,
     CloudServerOutlined,
-    SafetyOutlined,
+    ApiOutlined,
+    HighlightOutlined,
+    DashboardOutlined,
+    SafetyCertificateOutlined,
+    BranchesOutlined,
+    SlidersOutlined,
+    ThunderboltOutlined,
     AlertOutlined,
 } from '@ant-design/icons-vue'
 import apis from '@/apis'
@@ -954,9 +940,10 @@ const rankingSortBy = ref('request_count')
 const rankingTimeRange = ref('today')
 
 const counts = reactive({
-    spaces: 0,
+    tenants: 0,
     providers: 0,
     models: 0,
+    endpoints: 0,
 })
 
 const metrics = reactive({
@@ -1062,18 +1049,59 @@ const POLICY_META = [
 
 const COLORS = ['#2f8cff', '#23c7b7', '#ffb020', '#8b5cf6', '#ff4d5e', '#6ee7d8']
 
+const policyQuickLinks = [
+    {
+        path: '/policy/tagging',
+        label: 'pages.dashboard.policies.tagging',
+        icon: HighlightOutlined,
+        color: '#2f8cff',
+    },
+    {
+        path: '/policy/limit',
+        label: 'pages.dashboard.policies.limit',
+        icon: DashboardOutlined,
+        color: '#ffb020',
+    },
+    {
+        path: '/policy/invocation',
+        label: 'pages.dashboard.policies.invocation',
+        icon: SafetyCertificateOutlined,
+        color: '#23c7b7',
+    },
+    {
+        path: '/policy/route',
+        label: 'pages.dashboard.policies.route',
+        icon: BranchesOutlined,
+        color: '#8b5cf6',
+    },
+    {
+        path: '/policy/loadbalance',
+        label: 'pages.dashboard.policies.loadbalance',
+        icon: SlidersOutlined,
+        color: '#6ee7d8',
+    },
+    {
+        path: '/policy/circuit-break',
+        label: 'pages.dashboard.policies.circuitBreak',
+        icon: ThunderboltOutlined,
+        color: '#ff4d5e',
+    },
+]
+
 async function fetchStaticCounts() {
     try {
         const params = { current: 1, pageSize: 1 }
-        const [spaceRes, providerRes, modelRes] = await Promise.all([
-            apis.space.getSpaceList(params).catch(() => ({ total: 0 })),
+        const [tenantRes, providerRes, modelRes, endpointRes] = await Promise.all([
+            apis.tenant.getList(params).catch(() => ({ total: 0 })),
             apis.provider.getProviderList(params).catch(() => ({ total: 0 })),
             apis.model.getModelList(params).catch(() => ({ total: 0 })),
+            apis.endpoint.getEndpointList(params).catch(() => ({ total: 0 })),
         ])
 
-        counts.spaces = spaceRes.total || 0
+        counts.tenants = tenantRes.total || 0
         counts.providers = providerRes.total || 0
         counts.models = modelRes.total || 0
+        counts.endpoints = endpointRes.total || 0
 
         const policyResults = await Promise.all(POLICY_META.map((p) => p.fetch(params).catch(() => ({ total: 0 }))))
         policyResults.forEach((res, i) => {

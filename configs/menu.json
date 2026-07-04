@@ -46,6 +46,14 @@
                     {
                         "method": "GET",
                         "path": "/api/v1/dashboard/ws"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/tenants"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/endpoints"
                     }
                 ]
             },
