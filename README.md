@@ -24,9 +24,9 @@ TokenLive Admin is the admin console for the [TokenLive](https://github.com/toke
 - **Username**: `admin`
 - **Password**: `tokenlive`
 
-![Dashboard Screenshot](./docs/images/dashboard.png)
+![Dashboard Screenshot](./docs/images/dashboard.jpg)
 
-![Ops Screenshot](./docs/images/ops.png)
+![Ops Screenshot](./docs/images/ops.jpg)
 
 ## Features
 

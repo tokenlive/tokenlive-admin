@@ -24,9 +24,9 @@ TokenLive Admin (TokenLive 控制台) 是 [TokenLive](https://github.com/tokenli
 - **演示账号**：`admin`
 - **演示密码**：`tokenlive`
 
-![控制台截图](./docs/images/dashboard.png)
+![控制台截图](./docs/images/dashboard.jpg)
 
-![运维面板截图](./docs/images/ops.png)
+![运维面板截图](./docs/images/ops.jpg)
 
 ## 功能特性
 
