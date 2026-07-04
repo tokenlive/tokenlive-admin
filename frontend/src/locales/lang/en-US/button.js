@@ -12,6 +12,7 @@ export default {
     'button.export': 'Export',
     'button.import': 'Import',
     'button.action': 'Action',
+    'button.copy': 'Copy',
     'button.menu': 'menu',
     'button.button': 'button',
 }

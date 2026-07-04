@@ -17,7 +17,7 @@ export default {
     'common.pagination.total': '{total} items',
     'common.save.success': 'Saved successfully',
 
-    'pages.layouts.userLayout.title': 'Microservice Governance Platform Based on Bytecode Enhancement',
+    'pages.layouts.userLayout.title': 'Enterprise-grade LLM gateway with rich governance policies',
     'pages.login.accountLogin.tab': 'Account Login',
     'pages.login.failure': 'Login failed, please try again!',
     'pages.login.success': 'Login successful!',
@@ -714,13 +714,13 @@ export default {
     'pages.tagRoute.form.description.placeholder': 'Please enter the description',
     'pages.tagRoute.form.created_at': 'Created At',
     // limit
-    'pages.limit.add': 'Create Rate Limit Rule',
-    'pages.limit.edit': 'Edit Rate Limit Rule',
-    'pages.limit.copy': 'Copy Rate Limit Rule',
+    'pages.limit.add': 'Create Policy',
+    'pages.limit.edit': 'Edit Rate Limit Policy',
+    'pages.limit.copy': 'Copy Rate Limit Policy',
     'pages.limit.delTip': 'Are you sure you want to delete this rate limit policy?',
-    'pages.limit.form.name': 'Rule Name',
-    'pages.limit.form.name.placeholder': 'Please enter the rule name',
-    'pages.limit.form.name.required': 'Rule name is required!',
+    'pages.limit.form.name': 'Policy Name',
+    'pages.limit.form.name.placeholder': 'Please enter the policy name',
+    'pages.limit.form.name.required': 'Policy name is required!',
     'pages.limit.form.name.hint':
         '1-60 characters, letters/digits/hyphens, must start with a letter and end with a letter or digit',
     'pages.limit.form.space_code': 'Space Code',
@@ -852,7 +852,7 @@ export default {
     'pages.limit.form.version': 'Version',
     'pages.limit.form.created_at': 'Created At',
     // invocation
-    'pages.invocation.add': 'Create Invocation Policy',
+    'pages.invocation.add': 'Create Policy',
     'pages.invocation.edit': 'Edit Invocation Policy',
     'pages.invocation.copy': 'Copy Invocation Policy',
     'pages.invocation.delTip': 'Are you sure you want to delete this invocation policy?',
@@ -976,12 +976,12 @@ export default {
     'pages.invocation.form.fallbackTargets.tooltip':
         'When the current model call fails, it will attempt to fallback to the specified backup models in sequence.',
     // circuitBreak
-    'pages.circuitBreak.add': 'Create Circuit Breaker Policy',
+    'pages.circuitBreak.add': 'Create Policy',
     'pages.circuitBreak.edit': 'Edit Circuit Breaker Policy',
     'pages.circuitBreak.copy': 'Copy Circuit Breaker Policy',
     'pages.circuitBreak.delTip': 'Are you sure you want to delete this circuit breaker policy?',
-    'pages.circuitBreak.form.name': 'Rule Name',
-    'pages.circuitBreak.form.name.placeholder': 'Please enter the rule name',
+    'pages.circuitBreak.form.name': 'Policy Name',
+    'pages.circuitBreak.form.name.placeholder': 'Please enter the policy name',
     'pages.circuitBreak.form.name.required': 'Rule name is required!',
     'pages.circuitBreak.form.space_code': 'Space Code',
     'pages.circuitBreak.form.space_code.placeholder': 'Please select a space',
