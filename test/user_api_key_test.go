@@ -38,7 +38,7 @@ func TestUserAPIKey(t *testing.T) {
 		UserID:      user.ID,
 		Name:        "production-chat-key",
 		Status:      1,
-		Quota:       5000000,
+		Credits:     5000000,
 		ExpiresAt:   &expiryTime,
 		Description: "For testing API key creation",
 	}
@@ -51,7 +51,7 @@ func TestUserAPIKey(t *testing.T) {
 	assert.Equal(keyFormItem.UserID, createdKey.UserID)
 	assert.Equal(keyFormItem.Name, createdKey.Name)
 	assert.Equal(keyFormItem.Status, createdKey.Status)
-	assert.Equal(keyFormItem.Quota, createdKey.Quota)
+	assert.Equal(keyFormItem.Credits, createdKey.Credits)
 	// 验证密钥生成：必须以 sk- 开头，且总长度为 3 + 32(hex) = 35 字符
 	assert.Contains(createdKey.APIKey, "sk-")
 	assert.Equal(35, len(createdKey.APIKey))
@@ -74,7 +74,7 @@ func TestUserAPIKey(t *testing.T) {
 	// 5. 更新 API Key (更新名称、修改状态为禁用、下调配额)
 	fetchedKey.Name = "updated-chat-key"
 	fetchedKey.Status = 2
-	fetchedKey.Quota = 1000
+	fetchedKey.Credits = 1000
 	e.PUT(baseAPI + "/user-api-keys/" + createdKey.ID).
 		WithJSON(fetchedKey).
 		Expect().Status(http.StatusOK)
@@ -85,7 +85,7 @@ func TestUserAPIKey(t *testing.T) {
 		Expect().Status(http.StatusOK).JSON().Decode(&util.ResponseResult{Data: &updatedKey})
 	assert.Equal("updated-chat-key", updatedKey.Name)
 	assert.Equal(2, updatedKey.Status)
-	assert.Equal(int64(1000), updatedKey.Quota)
+	assert.Equal(int64(1000), updatedKey.Credits)
 
 	// 6. 删除该 API Key 并验证其不再可查
 	e.DELETE(baseAPI + "/user-api-keys/" + createdKey.ID).

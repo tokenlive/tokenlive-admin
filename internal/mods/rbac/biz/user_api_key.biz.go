@@ -46,7 +46,7 @@ func (a *UserAPIKey) checkOwnership(ctx context.Context, item *schema.UserAPIKey
 	if util.FromIsRootUser(ctx) {
 		return nil
 	}
-	if item.UserID != util.FromUserID(ctx) {
+	if uID := util.FromUserID(ctx); uID != "" && item.UserID != uID {
 		return errors.NotFound("", "API key not found")
 	}
 	return nil
@@ -58,7 +58,9 @@ func (a *UserAPIKey) Query(ctx context.Context, params schema.UserAPIKeyQueryPar
 
 	// 非 root 用户只能查看自己的 API Key
 	if !util.FromIsRootUser(ctx) {
-		params.UserID = util.FromUserID(ctx)
+		if uID := util.FromUserID(ctx); uID != "" {
+			params.UserID = uID
+		}
 	}
 
 	result, err := a.UserAPIKeyDAL.Query(ctx, params, schema.UserAPIKeyQueryOptions{
@@ -115,9 +117,11 @@ func (a *UserAPIKey) Get(ctx context.Context, id string) (*schema.UserAPIKey, er
 
 // Create 创建用户 API Key（仅在此接口返回新生成的明文 API Key 供前台复制）
 func (a *UserAPIKey) Create(ctx context.Context, formItem *schema.UserAPIKeyForm) (*schema.UserAPIKey, error) {
-	// 非 root 用户只能给自己创建 API Key
+	// 非 root 用户只能给自己创建 API Key (如果 ctx 中存在用户 ID)
 	if !util.FromIsRootUser(ctx) {
-		formItem.UserID = util.FromUserID(ctx)
+		if uID := util.FromUserID(ctx); uID != "" {
+			formItem.UserID = uID
+		}
 	}
 
 	// 1. 自动生成密码学安全的高熵 API Key
@@ -157,7 +161,7 @@ func (a *UserAPIKey) Create(ctx context.Context, formItem *schema.UserAPIKeyForm
 	return apiKey, nil
 }
 
-// Update 更新用户 API Key（支持更新 Name, Status, Quota, ExpiresAt, Description）
+// Update 更新用户 API Key（支持更新 Name, Status, Credits, ExpiresAt, Description）
 func (a *UserAPIKey) Update(ctx context.Context, id string, formItem *schema.UserAPIKeyForm) error {
 	apiKey, err := a.UserAPIKeyDAL.Get(ctx, id)
 	if err != nil {
@@ -271,7 +275,7 @@ func (a *UserAPIKey) syncToRedis(ctx context.Context, apiKey *schema.UserAPIKey)
 		"user_id":     apiKey.UserID,
 		"user_tenant": userTenant,
 		"status":      apiKey.Status,
-		"quota":       apiKey.Quota,
+		"credits":     apiKey.Credits,
 		"expires_at":  expiresAtVal,
 	}
 

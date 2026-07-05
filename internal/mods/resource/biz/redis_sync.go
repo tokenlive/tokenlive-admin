@@ -782,7 +782,7 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 		UserID    string     `gorm:"column:user_id"`
 		APIKey    string     `gorm:"column:api_key"`
 		Status    int        `gorm:"column:status"`
-		Quota     int64      `gorm:"column:quota"`
+		Credits   int64      `gorm:"column:credits"`
 		ExpiresAt *time.Time `gorm:"column:expires_at"`
 	}
 	userApiKeyTable := config.C.FormatTableName("user_api_key")
@@ -801,7 +801,7 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 				"user_id":     key.UserID,
 				"user_tenant": userTenantMap[key.UserID],
 				"status":      key.Status,
-				"quota":       key.Quota,
+				"credits":     key.Credits,
 				"expires_at":  expiresAtVal,
 			}
 			_ = s.RedisClient.HSet(ctx, redisKey, fields).Err()
@@ -823,7 +823,7 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 				fields := map[string]interface{}{
 					"tenant":     t.Code,
 					"status":     1,
-					"quota":      -1,
+					"credits":    -1,
 					"expires_at": 0,
 				}
 				_ = s.RedisClient.HSet(ctx, redisKey, fields).Err()

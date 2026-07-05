@@ -263,7 +263,7 @@ func (a *Tenant) syncToRedis(ctx context.Context, tenant *schema.Tenant) error {
 	fields := map[string]interface{}{
 		"tenant":     tenant.Code,
 		"status":     1,  // 1-启用
-		"quota":      -1, // -1 代表无配额限制
+		"credits":    -1, // -1 代表无限制
 		"expires_at": 0,  // 0 代表永不过期
 	}
 

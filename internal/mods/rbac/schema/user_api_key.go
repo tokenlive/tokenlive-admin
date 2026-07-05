@@ -14,7 +14,7 @@ type UserAPIKey struct {
 	Name        string     `json:"name" gorm:"type:varchar(64);not null;comment:API Key 友好名称;"`
 	APIKey      string     `json:"api_key" gorm:"type:varchar(128);not null;uniqueIndex:uniq_api_key_deleted,priority:1;comment:实际的 API Key 字符串;"`
 	Status      int        `json:"status" gorm:"type:int;not null;default:1;comment:状态: 1-启用, 2-禁用;"`
-	Quota       int64      `json:"quota" gorm:"type:bigint;not null;default:-1;comment:剩余配额: -1表示无限制;"`
+	Credits     int64      `json:"credits" gorm:"type:bigint;not null;default:-1;comment:剩余额度(微元): -1表示无限制;"`
 	ExpiresAt   *time.Time `json:"expires_at" gorm:"type:datetime;default:null;comment:过期时间: NULL表示永不过期;"`
 	Description string     `json:"description" gorm:"type:varchar(255);default:null;comment:备注描述;"`
 	Creator     string     `json:"creator" gorm:"type:varchar(255);default:null;comment:创建者;"`
@@ -77,7 +77,7 @@ type UserAPIKeyForm struct {
 	UserID      string     `json:"user_id" binding:"required,max=20"`   // 关联的用户 ID
 	Name        string     `json:"name" binding:"required,max=64"`      // API Key 友好名称
 	Status      int        `json:"status" binding:"required,oneof=1 2"` // 状态: 1-启用, 2-禁用
-	Quota       int64      `json:"quota"`                               // 剩余配额: -1表示无限制
+	Credits     int64      `json:"credits"`                             // 剩余额度(微元): -1表示无限制
 	ExpiresAt   *time.Time `json:"expires_at"`                          // 过期时间
 	Description string     `json:"description" binding:"max=255"`       // 描述信息
 }
@@ -92,7 +92,7 @@ func (a *UserAPIKeyForm) FillTo(apiKey *UserAPIKey) {
 	apiKey.UserID = a.UserID
 	apiKey.Name = a.Name
 	apiKey.Status = a.Status
-	apiKey.Quota = a.Quota
+	apiKey.Credits = a.Credits
 	apiKey.ExpiresAt = a.ExpiresAt
 	apiKey.Description = a.Description
 }

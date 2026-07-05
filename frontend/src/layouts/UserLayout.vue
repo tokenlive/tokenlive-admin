@@ -223,7 +223,12 @@ function initSmokeBackground() {
     const canvas = smokeCanvasRef.value
     if (!canvas) return
 
-    const gl = canvas.getContext('webgl', { antialias: false, alpha: false })
+    const gl = canvas.getContext('webgl', {
+        antialias: false,
+        alpha: false,
+        powerPreference: 'low-power',
+        preserveDrawingBuffer: false,
+    })
     if (!gl) return
 
     const compileShader = (type, source) => {
@@ -265,17 +270,21 @@ function initSmokeBackground() {
     const mouse = { x: 0, y: 0, active: false }
     const startTime = Date.now()
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const targetFrameMs = 1000 / 24
-    let lastRenderAt = 0
+    const idleFrameMs = 1000 / 16
+    const activeFrameMs = 1000 / 24
     let canvasHeight = 0
     let pixelRatio = 1
+    let smokeTimeoutId = 0
 
     gl.uniform3f(colorLocation, 0.12, 0.34, 0.78)
 
     const resizeCanvas = () => {
         const width = canvas.clientWidth
         const height = canvas.clientHeight
-        pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25)
+        if (!width || !height) return
+
+        const renderScale = width <= 640 ? 0.9 : 1
+        pixelRatio = Math.min(window.devicePixelRatio || 1, 1) * renderScale
         const nextWidth = Math.floor(width * pixelRatio)
         const nextHeight = Math.floor(height * pixelRatio)
 
@@ -287,6 +296,13 @@ function initSmokeBackground() {
         canvasHeight = height
     }
 
+    const scheduleRender = (delay = 0) => {
+        window.clearTimeout(smokeTimeoutId)
+        smokeTimeoutId = window.setTimeout(() => {
+            smokeFrameId = requestAnimationFrame(render)
+        }, delay)
+    }
+
     const handleMouseMove = (event) => {
         const rect = canvas.getBoundingClientRect()
         mouse.x = event.clientX - rect.left
@@ -294,25 +310,24 @@ function initSmokeBackground() {
     }
     const handleMouseEnter = () => {
         mouse.active = true
+        scheduleRender(0)
     }
     const handleMouseLeave = () => {
         mouse.active = false
     }
 
-    const render = (frameTime = 0) => {
+    const render = () => {
         if (document.hidden) {
             return
         }
 
-        if (!reduceMotion && frameTime - lastRenderAt < targetFrameMs) {
-            smokeFrameId = requestAnimationFrame(render)
-            return
-        }
+        const elapsedMs = Date.now() - startTime
+        const shouldAnimate = !reduceMotion
+        const renderTime = shouldAnimate ? elapsedMs / 1000 : 0
 
-        lastRenderAt = frameTime
         gl.viewport(0, 0, canvas.width, canvas.height)
         gl.uniform2f(resolutionLocation, canvas.width, canvas.height)
-        gl.uniform1f(timeLocation, reduceMotion ? 0 : (Date.now() - startTime) / 1000)
+        gl.uniform1f(timeLocation, reduceMotion ? 0 : renderTime)
         gl.uniform2f(
             mouseLocation,
             mouse.active ? mouse.x * pixelRatio : canvas.width / 2,
@@ -320,19 +335,19 @@ function initSmokeBackground() {
         )
         gl.drawArrays(gl.TRIANGLES, 0, 6)
 
-        if (!reduceMotion) {
-            smokeFrameId = requestAnimationFrame(render)
+        if (shouldAnimate) {
+            scheduleRender(mouse.active ? activeFrameMs : idleFrameMs)
         }
     }
 
     const handleVisibilityChange = () => {
         if (document.hidden) {
+            window.clearTimeout(smokeTimeoutId)
             cancelAnimationFrame(smokeFrameId)
             return
         }
 
-        lastRenderAt = 0
-        smokeFrameId = requestAnimationFrame(render)
+        scheduleRender(0)
     }
 
     canvas.addEventListener('mousemove', handleMouseMove)
@@ -340,19 +355,24 @@ function initSmokeBackground() {
     canvas.addEventListener('mouseleave', handleMouseLeave)
     document.addEventListener('visibilitychange', handleVisibilityChange)
     resizeCanvas()
-    const resizeObserver = window.ResizeObserver ? new ResizeObserver(resizeCanvas) : null
+    const handleResize = () => {
+        resizeCanvas()
+        scheduleRender(0)
+    }
+    const resizeObserver = window.ResizeObserver ? new ResizeObserver(handleResize) : null
     resizeObserver?.observe(canvas)
-    window.addEventListener('resize', resizeCanvas)
-    render()
+    window.addEventListener('resize', handleResize)
+    scheduleRender(0)
 
     smokeCleanup = () => {
+        window.clearTimeout(smokeTimeoutId)
         cancelAnimationFrame(smokeFrameId)
         canvas.removeEventListener('mousemove', handleMouseMove)
         canvas.removeEventListener('mouseenter', handleMouseEnter)
         canvas.removeEventListener('mouseleave', handleMouseLeave)
         document.removeEventListener('visibilitychange', handleVisibilityChange)
         resizeObserver?.disconnect()
-        window.removeEventListener('resize', resizeCanvas)
+        window.removeEventListener('resize', handleResize)
         gl.deleteBuffer(positionBuffer)
         gl.deleteProgram(program)
         gl.deleteShader(vertexShader)
@@ -420,8 +440,6 @@ onBeforeUnmount(() => {
                     rgba(7, 17, 31, 0.7) 100%
                 ),
                 linear-gradient(180deg, rgba(7, 17, 31, 0.16) 0%, rgba(7, 17, 31, 0.44) 100%);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
             pointer-events: none;
         }
     }
@@ -446,8 +464,8 @@ onBeforeUnmount(() => {
         box-shadow:
             0 30px 90px rgba(0, 0, 0, 0.32),
             inset 0 1px 0 rgba(255, 255, 255, 0.22);
-        backdrop-filter: blur(22px) saturate(150%);
-        -webkit-backdrop-filter: blur(22px) saturate(150%);
+        backdrop-filter: blur(18px) saturate(145%);
+        -webkit-backdrop-filter: blur(18px) saturate(145%);
     }
 
     &-header {

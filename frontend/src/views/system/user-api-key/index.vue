@@ -110,16 +110,22 @@
                         </template>
 
                         <!-- 额度 -->
-                        <template v-if="'quota' === column.key">
+                        <template v-if="'credits' === column.key">
                             <a-tag
-                                v-if="record.quota === -1"
+                                v-if="record.credits === -1"
                                 color="blue"
-                                >{{ $t('pages.user-api-key.form.quota.unlimited') }}</a-tag
+                                >{{ $t('pages.user-api-key.form.credits.unlimited') }}</a-tag
                             >
                             <span
                                 v-else
                                 class="quota-value"
-                                >{{ record.quota.toLocaleString() }} Tokens</span
+                                >{{
+                                    (record.credits / 1000000).toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 4,
+                                    })
+                                }}
+                                元</span
                             >
                         </template>
 
@@ -191,7 +197,7 @@ const columns = computed(() => [
     { title: t('pages.user-api-key.form.user'), dataIndex: 'user_id', key: 'user', width: 150 },
     { title: t('pages.user-api-key.form.api_key'), dataIndex: 'api_key', key: 'api_key', width: 160 },
     { title: t('pages.user-api-key.form.status'), dataIndex: 'status', key: 'status', width: 70 },
-    { title: t('pages.user-api-key.form.quota'), dataIndex: 'quota', key: 'quota', width: 130 },
+    { title: t('pages.user-api-key.form.credits'), dataIndex: 'credits', key: 'credits', width: 130 },
     { title: t('pages.user-api-key.form.expires_at'), dataIndex: 'expires_at', key: 'expires_at', width: 150 },
     { title: t('pages.user-api-key.form.created_at'), dataIndex: 'created_at', key: 'created_at', width: 150 },
     { title: t('common.action'), key: 'action', fixed: 'right', width: 90 },

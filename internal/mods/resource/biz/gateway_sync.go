@@ -104,7 +104,7 @@ type HTTPApiKeyItem struct {
 	WorkspaceID string `json:"workspace_id"`
 	UserTenant  string `json:"user_tenant"`
 	Status      int    `json:"status"`
-	Quota       int64  `json:"quota"`
+	Credits     int64  `json:"credits"`
 	ExpiresAt   int64  `json:"expires_at"`
 }
 
@@ -433,7 +433,7 @@ func (s *GatewaySync) GetGatewayApiKeys(ctx context.Context, apiKey string) ([]H
 		UserID    string     `gorm:"column:user_id"`
 		APIKey    string     `gorm:"column:api_key"`
 		Status    int        `gorm:"column:status"`
-		Quota     int64      `gorm:"column:quota"`
+		Credits   int64      `gorm:"column:credits"`
 		ExpiresAt *time.Time `gorm:"column:expires_at"`
 	}
 	userApiKeyTable := config.C.FormatTableName("user_api_key")
@@ -454,7 +454,7 @@ func (s *GatewaySync) GetGatewayApiKeys(ctx context.Context, apiKey string) ([]H
 				UserID:     key.UserID,
 				UserTenant: userTenantMap[key.UserID],
 				Status:     key.Status,
-				Quota:      key.Quota,
+				Credits:    key.Credits,
 				ExpiresAt:  expiresAtVal,
 			})
 		}
@@ -484,7 +484,7 @@ func (s *GatewaySync) GetGatewayApiKeys(ctx context.Context, apiKey string) ([]H
 					APIKey:    t.APIKey,
 					Tenant:    t.Code,
 					Status:    statusVal,
-					Quota:     -1, // unlimited
+					Credits:   -1, // unlimited
 					ExpiresAt: 0,  // never expires
 				})
 			}

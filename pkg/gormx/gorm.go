@@ -279,9 +279,13 @@ type safeDialector struct {
 }
 
 func (d *safeDialector) Migrator(db *gorm.DB) gorm.Migrator {
+	dbType := db.Dialector.Name()
+	if dbType == "sqlite" {
+		dbType = "sqlite3"
+	}
 	return &safeMigrator{
 		Migrator: d.Dialector.Migrator(db),
-		dbType:   db.Dialector.Name(),
+		dbType:   dbType,
 	}
 }
 

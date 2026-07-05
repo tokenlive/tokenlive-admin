@@ -71,16 +71,16 @@
             </a-row>
 
             <a-row :gutter="16">
-                <!-- 剩余配额 -->
+                <!-- 剩余额度 -->
                 <a-col :span="12">
                     <a-form-item
-                        :label="$t('pages.user-api-key.form.quota')"
-                        name="quota">
+                        :label="$t('pages.user-api-key.form.credits')"
+                        name="credits">
                         <a-input-number
-                            v-model:value="formData.quota"
+                            v-model:value="formData.credits"
                             :min="-1"
                             style="width: 100%"
-                            :placeholder="$t('pages.user-api-key.form.quota.placeholder')"></a-input-number>
+                            :placeholder="$t('pages.user-api-key.form.credits.placeholder')"></a-input-number>
                     </a-form-item>
                 </a-col>
                 <!-- 过期时间 -->
@@ -249,7 +249,7 @@ function handleCreate() {
         user_id: undefined,
         name: '',
         status: 1,
-        quota: -1,
+        credits: -1,
         expires_at: null,
         description: '',
     }
@@ -275,7 +275,9 @@ async function handleEdit(record = {}) {
     }
 
     formRecord.value = data
-    formData.value = cloneDeep(data)
+    const mappedData = cloneDeep(data)
+    mappedData.credits = data.credits === -1 ? -1 : data.credits / 1000000
+    formData.value = mappedData
 
     if (data.expires_at) {
         expiresAtDayjs.value = dayjs(data.expires_at)
@@ -297,7 +299,7 @@ function handleOk() {
                 // 参数转换
                 const params = {
                     ...formData.value,
-                    quota: Number(formData.value.quota) || -1,
+                    credits: formData.value.credits === -1 ? -1 : Math.round(Number(formData.value.credits) * 1000000),
                 }
 
                 let result = null

@@ -451,7 +451,7 @@ CREATE TABLE IF NOT EXISTS `user_api_key`
     `name`        VARCHAR(64)                                           NOT NULL COMMENT 'API Key 友好名称',
     `api_key`     VARCHAR(128)                                          NOT NULL COMMENT '实际的 API Key 字符串',
     `status`      INT                                                   NOT NULL DEFAULT 1 COMMENT '状态: 1-启用, 2-禁用',
-    `quota`       BIGINT                                                NOT NULL DEFAULT -1 COMMENT '剩余配额: -1表示无限制',
+    `credits`     BIGINT                                                NOT NULL DEFAULT -1 COMMENT '剩余额度(微元): -1表示无限制',
     `expires_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '过期时间: NULL表示永不过期',
     -- 审计与管理字段
     `description` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '备注描述',
