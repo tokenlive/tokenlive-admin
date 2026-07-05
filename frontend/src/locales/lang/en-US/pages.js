@@ -31,6 +31,7 @@ export default {
     'pages.login.forgotPassword': 'Forgot Password ?',
     'pages.login.submit': 'Login',
     'pages.login.loginWith': 'Login with :',
+    'pages.login.oauth.divider': 'Or continue with',
     'pages.login.registerAccount': 'Register Account',
     'pages.system.delete': 'delete',
     // welcome

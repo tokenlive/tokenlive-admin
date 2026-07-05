@@ -16,6 +16,7 @@ type Config struct {
 	Dictionary Dictionary
 	Portal     PortalConfig
 	Gateway    GatewayConfig
+	OAuth      OAuthConfig
 	Sync       Sync
 }
 
@@ -31,6 +32,27 @@ type PortalConfig struct {
 
 type GatewayConfig struct {
 	APIKeyPepper string
+}
+
+type OAuthConfig struct {
+	Enabled           bool
+	AllowSignup       bool
+	AllowedDomains    []string
+	AllowedEmails     []string
+	DefaultRoleCode   string
+	DefaultModelIDs   []string
+	RefreshToken      bool `default:"true"`
+	TicketRedirectURL string
+	Google            OAuthProviderConfig
+	GitHub            OAuthProviderConfig
+}
+
+type OAuthProviderConfig struct {
+	Enabled      bool
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
+	Scopes       []string
 }
 
 type General struct {

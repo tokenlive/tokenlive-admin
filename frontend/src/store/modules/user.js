@@ -25,6 +25,22 @@ const useUserStore = defineStore('user', {
          * @param {object} params
          * @returns {Promise<unknown>}
          */
+        async applyLoginToken(data) {
+            const { access_token, refresh_token, expires_at } = data
+            this.token = access_token
+            storage.local.setItem(config('storage.token'), access_token)
+
+            if (refresh_token) {
+                this.refreshToken = refresh_token
+                this.refreshExpiresAt = expires_at
+                storage.local.setItem(config('storage.refreshToken'), refresh_token)
+                storage.local.setItem(config('storage.refreshExpiresAt'), expires_at)
+            } else {
+                this.clearRefreshToken()
+            }
+
+            await this.getUserInfo()
+        },
         login(params) {
             return new Promise((resolve, reject) => {
                 ;(async () => {
@@ -34,22 +50,25 @@ const useUserStore = defineStore('user', {
                         })
                         const { success, data } = result || {}
                         if (config('http.code.success') === success) {
-                            const { access_token, refresh_token, expires_at } = data
-                            this.token = access_token
-                            storage.local.setItem(config('storage.token'), access_token)
-
-                            // 只有当 remember_me 为 true 时才会返回 refresh_token
-                            if (refresh_token) {
-                                this.refreshToken = refresh_token
-                                this.refreshExpiresAt = expires_at
-                                storage.local.setItem(config('storage.refreshToken'), refresh_token)
-                                storage.local.setItem(config('storage.refreshExpiresAt'), expires_at)
-                            } else {
-                                // 没有 remember_me，清除旧的 refresh token
-                                this.clearRefreshToken()
-                            }
-
-                            await this.getUserInfo()
+                            await this.applyLoginToken(data)
+                        }
+                        resolve(result)
+                    } catch (error) {
+                        reject()
+                    }
+                })()
+            })
+        },
+        oauthExchange(ticket) {
+            return new Promise((resolve, reject) => {
+                ;(async () => {
+                    try {
+                        const result = await apis.user.oauthExchange({ ticket }).catch(() => {
+                            throw new Error()
+                        })
+                        const { success, data } = result || {}
+                        if (config('http.code.success') === success) {
+                            await this.applyLoginToken(data)
                         }
                         resolve(result)
                     } catch (error) {

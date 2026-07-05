@@ -128,6 +128,26 @@ CREATE TABLE IF NOT EXISTS `user_role`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT = '用户角色';
 
+CREATE TABLE IF NOT EXISTS `external_identity`
+(
+    `id`               varchar(20)  NOT NULL COMMENT 'ID',
+    `user_id`          varchar(20)  NOT NULL COMMENT '用户ID',
+    `provider`         varchar(32)  NOT NULL COMMENT '身份提供方',
+    `provider_user_id` varchar(128) NOT NULL COMMENT '身份提供方用户ID',
+    `email`            varchar(128)  DEFAULT NULL COMMENT '邮箱',
+    `email_verified`   tinyint(1)   NOT NULL DEFAULT '0' COMMENT '邮箱是否已验证',
+    `display_name`     varchar(128)  DEFAULT NULL COMMENT '显示名称',
+    `avatar_url`       varchar(512)  DEFAULT NULL COMMENT '头像地址',
+    `created_at`       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`       TIMESTAMP             DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uniq_external_identity_provider_user` (`provider`, `provider_user_id`),
+    KEY `idx_external_identity_user_id` (`user_id`),
+    KEY `idx_external_identity_email` (`email`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin COMMENT = '第三方登录身份';
+
 CREATE TABLE IF NOT EXISTS `casbin_rule`
 (
     `id`    bigint(11) NOT NULL AUTO_INCREMENT COMMENT 'ID',

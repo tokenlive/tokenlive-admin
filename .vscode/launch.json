@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Backend (Go)",
+            "name": "Admin (Go)",
             "type": "go",
             "request": "launch",
             "mode": "auto",
@@ -21,7 +21,7 @@
             "output": "${workspaceFolder}/bin/__debug_bin"
         },
         {
-            "name": "Launch Frontend (Vite)",
+            "name": "Frontend (Vite)",
             "type": "node",
             "request": "launch",
             "runtimeExecutable": "npm",
@@ -35,10 +35,10 @@
     ],
     "compounds": [
         {
-            "name": "Launch Full Stack (Frontend + Backend)",
+            "name": "Full Admin (Admin + Frontend)",
             "configurations": [
-                "Launch Backend (Go)",
-                "Launch Frontend (Vite)"
+                "Admin (Go)",
+                "Frontend (Vite)"
             ],
             "stopAll": true,
             "presentation": {

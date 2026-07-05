@@ -2,6 +2,10 @@ import request from '@/utils/request'
 
 // 登录
 export const login = (params) => request.basic.post('/api/v1/login', params)
+// OAuth 可用 provider
+export const oauthProviders = () => request.basic.get('/api/v1/oauth/providers')
+// OAuth 一次性票据换取登录 token
+export const oauthExchange = (params) => request.basic.post('/api/v1/oauth/exchange', params)
 // 用 refresh token 刷新 access token
 export const refreshToken = (params) => request.basic.post('/api/v1/refresh-token', params)
 // 获取用户详情

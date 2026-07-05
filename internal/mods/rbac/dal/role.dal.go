@@ -70,6 +70,22 @@ func (a *Role) Get(ctx context.Context, id string, opts ...schema.RoleQueryOptio
 	return item, nil
 }
 
+func (a *Role) GetByCode(ctx context.Context, code string, opts ...schema.RoleQueryOptions) (*schema.Role, error) {
+	var opt schema.RoleQueryOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+
+	item := new(schema.Role)
+	ok, err := util.FindOne(ctx, GetRoleDB(ctx, a.DB).Where("code=?", code), opt.QueryOptions, item)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	} else if !ok {
+		return nil, nil
+	}
+	return item, nil
+}
+
 // Exist checks if the specified role exists in the database.
 func (a *Role) Exists(ctx context.Context, id string) (bool, error) {
 	ok, err := util.Exists(ctx, GetRoleDB(ctx, a.DB).Where("id=?", id))

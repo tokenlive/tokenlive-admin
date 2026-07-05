@@ -123,6 +123,23 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	apiLogin := &api.Login{
 		LoginBIZ: login,
 	}
+	externalIdentity := &dal.ExternalIdentity{
+		DB: db,
+	}
+	oauth := &biz.OAuth{
+		Cache:               cacher,
+		Trans:               trans,
+		ExternalIdentityDAL: externalIdentity,
+		UserDAL:             user,
+		UserRoleDAL:         userRole,
+		TenantDAL:           nil,
+		TenantModelDAL:      nil,
+		RoleDAL:             role,
+		LoginBIZ:            login,
+	}
+	apiOAuth := &api.OAuth{
+		OAuthBIZ: oauth,
+	}
 	logger := &dal.Logger{
 		DB: db,
 	}
@@ -149,6 +166,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	tenant := &dal.Tenant{
 		DB: db,
 	}
+	oauth.TenantDAL = tenant
 	bizTenant := &biz.Tenant{
 		Trans:       trans,
 		TenantDAL:   tenant,
@@ -162,6 +180,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	tenantModel := &dal.TenantModel{
 		DB: db,
 	}
+	oauth.TenantModelDAL = tenantModel
 	bizTenantModel := &biz.TenantModel{
 		Trans:          trans,
 		TenantModelDAL: tenantModel,
@@ -196,6 +215,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		RoleAPI:           apiRole,
 		UserAPI:           apiUser,
 		LoginAPI:          apiLogin,
+		OAuthAPI:          apiOAuth,
 		LoggerAPI:         apiLogger,
 		UserAPIKeyAPI:     apiUserAPIKey,
 		TenantAPI:         apiTenant,

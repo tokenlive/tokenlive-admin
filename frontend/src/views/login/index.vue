@@ -68,20 +68,43 @@
                         </a-button>
                     </a-form-item>
                 </a-form>
+                <div
+                    v-if="oauthProviders.length"
+                    class="login-panel__oauth">
+                    <a-divider>
+                        {{ $t('pages.login.oauth.divider') }}
+                    </a-divider>
+                    <a-space
+                        direction="vertical"
+                        class="login-panel__oauth-actions">
+                        <a-button
+                            v-for="provider in oauthProviders"
+                            :key="provider.provider"
+                            size="large"
+                            block
+                            class="login-panel__oauth-button"
+                            @click="handleOAuthLogin(provider)">
+                            <template #icon>
+                                <google-outlined v-if="provider.provider === 'google'" />
+                                <github-outlined v-else-if="provider.provider === 'github'" />
+                            </template>
+                            {{ oauthProviderText(provider.provider) }}
+                        </a-button>
+                    </a-space>
+                </div>
             </a-tab-pane>
         </a-tabs>
     </div>
 </template>
 
 <script setup>
-import { Modal, notification } from 'ant-design-vue'
+import { Modal } from 'ant-design-vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { LockOutlined, UserOutlined, SafetyOutlined } from '@ant-design/icons-vue'
+import { GithubOutlined, GoogleOutlined, LockOutlined, SafetyOutlined, UserOutlined } from '@ant-design/icons-vue'
 import { config } from '@/config'
 import { useForm } from '@/hooks'
 import { useAppStore, useRouterStore, useUserStore } from '@/store'
-import { timeFix } from '@/utils/util'
 import apis from '@/apis'
 import { md5 } from 'js-md5'
 import { useI18n } from 'vue-i18n'
@@ -96,10 +119,13 @@ const routerStore = useRouterStore()
 const router = useRouter()
 const route = useRoute()
 const loading = ref(false)
+const oauthLoading = ref(false)
+const oauthProviders = ref([])
 const captcha_img = ref('')
 const captcha_id = ref('')
 const httpApi = import.meta.env.BASE_URL + `api/v1/captcha/image`
 const redirect = computed(() => decodeURIComponent(route.query?.redirect ?? ''))
+const oauthTicket = computed(() => route.query?.oauth_ticket ?? '')
 
 formRules.value = {
     username: { required: true, message: t('pages.login.username.placeholder') },
@@ -113,8 +139,49 @@ formData.value.rememberMe = false
 onMounted(() => {
     // 清理登录信息
     userStore.logout()
+    loadOAuthProviders()
+    if (oauthTicket.value) {
+        handleOAuthExchange()
+    }
     getCaptcha()
 })
+
+async function loadOAuthProviders() {
+    const { success, data } = await apis.user.oauthProviders().catch(() => ({}))
+    if (config('http.code.success') === success && Array.isArray(data)) {
+        oauthProviders.value = data
+    }
+}
+
+function oauthProviderText(provider) {
+    if (provider === 'google') return 'Continue with Google'
+    if (provider === 'github') return 'Continue with GitHub'
+    return `Continue with ${provider}`
+}
+
+async function handleOAuthExchange() {
+    oauthLoading.value = true
+    const { success } = await userStore.oauthExchange(oauthTicket.value).catch(() => {
+        oauthLoading.value = false
+    })
+    oauthLoading.value = false
+    if (config('http.code.success') === success) {
+        if (appStore.complete) {
+            goIndex()
+        } else {
+            await appStore.init()
+            goIndex()
+        }
+    }
+}
+
+function handleOAuthLogin(provider) {
+    const target = new URL(provider.login_url, window.location.origin)
+    if (redirect.value) {
+        target.searchParams.set('redirect', redirect.value)
+    }
+    window.location.href = target.toString()
+}
 
 /**
  * 获取验证码
@@ -186,10 +253,6 @@ function goIndex() {
         if (!indexRoute) return
         router.push(indexRoute)
     }
-    notification.success({
-        message: t('welcome'),
-        description: `${timeFix()}，${t('home')}`,
-    })
 }
 </script>
 
@@ -264,6 +327,17 @@ function goIndex() {
         box-shadow: 0 16px 34px rgba(20, 127, 199, 0.3);
     }
 
+    :deep(.ant-divider) {
+        margin: 8px 0 16px;
+        color: rgba(245, 249, 255, 0.48);
+        font-size: 12px;
+    }
+
+    :deep(.ant-divider-horizontal.ant-divider-with-text::before),
+    :deep(.ant-divider-horizontal.ant-divider-with-text::after) {
+        border-color: rgba(255, 255, 255, 0.14);
+    }
+
     &__captcha {
         width: 100%;
 
@@ -279,6 +353,26 @@ function goIndex() {
         :deep(.ant-image-img) {
             border-radius: 14px;
             box-shadow: 0 10px 24px rgba(30, 80, 110, 0.12);
+        }
+    }
+
+    &__oauth-actions {
+        width: 100%;
+    }
+
+    &__oauth-button {
+        height: 46px;
+        border-color: rgba(255, 255, 255, 0.14);
+        border-radius: 14px;
+        color: rgba(245, 249, 255, 0.82);
+        background: rgba(255, 255, 255, 0.08);
+        font-weight: 600;
+
+        &:hover,
+        &:focus-visible {
+            border-color: rgba(104, 213, 196, 0.52);
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.12);
         }
     }
 }

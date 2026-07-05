@@ -10,6 +10,10 @@ Admin 是 TokenLive 平台的管理后台。其用户角色随部署场景变化
 Admin 系统中的注册用户。在企业内部部署场景下，涵盖管理员、运维和普通开发者（即终端消费者）；在公共平台部署场景下（搭配 Portal），仅为平台运营团队。用户角色通过 RBAC 控制。
 _Avoid_: 将 Admin User 固定定义为"仅管理员" — 其含义取决于部署场景。
 
+**External Identity (第三方身份)**:
+由外部身份提供方证明的登录身份，用于绑定到一个 Admin User；同一已验证邮箱对应同一个 Admin User。
+_Avoid_: 将 Google 身份和 GitHub 身份直接视为两个 Admin User。
+
 **RBAC (角色权限控制)**:
 基于 Casbin 的角色访问控制系统。通过 Role → MenuGroup 的绑定关系，控制用户可访问的菜单和 API 资源。
 
@@ -21,6 +25,10 @@ _Avoid_: 将 Admin User 固定定义为"仅管理员" — 其含义取决于部�
 - **公共平台场景**：代表签约的外部 B 端企业客户。
 由运维人员在 Admin 后台创建和管理。
 _Avoid_: 混淆 Tenant 与 Admin User 的归属关系 — Tenant 是"被管理的业务对象"。
+
+**Self-Service Tenant (自助租户)**:
+企业内部部署场景下，Admin User 首次通过第三方身份登录时自动产生的个人资源隔离单元。
+_Avoid_: 将自助租户用于公共 API 平台的外部客户注册 — 外部客户自助注册应归属 Portal。
 
 **Tenant API Key (租户 API 密钥)**:
 面向 toB 场景的组织级别访问凭证，直接绑定到 Tenant，不关联具体用户。适用于仅部署 Admin + Gateway 的轻量模式，或服务间调用场景。计费统计维度为租户组织。
@@ -64,7 +72,9 @@ AI 模型的上游服务商或自定义接入端点，例如 OpenAI、Azure Open
 ## Relationships
 
 - 一个 **Admin User** 通过 **RBAC** 被授予一个或多个角色，控制其可操作的菜单和 API
+- 一个 **Admin User** 可绑定多个 **External Identity**
 - 一个 **Admin User** 可通过 `tenant` 字段归属于一个 **Tenant**（企业内部场景下代表部门/团队）
+- 一个首次第三方登录的 **Admin User** 可自动拥有一个 **Self-Service Tenant**
 - 一个 **Tenant** 可绑定多个 **Model**（通过 Tenant-Model Association）
 - 一个 **Tenant** 可对应零个或多个 Portal 的 **Workspace**（1:N，仅公共平台场景）
 - **Policy** 通过 **Policy Binding** 应用到 (tenant_code, user_id, model_code) 等维度组合上

@@ -100,6 +100,30 @@ UserCacheExp = 4 # hours
 [Gateway]
 APIKeyPepper = "${GATEWAY_API_KEY_PEPPER:}"
 
+[OAuth]
+Enabled = "${OAUTH_ENABLED:false}"
+AllowSignup = "${OAUTH_ALLOW_SIGNUP:false}"
+AllowedDomains = []
+AllowedEmails = []
+DefaultRoleCode = "${OAUTH_DEFAULT_ROLE_CODE:}"
+DefaultModelIDs = []
+RefreshToken = true
+TicketRedirectURL = "${OAUTH_TICKET_REDIRECT_URL:/login}"
+
+[OAuth.Google]
+Enabled = "${OAUTH_GOOGLE_ENABLED:false}"
+ClientID = "${OAUTH_GOOGLE_CLIENT_ID:}"
+ClientSecret = "${OAUTH_GOOGLE_CLIENT_SECRET:}"
+RedirectURL = "${OAUTH_GOOGLE_REDIRECT_URL:}"
+Scopes = ["openid", "email", "profile"]
+
+[OAuth.GitHub]
+Enabled = "${OAUTH_GITHUB_ENABLED:false}"
+ClientID = "${OAUTH_GITHUB_CLIENT_ID:}"
+ClientSecret = "${OAUTH_GITHUB_CLIENT_SECRET:}"
+RedirectURL = "${OAUTH_GITHUB_REDIRECT_URL:}"
+Scopes = ["read:user", "user:email"]
+
 [Portal]
 BaseURL = "${PORTAL_BASE_URL:}"
 InternalAPIToken = "${PORTAL_INTERNAL_API_TOKEN:}"

@@ -86,6 +86,22 @@ func (a *User) GetByUsername(ctx context.Context, username string, opts ...schem
 	return item, nil
 }
 
+func (a *User) GetByEmail(ctx context.Context, email string, opts ...schema.UserQueryOptions) (*schema.User, error) {
+	var opt schema.UserQueryOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+
+	item := new(schema.User)
+	ok, err := util.FindOne(ctx, GetUserDB(ctx, a.DB).Where("email=?", email), opt.QueryOptions, item)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	} else if !ok {
+		return nil, nil
+	}
+	return item, nil
+}
+
 // Exist checks if the specified user exists in the database.
 func (a *User) Exists(ctx context.Context, id string) (bool, error) {
 	ok, err := util.Exists(ctx, GetUserDB(ctx, a.DB).Where("id=?", id))

@@ -20,6 +20,7 @@ type RBAC struct {
 	RoleAPI           *api.Role
 	UserAPI           *api.User
 	LoginAPI          *api.Login
+	OAuthAPI          *api.OAuth
 	LoggerAPI         *api.Logger
 	UserAPIKeyAPI     *api.UserAPIKey
 	TenantAPI         *api.Tenant
@@ -36,6 +37,7 @@ func (a *RBAC) AutoMigrate(ctx context.Context) error {
 		new(schema.RoleMenu),
 		new(schema.User),
 		new(schema.UserRole),
+		new(schema.ExternalIdentity),
 		new(schema.UserAPIKey),
 		new(schema.Tenant),
 		new(schema.TenantModel),
@@ -82,6 +84,13 @@ func (a *RBAC) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) error
 
 	v1.POST("login", a.LoginAPI.Login)
 	v1.POST("refresh-token", a.LoginAPI.RefreshTokenWithRefreshToken)
+	oauth := v1.Group("oauth")
+	{
+		oauth.GET("providers", a.OAuthAPI.Providers)
+		oauth.GET(":provider/login", a.OAuthAPI.Login)
+		oauth.GET(":provider/callback", a.OAuthAPI.Callback)
+		oauth.POST("exchange", a.OAuthAPI.Exchange)
+	}
 
 	current := v1.Group("current")
 	{

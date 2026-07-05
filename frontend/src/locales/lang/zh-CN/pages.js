@@ -31,6 +31,7 @@ export default {
     'pages.login.forgotPassword': '忘记密码 ?',
     'pages.login.submit': '登录',
     'pages.login.loginWith': '其他登录方式 :',
+    'pages.login.oauth.divider': '或使用以下方式登录',
     'pages.login.registerAccount': '注册账户',
     // welcome
     'pages.welcome.link': '欢迎使用',
