@@ -17,7 +17,6 @@ import (
 type PolicyLimit struct {
 	Trans             *util.Trans
 	PolicyLimitDAL    *dal.PolicyLimit
-	PolicyBindingDAL  *dal.PolicyBinding
 	PolicyRedisSync   *PolicyRedisSync
 	ModelDAL          *resourceDal.Model
 	DataPermissionDAL *resourceDal.DataPermission
@@ -61,12 +60,11 @@ func (a *PolicyLimit) Get(ctx context.Context, id string) (*schema.PolicyLimitFo
 
 // Create a new policy limit in the data access object.
 func (a *PolicyLimit) Create(ctx context.Context, formItem *schema.PolicyLimitForm) (*schema.PolicyLimit, error) {
-	ownerModel, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite)
-	if err != nil {
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite); err != nil {
 		return nil, err
 	}
 
-	if exists, err := a.PolicyLimitDAL.ExistsByUniqueKey(ctx, formItem.ModelID, formItem.Name); err != nil {
+	if exists, err := a.PolicyLimitDAL.ExistsByUniqueKey(ctx, formItem.ScopeType, formItem.ScopeCode, formItem.ModelID, formItem.Name); err != nil {
 		return nil, err
 	} else if exists {
 		return nil, errors.BadRequest("", "Policy limit with the same name already exists")
@@ -87,18 +85,13 @@ func (a *PolicyLimit) Create(ctx context.Context, formItem *schema.PolicyLimitFo
 		return nil, err
 	}
 
-	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		if err := a.PolicyLimitDAL.Create(ctx, policyLimit); err != nil {
-			return err
-		}
-		if ownerModel == nil {
-			return nil
-		}
-		return createModelPolicyBinding(ctx, a.PolicyBindingDAL, "limit", policyLimit.ID, ownerModel)
+	err := a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyLimitDAL.Create(ctx, policyLimit)
 	})
 	if err != nil {
 		return nil, err
 	}
+	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyLimit.ScopeType, policyLimit.ScopeCode, policyLimit.ModelID)
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyLimit.ID, policyLimit.Name, nil, policyLimit)
 	return policyLimit, nil
 }
@@ -117,14 +110,13 @@ func (a *PolicyLimit) Update(ctx context.Context, id string, formItem *schema.Po
 	if err := rejectPolicyKindChange(policyLimit.ModelID, formItem.ModelID); err != nil {
 		return err
 	}
-	model, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite)
-	if err != nil {
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite); err != nil {
 		return err
 	}
 
 	// If unique key fields changed, ensure the new combination is not occupied.
-	if policyLimit.ModelID != formItem.ModelID || policyLimit.Name != formItem.Name {
-		if exists, err := a.PolicyLimitDAL.ExistsByUniqueKey(ctx, formItem.ModelID, formItem.Name); err != nil {
+	if policyLimit.ScopeType != formItem.ScopeType || policyLimit.ScopeCode != formItem.ScopeCode || policyLimit.ModelID != formItem.ModelID || policyLimit.Name != formItem.Name {
+		if exists, err := a.PolicyLimitDAL.ExistsByUniqueKey(ctx, formItem.ScopeType, formItem.ScopeCode, formItem.ModelID, formItem.Name); err != nil {
 			return err
 		} else if exists {
 			return errors.BadRequest("", "Policy limit with the same name already exists")
@@ -144,23 +136,16 @@ func (a *PolicyLimit) Update(ctx context.Context, id string, formItem *schema.Po
 	}
 
 	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		if err := a.PolicyLimitDAL.Update(ctx, policyLimit); err != nil {
-			return err
-		}
-		if model == nil {
-			return a.PolicyBindingDAL.DeleteByPolicyID(ctx, "limit", policyLimit.ID)
-		}
-		return replaceModelPolicyBinding(ctx, a.PolicyBindingDAL, "limit", policyLimit.ID, model)
+		return a.PolicyLimitDAL.Update(ctx, policyLimit)
 	})
 	if err != nil {
 		return err
 	}
 
 	// 级联同步引用此策略的维度到 Redis
-	if policyLimit.ModelID != "" {
-		if err := a.PolicyRedisSync.SyncPolicyChange(ctx, "limit", id); err != nil {
-			return err
-		}
+	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, beforePolicy.ScopeType, beforePolicy.ScopeCode, beforePolicy.ModelID)
+	if beforePolicy.ScopeType != policyLimit.ScopeType || beforePolicy.ScopeCode != policyLimit.ScopeCode || beforePolicy.ModelID != policyLimit.ModelID {
+		_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyLimit.ScopeType, policyLimit.ScopeCode, policyLimit.ModelID)
 	}
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyLimit.ID, policyLimit.Name, beforePolicy, policyLimit)
@@ -180,28 +165,21 @@ func (a *PolicyLimit) Delete(ctx context.Context, id string) error {
 	}
 
 	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		if err := a.PolicyLimitDAL.Delete(ctx, id); err != nil {
-			return err
-		}
-		return a.PolicyBindingDAL.DeleteByPolicyID(ctx, "limit", id)
+		return a.PolicyLimitDAL.Delete(ctx, id)
 	})
 	if err != nil {
 		return err
 	}
 
 	// 级联同步引用此策略的维度到 Redis
-	if policyLimit.ModelID != "" {
-		if err := a.PolicyRedisSync.SyncPolicyChange(ctx, "limit", id); err != nil {
-			return err
-		}
-	}
+	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyLimit.ScopeType, policyLimit.ScopeCode, policyLimit.ModelID)
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyLimit.ID, policyLimit.Name, policyLimit, nil)
 	return nil
 }
 
 // CopyTemplateToModel copies a policy template into a model-owned policy instance.
-func (a *PolicyLimit) CopyTemplateToModel(ctx context.Context, templateID, modelID, name string) (*schema.PolicyLimit, error) {
+func (a *PolicyLimit) CopyTemplateToModel(ctx context.Context, templateID string, form *schema.PolicyCopyToModelForm) (*schema.PolicyLimit, error) {
 	template, err := a.PolicyLimitDAL.Get(ctx, templateID)
 	if err != nil {
 		return nil, err
@@ -211,21 +189,23 @@ func (a *PolicyLimit) CopyTemplateToModel(ctx context.Context, templateID, model
 	if template.ModelID != "" {
 		return nil, errors.BadRequest("", "Only policy templates can be copied to a model")
 	}
-	model, err := requireModelPermission(ctx, a.ModelDAL, a.DataPermissionDAL, modelID, modelPermissionWrite)
-	if err != nil {
+	if _, err := requireModelPermission(ctx, a.ModelDAL, a.DataPermissionDAL, form.ModelID, modelPermissionWrite); err != nil {
 		return nil, err
 	}
+	name := form.Name
 	if name == "" {
 		name = template.Name
 	}
-	name, err = nextPolicyName(ctx, name, modelID, a.PolicyLimitDAL.ExistsByUniqueKey)
+	name, err = nextPolicyName(ctx, name, form.ModelID, func(ctx context.Context, modelID, name string) (bool, error) {
+		return a.PolicyLimitDAL.ExistsByUniqueKey(ctx, "global", "", modelID, name)
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	instance := *template
 	instance.ID = util.NewXID()
-	instance.ModelID = modelID
+	instance.ModelID = form.ModelID
 	instance.Name = name
 	instance.Creator = nil
 	instance.Modifier = nil
@@ -233,19 +213,26 @@ func (a *PolicyLimit) CopyTemplateToModel(ctx context.Context, templateID, model
 	instance.UpdatedAt = time.Time{}
 	instance.Deleted = "0"
 	instance.DeletedAt = nil
+	if form.ScopeType != nil {
+		instance.ScopeType = *form.ScopeType
+	}
+	if form.ScopeCode != nil {
+		instance.ScopeCode = *form.ScopeCode
+	}
+	if form.Priority != nil {
+		instance.Priority = *form.Priority
+	}
 	if username := util.FromUsername(ctx); username != "" {
 		instance.Creator = &username
 	}
 
 	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		if err := a.PolicyLimitDAL.Create(ctx, &instance); err != nil {
-			return err
-		}
-		return createModelPolicyBinding(ctx, a.PolicyBindingDAL, "limit", instance.ID, model)
+		return a.PolicyLimitDAL.Create(ctx, &instance)
 	})
 	if err != nil {
 		return nil, err
 	}
+	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, instance.ScopeType, instance.ScopeCode, instance.ModelID)
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, instance.ID, instance.Name, nil, &instance)
 	return &instance, nil
 }

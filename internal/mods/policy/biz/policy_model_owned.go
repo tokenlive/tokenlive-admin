@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
-	policyDal "github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
-	policySchema "github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	resourceDal "github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	resourceSchema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -76,29 +74,4 @@ func nextPolicyName(ctx context.Context, baseName, modelID string, exists func(c
 		}
 		name = fmt.Sprintf("%s-%d", baseName, i)
 	}
-}
-
-func createModelPolicyBinding(ctx context.Context, bindingDAL *policyDal.PolicyBinding, policyType, policyID string, model *resourceSchema.Model) error {
-	if err := bindingDAL.CleanDeletedConflict(ctx, "", "", model.ModelCode, policyType, policyID); err != nil {
-		return err
-	}
-	binding := &policySchema.PolicyBinding{
-		ID:         util.NewXID(),
-		ModelCode:  model.ModelCode,
-		PolicyType: policyType,
-		PolicyID:   policyID,
-		Deleted:    "0",
-	}
-	username := util.FromUsername(ctx)
-	if username != "" {
-		binding.Creator = &username
-	}
-	return bindingDAL.Create(ctx, binding)
-}
-
-func replaceModelPolicyBinding(ctx context.Context, bindingDAL *policyDal.PolicyBinding, policyType, policyID string, model *resourceSchema.Model) error {
-	if err := bindingDAL.DeleteByPolicyID(ctx, policyType, policyID); err != nil {
-		return err
-	}
-	return createModelPolicyBinding(ctx, bindingDAL, policyType, policyID, model)
 }

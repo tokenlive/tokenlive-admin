@@ -18,8 +18,11 @@ type Policy struct {
 }
 
 type PolicyCopyToModelForm struct {
-	ModelID string `json:"model_id" binding:"required,max=20"`
-	Name    string `json:"name" binding:"max=128"`
+	ModelID   string  `json:"model_id" binding:"required,max=20"`
+	Name      string  `json:"name" binding:"max=128"`
+	ScopeType *string `json:"scope_type" binding:"omitempty,max=32"`
+	ScopeCode *string `json:"scope_code" binding:"omitempty,max=128"`
+	Priority  *int    `json:"priority" binding:"omitempty,min=0"`
 }
 
 func (a *PolicyCopyToModelForm) Validate() error {

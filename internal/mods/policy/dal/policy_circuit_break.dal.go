@@ -79,7 +79,7 @@ func (a *PolicyCircuitBreak) Exists(ctx context.Context, id string) (bool, error
 }
 
 // ExistsByUniqueKey checks whether a policy circuit break with the given unique key already exists.
-func (a *PolicyCircuitBreak) ExistsByUniqueKey(ctx context.Context, modelID, name string) (bool, error) {
+func (a *PolicyCircuitBreak) ExistsByUniqueKey(ctx context.Context, scopeType, scopeCode, modelID, name string) (bool, error) {
 	db := GetPolicyCircuitBreakDB(ctx, a.DB).Where("name = ?", name)
 	if modelID == "" {
 		db = db.Where("model_id = '' OR model_id IS NULL")

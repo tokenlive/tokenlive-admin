@@ -73,7 +73,6 @@ func expandEnvVars(s string) string {
 	return s
 }
 
-
 func Marshal(v interface{}) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	err := toml.NewEncoder(buf).Encode(v)

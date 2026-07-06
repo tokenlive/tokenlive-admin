@@ -53,14 +53,15 @@ func TestModelDeleteRejectsAssociatedResources(t *testing.T) {
 			wantMessage: "关联别名",
 		},
 		{
-			name: "policy binding",
+			name: "policy loadbalance",
 			seed: func(t *testing.T, db *gorm.DB) {
-				require.NoError(t, db.Create(&policySchema.PolicyBinding{
-					ID:         "binding-1",
-					ModelCode:  "model-code",
-					PolicyType: "loadbalance",
-					PolicyID:   "policy-1",
-					Deleted:    "0",
+				require.NoError(t, db.Create(&policySchema.PolicyLoadbalance{
+					ID:        "policy-1",
+					ModelID:   "model-1",
+					Name:      "Loadbalance Policy",
+					Type:      "ROUND_ROBIN",
+					Deleted:   "0",
+					CreatedAt: time.Now(),
 				}).Error)
 			},
 			wantMessage: "关联策略",
@@ -126,8 +127,12 @@ func newModelDeleteTestDB(t *testing.T) *gorm.DB {
 		&schema.Endpoint{},
 		&schema.ModelAlias{},
 		&schema.DataPermission{},
-		&policySchema.PolicyBinding{},
 		&policySchema.PolicyLoadbalance{},
+		&policySchema.PolicyRoute{},
+		&policySchema.PolicyLimit{},
+		&policySchema.PolicyCircuitBreak{},
+		&policySchema.PolicyInvocation{},
+		&policySchema.PolicyTagging{},
 		&opsSchema.AuditLog{},
 	))
 	require.NoError(t, db.Exec("CREATE TABLE IF NOT EXISTS tenant_model (tenant_code varchar(64), model_id varchar(20))").Error)

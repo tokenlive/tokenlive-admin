@@ -79,7 +79,7 @@ func (a *PolicyTagging) Exists(ctx context.Context, id string) (bool, error) {
 }
 
 // ExistsByName checks whether a policy tagging with the given name already exists.
-func (a *PolicyTagging) ExistsByName(ctx context.Context, modelID, name string) (bool, error) {
+func (a *PolicyTagging) ExistsByName(ctx context.Context, scopeType, scopeCode, modelID, name string) (bool, error) {
 	db := GetPolicyTaggingDB(ctx, a.DB).Where("name = ?", name)
 	if modelID == "" {
 		db = db.Where("model_id = '' OR model_id IS NULL")

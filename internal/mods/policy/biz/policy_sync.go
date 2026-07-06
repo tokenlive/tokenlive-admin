@@ -15,7 +15,6 @@ import (
 
 type PolicyRedisSync struct {
 	RedisClient           *redis.Client
-	PolicyBindingDAL      *dal.PolicyBinding
 	PolicyLoadbalanceDAL  *dal.PolicyLoadbalance
 	PolicyRouteDAL        *dal.PolicyRoute
 	PolicyLimitDAL        *dal.PolicyLimit
@@ -33,28 +32,142 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		return nil
 	}
 
-	// 1. 获取该维度下所有有效绑定 (未删除)，按照优先级排序，数字越小越优先，其次按创建时间降序。
-	// 绑定关系本身不带启停状态；是否生效由具体策略表的 enabled 决定。
-	var bindings []schema.PolicyBinding
-	db := util.GetDB(ctx, s.PolicyBindingDAL.DB).
-		Model(new(schema.PolicyBinding)).
-		Where("tenant_code = ? AND user_id = ? AND model_code = ?", tenantCode, userID, modelCode).
-		Where("deleted = '0'").
-		Order("priority ASC, created_at DESC")
-	if err := db.Find(&bindings).Error; err != nil {
-		return err
+	// 根据 modelCode 查 modelID
+	var modelID string
+	if modelCode != "*" && modelCode != "" {
+		var model struct {
+			ID string
+		}
+		err := util.GetDB(ctx, s.PolicyLoadbalanceDAL.DB).
+			Table("model").
+			Select("id").
+			Where("model_code = ? AND deleted = '0'", modelCode).
+			First(&model).Error
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+		modelID = model.ID
+	}
+
+	var scopeType string = "global"
+	var scopeCode string = ""
+	if userID != "" {
+		scopeType = "user"
+		scopeCode = userID
+	} else if tenantCode != "" {
+		scopeType = "tenant"
+		scopeCode = tenantCode
 	}
 
 	redisKey, redisField := resolveRedisKeyAndField(tenantCode, userID, modelCode)
 
-	// 2. 如果无任何有效绑定，清理旧策略，但保留计费 billing
-	if len(bindings) == 0 {
+	// 多表级联聚合策略
+	policyAgg := &schema.Policy{}
+
+	// 1. loadbalance
+	var lbs []schema.PolicyLoadbalance
+	if err := util.GetDB(ctx, s.PolicyLoadbalanceDAL.DB).
+		Where("scope_type = ? AND scope_code = ? AND model_id = ? AND enabled = 1 AND deleted = '0'", scopeType, scopeCode, modelID).
+		Order("priority ASC, created_at DESC").
+		Find(&lbs).Error; err != nil {
+		return err
+	}
+	if len(lbs) > 0 {
+		var form schema.PolicyLoadbalanceForm
+		if err := lbs[0].ConvertTo(&form); err == nil {
+			policyAgg.LoadBalancePolicy = &form
+		}
+	}
+
+	// 2. invocation
+	var invs []schema.PolicyInvocation
+	if err := util.GetDB(ctx, s.PolicyInvocationDAL.DB).
+		Where("scope_type = ? AND scope_code = ? AND model_id = ? AND enabled = 1 AND deleted = '0'", scopeType, scopeCode, modelID).
+		Order("priority ASC, created_at DESC").
+		Find(&invs).Error; err != nil {
+		return err
+	}
+	if len(invs) > 0 {
+		var form schema.PolicyInvocationForm
+		if err := invs[0].ConvertTo(&form); err == nil {
+			policyAgg.InvocationPolicy = &form
+		}
+	}
+
+	// 3. limit
+	var limits []schema.PolicyLimit
+	if err := util.GetDB(ctx, s.PolicyLimitDAL.DB).
+		Where("scope_type = ? AND scope_code = ? AND model_id = ? AND enabled = 1 AND deleted = '0'", scopeType, scopeCode, modelID).
+		Order("priority ASC, created_at DESC").
+		Find(&limits).Error; err != nil {
+		return err
+	}
+	for _, lim := range limits {
+		var form schema.PolicyLimitForm
+		if err := lim.ConvertTo(&form); err == nil {
+			policyAgg.LimitPolicies = append(policyAgg.LimitPolicies, &form)
+		}
+	}
+
+	// 4. circuit_break
+	var cbs []schema.PolicyCircuitBreak
+	if err := util.GetDB(ctx, s.PolicyCircuitBreakDAL.DB).
+		Where("scope_type = ? AND scope_code = ? AND model_id = ? AND enabled = 1 AND deleted = '0'", scopeType, scopeCode, modelID).
+		Order("priority ASC, created_at DESC").
+		Find(&cbs).Error; err != nil {
+		return err
+	}
+	for _, cb := range cbs {
+		var form schema.PolicyCircuitBreakForm
+		if err := cb.ConvertTo(&form); err == nil {
+			policyAgg.CircuitBreakPolicies = append(policyAgg.CircuitBreakPolicies, &form)
+		}
+	}
+
+	// 5. tagging
+	var taggings []schema.PolicyTagging
+	if err := util.GetDB(ctx, s.PolicyTaggingDAL.DB).
+		Where("scope_type = ? AND scope_code = ? AND model_id = ? AND enabled = 1 AND deleted = '0'", scopeType, scopeCode, modelID).
+		Order("priority ASC, created_at DESC").
+		Find(&taggings).Error; err != nil {
+		return err
+	}
+	for _, tag := range taggings {
+		var form schema.PolicyTaggingForm
+		if err := tag.ConvertTo(&form); err == nil {
+			policyAgg.TaggingPolicies = append(policyAgg.TaggingPolicies, &form)
+		}
+	}
+
+	// 6. route
+	var routes []schema.PolicyRoute
+	if err := util.GetDB(ctx, s.PolicyRouteDAL.DB).
+		Preload("Details").
+		Where("scope_type = ? AND scope_code = ? AND model_id = ? AND enabled = 1 AND deleted = '0'", scopeType, scopeCode, modelID).
+		Order("priority ASC, created_at DESC").
+		Find(&routes).Error; err != nil {
+		return err
+	}
+	for _, r := range routes {
+		var form schema.PolicyRouteForm
+		if err := r.ConvertTo(&form); err == nil {
+			policyAgg.RoutePolicies = append(policyAgg.RoutePolicies, &form)
+		}
+	}
+
+	// 校验是否为空
+	if policyAgg.LoadBalancePolicy == nil &&
+		policyAgg.InvocationPolicy == nil &&
+		len(policyAgg.LimitPolicies) == 0 &&
+		len(policyAgg.RoutePolicies) == 0 &&
+		len(policyAgg.CircuitBreakPolicies) == 0 &&
+		len(policyAgg.TaggingPolicies) == 0 {
+
 		var existingPolicy map[string]interface{}
 		if oldData, err := s.RedisClient.HGet(ctx, redisKey, redisField).Result(); err == nil && oldData != "" {
 			_ = json.Unmarshal([]byte(oldData), &existingPolicy)
 		}
 		if existingPolicy != nil && existingPolicy["billing"] != nil {
-			// 只保留 billing 并返回
 			finalMap := map[string]interface{}{
 				"billing": existingPolicy["billing"],
 			}
@@ -66,139 +179,12 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		return s.RedisClient.HDel(ctx, redisKey, redisField).Err()
 	}
 
-	// 3. 多表级联聚合策略
-	policyAgg := &schema.Policy{}
-
-	for _, b := range bindings {
-		switch b.PolicyType {
-		case "loadbalance":
-			if policyAgg.LoadBalancePolicy != nil {
-				continue
-			}
-			var lb schema.PolicyLoadbalance
-			err := util.GetDB(ctx, s.PolicyLoadbalanceDAL.DB).
-				Where("id = ? AND enabled = 1 AND deleted = '0'", b.PolicyID).
-				First(&lb).Error
-			if err != nil {
-				if err != gorm.ErrRecordNotFound {
-					return err
-				}
-			} else {
-				var form schema.PolicyLoadbalanceForm
-				if err := lb.ConvertTo(&form); err != nil {
-					return err
-				}
-				policyAgg.LoadBalancePolicy = &form
-			}
-
-		case "invocation":
-			if policyAgg.InvocationPolicy != nil {
-				continue
-			}
-			var inv schema.PolicyInvocation
-			err := util.GetDB(ctx, s.PolicyInvocationDAL.DB).
-				Where("id = ? AND enabled = 1 AND deleted = '0'", b.PolicyID).
-				First(&inv).Error
-			if err != nil {
-				if err != gorm.ErrRecordNotFound {
-					return err
-				}
-			} else {
-				var form schema.PolicyInvocationForm
-				if err := inv.ConvertTo(&form); err != nil {
-					return err
-				}
-				policyAgg.InvocationPolicy = &form
-			}
-
-		case "limit":
-			var lim schema.PolicyLimit
-			err := util.GetDB(ctx, s.PolicyLimitDAL.DB).
-				Where("id = ? AND enabled = 1 AND deleted = '0'", b.PolicyID).
-				First(&lim).Error
-			if err != nil {
-				if err != gorm.ErrRecordNotFound {
-					return err
-				}
-			} else {
-				var form schema.PolicyLimitForm
-				if err := lim.ConvertTo(&form); err != nil {
-					return err
-				}
-				policyAgg.LimitPolicies = append(policyAgg.LimitPolicies, &form)
-			}
-
-		case "circuit_break":
-			var cb schema.PolicyCircuitBreak
-			err := util.GetDB(ctx, s.PolicyCircuitBreakDAL.DB).
-				Where("id = ? AND enabled = 1 AND deleted = '0'", b.PolicyID).
-				First(&cb).Error
-			if err != nil {
-				if err != gorm.ErrRecordNotFound {
-					return err
-				}
-			} else {
-				var form schema.PolicyCircuitBreakForm
-				if err := cb.ConvertTo(&form); err != nil {
-					return err
-				}
-				policyAgg.CircuitBreakPolicies = append(policyAgg.CircuitBreakPolicies, &form)
-			}
-
-		case "tagging":
-			var tag schema.PolicyTagging
-			err := util.GetDB(ctx, s.PolicyTaggingDAL.DB).
-				Where("id = ? AND enabled = 1 AND deleted = '0'", b.PolicyID).
-				First(&tag).Error
-			if err != nil {
-				if err != gorm.ErrRecordNotFound {
-					return err
-				}
-			} else {
-				var form schema.PolicyTaggingForm
-				if err := tag.ConvertTo(&form); err != nil {
-					return err
-				}
-				policyAgg.TaggingPolicies = append(policyAgg.TaggingPolicies, &form)
-			}
-
-		case "route":
-			var r schema.PolicyRoute
-			err := util.GetDB(ctx, s.PolicyRouteDAL.DB).
-				Preload("Details").
-				Where("id = ? AND enabled = 1 AND deleted = '0'", b.PolicyID).
-				First(&r).Error
-			if err != nil {
-				if err != gorm.ErrRecordNotFound {
-					return err
-				}
-			} else {
-				var form schema.PolicyRouteForm
-				if err := r.ConvertTo(&form); err != nil {
-					return err
-				}
-				policyAgg.RoutePolicies = append(policyAgg.RoutePolicies, &form)
-			}
-		}
-	}
-
-	// 再次校验是否为空
-	if policyAgg.LoadBalancePolicy == nil &&
-		policyAgg.InvocationPolicy == nil &&
-		len(policyAgg.LimitPolicies) == 0 &&
-		len(policyAgg.RoutePolicies) == 0 &&
-		len(policyAgg.CircuitBreakPolicies) == 0 &&
-		len(policyAgg.TaggingPolicies) == 0 {
-		return s.RedisClient.HDel(ctx, redisKey, redisField).Err()
-	}
-
-	// 4. 序列化为 JSON
+	// 序列化为 JSON
 	jsonData, err := json.Marshal(policyAgg)
 	if err != nil {
 		return err
 	}
 
-	// 5. 先读取原有数据，防止将 model 默认计费等非 policy_binding 管理的信息冲掉
 	var finalMap map[string]interface{}
 	if err := json.Unmarshal(jsonData, &finalMap); err != nil {
 		return err
@@ -226,61 +212,55 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 	return s.RedisClient.HSet(ctx, redisKey, redisField, string(finalJSON)).Err()
 }
 
-// SyncPolicyChange 当某个具体的策略配置变更时，反查所有关联维度并同步
-func (s *PolicyRedisSync) SyncPolicyChange(ctx context.Context, policyType, policyID string) error {
-	if s.RedisClient == nil || policyID == "" {
+// SyncPolicyChange 当某个具体的策略配置变更时，同步该策略对应的维度
+func (s *PolicyRedisSync) SyncPolicyChange(ctx context.Context, scopeType, scopeCode, modelID string) error {
+	if s.RedisClient == nil {
 		return nil
 	}
 	if !config.C.Sync.Policies {
 		return nil
 	}
 
-	// 1. 从绑定表中查出所有关联了该 policyID 且未被软删除的维度记录
-	var bindings []schema.PolicyBinding
-	db := util.GetDB(ctx, s.PolicyBindingDAL.DB).
-		Model(new(schema.PolicyBinding)).
-		Where("policy_type = ? AND policy_id = ?", policyType, policyID).
-		Where("deleted = '0'")
-	if err := db.Find(&bindings).Error; err != nil {
-		return err
-	}
-
-	// 2. 去重并依次同步各个关联的维度
-	seen := make(map[string]bool)
-	var errs []error
-	for _, b := range bindings {
-		dimKey := fmt.Sprintf("%s:%s:%s", b.TenantCode, b.UserID, b.ModelCode)
-		if seen[dimKey] {
-			continue
+	var modelCode string
+	if modelID != "" {
+		var model struct {
+			ModelCode string
 		}
-		seen[dimKey] = true
-
-		if err := s.SyncDimension(ctx, b.TenantCode, b.UserID, b.ModelCode); err != nil {
-			errs = append(errs, fmt.Errorf("sync dimension %s failed: %w", dimKey, err))
+		err := util.GetDB(ctx, s.PolicyLoadbalanceDAL.DB).
+			Table("model").
+			Select("model_code").
+			Where("id = ? AND deleted = '0'", modelID).
+			First(&model).Error
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return err
 		}
+		modelCode = model.ModelCode
 	}
 
-	if len(errs) > 0 {
-		return fmt.Errorf("sync policy change failed: %v", errs)
+	var tenantCode, userID string
+	if scopeType == "user" {
+		userID = scopeCode
+	} else if scopeType == "tenant" {
+		tenantCode = scopeCode
 	}
 
-	return nil
+	return s.SyncDimension(ctx, tenantCode, userID, modelCode)
 }
 
 func resolveRedisKeyAndField(tenantCode, userID, modelCode string) (string, string) {
 	if userID != "" {
-		if modelCode != "" {
+		if modelCode != "" && modelCode != "*" {
 			return fmt.Sprintf("aigw:policies:user:%s", userID), modelCode
 		}
 		return fmt.Sprintf("aigw:policies:user:%s", userID), "*"
 	}
 	if tenantCode != "" {
-		if modelCode != "" {
+		if modelCode != "" && modelCode != "*" {
 			return fmt.Sprintf("aigw:policies:tenant:%s", tenantCode), modelCode
 		}
 		return fmt.Sprintf("aigw:policies:tenant:%s", tenantCode), "*"
 	}
-	if modelCode != "" {
+	if modelCode != "" && modelCode != "*" {
 		return fmt.Sprintf("aigw:policies:model:%s", modelCode), "*"
 	}
 	return "aigw:policies:global", "*"

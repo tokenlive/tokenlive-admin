@@ -11,7 +11,6 @@ import (
 	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
 	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	policyBiz "github.com/tokenlive/tokenlive-admin/internal/mods/policy/biz"
-	policySchema "github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -289,12 +288,6 @@ func (m *Model) ensureModelCanDelete(ctx context.Context, model *schema.Model) e
 			args:    []interface{}{model.ID},
 			message: "模型存在关联别名，请先清理后再执行删除操作",
 		},
-		{
-			table:   config.C.FormatTableName("policy_binding"),
-			where:   "model_code = ? AND deleted = '0'",
-			args:    []interface{}{model.ModelCode},
-			message: "模型存在关联策略，请先清理后再执行删除操作",
-		},
 	}
 
 	for _, check := range checks {
@@ -306,6 +299,18 @@ func (m *Model) ensureModelCanDelete(ctx context.Context, model *schema.Model) e
 			return errors.BadRequest("", "%s", check.message)
 		}
 	}
+
+	policyTables := []string{"policy_loadbalance", "policy_route", "policy_limit", "policy_circuit_break", "policy_invocation", "policy_tagging"}
+	for _, tbl := range policyTables {
+		var count int64
+		if err := db.Table(config.C.FormatTableName(tbl)).Where("model_id = ? AND deleted = '0'", model.ID).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return errors.BadRequest("", "模型存在关联策略，请先清理后再执行删除操作")
+		}
+	}
+
 	return nil
 }
 
@@ -470,22 +475,38 @@ func (m *Model) Sync(ctx context.Context, id string) error {
 		}
 
 		// (b) 再同步其它跟此 model 绑定的维度策略缓存
-		var bindings []*policySchema.PolicyBinding
-		policyBindingTable := config.C.FormatTableName("policy_binding")
+		type PolicyDim struct {
+			ScopeType string `gorm:"column:scope_type"`
+			ScopeCode string `gorm:"column:scope_code"`
+		}
+		var dims []PolicyDim
+		tables := []string{"policy_loadbalance", "policy_route", "policy_limit", "policy_circuit_break", "policy_invocation", "policy_tagging"}
 		db := util.GetDB(ctx, m.ModelDAL.DB)
-		err := db.Table(policyBindingTable).
-			Where("model_code = ? AND deleted = '0'", model.ModelCode).
-			Find(&bindings).Error
-		if err == nil && len(bindings) > 0 {
+		for _, tbl := range tables {
+			var list []PolicyDim
+			_ = db.Table(config.C.FormatTableName(tbl)).
+				Select("scope_type, scope_code").
+				Where("model_id = ? AND deleted = '0'", model.ID).
+				Find(&list)
+			dims = append(dims, list...)
+		}
+
+		if len(dims) > 0 {
 			seen := make(map[string]bool)
-			seen["::"+model.ModelCode] = true // 过滤掉前面已经刷过的公共维度
-			for _, b := range bindings {
-				dimKey := fmt.Sprintf("%s:%s:%s", b.TenantCode, b.UserID, b.ModelCode)
+			seen["global::"+model.ModelCode] = true // 过滤掉前面已经刷过的公共维度
+			for _, d := range dims {
+				dimKey := fmt.Sprintf("%s:%s:%s", d.ScopeType, d.ScopeCode, model.ModelCode)
 				if seen[dimKey] {
 					continue
 				}
 				seen[dimKey] = true
-				_ = m.PolicyRedisSync.SyncDimension(ctx, b.TenantCode, b.UserID, b.ModelCode)
+				var tenantCode, userID string
+				if d.ScopeType == "user" {
+					userID = d.ScopeCode
+				} else if d.ScopeType == "tenant" {
+					tenantCode = d.ScopeCode
+				}
+				_ = m.PolicyRedisSync.SyncDimension(ctx, tenantCode, userID, model.ModelCode)
 			}
 		}
 	}

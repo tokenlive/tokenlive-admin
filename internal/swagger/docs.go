@@ -4046,8 +4046,8 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/ops/portal/workspaces/{workspace_id}/bind-tenant": {
-            "post": {
+        "/api/v1/ops/portal/workspaces/{workspace_id}/runtime-access": {
+            "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
@@ -4056,7 +4056,59 @@ const docTemplate = `{
                 "tags": [
                     "PortalUserAPI"
                 ],
-                "summary": "Bind portal workspace to admin tenant",
+                "summary": "Get portal workspace runtime access",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "workspace ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/biz.PortalWorkspaceRuntimeAccess"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PortalUserAPI"
+                ],
+                "summary": "Activate portal workspace runtime access",
                 "parameters": [
                     {
                         "type": "string",
@@ -4066,12 +4118,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "tenant code",
+                        "description": "runtime access scope",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.bindWorkspaceTenantRequest"
+                            "$ref": "#/definitions/api.activateWorkspaceRuntimeAccessRequest"
                         }
                     }
                 ],
@@ -4084,6 +4136,48 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ops/portal/workspaces/{workspace_id}/runtime-access/disable": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PortalUserAPI"
+                ],
+                "summary": "Disable portal workspace runtime access",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "workspace ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/util.ResponseResult"
                         }
@@ -4119,305 +4213,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "workspace ID",
                         "name": "workspace_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/ops/portal/workspaces/{workspace_id}/unbind-tenant": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "PortalUserAPI"
-                ],
-                "summary": "Unbind portal workspace tenant",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "workspace ID",
-                        "name": "workspace_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/policy/policy-bindings": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "PolicyBindingAPI"
-                ],
-                "summary": "Query policy binding list",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/util.ResponseResult"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/schema.PolicyBinding"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "PolicyBindingAPI"
-                ],
-                "summary": "Create policy binding record",
-                "parameters": [
-                    {
-                        "description": "Request body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/schema.PolicyBindingForm"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/util.ResponseResult"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/schema.PolicyBinding"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/policy/policy-bindings/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "PolicyBindingAPI"
-                ],
-                "summary": "Get policy binding record by ID",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "unique id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/util.ResponseResult"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/schema.PolicyBindingForm"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "PolicyBindingAPI"
-                ],
-                "summary": "Update policy binding record by ID",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "unique id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Request body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/schema.PolicyBindingForm"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "PolicyBindingAPI"
-                ],
-                "summary": "Delete policy binding record by ID",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "unique id",
-                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -9334,10 +9129,13 @@ const docTemplate = `{
                 }
             }
         },
-        "api.bindWorkspaceTenantRequest": {
+        "api.activateWorkspaceRuntimeAccessRequest": {
             "type": "object",
             "properties": {
-                "tenant_code": {
+                "scope_code": {
+                    "type": "string"
+                },
+                "scope_type": {
                     "type": "string"
                 }
             }
@@ -9384,6 +9182,41 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "biz.PortalWorkspaceRuntimeAccess": {
+            "type": "object",
+            "properties": {
+                "activated_at": {
+                    "type": "string"
+                },
+                "activated_by": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "disabled_at": {
+                    "type": "string"
+                },
+                "disabled_by": {
+                    "type": "string"
+                },
+                "scope_code": {
+                    "type": "string"
+                },
+                "scope_type": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace_id": {
                     "type": "string"
                 }
             }
@@ -10811,106 +10644,6 @@ const docTemplate = `{
                 "OpType_PREFIX"
             ]
         },
-        "schema.PolicyBinding": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "creator": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "model_code": {
-                    "type": "string"
-                },
-                "modifier": {
-                    "type": "string"
-                },
-                "policy_id": {
-                    "type": "string"
-                },
-                "policy_type": {
-                    "type": "string"
-                },
-                "priority": {
-                    "type": "integer"
-                },
-                "tenant_code": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "schema.PolicyBindingForm": {
-            "type": "object",
-            "required": [
-                "policy_id",
-                "policy_type"
-            ],
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "creator": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "id": {
-                    "type": "string"
-                },
-                "model_code": {
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "modifier": {
-                    "type": "string"
-                },
-                "policy_id": {
-                    "type": "string",
-                    "maxLength": 20
-                },
-                "policy_type": {
-                    "type": "string",
-                    "enum": [
-                        "tagging",
-                        "loadbalance",
-                        "invocation",
-                        "limit",
-                        "route",
-                        "circuit_break"
-                    ]
-                },
-                "priority": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "tenant_code": {
-                    "type": "string",
-                    "maxLength": 64
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string",
-                    "maxLength": 20
-                }
-            }
-        },
         "schema.PolicyCircuitBreak": {
             "type": "object",
             "properties": {
@@ -10970,6 +10703,15 @@ const docTemplate = `{
                 },
                 "outlier_max_percent": {
                     "type": "integer"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "scope_code": {
+                    "type": "string"
+                },
+                "scope_type": {
+                    "type": "string"
                 },
                 "sliding_window_size": {
                     "type": "integer"
@@ -11101,6 +10843,21 @@ const docTemplate = `{
                     "description": "Outlier max percent",
                     "type": "integer"
                 },
+                "priority": {
+                    "description": "Priority",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "scope_code": {
+                    "description": "Scope code",
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "scope_type": {
+                    "description": "Scope type",
+                    "type": "string",
+                    "maxLength": 32
+                },
                 "sliding_window_size": {
                     "description": "Sliding window size",
                     "type": "integer"
@@ -11149,6 +10906,18 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "maxLength": 128
+                },
+                "priority": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "scope_code": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "scope_type": {
+                    "type": "string",
+                    "maxLength": 32
                 }
             }
         },
@@ -11182,7 +10951,16 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "priority": {
+                    "type": "integer"
+                },
                 "retry_policy": {
+                    "type": "string"
+                },
+                "scope_code": {
+                    "type": "string"
+                },
+                "scope_type": {
                     "type": "string"
                 },
                 "type": {
@@ -11244,6 +11022,11 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 128
                 },
+                "priority": {
+                    "description": "Priority",
+                    "type": "integer",
+                    "minimum": 0
+                },
                 "retry_policy": {
                     "description": "Retry policy",
                     "allOf": [
@@ -11251,6 +11034,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.RetryPolicy"
                         }
                     ]
+                },
+                "scope_code": {
+                    "description": "Scope code",
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "scope_type": {
+                    "description": "Scope type",
+                    "type": "string",
+                    "maxLength": 32
                 },
                 "type": {
                     "description": "Invocation type (failfast | failover)",
@@ -11306,7 +11099,16 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "priority": {
+                    "type": "integer"
+                },
                 "relation_type": {
+                    "type": "string"
+                },
+                "scope_code": {
+                    "type": "string"
+                },
+                "scope_type": {
                     "type": "string"
                 },
                 "sliding_windows": {
@@ -11390,10 +11192,25 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 128
                 },
+                "priority": {
+                    "description": "Priority",
+                    "type": "integer",
+                    "minimum": 0
+                },
                 "relation_type": {
                     "description": "Relation type: AND / OR",
                     "type": "string",
                     "maxLength": 16
+                },
+                "scope_code": {
+                    "description": "Scope code",
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "scope_type": {
+                    "description": "Scope type",
+                    "type": "string",
+                    "maxLength": 32
                 },
                 "sliding_windows": {
                     "description": "Sliding windows (JSON)",
@@ -11449,6 +11266,15 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "scope_code": {
+                    "type": "string"
+                },
+                "scope_type": {
+                    "type": "string"
                 },
                 "type": {
                     "type": "string"
@@ -11508,6 +11334,21 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
+                "priority": {
+                    "description": "Priority",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "scope_code": {
+                    "description": "Scope code",
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "scope_type": {
+                    "description": "Scope type",
+                    "type": "string",
+                    "maxLength": 32
+                },
                 "type": {
                     "description": "Loadbalance policy type",
                     "type": "string",
@@ -11556,8 +11397,14 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "order": {
+                "priority": {
                     "type": "integer"
+                },
+                "scope_code": {
+                    "type": "string"
+                },
+                "scope_type": {
+                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
@@ -11705,9 +11552,20 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 128
                 },
-                "order": {
-                    "description": "Sort order",
-                    "type": "integer"
+                "priority": {
+                    "description": "Priority",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "scope_code": {
+                    "description": "Scope code",
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "scope_type": {
+                    "description": "Scope type",
+                    "type": "string",
+                    "maxLength": 32
                 },
                 "updated_at": {
                     "description": "Update timestamp",
@@ -11752,10 +11610,16 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "order": {
+                "priority": {
                     "type": "integer"
                 },
                 "relation": {
+                    "type": "string"
+                },
+                "scope_code": {
+                    "type": "string"
+                },
+                "scope_type": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -11824,9 +11688,10 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 128
                 },
-                "order": {
-                    "description": "Execution order",
-                    "type": "integer"
+                "priority": {
+                    "description": "Priority",
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "relation": {
                     "description": "Relation type",
@@ -11835,6 +11700,16 @@ const docTemplate = `{
                         "AND",
                         "OR"
                     ]
+                },
+                "scope_code": {
+                    "description": "Scope code",
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "scope_type": {
+                    "description": "Scope type",
+                    "type": "string",
+                    "maxLength": 32
                 },
                 "updated_at": {
                     "description": "Update timestamp",

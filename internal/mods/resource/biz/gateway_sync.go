@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -245,59 +246,12 @@ func (s *GatewaySync) GetGatewayPolicies(ctx context.Context, modelCode string) 
 	}
 
 	db := util.GetDB(ctx, s.DB)
-	bindingQuery := db.Table(config.C.FormatTableName("policy_binding")).
-		Where("enabled = 1 AND deleted = '0'")
 
-	if modelCode != "" {
-		bindingQuery = bindingQuery.Where("model_code = ? OR model_code = '' OR model_code IS NULL", modelCode)
-	}
-
-	var bindings []policySchema.PolicyBinding
-	err := bindingQuery.Find(&bindings).Error
-	if err != nil {
-		return nil, fmt.Errorf("query policy bindings: %w", err)
-	}
-
-	var lbs []policySchema.PolicyLoadbalance
-	_ = db.Table(config.C.FormatTableName("policy_loadbalance")).Where("enabled = 1 AND deleted = '0'").Find(&lbs)
-	lbMap := make(map[string]*policySchema.PolicyLoadbalance)
-	for i := range lbs {
-		lbMap[lbs[i].ID] = &lbs[i]
-	}
-
-	var invocations []policySchema.PolicyInvocation
-	_ = db.Table(config.C.FormatTableName("policy_invocation")).Where("enabled = 1 AND deleted = '0'").Find(&invocations)
-	invMap := make(map[string]*policySchema.PolicyInvocation)
-	for i := range invocations {
-		invMap[invocations[i].ID] = &invocations[i]
-	}
-
-	var limits []policySchema.PolicyLimit
-	_ = db.Table(config.C.FormatTableName("policy_limit")).Where("enabled = 1 AND deleted = '0'").Find(&limits)
-	limitMap := make(map[string]*policySchema.PolicyLimit)
-	for i := range limits {
-		limitMap[limits[i].ID] = &limits[i]
-	}
-
-	var cbs []policySchema.PolicyCircuitBreak
-	_ = db.Table(config.C.FormatTableName("policy_circuit_break")).Where("enabled = 1 AND deleted = '0'").Find(&cbs)
-	cbMap := make(map[string]*policySchema.PolicyCircuitBreak)
-	for i := range cbs {
-		cbMap[cbs[i].ID] = &cbs[i]
-	}
-
-	var taggings []policySchema.PolicyTagging
-	_ = db.Table(config.C.FormatTableName("policy_tagging")).Where("enabled = 1 AND deleted = '0'").Find(&taggings)
-	tagMap := make(map[string]*policySchema.PolicyTagging)
-	for i := range taggings {
-		tagMap[taggings[i].ID] = &taggings[i]
-	}
-
-	var routes []policySchema.PolicyRoute
-	_ = db.Table(config.C.FormatTableName("policy_route")).Preload("Details").Where("enabled = 1 AND deleted = '0'").Find(&routes)
-	routeMap := make(map[string]*policySchema.PolicyRoute)
-	for i := range routes {
-		routeMap[routes[i].ID] = &routes[i]
+	var dbModels []schema.Model
+	_ = db.Table(config.C.FormatTableName("model")).Where("deleted = '0'").Find(&dbModels)
+	modelIDToCode := make(map[string]string)
+	for i := range dbModels {
+		modelIDToCode[dbModels[i].ID] = dbModels[i].ModelCode
 	}
 
 	type policyGroupKey struct {
@@ -316,53 +270,157 @@ func (s *GatewaySync) GetGatewayPolicies(ctx context.Context, modelCode string) 
 		return p
 	}
 
-	for _, b := range bindings {
-		scope, model := resolveScopeAndModel(b.TenantCode, b.UserID, b.ModelCode)
-		policyAgg := getOrCreateGroup(scope, model)
+	// 1. loadbalance
+	var lbs []policySchema.PolicyLoadbalance
+	_ = db.Table(config.C.FormatTableName("policy_loadbalance")).Where("enabled = 1 AND deleted = '0'").Find(&lbs)
+	sort.Slice(lbs, func(i, j int) bool {
+		if lbs[i].Priority != lbs[j].Priority {
+			return lbs[i].Priority < lbs[j].Priority
+		}
+		return lbs[i].CreatedAt.After(lbs[j].CreatedAt)
+	})
+	for i := range lbs {
+		mCode := ""
+		if lbs[i].ModelID != "" {
+			mCode = modelIDToCode[lbs[i].ModelID]
+		}
+		if modelCode != "" && mCode != modelCode && lbs[i].ModelID != "" {
+			continue
+		}
+		scope, modelField := resolveScopeAndModel(lbs[i].ScopeType, lbs[i].ScopeCode, mCode)
+		policyAgg := getOrCreateGroup(scope, modelField)
+		if policyAgg.LoadBalancePolicy == nil {
+			var form policySchema.PolicyLoadbalanceForm
+			if err := lbs[i].ConvertTo(&form); err == nil {
+				policyAgg.LoadBalancePolicy = &form
+			}
+		}
+	}
 
-		switch b.PolicyType {
-		case "loadbalance":
-			if lb, ok := lbMap[b.PolicyID]; ok {
-				var form policySchema.PolicyLoadbalanceForm
-				if err := lb.ConvertTo(&form); err == nil {
-					policyAgg.LoadBalancePolicy = &form
-				}
+	// 2. invocation
+	var invocations []policySchema.PolicyInvocation
+	_ = db.Table(config.C.FormatTableName("policy_invocation")).Where("enabled = 1 AND deleted = '0'").Find(&invocations)
+	sort.Slice(invocations, func(i, j int) bool {
+		if invocations[i].Priority != invocations[j].Priority {
+			return invocations[i].Priority < invocations[j].Priority
+		}
+		return invocations[i].CreatedAt.After(invocations[j].CreatedAt)
+	})
+	for i := range invocations {
+		mCode := ""
+		if invocations[i].ModelID != "" {
+			mCode = modelIDToCode[invocations[i].ModelID]
+		}
+		if modelCode != "" && mCode != modelCode && invocations[i].ModelID != "" {
+			continue
+		}
+		scope, modelField := resolveScopeAndModel(invocations[i].ScopeType, invocations[i].ScopeCode, mCode)
+		policyAgg := getOrCreateGroup(scope, modelField)
+		if policyAgg.InvocationPolicy == nil {
+			var form policySchema.PolicyInvocationForm
+			if err := invocations[i].ConvertTo(&form); err == nil {
+				policyAgg.InvocationPolicy = &form
 			}
-		case "invocation":
-			if inv, ok := invMap[b.PolicyID]; ok {
-				var form policySchema.PolicyInvocationForm
-				if err := inv.ConvertTo(&form); err == nil {
-					policyAgg.InvocationPolicy = &form
-				}
-			}
-		case "limit":
-			if lim, ok := limitMap[b.PolicyID]; ok {
-				var form policySchema.PolicyLimitForm
-				if err := lim.ConvertTo(&form); err == nil {
-					policyAgg.LimitPolicies = append(policyAgg.LimitPolicies, &form)
-				}
-			}
-		case "circuit_break":
-			if cb, ok := cbMap[b.PolicyID]; ok {
-				var form policySchema.PolicyCircuitBreakForm
-				if err := cb.ConvertTo(&form); err == nil {
-					policyAgg.CircuitBreakPolicies = append(policyAgg.CircuitBreakPolicies, &form)
-				}
-			}
-		case "tagging":
-			if tag, ok := tagMap[b.PolicyID]; ok {
-				var form policySchema.PolicyTaggingForm
-				if err := tag.ConvertTo(&form); err == nil {
-					policyAgg.TaggingPolicies = append(policyAgg.TaggingPolicies, &form)
-				}
-			}
-		case "route":
-			if r, ok := routeMap[b.PolicyID]; ok {
-				var form policySchema.PolicyRouteForm
-				if err := r.ConvertTo(&form); err == nil {
-					policyAgg.RoutePolicies = append(policyAgg.RoutePolicies, &form)
-				}
-			}
+		}
+	}
+
+	// 3. limit
+	var limits []policySchema.PolicyLimit
+	_ = db.Table(config.C.FormatTableName("policy_limit")).Where("enabled = 1 AND deleted = '0'").Find(&limits)
+	sort.Slice(limits, func(i, j int) bool {
+		if limits[i].Priority != limits[j].Priority {
+			return limits[i].Priority < limits[j].Priority
+		}
+		return limits[i].CreatedAt.After(limits[j].CreatedAt)
+	})
+	for i := range limits {
+		mCode := ""
+		if limits[i].ModelID != "" {
+			mCode = modelIDToCode[limits[i].ModelID]
+		}
+		if modelCode != "" && mCode != modelCode && limits[i].ModelID != "" {
+			continue
+		}
+		scope, modelField := resolveScopeAndModel(limits[i].ScopeType, limits[i].ScopeCode, mCode)
+		policyAgg := getOrCreateGroup(scope, modelField)
+		var form policySchema.PolicyLimitForm
+		if err := limits[i].ConvertTo(&form); err == nil {
+			policyAgg.LimitPolicies = append(policyAgg.LimitPolicies, &form)
+		}
+	}
+
+	// 4. circuit_break
+	var cbs []policySchema.PolicyCircuitBreak
+	_ = db.Table(config.C.FormatTableName("policy_circuit_break")).Where("enabled = 1 AND deleted = '0'").Find(&cbs)
+	sort.Slice(cbs, func(i, j int) bool {
+		if cbs[i].Priority != cbs[j].Priority {
+			return cbs[i].Priority < cbs[j].Priority
+		}
+		return cbs[i].CreatedAt.After(cbs[j].CreatedAt)
+	})
+	for i := range cbs {
+		mCode := ""
+		if cbs[i].ModelID != "" {
+			mCode = modelIDToCode[cbs[i].ModelID]
+		}
+		if modelCode != "" && mCode != modelCode && cbs[i].ModelID != "" {
+			continue
+		}
+		scope, modelField := resolveScopeAndModel(cbs[i].ScopeType, cbs[i].ScopeCode, mCode)
+		policyAgg := getOrCreateGroup(scope, modelField)
+		var form policySchema.PolicyCircuitBreakForm
+		if err := cbs[i].ConvertTo(&form); err == nil {
+			policyAgg.CircuitBreakPolicies = append(policyAgg.CircuitBreakPolicies, &form)
+		}
+	}
+
+	// 5. tagging
+	var taggings []policySchema.PolicyTagging
+	_ = db.Table(config.C.FormatTableName("policy_tagging")).Where("enabled = 1 AND deleted = '0'").Find(&taggings)
+	sort.Slice(taggings, func(i, j int) bool {
+		if taggings[i].Priority != taggings[j].Priority {
+			return taggings[i].Priority < taggings[j].Priority
+		}
+		return taggings[i].CreatedAt.After(taggings[j].CreatedAt)
+	})
+	for i := range taggings {
+		mCode := ""
+		if taggings[i].ModelID != "" {
+			mCode = modelIDToCode[taggings[i].ModelID]
+		}
+		if modelCode != "" && mCode != modelCode && taggings[i].ModelID != "" {
+			continue
+		}
+		scope, modelField := resolveScopeAndModel(taggings[i].ScopeType, taggings[i].ScopeCode, mCode)
+		policyAgg := getOrCreateGroup(scope, modelField)
+		var form policySchema.PolicyTaggingForm
+		if err := taggings[i].ConvertTo(&form); err == nil {
+			policyAgg.TaggingPolicies = append(policyAgg.TaggingPolicies, &form)
+		}
+	}
+
+	// 6. route
+	var routes []policySchema.PolicyRoute
+	_ = db.Table(config.C.FormatTableName("policy_route")).Preload("Details").Where("enabled = 1 AND deleted = '0'").Find(&routes)
+	sort.Slice(routes, func(i, j int) bool {
+		if routes[i].Priority != routes[j].Priority {
+			return routes[i].Priority < routes[j].Priority
+		}
+		return routes[i].CreatedAt.After(routes[j].CreatedAt)
+	})
+	for i := range routes {
+		mCode := ""
+		if routes[i].ModelID != "" {
+			mCode = modelIDToCode[routes[i].ModelID]
+		}
+		if modelCode != "" && mCode != modelCode && routes[i].ModelID != "" {
+			continue
+		}
+		scope, modelField := resolveScopeAndModel(routes[i].ScopeType, routes[i].ScopeCode, mCode)
+		policyAgg := getOrCreateGroup(scope, modelField)
+		var form policySchema.PolicyRouteForm
+		if err := routes[i].ConvertTo(&form); err == nil {
+			policyAgg.RoutePolicies = append(policyAgg.RoutePolicies, &form)
 		}
 	}
 
@@ -372,12 +430,12 @@ func (s *GatewaySync) GetGatewayPolicies(ctx context.Context, modelCode string) 
 		modelQuery = modelQuery.Where("model_code = ?", modelCode)
 	}
 
-	var dbModels []schema.Model
-	_ = modelQuery.Find(&dbModels)
-	for _, m := range dbModels {
+	var dbModelsFiltered []schema.Model
+	_ = modelQuery.Find(&dbModelsFiltered)
+	for _, m := range dbModelsFiltered {
 		scope := "model:" + m.ModelCode
-		model := "*"
-		policyAgg := getOrCreateGroup(scope, model)
+		modelField := "*"
+		policyAgg := getOrCreateGroup(scope, modelField)
 		policyAgg.Billing = &BillingPolicy{
 			InputPrice:         m.InputPrice,
 			OutputPrice:        m.OutputPrice,
@@ -495,18 +553,18 @@ func (s *GatewaySync) GetGatewayApiKeys(ctx context.Context, apiKey string) ([]H
 	return apiKeys, nil
 }
 
-func resolveScopeAndModel(tenantCode, userID, modelCode string) (string, string) {
-	if userID != "" {
+func resolveScopeAndModel(scopeType, scopeCode, modelCode string) (string, string) {
+	if scopeType == "user" && scopeCode != "" {
 		if modelCode != "" {
-			return "user:" + userID, modelCode
+			return "user:" + scopeCode, modelCode
 		}
-		return "user:" + userID, "*"
+		return "user:" + scopeCode, "*"
 	}
-	if tenantCode != "" {
+	if scopeType == "tenant" && scopeCode != "" {
 		if modelCode != "" {
-			return "tenant:" + tenantCode, modelCode
+			return "tenant:" + scopeCode, modelCode
 		}
-		return "tenant:" + tenantCode, "*"
+		return "tenant:" + scopeCode, "*"
 	}
 	if modelCode != "" {
 		return "model:" + modelCode, "*"

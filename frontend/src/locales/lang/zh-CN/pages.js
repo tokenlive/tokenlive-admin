@@ -1254,6 +1254,16 @@ export default {
     'pages.policy.binding.view': '查看绑定',
     'pages.policy.copy': '复制策略',
     'pages.policy.copy.suffix': '副本',
+    'pages.policy.form.priority': '冲突优先级',
+    'pages.policy.form.priority.placeholder': '数值越小越优先',
+    'pages.policy.form.scope_type': '适用维度',
+    'pages.policy.form.scope_type.global': '全局',
+    'pages.policy.form.scope_type.tenant': '租户',
+    'pages.policy.form.scope_type.user': '用户',
+    'pages.policy.form.scope_code.tenant': '适用租户',
+    'pages.policy.form.scope_code.tenant.placeholder': '请输入租户Code',
+    'pages.policy.form.scope_code.user': '适用用户',
+    'pages.policy.form.scope_code.user.placeholder': '请输入用户ID',
 
     // Ops Dashboard（运维看板）
     'pages.ops.title': '运维事件看板',

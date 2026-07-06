@@ -267,38 +267,16 @@ CREATE TABLE IF NOT EXISTS `endpoint`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='Endpoint 定义表，一个 provider 可配置多个上游地址';
 
--- 策略绑定表（解耦多对多绑定）
-CREATE TABLE IF NOT EXISTS `policy_binding`
-(
-    `id`          CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
-    `tenant_code` VARCHAR(64)                                           NOT NULL DEFAULT '' COMMENT '租户唯一英文编码，不限则为空字符串',
-    `user_id`     CHAR(20)                                              NOT NULL DEFAULT '' COMMENT '用户唯一ID (XID)，不限则为空字符串',
-    `model_code`  VARCHAR(64)                                           NOT NULL DEFAULT '' COMMENT '模型唯一编码，不限则为空字符串',
-    `policy_type` VARCHAR(64)                                           NOT NULL COMMENT '策略类型：tagging / loadbalance / invocation / limit / route / circuit_break',
-    `policy_id`   CHAR(20)                                              NOT NULL COMMENT '关联的具体策略表主键 ID (XID)',
-    `priority`    INT                                                   NOT NULL DEFAULT 0 COMMENT '冲突合并时的优先级，数字越小越优先',
-    `description` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '备注描述',
-    `creator`     VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '创建者',
-    `modifier`    VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '修改者',
-    `created_at`  TIMESTAMP                                             NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at`  TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
-    `deleted_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
-    UNIQUE KEY `uniq_dimensions_policy` (`tenant_code`, `user_id`, `model_code`, `policy_type`, `policy_id`, `deleted`),
-    KEY `idx_pb_tenant` (`tenant_code`, `deleted`),
-    KEY `idx_pb_user` (`user_id`, `deleted`),
-    KEY `idx_pb_model` (`model_code`, `deleted`)
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_bin COMMENT ='策略绑定表，管理策略与实体的多对多应用关系';
 
 -- 染色打标策略表
 CREATE TABLE IF NOT EXISTS `policy_tagging`
 (
     `id`          CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
     `model_id`    CHAR(20)                                                       COMMENT '所属模型ID，空表示策略模板',
+    `scope_type`  VARCHAR(32)                                           NOT NULL DEFAULT 'global' COMMENT '适用作用域类型: global/tenant/user等',
+    `scope_code`  VARCHAR(128)                                          NOT NULL DEFAULT '' COMMENT '作用域取值(租户编码/用户ID等)',
+    `priority`    INT                                                   NOT NULL DEFAULT 0 COMMENT '冲突合并时的优先级，数字越小越优先',
     `name`        VARCHAR(128)                                          NOT NULL COMMENT '策略名称',
-    `order`       INT                                                   NOT NULL DEFAULT 0 COMMENT '执行顺序，数字越小越优先',
     `relation`    VARCHAR(16)                                           NOT NULL DEFAULT 'AND' COMMENT '多条件之间的逻辑关系：AND / OR',
     `conditions`  JSON                                                  DEFAULT NULL COMMENT '匹配条件列表，嵌套 Condition 数组',
     `actions`     JSON                                                  DEFAULT NULL COMMENT '染色动作列表，嵌套 TaggingAction 数组',
@@ -311,8 +289,9 @@ CREATE TABLE IF NOT EXISTS `policy_tagging`
     `updated_at`  TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
     `deleted_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
-    UNIQUE KEY `uniq_policy_tagging_model_name_deleted` (`model_id`, `name`, `deleted`),
-    KEY `idx_policy_tagging_model` (`model_id`)
+    UNIQUE KEY `uniq_policy_tagging_dims_name_deleted` (`model_id`, `name`, `deleted`),
+    KEY `idx_policy_tagging_model` (`model_id`),
+    KEY `idx_policy_tagging_scope` (`scope_type`, `scope_code`, `deleted`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='染色打标策略表';
@@ -322,6 +301,9 @@ CREATE TABLE IF NOT EXISTS `policy_loadbalance`
 (
     `id`          CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
     `model_id`    CHAR(20)                                                       COMMENT '所属模型ID，空表示策略模板',
+    `scope_type`  VARCHAR(32)                                           NOT NULL DEFAULT 'global' COMMENT '适用作用域类型: global/tenant/user等',
+    `scope_code`  VARCHAR(128)                                          NOT NULL DEFAULT '' COMMENT '作用域取值(租户编码/用户ID等)',
+    `priority`    INT                                                   NOT NULL DEFAULT 0 COMMENT '冲突合并时的优先级，数字越小越优先',
     `name`        VARCHAR(128)                                          NOT NULL COMMENT '策略名称',
     `type`        VARCHAR(64)                                           NOT NULL COMMENT '负载均衡算法类型，如 ROUND_ROBIN / WEIGHTED / STICKY',
     `version`     BIGINT                                                NOT NULL DEFAULT 1 COMMENT '配置版本号',
@@ -334,8 +316,9 @@ CREATE TABLE IF NOT EXISTS `policy_loadbalance`
     `updated_at`  TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
     `deleted_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
-    UNIQUE KEY `uniq_policy_loadbalance_model_name_deleted` (`model_id`, `name`, `deleted`),
-    KEY `idx_policy_loadbalance_model` (`model_id`)
+    UNIQUE KEY `uniq_policy_loadbalance_dims_name_deleted` (`model_id`, `name`, `deleted`),
+    KEY `idx_policy_loadbalance_model` (`model_id`),
+    KEY `idx_policy_loadbalance_scope` (`scope_type`, `scope_code`, `deleted`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='负载均衡策略表';
@@ -345,6 +328,9 @@ CREATE TABLE IF NOT EXISTS `policy_invocation`
 (
     `id`              CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
     `model_id`        CHAR(20)                                                       COMMENT '所属模型ID，空表示策略模板',
+    `scope_type`      VARCHAR(32)                                           NOT NULL DEFAULT 'global' COMMENT '适用作用域类型: global/tenant/user等',
+    `scope_code`      VARCHAR(128)                                          NOT NULL DEFAULT '' COMMENT '作用域取值(租户编码/用户ID等)',
+    `priority`        INT                                                   NOT NULL DEFAULT 0 COMMENT '冲突合并时的优先级，数字越小越优先',
     `name`            VARCHAR(128)                                          NOT NULL COMMENT '策略名称',
     `type`            VARCHAR(64)                                           NOT NULL DEFAULT 'failover' COMMENT '调用类型：failover,failfast',
     `retry_policy`    JSON                                                           DEFAULT NULL COMMENT '重试策略',
@@ -358,8 +344,9 @@ CREATE TABLE IF NOT EXISTS `policy_invocation`
     `updated_at`      TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`         VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
     `deleted_at`      DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
-    UNIQUE KEY `uniq_policy_invocation_model_name_deleted` (`model_id`, `name`, `deleted`),
-    KEY `idx_policy_invocation_model` (`model_id`)
+    UNIQUE KEY `uniq_policy_invocation_dims_name_deleted` (`model_id`, `name`, `deleted`),
+    KEY `idx_policy_invocation_model` (`model_id`),
+    KEY `idx_policy_invocation_scope` (`scope_type`, `scope_code`, `deleted`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='调用与重试策略表';
@@ -369,6 +356,9 @@ CREATE TABLE IF NOT EXISTS `policy_limit`
 (
     `id`              CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
     `model_id`        CHAR(20)                                                       COMMENT '所属模型ID，空表示策略模板',
+    `scope_type`      VARCHAR(32)                                           NOT NULL DEFAULT 'global' COMMENT '适用作用域类型: global/tenant/user等',
+    `scope_code`      VARCHAR(128)                                          NOT NULL DEFAULT '' COMMENT '作用域取值(租户编码/用户ID等)',
+    `priority`        INT                                                   NOT NULL DEFAULT 0 COMMENT '冲突合并时的优先级，数字越小越优先',
     `name`            VARCHAR(128)                                          NOT NULL COMMENT '策略名称',
     `version`         BIGINT                                                NOT NULL DEFAULT 1 COMMENT '配置版本号',
     `type`            VARCHAR(64)                                           NOT NULL COMMENT '限流维度：request / token / cost',
@@ -386,8 +376,9 @@ CREATE TABLE IF NOT EXISTS `policy_limit`
     `updated_at`      TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`         VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
     `deleted_at`      DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
-    UNIQUE KEY `uniq_policy_limit_model_name_deleted` (`model_id`, `name`, `deleted`),
-    KEY `idx_policy_limit_model` (`model_id`)
+    UNIQUE KEY `uniq_policy_limit_dims_name_deleted` (`model_id`, `name`, `deleted`),
+    KEY `idx_policy_limit_model` (`model_id`),
+    KEY `idx_policy_limit_scope` (`scope_type`, `scope_code`, `deleted`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='限流策略表';
@@ -397,8 +388,10 @@ CREATE TABLE IF NOT EXISTS `policy_route`
 (
     `id`          CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
     `model_id`    CHAR(20)                                                       COMMENT '所属模型ID，空表示策略模板',
+    `scope_type`  VARCHAR(32)                                           NOT NULL DEFAULT 'global' COMMENT '适用作用域类型: global/tenant/user等',
+    `scope_code`  VARCHAR(128)                                          NOT NULL DEFAULT '' COMMENT '作用域取值(租户编码/用户ID等)',
+    `priority`    INT                                                   NOT NULL DEFAULT 0 COMMENT '冲突合并时的优先级，数字越小越优先',
     `name`        VARCHAR(128)                                          NOT NULL COMMENT '策略名称',
-    `order`       INT                                                   NOT NULL DEFAULT 0 COMMENT '执行顺序，数字越小越优先',
     `version`     BIGINT                                                NOT NULL DEFAULT 1 COMMENT '配置版本号',
     `enabled`     INT                                                   NOT NULL DEFAULT 0 COMMENT '启用状态: 0-未启用，1-启用',
     `description` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin         DEFAULT NULL COMMENT '备注描述',
@@ -408,8 +401,9 @@ CREATE TABLE IF NOT EXISTS `policy_route`
     `updated_at`  TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`     VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
     `deleted_at`  DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
-    UNIQUE KEY `uniq_policy_route_model_name_deleted` (`model_id`, `name`, `deleted`),
-    KEY `idx_policy_route_model` (`model_id`)
+    UNIQUE KEY `uniq_policy_route_dims_name_deleted` (`model_id`, `name`, `deleted`),
+    KEY `idx_policy_route_model` (`model_id`),
+    KEY `idx_policy_route_scope` (`scope_type`, `scope_code`, `deleted`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='标签路由策略表';
@@ -439,6 +433,9 @@ CREATE TABLE IF NOT EXISTS `policy_circuit_break`
 (
     `id`                               CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
     `model_id`                         CHAR(20)                                                       COMMENT '所属模型ID，空表示策略模板',
+    `scope_type`                       VARCHAR(32)                                           NOT NULL DEFAULT 'global' COMMENT '适用作用域类型: global/tenant/user等',
+    `scope_code`                       VARCHAR(128)                                          NOT NULL DEFAULT '' COMMENT '作用域取值(租户编码/用户ID等)',
+    `priority`                         INT                                                   NOT NULL DEFAULT 0 COMMENT '冲突合并时的优先级，数字越小越优先',
     `name`                             VARCHAR(128)                                          NOT NULL COMMENT '策略名称',
     `level`                            VARCHAR(64)                                           NOT NULL DEFAULT 'INSTANCE' COMMENT '熔断隔离级别：SERVICE / INSTANCE',
     `sliding_window_type`              VARCHAR(16)                                           NOT NULL DEFAULT 'time' COMMENT '滑动窗口类型：time / count',
@@ -466,8 +463,9 @@ CREATE TABLE IF NOT EXISTS `policy_circuit_break`
     `updated_at`                       TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`                          VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
     `deleted_at`                       DATETIME                                             NULL     DEFAULT NULL COMMENT '逻辑删除时间',
-    UNIQUE KEY `uniq_policy_circuit_break_model_name_deleted` (`model_id`, `name`, `deleted`),
-    KEY `idx_policy_circuit_break_model` (`model_id`)
+    UNIQUE KEY `uniq_policy_circuit_break_dims_name_deleted` (`model_id`, `name`, `deleted`),
+    KEY `idx_policy_circuit_break_model` (`model_id`),
+    KEY `idx_policy_circuit_break_scope` (`scope_type`, `scope_code`, `deleted`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='熔断隔离策略表';

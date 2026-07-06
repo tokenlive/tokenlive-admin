@@ -79,4 +79,3 @@ func TestUnmarshalEnv(t *testing.T) {
 		t.Errorf("Expected DefaultB to be false, got %v", cfg.DefaultB)
 	}
 }
-

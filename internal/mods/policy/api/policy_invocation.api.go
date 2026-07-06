@@ -149,7 +149,7 @@ func (a *PolicyInvocation) CopyToModel(c *gin.Context) {
 		return
 	}
 
-	result, err := a.PolicyInvocationBIZ.CopyTemplateToModel(ctx, c.Param("id"), item.ModelID, item.Name)
+	result, err := a.PolicyInvocationBIZ.CopyTemplateToModel(ctx, c.Param("id"), item)
 	if err != nil {
 		util.ResError(c, err)
 		return

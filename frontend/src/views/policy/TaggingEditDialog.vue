@@ -31,13 +31,13 @@
                 </a-col>
                 <a-col :span="12">
                     <a-form-item
-                        :label="$t('pages.tagging.form.order')"
-                        name="order">
+                        :label="$t('pages.policy.form.priority') || '冲突优先级'"
+                        name="priority">
                         <a-input-number
-                            v-model:value="formData.order"
+                            v-model:value="formData.priority"
                             :min="0"
                             style="width: 100%"
-                            :placeholder="$t('pages.tagging.form.order.placeholder')" />
+                            :placeholder="$t('pages.policy.form.priority.placeholder') || '数值越小越优先'" />
                     </a-form-item>
                 </a-col>
             </a-row>
@@ -65,6 +65,53 @@
                     </a-form-item>
                 </a-col>
             </a-row>
+
+            <!-- 适用范围 -->
+            <a-form-item
+                :label="$t('pages.policy.form.scope_type') || '适用维度'"
+                name="scope_type">
+                <a-select
+                    v-model:value="formData.scope_type"
+                    style="width: 100%">
+                    <a-select-option value="global">{{
+                        $t('pages.policy.form.scope_type.global') || '全局'
+                    }}</a-select-option>
+                    <a-select-option value="tenant">{{
+                        $t('pages.policy.form.scope_type.tenant') || '租户'
+                    }}</a-select-option>
+                    <a-select-option value="user">{{
+                        $t('pages.policy.form.scope_type.user') || '用户'
+                    }}</a-select-option>
+                </a-select>
+            </a-form-item>
+
+            <a-form-item
+                v-if="formData.scope_type !== 'global'"
+                :label="
+                    formData.scope_type === 'tenant'
+                        ? $t('pages.policy.form.scope_code.tenant') || '适用租户'
+                        : $t('pages.policy.form.scope_code.user') || '适用用户'
+                "
+                name="scope_code">
+                <a-input
+                    v-model:value="formData.scope_code"
+                    :placeholder="
+                        formData.scope_type === 'tenant'
+                            ? $t('pages.policy.form.scope_code.tenant.placeholder') || '请输入租户Code'
+                            : $t('pages.policy.form.scope_code.user.placeholder') || '请输入用户ID'
+                    " />
+            </a-form-item>
+
+            <!-- 冲突优先级 -->
+            <a-form-item
+                :label="$t('pages.policy.form.priority') || '冲突优先级'"
+                name="priority">
+                <a-input-number
+                    v-model:value="formData.priority"
+                    :min="0"
+                    :placeholder="$t('pages.policy.form.priority.placeholder') || '数值越小越优先'"
+                    style="width: 100%" />
+            </a-form-item>
 
             <!-- 备注说明 -->
             <a-form-item
@@ -275,10 +322,12 @@ function handleCreate(options = {}) {
         title: options.title || t('pages.tagging.add'),
     })
     formData.value.enabled = 1
-    formData.value.order = 0
     formData.value.relation = 'AND'
     formData.value.conditions = []
     formData.value.actions = []
+    formData.value.scope_type = 'global'
+    formData.value.scope_code = ''
+    formData.value.priority = 0
     formData.value.model_id = options.modelId || ''
 }
 
@@ -301,6 +350,12 @@ async function handleCopy(record = {}) {
         delete cloned.id
         delete cloned.created_at
         delete cloned.updated_at
+        if (!cloned.scope_type) {
+            cloned.scope_type = 'global'
+        }
+        if (!cloned.scope_code) {
+            cloned.scope_code = ''
+        }
         formData.value = cloned
         if (!formData.value.conditions) {
             formData.value.conditions = []
@@ -336,6 +391,12 @@ async function handleEdit(record = {}) {
             message.error(t('component.message.error.save'))
             hideModal()
             return
+        }
+        if (!data.scope_type) {
+            data.scope_type = 'global'
+        }
+        if (!data.scope_code) {
+            data.scope_code = ''
         }
         formRecord.value = data
         formData.value = cloneDeep(data)
@@ -403,11 +464,13 @@ function handleOk() {
                 const params = {
                     ...values,
                     model_id: formData.value.model_id || '',
-                    order: formData.value.order || 0,
                     conditions: formData.value.conditions,
                     actions: formData.value.actions,
                     enabled: formData.value.enabled,
                     description: formData.value.description,
+                    scope_type: formData.value.scope_type || 'global',
+                    scope_code: formData.value.scope_type === 'global' ? '' : formData.value.scope_code || '',
+                    priority: formData.value.priority || 0,
                 }
 
                 let result = null

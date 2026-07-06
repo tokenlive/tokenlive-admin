@@ -13,8 +13,11 @@ import (
 // Circuit break policy management
 type PolicyCircuitBreak struct {
 	ID                          string          `json:"id" gorm:"type:char(20);primaryKey;<-:create;comment:主键ID (XID);"`
-	ModelID                     string          `json:"model_id" gorm:"type:char(20);uniqueIndex:uniq_policy_circuit_break_model_name_deleted,priority:1;index:idx_policy_circuit_break_model;comment:所属模型ID，空表示策略模板;"`
-	Name                        string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_circuit_break_model_name_deleted,priority:2;comment:策略名称;"`
+	ModelID                     string          `json:"model_id" gorm:"type:char(20);uniqueIndex:uniq_policy_circuit_break_dims_name_deleted,priority:1;index:idx_policy_circuit_break_model;comment:所属模型ID，空表示策略模板;"`
+	ScopeType                   string          `json:"scope_type" gorm:"type:varchar(32);not null;default:'global';index:idx_policy_circuit_break_scope,priority:1;comment:适用作用域类型: global/tenant/user等;"`
+	ScopeCode                   string          `json:"scope_code" gorm:"type:varchar(128);not null;default:'';index:idx_policy_circuit_break_scope,priority:2;comment:作用域取值(租户编码/用户ID等);"`
+	Priority                    int             `json:"priority" gorm:"type:int;not null;default:0;comment:冲突合并时的优先级，数字越小越优先;"`
+	Name                        string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_circuit_break_dims_name_deleted,priority:2;comment:策略名称;"`
 	Level                       string          `json:"level" gorm:"type:varchar(64);not null;default:'INSTANCE';comment:熔断隔离级别：SERVICE / INSTANCE;"`
 	SlidingWindowType           string          `json:"sliding_window_type" gorm:"type:varchar(16);not null;default:'time';comment:滑动窗口类型：time / count;"`
 	SlidingWindowSize           int             `json:"sliding_window_size" gorm:"type:int;not null;default:20;comment:滑动窗口大小（次数或秒数）;"`
@@ -39,7 +42,7 @@ type PolicyCircuitBreak struct {
 	Modifier                    *string         `json:"modifier,omitempty" gorm:"type:varchar(255);default:null;comment:修改者;"`
 	CreatedAt                   time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
 	UpdatedAt                   time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
-	Deleted                     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_policy_circuit_break_model_name_deleted,priority:3;comment:逻辑删除标识;"`
+	Deleted                     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_policy_circuit_break_dims_name_deleted,priority:3;index:idx_policy_circuit_break_scope,priority:3;comment:逻辑删除标识;"`
 	DeletedAt                   *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
@@ -51,6 +54,9 @@ func (a PolicyCircuitBreak) TableName() string {
 func (a PolicyCircuitBreak) ConvertTo(form *PolicyCircuitBreakForm) error {
 	form.ID = a.ID
 	form.ModelID = a.ModelID
+	form.ScopeType = a.ScopeType
+	form.ScopeCode = a.ScopeCode
+	form.Priority = a.Priority
 	form.Name = a.Name
 	form.Level = a.Level
 	form.SlidingWindowType = a.SlidingWindowType
@@ -132,6 +138,9 @@ type PolicyCircuitBreaks []*PolicyCircuitBreak
 type PolicyCircuitBreakForm struct {
 	ID                          string             `json:"id"`
 	ModelID                     string             `json:"model_id" binding:"max=20"`                     // Owner model ID; empty means template
+	ScopeType                   string             `json:"scope_type" binding:"max=32"`                  // Scope type
+	ScopeCode                   string             `json:"scope_code" binding:"max=128"`                 // Scope code
+	Priority                    int                `json:"priority" binding:"min=0"`                      // Priority
 	Name                        string             `json:"name" binding:"required,max=128"`               // Policy name
 	Level                       string             `json:"level" binding:"required,max=64"`               // Policy level
 	SlidingWindowType           string             `json:"sliding_window_type" binding:"required,max=16"` // Sliding window type
@@ -179,6 +188,9 @@ func (a *PolicyCircuitBreakForm) Validate() error {
 // Convert `PolicyCircuitBreakForm` to `PolicyCircuitBreak` object.
 func (a *PolicyCircuitBreakForm) FillTo(policyCircuitBreak *PolicyCircuitBreak) error {
 	policyCircuitBreak.ModelID = a.ModelID
+	policyCircuitBreak.ScopeType = a.ScopeType
+	policyCircuitBreak.ScopeCode = a.ScopeCode
+	policyCircuitBreak.Priority = a.Priority
 	policyCircuitBreak.Name = a.Name
 	policyCircuitBreak.Level = a.Level
 	policyCircuitBreak.SlidingWindowType = a.SlidingWindowType

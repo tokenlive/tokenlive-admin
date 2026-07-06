@@ -353,6 +353,12 @@
                                 }}
                             </a-tag>
                         </template>
+                        <template v-if="'scope_type' === column.key">
+                            <span v-if="record.scope_type === 'global'">全局</span>
+                            <span v-else-if="record.scope_type === 'tenant'">租户</span>
+                            <span v-else-if="record.scope_type === 'user'">用户</span>
+                            <span v-else>-</span>
+                        </template>
                         <template v-if="'created_at' === column.key">
                             {{ formatUtcDateTime(record.created_at) }}
                         </template>
@@ -509,6 +515,43 @@
                         v-model:value="copyTemplateModal.name"
                         :placeholder="$t('pages.model.policy.copyTemplate.newPolicyNamePlaceholder')" />
                 </a-form-item>
+                <a-form-item :label="$t('pages.policy.form.scope_type') || '适用维度'">
+                    <a-select
+                        v-model:value="copyTemplateModal.scope_type"
+                        style="width: 100%">
+                        <a-select-option value="global">{{
+                            $t('pages.policy.form.scope_type.global') || '全局'
+                        }}</a-select-option>
+                        <a-select-option value="tenant">{{
+                            $t('pages.policy.form.scope_type.tenant') || '租户'
+                        }}</a-select-option>
+                        <a-select-option value="user">{{
+                            $t('pages.policy.form.scope_type.user') || '用户'
+                        }}</a-select-option>
+                    </a-select>
+                </a-form-item>
+                <a-form-item
+                    v-if="copyTemplateModal.scope_type !== 'global'"
+                    :label="
+                        copyTemplateModal.scope_type === 'tenant'
+                            ? $t('pages.policy.form.scope_code.tenant') || '适用租户'
+                            : $t('pages.policy.form.scope_code.user') || '适用用户'
+                    ">
+                    <a-input
+                        v-model:value="copyTemplateModal.scope_code"
+                        :placeholder="
+                            copyTemplateModal.scope_type === 'tenant'
+                                ? $t('pages.policy.form.scope_code.tenant.placeholder') || '请输入租户Code'
+                                : $t('pages.policy.form.scope_code.user.placeholder') || '请输入用户ID'
+                        " />
+                </a-form-item>
+                <a-form-item :label="$t('pages.policy.form.priority') || '冲突优先级'">
+                    <a-input-number
+                        v-model:value="copyTemplateModal.priority"
+                        :min="0"
+                        style="width: 100%"
+                        :placeholder="$t('pages.policy.form.priority.placeholder') || '数值越小越优先'" />
+                </a-form-item>
             </a-form>
         </a-modal>
 
@@ -571,6 +614,9 @@ const copyTemplateModal = reactive({
     loading: false,
     templateId: undefined,
     name: '',
+    scope_type: 'global',
+    scope_code: '',
+    priority: undefined,
 })
 
 const hasPermission = (permission, bit) => {
@@ -686,6 +732,22 @@ const modelPolicyColumns = [
         title: t('pages.model.form.description'),
         dataIndex: 'description',
         ellipsis: true,
+    },
+    {
+        title: '适用维度',
+        key: 'scope_type',
+        width: 120,
+    },
+    {
+        title: '维度取值',
+        dataIndex: 'scope_code',
+        ellipsis: true,
+        width: 150,
+    },
+    {
+        title: '优先级',
+        dataIndex: 'priority',
+        width: 80,
     },
     {
         title: t('pages.model.form.created_at'),
@@ -995,6 +1057,9 @@ async function handleOpenCopyTemplate() {
         }
         copyTemplateModal.templateId = undefined
         copyTemplateModal.name = ''
+        copyTemplateModal.scope_type = 'global'
+        copyTemplateModal.scope_code = ''
+        copyTemplateModal.priority = undefined
         copyTemplateModal.open = true
     } catch (error) {
         message.error(t('component.message.error.search'))
@@ -1012,6 +1077,9 @@ async function handleCopyTemplateToModel() {
         const { success } = await copyApi(copyTemplateModal.templateId, {
             model_id: modelId.value,
             name: copyTemplateModal.name || undefined,
+            scope_type: copyTemplateModal.scope_type || 'global',
+            scope_code: copyTemplateModal.scope_type === 'global' ? '' : copyTemplateModal.scope_code || '',
+            priority: copyTemplateModal.priority !== undefined ? copyTemplateModal.priority : undefined,
         }).catch(() => {
             throw new Error()
         })

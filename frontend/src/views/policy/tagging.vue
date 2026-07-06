@@ -143,7 +143,7 @@ const columns = [
             showTitle: true,
         },
     },
-    { title: t('pages.tagging.form.order'), dataIndex: 'order', width: 130 },
+    { title: t('pages.policy.form.priority') || '冲突优先级', dataIndex: 'priority', width: 130 },
     {
         title: t('pages.tagging.form.relation'),
         dataIndex: 'relation',

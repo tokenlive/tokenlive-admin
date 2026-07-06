@@ -20,7 +20,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestPolicyDeleteRemovesInternalBinding(t *testing.T) {
+func TestPolicyDelete(t *testing.T) {
 	db := newPolicyDeleteTestDB(t)
 	biz := newPolicyLoadbalanceDeleteTestBiz(db)
 	createModelWithPermission(t, db, "model-1", "model-code", "alice", "tenant-a", 0b111)
@@ -32,14 +32,6 @@ func TestPolicyDeleteRemovesInternalBinding(t *testing.T) {
 		Deleted:   "0",
 		CreatedAt: time.Now(),
 	}).Error)
-	require.NoError(t, db.Create(&schema.PolicyBinding{
-		ID:         "binding-1",
-		ModelCode:  "model-code",
-		PolicyType: "loadbalance",
-		PolicyID:   "policy-1",
-		Deleted:    "0",
-		CreatedAt:  time.Now(),
-	}).Error)
 
 	err := biz.Delete(newPolicyDeleteTestContext(), "policy-1")
 
@@ -48,10 +40,6 @@ func TestPolicyDeleteRemovesInternalBinding(t *testing.T) {
 	var policy schema.PolicyLoadbalance
 	require.NoError(t, db.Unscoped().First(&policy, "id = ?", "policy-1").Error)
 	require.NotEqual(t, "0", policy.Deleted)
-
-	var bindings int64
-	require.NoError(t, db.Model(&schema.PolicyBinding{}).Where("policy_type = ? AND policy_id = ? AND deleted = '0'", "loadbalance", "policy-1").Count(&bindings).Error)
-	require.Equal(t, int64(0), bindings)
 }
 
 func newPolicyDeleteTestDB(t *testing.T) *gorm.DB {
@@ -62,7 +50,6 @@ func newPolicyDeleteTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(
 		&schema.PolicyLoadbalance{},
-		&schema.PolicyBinding{},
 		&resourceSchema.Model{},
 		&resourceSchema.DataPermission{},
 		&opsSchema.AuditLog{},
@@ -75,7 +62,6 @@ func newPolicyLoadbalanceDeleteTestBiz(db *gorm.DB) *PolicyLoadbalance {
 	return &PolicyLoadbalance{
 		Trans:                trans,
 		PolicyLoadbalanceDAL: &dal.PolicyLoadbalance{DB: db},
-		PolicyBindingDAL:     &dal.PolicyBinding{DB: db},
 		PolicyRedisSync:      &PolicyRedisSync{},
 		ModelDAL:             &resourceDal.Model{DB: db},
 		DataPermissionDAL:    &resourceDal.DataPermission{DB: db},

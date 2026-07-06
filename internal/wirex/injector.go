@@ -135,4 +135,3 @@ func InitHTTPClient() *http.Client {
 		Timeout: 30 * time.Second,
 	}
 }
-

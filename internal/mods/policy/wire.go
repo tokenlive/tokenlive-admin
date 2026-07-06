@@ -29,10 +29,6 @@ var Set = wire.NewSet(
 	wire.Struct(new(biz.PolicyInvocation), "*"),
 	wire.Struct(new(api.PolicyInvocation), "*"),
 
-	wire.Struct(new(dal.PolicyBinding), "*"),
-	wire.Struct(new(biz.PolicyBinding), "*"),
-	wire.Struct(new(api.PolicyBinding), "*"),
-
 	wire.Struct(new(dal.PolicyTagging), "*"),
 	wire.Struct(new(biz.PolicyTagging), "*"),
 	wire.Struct(new(api.PolicyTagging), "*"),

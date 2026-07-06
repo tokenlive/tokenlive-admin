@@ -30,9 +30,11 @@ type TaggingAction struct {
 // PolicyTagging 流量染色策略表
 type PolicyTagging struct {
 	ID          string          `json:"id" gorm:"type:char(20);primaryKey;<-:create;comment:主键ID (XID);"`
-	ModelID     string          `json:"model_id" gorm:"type:char(20);uniqueIndex:uniq_policy_tagging_model_name_deleted,priority:1;index:idx_policy_tagging_model;comment:所属模型ID，空表示策略模板;"`
-	Name        string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_tagging_model_name_deleted,priority:2;comment:策略名称;"`
-	Order       int             `json:"order" gorm:"type:int;not null;default:0;comment:执行顺序，数字越小越优先;"`
+	ModelID     string          `json:"model_id" gorm:"type:char(20);uniqueIndex:uniq_policy_tagging_dims_name_deleted,priority:1;index:idx_policy_tagging_model;comment:所属模型ID，空表示策略模板;"`
+	ScopeType   string          `json:"scope_type" gorm:"type:varchar(32);not null;default:'global';index:idx_policy_tagging_scope,priority:1;comment:适用作用域类型: global/tenant/user等;"`
+	ScopeCode   string          `json:"scope_code" gorm:"type:varchar(128);not null;default:'';index:idx_policy_tagging_scope,priority:2;comment:作用域取值(租户编码/用户ID等);"`
+	Priority    int             `json:"priority" gorm:"type:int;not null;default:0;comment:冲突合并时的优先级，数字越小越优先;"`
+	Name        string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_tagging_dims_name_deleted,priority:2;comment:策略名称;"`
 	Relation    string          `json:"relation" gorm:"type:varchar(16);not null;default:'AND';comment:多条件之间的逻辑关系：AND / OR;"`
 	Conditions  *string         `json:"conditions,omitempty" gorm:"type:json;default:null;comment:匹配条件列表，嵌套 Condition 数组;"`
 	Actions     *string         `json:"actions,omitempty" gorm:"type:json;default:null;comment:染色动作列表，嵌套 TaggingAction 数组;"`
@@ -43,7 +45,7 @@ type PolicyTagging struct {
 	Modifier    *string         `json:"modifier,omitempty" gorm:"type:varchar(255);default:null;comment:修改者;"`
 	CreatedAt   time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
 	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
-	Deleted     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_policy_tagging_model_name_deleted,priority:3;comment:逻辑删除标识;"`
+	Deleted     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_policy_tagging_dims_name_deleted,priority:3;index:idx_policy_tagging_scope,priority:3;comment:逻辑删除标识;"`
 	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
@@ -55,8 +57,10 @@ func (a PolicyTagging) TableName() string {
 func (a PolicyTagging) ConvertTo(form *PolicyTaggingForm) error {
 	form.ID = a.ID
 	form.ModelID = a.ModelID
+	form.ScopeType = a.ScopeType
+	form.ScopeCode = a.ScopeCode
+	form.Priority = a.Priority
 	form.Name = a.Name
-	form.Order = a.Order
 	form.Relation = a.Relation
 	if !util.IsNilOrEmpty(a.Conditions) {
 		conditions := make([]TagCondition, 0)
@@ -103,8 +107,10 @@ type PolicyTaggings []*PolicyTagging
 type PolicyTaggingForm struct {
 	ID          string           `json:"id"`
 	ModelID     string           `json:"model_id" binding:"max=20"`                // Owner model ID; empty means template
+	ScopeType   string           `json:"scope_type" binding:"max=32"`             // Scope type
+	ScopeCode   string           `json:"scope_code" binding:"max=128"`            // Scope code
+	Priority    int              `json:"priority" binding:"min=0"`                 // Priority
 	Name        string           `json:"name" binding:"required,max=128"`          // Policy name
-	Order       int              `json:"order"`                                    // Execution order
 	Relation    string           `json:"relation" binding:"required,oneof=AND OR"` // Relation type
 	Conditions  *[]TagCondition  `json:"conditions"`                               // Match conditions
 	Actions     *[]TaggingAction `json:"actions"`                                  // Tagging actions
@@ -152,8 +158,10 @@ func (a *PolicyTaggingForm) Validate() error {
 // Convert `PolicyTaggingForm` to `PolicyTagging` object.
 func (a *PolicyTaggingForm) FillTo(policyTagging *PolicyTagging) error {
 	policyTagging.ModelID = a.ModelID
+	policyTagging.ScopeType = a.ScopeType
+	policyTagging.ScopeCode = a.ScopeCode
+	policyTagging.Priority = a.Priority
 	policyTagging.Name = a.Name
-	policyTagging.Order = a.Order
 	policyTagging.Relation = a.Relation
 	policyTagging.Conditions = func() *string {
 		if a.Conditions == nil {

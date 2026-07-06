@@ -149,7 +149,7 @@ func (a *PolicyCircuitBreak) CopyToModel(c *gin.Context) {
 		return
 	}
 
-	result, err := a.PolicyCircuitBreakBIZ.CopyTemplateToModel(ctx, c.Param("id"), item.ModelID, item.Name)
+	result, err := a.PolicyCircuitBreakBIZ.CopyTemplateToModel(ctx, c.Param("id"), item)
 	if err != nil {
 		util.ResError(c, err)
 		return

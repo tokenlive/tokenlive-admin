@@ -81,8 +81,8 @@ func (a *PolicyLoadbalance) Exists(ctx context.Context, id string) (bool, error)
 	return ok, errors.WithStack(err)
 }
 
-// ExistsByName checks whether a policy loadbalance with the given model and name already exists.
-func (a *PolicyLoadbalance) ExistsByName(ctx context.Context, modelID, name string) (bool, error) {
+// ExistsByName checks whether a policy loadbalance with the given scope and name already exists.
+func (a *PolicyLoadbalance) ExistsByName(ctx context.Context, scopeType, scopeCode, modelID, name string) (bool, error) {
 	db := GetPolicyLoadbalanceDB(ctx, a.DB).Where("name = ?", name)
 	if modelID == "" {
 		db = db.Where("model_id = '' OR model_id IS NULL")

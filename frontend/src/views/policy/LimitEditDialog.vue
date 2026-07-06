@@ -309,6 +309,52 @@
                     :un-checked-children="$t('pages.limit.form.enabled.inactive')" />
             </a-form-item>
 
+            <a-form-item
+                :label="$t('pages.policy.form.scope_type') || '适用维度'"
+                name="scope_type">
+                <a-select
+                    v-model:value="formData.scope_type"
+                    style="width: 100%">
+                    <a-select-option value="global">{{
+                        $t('pages.policy.form.scope_type.global') || '全局'
+                    }}</a-select-option>
+                    <a-select-option value="tenant">{{
+                        $t('pages.policy.form.scope_type.tenant') || '租户'
+                    }}</a-select-option>
+                    <a-select-option value="user">{{
+                        $t('pages.policy.form.scope_type.user') || '用户'
+                    }}</a-select-option>
+                </a-select>
+            </a-form-item>
+
+            <a-form-item
+                v-if="formData.scope_type !== 'global'"
+                :label="
+                    formData.scope_type === 'tenant'
+                        ? $t('pages.policy.form.scope_code.tenant') || '适用租户'
+                        : $t('pages.policy.form.scope_code.user') || '适用用户'
+                "
+                name="scope_code">
+                <a-input
+                    v-model:value="formData.scope_code"
+                    :placeholder="
+                        formData.scope_type === 'tenant'
+                            ? $t('pages.policy.form.scope_code.tenant.placeholder') || '请输入租户Code'
+                            : $t('pages.policy.form.scope_code.user.placeholder') || '请输入用户ID'
+                    " />
+            </a-form-item>
+
+            <!-- 冲突优先级 -->
+            <a-form-item
+                :label="$t('pages.policy.form.priority') || '冲突优先级'"
+                name="priority">
+                <a-input-number
+                    v-model:value="formData.priority"
+                    :min="0"
+                    :placeholder="$t('pages.policy.form.priority.placeholder') || '数值越小越优先'"
+                    style="width: 100%" />
+            </a-form-item>
+
             <!-- 描述 -->
             <a-form-item
                 :label="$t('pages.limit.form.description')"
@@ -480,6 +526,9 @@ function handleCreate(options = {}) {
         max_queue_time_seconds: 1,
         enabled: 0,
         description: '',
+        scope_type: 'global',
+        scope_code: '',
+        priority: 0,
     }
     showModal({
         type: 'create',
@@ -581,6 +630,12 @@ function populateFormData(cloned) {
         cloned.limit_by = ['tenant', 'model'] // 兜底默认值
     }
 
+    if (!cloned.scope_type) {
+        cloned.scope_type = 'global'
+    }
+    if (!cloned.scope_code) {
+        cloned.scope_code = ''
+    }
     formData.value = cloned
 }
 
@@ -616,6 +671,9 @@ function handleOk() {
                     max_wait_ms: maxWaitMs,
                     enabled: formData.value.enabled,
                     description: formData.value.description,
+                    scope_type: formData.value.scope_type || 'global',
+                    scope_code: formData.value.scope_type === 'global' ? '' : formData.value.scope_code || '',
+                    priority: formData.value.priority || 0,
                 }
 
                 let result = null

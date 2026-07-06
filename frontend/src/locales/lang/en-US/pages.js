@@ -1278,6 +1278,16 @@ export default {
     'pages.policy.binding.view': 'View Bindings',
     'pages.policy.copy': 'Copy Policy',
     'pages.policy.copy.suffix': 'Copy',
+    'pages.policy.form.priority': 'Priority',
+    'pages.policy.form.priority.placeholder': 'Smaller value has higher priority',
+    'pages.policy.form.scope_type': 'Scope Dimension',
+    'pages.policy.form.scope_type.global': 'Global',
+    'pages.policy.form.scope_type.tenant': 'Tenant',
+    'pages.policy.form.scope_type.user': 'User',
+    'pages.policy.form.scope_code.tenant': 'Target Tenant',
+    'pages.policy.form.scope_code.tenant.placeholder': 'Please enter tenant code',
+    'pages.policy.form.scope_code.user': 'Target User',
+    'pages.policy.form.scope_code.user.placeholder': 'Please enter user ID',
 
     // Ops Dashboard
     'pages.ops.title': 'Operations Events',

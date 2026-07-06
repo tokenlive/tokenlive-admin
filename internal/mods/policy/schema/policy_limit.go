@@ -19,8 +19,11 @@ type Estimator struct {
 // Limit policy management
 type PolicyLimit struct {
 	ID             string          `json:"id" gorm:"type:char(20);primaryKey;<-:create;comment:主键ID (XID);"`
-	ModelID        string          `json:"model_id" gorm:"type:char(20);uniqueIndex:uniq_policy_limit_model_name_deleted,priority:1;index:idx_policy_limit_model;comment:所属模型ID，空表示策略模板;"`
-	Name           string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_limit_model_name_deleted,priority:2;comment:策略名称;"`
+	ModelID        string          `json:"model_id" gorm:"type:char(20);uniqueIndex:uniq_policy_limit_dims_name_deleted,priority:1;index:idx_policy_limit_model;comment:所属模型ID，空表示策略模板;"`
+	ScopeType      string          `json:"scope_type" gorm:"type:varchar(32);not null;default:'global';index:idx_policy_limit_scope,priority:1;comment:适用作用域类型: global/tenant/user等;"`
+	ScopeCode      string          `json:"scope_code" gorm:"type:varchar(128);not null;default:'';index:idx_policy_limit_scope,priority:2;comment:作用域取值(租户编码/用户ID等);"`
+	Priority       int             `json:"priority" gorm:"type:int;not null;default:0;comment:冲突合并时的优先级，数字越小越优先;"`
+	Name           string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_limit_dims_name_deleted,priority:2;comment:策略名称;"`
 	Version        int64           `json:"version" gorm:"type:bigint;not null;default:1;comment:配置版本号;"`
 	Type           string          `json:"type" gorm:"type:varchar(64);not null;comment:限流维度：request / token / cost;"`
 	MaxWaitMs      int             `json:"max_wait_ms" gorm:"type:int;not null;default:0;comment:排队等待最大时间（毫秒）;"`
@@ -35,7 +38,7 @@ type PolicyLimit struct {
 	Modifier       *string         `json:"modifier,omitempty" gorm:"type:varchar(255);default:null;comment:修改者;"`
 	CreatedAt      time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
 	UpdatedAt      time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
-	Deleted        string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_policy_limit_model_name_deleted,priority:3;comment:逻辑删除标识;"`
+	Deleted        string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_policy_limit_dims_name_deleted,priority:3;index:idx_policy_limit_scope,priority:3;comment:逻辑删除标识;"`
 	DeletedAt      *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
@@ -47,6 +50,9 @@ func (a PolicyLimit) TableName() string {
 func (a PolicyLimit) ConvertTo(limit *PolicyLimitForm) error {
 	limit.ID = a.ID
 	limit.ModelID = a.ModelID
+	limit.ScopeType = a.ScopeType
+	limit.ScopeCode = a.ScopeCode
+	limit.Priority = a.Priority
 	limit.Name = a.Name
 	limit.Version = a.Version
 	limit.Type = a.Type
@@ -106,6 +112,9 @@ type PolicyLimits []*PolicyLimit
 type PolicyLimitForm struct {
 	ID             string           `json:"id"`
 	ModelID        string           `json:"model_id" binding:"max=20"`               // Owner model ID; empty means template
+	ScopeType      string           `json:"scope_type" binding:"max=32"`             // Scope type
+	ScopeCode      string           `json:"scope_code" binding:"max=128"`            // Scope code
+	Priority       int              `json:"priority" binding:"min=0"`                // Priority
 	Name           string           `json:"name" binding:"required,max=128"`         // Policy name
 	Version        int64            `json:"version"`                                 // Version
 	Type           string           `json:"type" binding:"required,max=64"`          // Limit dimension: request / token / cost
@@ -140,6 +149,9 @@ func (a *PolicyLimitForm) Validate() error {
 // Convert `PolicyLimitForm` to `PolicyLimit` object.
 func (a *PolicyLimitForm) FillTo(policyLimit *PolicyLimit) error {
 	policyLimit.ModelID = a.ModelID
+	policyLimit.ScopeType = a.ScopeType
+	policyLimit.ScopeCode = a.ScopeCode
+	policyLimit.Priority = a.Priority
 	policyLimit.Name = a.Name
 	policyLimit.Type = a.Type
 	policyLimit.MaxWaitMs = a.MaxWaitMs

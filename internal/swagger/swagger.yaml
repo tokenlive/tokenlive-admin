@@ -115,9 +115,11 @@ definitions:
           type: integer
         type: array
     type: object
-  api.bindWorkspaceTenantRequest:
+  api.activateWorkspaceRuntimeAccessRequest:
     properties:
-      tenant_code:
+      scope_code:
+        type: string
+      scope_type:
         type: string
     type: object
   biz.PortalUserResult:
@@ -148,6 +150,29 @@ definitions:
       status:
         type: string
       updated_at:
+        type: string
+    type: object
+  biz.PortalWorkspaceRuntimeAccess:
+    properties:
+      activated_at:
+        type: string
+      activated_by:
+        type: string
+      created_at:
+        type: string
+      disabled_at:
+        type: string
+      disabled_by:
+        type: string
+      scope_code:
+        type: string
+      scope_type:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      workspace_id:
         type: string
     type: object
   github_com_tokenlive_tokenlive-admin_pkg_errors.Error:
@@ -1150,76 +1175,6 @@ definitions:
     - OpType_NOT_IN
     - OpType_REGULAR
     - OpType_PREFIX
-  schema.PolicyBinding:
-    properties:
-      created_at:
-        type: string
-      creator:
-        type: string
-      description:
-        type: string
-      id:
-        type: string
-      model_code:
-        type: string
-      modifier:
-        type: string
-      policy_id:
-        type: string
-      policy_type:
-        type: string
-      priority:
-        type: integer
-      tenant_code:
-        type: string
-      updated_at:
-        type: string
-      user_id:
-        type: string
-    type: object
-  schema.PolicyBindingForm:
-    properties:
-      created_at:
-        type: string
-      creator:
-        type: string
-      description:
-        maxLength: 255
-        type: string
-      id:
-        type: string
-      model_code:
-        maxLength: 64
-        type: string
-      modifier:
-        type: string
-      policy_id:
-        maxLength: 20
-        type: string
-      policy_type:
-        enum:
-        - tagging
-        - loadbalance
-        - invocation
-        - limit
-        - route
-        - circuit_break
-        type: string
-      priority:
-        minimum: 0
-        type: integer
-      tenant_code:
-        maxLength: 64
-        type: string
-      updated_at:
-        type: string
-      user_id:
-        maxLength: 20
-        type: string
-    required:
-    - policy_id
-    - policy_type
-    type: object
   schema.PolicyCircuitBreak:
     properties:
       allowed_calls_in_half_open_state:
@@ -1260,6 +1215,12 @@ definitions:
         type: string
       outlier_max_percent:
         type: integer
+      priority:
+        type: integer
+      scope_code:
+        type: string
+      scope_type:
+        type: string
       sliding_window_size:
         type: integer
       sliding_window_type:
@@ -1345,6 +1306,18 @@ definitions:
       outlier_max_percent:
         description: Outlier max percent
         type: integer
+      priority:
+        description: Priority
+        minimum: 0
+        type: integer
+      scope_code:
+        description: Scope code
+        maxLength: 128
+        type: string
+      scope_type:
+        description: Scope type
+        maxLength: 32
+        type: string
       sliding_window_size:
         description: Sliding window size
         type: integer
@@ -1383,6 +1356,15 @@ definitions:
       name:
         maxLength: 128
         type: string
+      priority:
+        minimum: 0
+        type: integer
+      scope_code:
+        maxLength: 128
+        type: string
+      scope_type:
+        maxLength: 32
+        type: string
     required:
     - model_id
     type: object
@@ -1406,7 +1388,13 @@ definitions:
         type: string
       name:
         type: string
+      priority:
+        type: integer
       retry_policy:
+        type: string
+      scope_code:
+        type: string
+      scope_type:
         type: string
       type:
         type: string
@@ -1446,10 +1434,22 @@ definitions:
         description: Policy name
         maxLength: 128
         type: string
+      priority:
+        description: Priority
+        minimum: 0
+        type: integer
       retry_policy:
         allOf:
         - $ref: '#/definitions/schema.RetryPolicy'
         description: Retry policy
+      scope_code:
+        description: Scope code
+        maxLength: 128
+        type: string
+      scope_type:
+        description: Scope type
+        maxLength: 32
+        type: string
       type:
         description: Invocation type (failfast | failover)
         maxLength: 64
@@ -1490,7 +1490,13 @@ definitions:
         type: string
       name:
         type: string
+      priority:
+        type: integer
       relation_type:
+        type: string
+      scope_code:
+        type: string
+      scope_type:
         type: string
       sliding_windows:
         type: string
@@ -1545,9 +1551,21 @@ definitions:
         description: Policy name
         maxLength: 128
         type: string
+      priority:
+        description: Priority
+        minimum: 0
+        type: integer
       relation_type:
         description: 'Relation type: AND / OR'
         maxLength: 16
+        type: string
+      scope_code:
+        description: Scope code
+        maxLength: 128
+        type: string
+      scope_type:
+        description: Scope type
+        maxLength: 32
         type: string
       sliding_windows:
         description: Sliding windows (JSON)
@@ -1591,6 +1609,12 @@ definitions:
         items:
           type: integer
         type: array
+      priority:
+        type: integer
+      scope_code:
+        type: string
+      scope_type:
+        type: string
       type:
         type: string
       updated_at:
@@ -1630,6 +1654,18 @@ definitions:
         items:
           type: integer
         type: array
+      priority:
+        description: Priority
+        minimum: 0
+        type: integer
+      scope_code:
+        description: Scope code
+        maxLength: 128
+        type: string
+      scope_type:
+        description: Scope type
+        maxLength: 32
+        type: string
       type:
         description: Loadbalance policy type
         maxLength: 64
@@ -1666,8 +1702,12 @@ definitions:
         type: string
       name:
         type: string
-      order:
+      priority:
         type: integer
+      scope_code:
+        type: string
+      scope_type:
+        type: string
       updated_at:
         type: string
       version:
@@ -1770,9 +1810,18 @@ definitions:
         description: Policy name
         maxLength: 128
         type: string
-      order:
-        description: Sort order
+      priority:
+        description: Priority
+        minimum: 0
         type: integer
+      scope_code:
+        description: Scope code
+        maxLength: 128
+        type: string
+      scope_type:
+        description: Scope type
+        maxLength: 32
+        type: string
       updated_at:
         description: Update timestamp
         type: string
@@ -1804,9 +1853,13 @@ definitions:
         type: string
       name:
         type: string
-      order:
+      priority:
         type: integer
       relation:
+        type: string
+      scope_code:
+        type: string
+      scope_type:
         type: string
       updated_at:
         type: string
@@ -1853,14 +1906,23 @@ definitions:
         description: Policy name
         maxLength: 128
         type: string
-      order:
-        description: Execution order
+      priority:
+        description: Priority
+        minimum: 0
         type: integer
       relation:
         description: Relation type
         enum:
         - AND
         - OR
+        type: string
+      scope_code:
+        description: Scope code
+        maxLength: 128
+        type: string
+      scope_type:
+        description: Scope type
+        maxLength: 32
         type: string
       updated_at:
         description: Update timestamp
@@ -4895,20 +4957,50 @@ paths:
       summary: List portal workspace API keys
       tags:
       - PortalUserAPI
-  /api/v1/ops/portal/workspaces/{workspace_id}/bind-tenant:
-    post:
+  /api/v1/ops/portal/workspaces/{workspace_id}/runtime-access:
+    get:
       parameters:
       - description: workspace ID
         in: path
         name: workspace_id
         required: true
         type: string
-      - description: tenant code
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/biz.PortalWorkspaceRuntimeAccess'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Get portal workspace runtime access
+      tags:
+      - PortalUserAPI
+    put:
+      parameters:
+      - description: workspace ID
+        in: path
+        name: workspace_id
+        required: true
+        type: string
+      - description: runtime access scope
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/api.bindWorkspaceTenantRequest'
+          $ref: '#/definitions/api.activateWorkspaceRuntimeAccessRequest'
       responses:
         "200":
           description: OK
@@ -4928,7 +5020,33 @@ paths:
             $ref: '#/definitions/util.ResponseResult'
       security:
       - ApiKeyAuth: []
-      summary: Bind portal workspace to admin tenant
+      summary: Activate portal workspace runtime access
+      tags:
+      - PortalUserAPI
+  /api/v1/ops/portal/workspaces/{workspace_id}/runtime-access/disable:
+    post:
+      parameters:
+      - description: workspace ID
+        in: path
+        name: workspace_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Disable portal workspace runtime access
       tags:
       - PortalUserAPI
   /api/v1/ops/portal/workspaces/{workspace_id}/runtime-sync:
@@ -4957,185 +5075,6 @@ paths:
       summary: Sync portal workspace API keys to gateway runtime
       tags:
       - PortalUserAPI
-  /api/v1/ops/portal/workspaces/{workspace_id}/unbind-tenant:
-    post:
-      parameters:
-      - description: workspace ID
-        in: path
-        name: workspace_id
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-      security:
-      - ApiKeyAuth: []
-      summary: Unbind portal workspace tenant
-      tags:
-      - PortalUserAPI
-  /api/v1/policy/policy-bindings:
-    get:
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/util.ResponseResult'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/schema.PolicyBinding'
-                  type: array
-              type: object
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-      security:
-      - ApiKeyAuth: []
-      summary: Query policy binding list
-      tags:
-      - PolicyBindingAPI
-    post:
-      parameters:
-      - description: Request body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/schema.PolicyBindingForm'
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/util.ResponseResult'
-            - properties:
-                data:
-                  $ref: '#/definitions/schema.PolicyBinding'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-      security:
-      - ApiKeyAuth: []
-      summary: Create policy binding record
-      tags:
-      - PolicyBindingAPI
-  /api/v1/policy/policy-bindings/{id}:
-    delete:
-      parameters:
-      - description: unique id
-        in: path
-        name: id
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-      security:
-      - ApiKeyAuth: []
-      summary: Delete policy binding record by ID
-      tags:
-      - PolicyBindingAPI
-    get:
-      parameters:
-      - description: unique id
-        in: path
-        name: id
-        required: true
-        type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/util.ResponseResult'
-            - properties:
-                data:
-                  $ref: '#/definitions/schema.PolicyBindingForm'
-              type: object
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-      security:
-      - ApiKeyAuth: []
-      summary: Get policy binding record by ID
-      tags:
-      - PolicyBindingAPI
-    put:
-      parameters:
-      - description: unique id
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Request body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/schema.PolicyBindingForm'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-      security:
-      - ApiKeyAuth: []
-      summary: Update policy binding record by ID
-      tags:
-      - PolicyBindingAPI
   /api/v1/policy/policy-circuit-breaks:
     get:
       responses:

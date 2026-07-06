@@ -149,7 +149,7 @@ func (a *PolicyLoadbalance) CopyToModel(c *gin.Context) {
 		return
 	}
 
-	result, err := a.PolicyLoadbalanceBIZ.CopyTemplateToModel(ctx, c.Param("id"), item.ModelID, item.Name)
+	result, err := a.PolicyLoadbalanceBIZ.CopyTemplateToModel(ctx, c.Param("id"), item)
 	if err != nil {
 		util.ResError(c, err)
 		return

@@ -430,8 +430,6 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 	assert.NoError(db.Create(alias1).Error)
 
 	// C. 创建策略：
-	// - 独占策略 policy-exclusive-1 (将被模型 1 独占)
-	// - 共享策略 policy-shared-1 (将被模型 1 和 模型 2 共享)
 	slidingWindowsJSON := "[]"
 	polExclusive := &policySchema.PolicyLimit{
 		ID:             "pol-exclusive-1",
@@ -444,7 +442,7 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 	}
 	polShared := &policySchema.PolicyLimit{
 		ID:             "pol-shared-1",
-		ModelID:        model1.ID,
+		ModelID:        model2.ID,
 		Name:           "cascade-shared-limit",
 		Type:           "request",
 		SlidingWindows: &slidingWindowsJSON,
@@ -454,36 +452,7 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 	assert.NoError(db.Create(polExclusive).Error)
 	assert.NoError(db.Create(polShared).Error)
 
-	// D. 创建策略绑定：
-	// - 绑定1：独占策略 绑定到 模型1
-	binding1 := &policySchema.PolicyBinding{
-		ID:         "binding-1",
-		ModelCode:  model1.ModelCode,
-		PolicyType: "limit",
-		PolicyID:   polExclusive.ID,
-		Deleted:    "0",
-	}
-	// - 绑定2：共享策略 绑定到 模型1
-	binding2 := &policySchema.PolicyBinding{
-		ID:         "binding-2",
-		ModelCode:  model1.ModelCode,
-		PolicyType: "limit",
-		PolicyID:   polShared.ID,
-		Deleted:    "0",
-	}
-	// - 绑定3：共享策略 绑定到 模型2
-	binding3 := &policySchema.PolicyBinding{
-		ID:         "binding-3",
-		ModelCode:  model2.ModelCode,
-		PolicyType: "limit",
-		PolicyID:   polShared.ID,
-		Deleted:    "0",
-	}
-	assert.NoError(db.Create(binding1).Error)
-	assert.NoError(db.Create(binding2).Error)
-	assert.NoError(db.Create(binding3).Error)
-
-	// E. 创建租户白名单授权 tenant_model
+	// D. 创建租户白名单授权 tenant_model
 	tenantModel1 := &rbacSchema.TenantModel{
 		ID:         "tm-cascade-1",
 		TenantCode: "t-cascade",
@@ -491,56 +460,40 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 	}
 	assert.NoError(db.Create(tenantModel1).Error)
 
-	// 3. 执行模型 1 的删除操作
+	// 3. 执行模型 1 的删除操作，由于有别名和策略，应该被拦截
 	err := injector.M.Resource.ModelAPI.ModelBIZ.Delete(ctx, model1.ID)
+	assert.Error(err)
+	assert.Contains(err.Error(), "模型存在关联别名")
+
+	// 4. 手动清理关联的别名和独占策略
+	assert.NoError(db.Model(&modelSchema.ModelAlias{}).Where("id = ?", alias1.ID).Update("deleted", "1").Error)
+	assert.NoError(db.Model(&policySchema.PolicyLimit{}).Where("id = ?", polExclusive.ID).Update("deleted", "1").Error)
+
+	// 5. 再次执行删除操作，应当成功
+	err = injector.M.Resource.ModelAPI.ModelBIZ.Delete(ctx, model1.ID)
 	assert.NoError(err)
 
-	// 4. 验证删除状态
+	// 6. 验证删除状态
 	// A. 验证模型 1 被软删除
 	var deletedModel modelSchema.Model
 	assert.NoError(db.Unscoped().First(&deletedModel, "id = ?", model1.ID).Error)
 	assert.NotEqual("0", deletedModel.Deleted)
 
-	// B. 验证模型别名被软删除
-	var deletedAlias modelSchema.ModelAlias
-	assert.NoError(db.Unscoped().First(&deletedAlias, "id = ?", alias1.ID).Error)
-	assert.NotEqual("0", deletedAlias.Deleted)
-
-	// C. 验证独占策略被软删除
-	var deletedPol policySchema.PolicyLimit
-	assert.NoError(db.Unscoped().First(&deletedPol, "id = ?", polExclusive.ID).Error)
-	assert.NotEqual("0", deletedPol.Deleted)
-
-	// D. 验证共享策略 未被删除
+	// B. 验证共享策略 (关联 model2) 未被删除
 	var activePol policySchema.PolicyLimit
 	assert.NoError(db.First(&activePol, "id = ?", polShared.ID).Error)
 	assert.Equal("0", activePol.Deleted)
 
-	// E. 验证模型 1 策略绑定关系 binding1, binding2 被软删除
-	var b1, b2 policySchema.PolicyBinding
-	assert.NoError(db.Unscoped().First(&b1, "id = ?", binding1.ID).Error)
-	assert.NotEqual("0", b1.Deleted)
-	assert.NoError(db.Unscoped().First(&b2, "id = ?", binding2.ID).Error)
-	assert.NotEqual("0", b2.Deleted)
-
-	// F. 验证模型 2 策略绑定关系 binding3 未被删除
-	var b3 policySchema.PolicyBinding
-	assert.NoError(db.First(&b3, "id = ?", binding3.ID).Error)
-	assert.Equal("0", b3.Deleted)
-
-	// G. 验证数据权限（tenant_model）物理删除
+	// C. 验证数据权限（tenant_model）被物理删除
 	var tmCount int64
 	assert.NoError(db.Table(tenantModel1.TableName()).Where("model_id = ?", model1.ID).Count(&tmCount).Error)
 	assert.Equal(int64(0), tmCount)
 
-	// 5. 数据清理 (对未删除的数据进行物理清理，防止对其他测试造成干扰)
+	// 7. 数据清理
 	db.Unscoped().Delete(model1)
 	db.Unscoped().Delete(model2)
 	db.Unscoped().Delete(alias1)
 	db.Unscoped().Delete(polExclusive)
 	db.Unscoped().Delete(polShared)
-	db.Unscoped().Delete(binding1)
-	db.Unscoped().Delete(binding2)
-	db.Unscoped().Delete(binding3)
 	db.Unscoped().Delete(tenantModel1)
 }

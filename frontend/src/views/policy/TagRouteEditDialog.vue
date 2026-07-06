@@ -33,6 +33,52 @@
                     :un-checked-children="$t('pages.tagRoute.form.enabled.inactive')" />
             </a-form-item>
 
+            <a-form-item
+                :label="$t('pages.policy.form.scope_type') || '适用维度'"
+                name="scope_type">
+                <a-select
+                    v-model:value="formData.scope_type"
+                    style="width: 100%">
+                    <a-select-option value="global">{{
+                        $t('pages.policy.form.scope_type.global') || '全局'
+                    }}</a-select-option>
+                    <a-select-option value="tenant">{{
+                        $t('pages.policy.form.scope_type.tenant') || '租户'
+                    }}</a-select-option>
+                    <a-select-option value="user">{{
+                        $t('pages.policy.form.scope_type.user') || '用户'
+                    }}</a-select-option>
+                </a-select>
+            </a-form-item>
+
+            <a-form-item
+                v-if="formData.scope_type !== 'global'"
+                :label="
+                    formData.scope_type === 'tenant'
+                        ? $t('pages.policy.form.scope_code.tenant') || '适用租户'
+                        : $t('pages.policy.form.scope_code.user') || '适用用户'
+                "
+                name="scope_code">
+                <a-input
+                    v-model:value="formData.scope_code"
+                    :placeholder="
+                        formData.scope_type === 'tenant'
+                            ? $t('pages.policy.form.scope_code.tenant.placeholder') || '请输入租户Code'
+                            : $t('pages.policy.form.scope_code.user.placeholder') || '请输入用户ID'
+                    " />
+            </a-form-item>
+
+            <!-- 冲突优先级 -->
+            <a-form-item
+                :label="$t('pages.policy.form.priority') || '冲突优先级'"
+                name="priority">
+                <a-input-number
+                    v-model:value="formData.priority"
+                    :min="0"
+                    :placeholder="$t('pages.policy.form.priority.placeholder') || '数值越小越优先'"
+                    style="width: 100%" />
+            </a-form-item>
+
             <!-- 描述 -->
             <a-form-item
                 :label="$t('pages.tagRoute.form.description')"
@@ -609,6 +655,9 @@ async function saveRouteDetails(routeId) {
 function handleCreate(options = {}) {
     formData.value.model_id = options.modelId || ''
     formData.value.enabled = 0
+    formData.value.scope_type = 'global'
+    formData.value.scope_code = ''
+    formData.value.priority = 0
     formData.value.details = [createEmptyDetail()]
     showModal({
         type: 'create',
@@ -635,6 +684,12 @@ async function handleCopy(record = {}) {
     delete cloned.created_at
     delete cloned.updated_at
     cloned.details = []
+    if (!cloned.scope_type) {
+        cloned.scope_type = 'global'
+    }
+    if (!cloned.scope_code) {
+        cloned.scope_code = ''
+    }
     formData.value = cloned
     await loadRouteDetails(record.id)
     if (!Array.isArray(formData.value.details) || formData.value.details.length === 0) {
@@ -657,6 +712,12 @@ async function handleEdit(record = {}) {
     formRecord.value = data
     const cloned = cloneDeep(data)
     cloned.details = []
+    if (!cloned.scope_type) {
+        cloned.scope_type = 'global'
+    }
+    if (!cloned.scope_code) {
+        cloned.scope_code = ''
+    }
     formData.value = cloned
     await loadRouteDetails(record.id)
     if (!Array.isArray(formData.value.details) || formData.value.details.length === 0) {
@@ -675,6 +736,8 @@ function handleOk() {
                     model_id: formData.value.model_id || '',
                     enabled: formData.value.enabled,
                     description: formData.value.description,
+                    scope_type: formData.value.scope_type || 'global',
+                    scope_code: formData.value.scope_type === 'global' ? '' : formData.value.scope_code || '',
                 }
                 let result = null
                 switch (modal.value.type) {

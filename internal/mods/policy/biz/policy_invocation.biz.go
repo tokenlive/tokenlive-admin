@@ -17,7 +17,6 @@ import (
 type PolicyInvocation struct {
 	Trans               *util.Trans
 	PolicyInvocationDAL *dal.PolicyInvocation
-	PolicyBindingDAL    *dal.PolicyBinding
 	PolicyRedisSync     *PolicyRedisSync
 	ModelDAL            *resourceDal.Model
 	DataPermissionDAL   *resourceDal.DataPermission
@@ -61,13 +60,11 @@ func (a *PolicyInvocation) Get(ctx context.Context, id string) (*schema.PolicyIn
 
 // Create a new policy invocation in the data access object.
 func (a *PolicyInvocation) Create(ctx context.Context, formItem *schema.PolicyInvocationForm) (*schema.PolicyInvocation, error) {
-	model, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite)
-	if err != nil {
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite); err != nil {
 		return nil, err
 	}
 
-	// Check unique key before creating.
-	if exists, err := a.PolicyInvocationDAL.ExistsByUniqueKey(ctx, formItem.ModelID, formItem.Name); err != nil {
+	if exists, err := a.PolicyInvocationDAL.ExistsByUniqueKey(ctx, formItem.ScopeType, formItem.ScopeCode, formItem.ModelID, formItem.Name); err != nil {
 		return nil, err
 	} else if exists {
 		return nil, errors.BadRequest("", "Policy invocation with the same name already exists")
@@ -88,18 +85,13 @@ func (a *PolicyInvocation) Create(ctx context.Context, formItem *schema.PolicyIn
 		policyInvocation.Creator = &username
 	}
 
-	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		if err := a.PolicyInvocationDAL.Create(ctx, policyInvocation); err != nil {
-			return err
-		}
-		if model == nil {
-			return nil
-		}
-		return createModelPolicyBinding(ctx, a.PolicyBindingDAL, "invocation", policyInvocation.ID, model)
+	err := a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyInvocationDAL.Create(ctx, policyInvocation)
 	})
 	if err != nil {
 		return nil, err
 	}
+	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyInvocation.ScopeType, policyInvocation.ScopeCode, policyInvocation.ModelID)
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyInvocation.ID, policyInvocation.Name, nil, policyInvocation)
 
@@ -120,14 +112,13 @@ func (a *PolicyInvocation) Update(ctx context.Context, id string, formItem *sche
 	if err := rejectPolicyKindChange(policyInvocation.ModelID, formItem.ModelID); err != nil {
 		return err
 	}
-	model, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite)
-	if err != nil {
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite); err != nil {
 		return err
 	}
 
 	// If unique key fields changed, ensure the new combination is not occupied.
-	if policyInvocation.ModelID != formItem.ModelID || policyInvocation.Name != formItem.Name {
-		if exists, err := a.PolicyInvocationDAL.ExistsByUniqueKey(ctx, formItem.ModelID, formItem.Name); err != nil {
+	if policyInvocation.ScopeType != formItem.ScopeType || policyInvocation.ScopeCode != formItem.ScopeCode || policyInvocation.ModelID != formItem.ModelID || policyInvocation.Name != formItem.Name {
+		if exists, err := a.PolicyInvocationDAL.ExistsByUniqueKey(ctx, formItem.ScopeType, formItem.ScopeCode, formItem.ModelID, formItem.Name); err != nil {
 			return err
 		} else if exists {
 			return errors.BadRequest("", "Policy invocation with the same name already exists")
@@ -147,23 +138,16 @@ func (a *PolicyInvocation) Update(ctx context.Context, id string, formItem *sche
 	}
 
 	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		if err := a.PolicyInvocationDAL.Update(ctx, policyInvocation); err != nil {
-			return err
-		}
-		if model == nil {
-			return a.PolicyBindingDAL.DeleteByPolicyID(ctx, "invocation", policyInvocation.ID)
-		}
-		return replaceModelPolicyBinding(ctx, a.PolicyBindingDAL, "invocation", policyInvocation.ID, model)
+		return a.PolicyInvocationDAL.Update(ctx, policyInvocation)
 	})
 	if err != nil {
 		return err
 	}
 
 	// 级联同步引用此策略的维度到 Redis
-	if policyInvocation.ModelID != "" {
-		if err := a.PolicyRedisSync.SyncPolicyChange(ctx, "invocation", id); err != nil {
-			return err
-		}
+	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, beforePolicy.ScopeType, beforePolicy.ScopeCode, beforePolicy.ModelID)
+	if beforePolicy.ScopeType != policyInvocation.ScopeType || beforePolicy.ScopeCode != policyInvocation.ScopeCode || beforePolicy.ModelID != policyInvocation.ModelID {
+		_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyInvocation.ScopeType, policyInvocation.ScopeCode, policyInvocation.ModelID)
 	}
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyInvocation.ID, policyInvocation.Name, beforePolicy, policyInvocation)
@@ -184,21 +168,14 @@ func (a *PolicyInvocation) Delete(ctx context.Context, id string) error {
 	}
 
 	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		if err := a.PolicyInvocationDAL.Delete(ctx, id); err != nil {
-			return err
-		}
-		return a.PolicyBindingDAL.DeleteByPolicyID(ctx, "invocation", id)
+		return a.PolicyInvocationDAL.Delete(ctx, id)
 	})
 	if err != nil {
 		return err
 	}
 
 	// 级联同步引用此策略的维度到 Redis
-	if policyInvocation.ModelID != "" {
-		if err := a.PolicyRedisSync.SyncPolicyChange(ctx, "invocation", id); err != nil {
-			return err
-		}
-	}
+	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyInvocation.ScopeType, policyInvocation.ScopeCode, policyInvocation.ModelID)
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyInvocation.ID, policyInvocation.Name, policyInvocation, nil)
 
@@ -206,7 +183,7 @@ func (a *PolicyInvocation) Delete(ctx context.Context, id string) error {
 }
 
 // CopyTemplateToModel copies a policy template into a model-owned policy instance.
-func (a *PolicyInvocation) CopyTemplateToModel(ctx context.Context, templateID, modelID, name string) (*schema.PolicyInvocation, error) {
+func (a *PolicyInvocation) CopyTemplateToModel(ctx context.Context, templateID string, form *schema.PolicyCopyToModelForm) (*schema.PolicyInvocation, error) {
 	template, err := a.PolicyInvocationDAL.Get(ctx, templateID)
 	if err != nil {
 		return nil, err
@@ -216,21 +193,23 @@ func (a *PolicyInvocation) CopyTemplateToModel(ctx context.Context, templateID, 
 	if template.ModelID != "" {
 		return nil, errors.BadRequest("", "Only policy templates can be copied to a model")
 	}
-	model, err := requireModelPermission(ctx, a.ModelDAL, a.DataPermissionDAL, modelID, modelPermissionWrite)
-	if err != nil {
+	if _, err := requireModelPermission(ctx, a.ModelDAL, a.DataPermissionDAL, form.ModelID, modelPermissionWrite); err != nil {
 		return nil, err
 	}
+	name := form.Name
 	if name == "" {
 		name = template.Name
 	}
-	name, err = nextPolicyName(ctx, name, modelID, a.PolicyInvocationDAL.ExistsByUniqueKey)
+	name, err = nextPolicyName(ctx, name, form.ModelID, func(ctx context.Context, modelID, name string) (bool, error) {
+		return a.PolicyInvocationDAL.ExistsByUniqueKey(ctx, "global", "", modelID, name)
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	instance := *template
 	instance.ID = util.NewXID()
-	instance.ModelID = modelID
+	instance.ModelID = form.ModelID
 	instance.Name = name
 	instance.Creator = nil
 	instance.Modifier = nil
@@ -238,19 +217,26 @@ func (a *PolicyInvocation) CopyTemplateToModel(ctx context.Context, templateID, 
 	instance.UpdatedAt = time.Time{}
 	instance.Deleted = "0"
 	instance.DeletedAt = nil
+	if form.ScopeType != nil {
+		instance.ScopeType = *form.ScopeType
+	}
+	if form.ScopeCode != nil {
+		instance.ScopeCode = *form.ScopeCode
+	}
+	if form.Priority != nil {
+		instance.Priority = *form.Priority
+	}
 	if username := util.FromUsername(ctx); username != "" {
 		instance.Creator = &username
 	}
 
 	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		if err := a.PolicyInvocationDAL.Create(ctx, &instance); err != nil {
-			return err
-		}
-		return createModelPolicyBinding(ctx, a.PolicyBindingDAL, "invocation", instance.ID, model)
+		return a.PolicyInvocationDAL.Create(ctx, &instance)
 	})
 	if err != nil {
 		return nil, err
 	}
+	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, instance.ScopeType, instance.ScopeCode, instance.ModelID)
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, instance.ID, instance.Name, nil, &instance)
 	return &instance, nil
 }
