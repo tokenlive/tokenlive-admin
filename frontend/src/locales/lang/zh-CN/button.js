@@ -15,4 +15,5 @@ export default {
     'button.import': '导入',
     'button.action': '操作',
     'button.copy': '复制',
+    'button.copyFromTemplate': '从模板复制',
 }

@@ -354,6 +354,13 @@ export default {
     'pages.model.policy.form.enabled': 'Enabled',
     'pages.model.policy.form.exclusive.warning':
         'Tip: Multiple Invocation (invocation) and Load Balance (loadbalance) policies can be bound to the same dimension (model/tenant/user), but only the one with the highest priority (smaller value has higher priority) will take effect.',
+    'pages.model.policy.copyTemplate.title': 'Copy from Policy Template',
+    'pages.model.policy.copyTemplate.templateLabel': 'Policy Template',
+    'pages.model.policy.copyTemplate.templatePlaceholder': 'Please select a policy template',
+    'pages.model.policy.copyTemplate.newPolicyNameLabel': 'New Policy Name',
+    'pages.model.policy.copyTemplate.newPolicyNamePlaceholder':
+        'Leave empty to use template name, suffix auto-appended on conflict',
+    'pages.model.policy.copyTemplate.templateRequired': 'Please select a policy template',
     // model alias
     'pages.model.alias.create': 'Add Alias',
     'pages.model.alias.edit': 'Edit Alias',

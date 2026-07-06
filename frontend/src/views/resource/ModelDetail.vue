@@ -328,7 +328,7 @@
                         </a-button>
                         <a-button @click="handleOpenCopyTemplate">
                             <template #icon><copy-outlined /></template>
-                            从模板复制
+                            {{ $t('button.copyFromTemplate') }}
                         </a-button>
                     </div>
                     <div class="tab-toolbar-right">
@@ -484,18 +484,18 @@
 
         <a-modal
             v-model:open="copyTemplateModal.open"
-            title="从策略模板复制"
+            :title="$t('pages.model.policy.copyTemplate.title')"
             :confirm-loading="copyTemplateModal.loading"
             :ok-text="$t('button.confirm')"
             :cancel-text="$t('button.cancel')"
             @ok="handleCopyTemplateToModel">
             <a-form layout="vertical">
-                <a-form-item label="策略模板">
+                <a-form-item :label="$t('pages.model.policy.copyTemplate.templateLabel')">
                     <a-select
                         v-model:value="copyTemplateModal.templateId"
                         show-search
                         :filter-option="filterTemplateOption"
-                        placeholder="请选择策略模板">
+                        :placeholder="$t('pages.model.policy.copyTemplate.templatePlaceholder')">
                         <a-select-option
                             v-for="item in templateOptions"
                             :key="item.id"
@@ -504,10 +504,10 @@
                         </a-select-option>
                     </a-select>
                 </a-form-item>
-                <a-form-item label="新策略名称">
+                <a-form-item :label="$t('pages.model.policy.copyTemplate.newPolicyNameLabel')">
                     <a-input
                         v-model:value="copyTemplateModal.name"
-                        placeholder="不填则使用模板名称，冲突时自动追加后缀" />
+                        :placeholder="$t('pages.model.policy.copyTemplate.newPolicyNamePlaceholder')" />
                 </a-form-item>
             </a-form>
         </a-modal>
@@ -1003,7 +1003,7 @@ async function handleOpenCopyTemplate() {
 
 async function handleCopyTemplateToModel() {
     if (!copyTemplateModal.templateId) {
-        message.warning('请选择策略模板')
+        message.warning(t('pages.model.policy.copyTemplate.templateRequired'))
         return
     }
     try {

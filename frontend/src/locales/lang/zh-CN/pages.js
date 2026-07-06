@@ -353,6 +353,12 @@ export default {
     'pages.model.policy.form.enabled': '启用状态',
     'pages.model.policy.form.exclusive.warning':
         '温馨提示：请求容错(invocation)和负载均衡(loadbalance)策略在同一个维度（模型/租户/用户）下可以绑定多个，但同一时间仅生效优先级最高的一个（数值越小优先级越高）。',
+    'pages.model.policy.copyTemplate.title': '从策略模板复制',
+    'pages.model.policy.copyTemplate.templateLabel': '策略模板',
+    'pages.model.policy.copyTemplate.templatePlaceholder': '请选择策略模板',
+    'pages.model.policy.copyTemplate.newPolicyNameLabel': '新策略名称',
+    'pages.model.policy.copyTemplate.newPolicyNamePlaceholder': '不填则使用模板名称，冲突时自动追加后缀',
+    'pages.model.policy.copyTemplate.templateRequired': '请选择策略模板',
     // endpoint
     'pages.endpoint.add': '添加端点',
     'pages.endpoint.edit': '编辑端点',

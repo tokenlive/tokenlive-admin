@@ -13,6 +13,7 @@ export default {
     'button.import': 'Import',
     'button.action': 'Action',
     'button.copy': 'Copy',
+    'button.copyFromTemplate': 'Copy from Template',
     'button.menu': 'menu',
     'button.button': 'button',
 }
