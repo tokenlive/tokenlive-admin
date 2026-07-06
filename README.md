@@ -16,7 +16,7 @@
 
 ## Introduction
 
-TokenLive Admin is the admin console for the [TokenLive](https://github.com/tokenlive/tokenlive-gateway) ecosystem. This project is a high-performance, enterprise-grade large model (LLM) gateway designed specifically for the LLM computing power ecosystem. The gateway is designed based on a mature microservice governance model, with built-in rich intelligent routing and traffic governance strategies, and naturally supports massive concurrent traffic and elastic horizontal scaling. By deeply optimizing the request chain, the gateway can greatly reduce the failure rate of LLM calls, providing a solid stability guarantee for high-concurrency, high-availability AI application scenarios.
+TokenLive Admin is the operations and management console for the [TokenLive](https://github.com/tokenlive/tokenlive-gateway) ecosystem. It manages model providers, models, endpoints, tenant authorization, API keys, RBAC, observability views, and gateway policy configuration. Runtime request execution is handled by TokenLive Gateway; Admin focuses on configuring, auditing, and synchronizing the data that the gateway consumes.
 
 ### Online Demo
 
@@ -36,16 +36,15 @@ Manage AI model **providers** (e.g. OpenAI, Azure, custom endpoints) and their *
 
 ### Governance Policies
 
-A rich set of traffic governance policies applied at the gateway level:
+A set of gateway policy configuration pages for managing:
 
-- **Route Policies** — Tag-based and detail-level request routing
-- **Rate Limiting** — Server-side and client-side flow control
-- **Circuit Breaking** — Automatic fault isolation with configurable thresholds (failure rate, slow-call rate, TTFT-based)
-- **Fault Injection** — Simulate delays and errors for resilience testing
-- **Load Balancing** — Pluggable load-balancing strategies across endpoints
-- **Service Authentication** — Mutual authentication between services
-- **Invocation Management** — Cross-service call chain configuration
-- **Access Permission** — Fine-grained API-level permission control
+- **Tagging Policies** — Request tagging rules used by downstream routing
+- **Route Policies** — Tag-based model routing and route detail configuration
+- **Rate Limiting** — Request, token, or cost limit policies with configurable dimensions
+- **Circuit Breaking** — Failure-rate and slow-call based isolation, including TTFT-oriented slow-call metrics and degrade responses
+- **Load Balancing** — Endpoint load-balancing policy configuration
+- **Invocation Policies** — Failfast/failover behavior, retry rules, and fallback response configuration
+- **Policy Binding** — Bind policies by tenant, user, model, and policy priority
 
 ### RBAC & System Management
 
@@ -89,8 +88,7 @@ tokenlive-admin/
 ├── docs/                  # Swagger docs, ADRs, and specs
 ├── main.go                # Application entry point
 ├── Makefile               # Build scripts
-├── Dockerfile             # Docker multi-stage build
-└── docker-compose.yml     # Docker Compose configuration
+└── deploy/                # Docker build and docker-compose files
 ```
 
 ## Tech Stack
@@ -155,6 +153,7 @@ Open your browser and navigate to `http://localhost:8040`. Default admin credent
 make docker-build
 
 # Run with Docker Compose (recommended)
+cd deploy/docker-compose
 docker-compose up -d
 ```
 
@@ -198,14 +197,14 @@ Key config sections: `[General]`, `[Storage]`, `[Storage.DB]`, `[Storage.Cache]`
 
 #### Configuration with Environment Variables
 
-Sensitive configurations (passwords, tokens, connection strings) use environment variable placeholders with defaults. Create a `.env` file in the project root for local development:
+Sensitive configurations (passwords, tokens, connection strings) use environment variable placeholders with defaults. The backend loads `.env.local` and `.env` from the config work directory (default: `configs/`). Create a local environment file for development:
 
 ```bash
 # Copy the example file
-cp .env.example .env
+cp configs/.env.example configs/.env
 
-# Edit .env with your actual values
-vi .env
+# Edit configs/.env with your actual values
+vi configs/.env
 ```
 
 **Environment variable format**: `${VAR_NAME:default_value}`
@@ -215,7 +214,7 @@ Examples:
 - `${REDIS_ADDR:localhost:6379}` — Uses `localhost:6379` if `REDIS_ADDR` not set
 - `${DB_DSN:data/tokenlive-admin.db}` — Uses SQLite if `DB_DSN` not set
 
-The `.env` file is automatically loaded at startup (not committed to git). Environment variables override file values when both exist.
+The `configs/.env` file is automatically loaded at startup (not committed to git). Existing system environment variables take precedence over values in the `.env` file.
 
 ## API Structure
 
@@ -244,7 +243,8 @@ When using Docker Compose, data is automatically mounted to the `./data` directo
 ### Q: How do I view logs?
 
 ```bash
-docker-compose logs -f tokenlive-admin
+cd deploy/docker-compose
+docker-compose logs -f tokenlive
 ```
 
 ## License

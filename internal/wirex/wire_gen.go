@@ -126,19 +126,27 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	externalIdentity := &dal.ExternalIdentity{
 		DB: db,
 	}
-	oauth := &biz.OAuth{
+	tenant := &dal.Tenant{
+		DB: db,
+	}
+	tenantModel := &dal.TenantModel{
+		DB: db,
+	}
+	client := InitHTTPClient()
+	oAuth := &biz.OAuth{
 		Cache:               cacher,
 		Trans:               trans,
 		ExternalIdentityDAL: externalIdentity,
 		UserDAL:             user,
 		UserRoleDAL:         userRole,
-		TenantDAL:           nil,
-		TenantModelDAL:      nil,
+		TenantDAL:           tenant,
+		TenantModelDAL:      tenantModel,
 		RoleDAL:             role,
 		LoginBIZ:            login,
+		HTTPClient:          client,
 	}
 	apiOAuth := &api.OAuth{
-		OAuthBIZ: oauth,
+		OAuthBIZ: oAuth,
 	}
 	logger := &dal.Logger{
 		DB: db,
@@ -152,39 +160,31 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	userAPIKey := &dal.UserAPIKey{
 		DB: db,
 	}
-	client := biz.ProvideRedisClient()
+	redisClient := biz.ProvideRedisClient()
 	bizUserAPIKey := &biz.UserAPIKey{
 		Trans:         trans,
 		UserAPIKeyDAL: userAPIKey,
 		UserDAL:       user,
-		RedisClient:   client,
+		RedisClient:   redisClient,
 		AuditLogBIZ:   bizAuditLog,
 	}
 	apiUserAPIKey := &api.UserAPIKey{
 		UserAPIKeyBIZ: bizUserAPIKey,
 	}
-	tenant := &dal.Tenant{
-		DB: db,
-	}
-	oauth.TenantDAL = tenant
 	bizTenant := &biz.Tenant{
 		Trans:       trans,
 		TenantDAL:   tenant,
 		UserDAL:     user,
-		RedisClient: client,
+		RedisClient: redisClient,
 		AuditLogBIZ: bizAuditLog,
 	}
 	apiTenant := &api.Tenant{
 		TenantBIZ: bizTenant,
 	}
-	tenantModel := &dal.TenantModel{
-		DB: db,
-	}
-	oauth.TenantModelDAL = tenantModel
 	bizTenantModel := &biz.TenantModel{
 		Trans:          trans,
 		TenantModelDAL: tenantModel,
-		RedisClient:    client,
+		RedisClient:    redisClient,
 		AuditLogBIZ:    bizAuditLog,
 	}
 	apiTenantModel := &api.TenantModel{
@@ -196,7 +196,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	bizTenantEndpoint := &biz.TenantEndpoint{
 		Trans:             trans,
 		TenantEndpointDAL: tenantEndpoint,
-		RedisClient:       client,
+		RedisClient:       redisClient,
 		AuditLogBIZ:       bizAuditLog,
 	}
 	apiTenantEndpoint := &api.TenantEndpoint{
@@ -243,7 +243,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		DB: db,
 	}
 	configRedisSync := &biz3.ConfigRedisSync{
-		RedisClient:   client,
+		RedisClient:   redisClient,
 		EndpointDAL:   endpoint,
 		ModelDAL:      model,
 		ModelAliasDAL: modelAlias,
@@ -265,7 +265,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		ModelDAL:          model,
 		ProviderDAL:       provider,
 		ConfigRedisSync:   configRedisSync,
-		RedisClient:       client,
+		RedisClient:       redisClient,
 		AuditLogBIZ:       bizAuditLog,
 	}
 	apiEndpoint := &api2.Endpoint{
@@ -293,7 +293,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		DB: db,
 	}
 	policyRedisSync := &biz4.PolicyRedisSync{
-		RedisClient:           client,
+		RedisClient:           redisClient,
 		PolicyBindingDAL:      policyBinding,
 		PolicyLoadbalanceDAL:  policyLoadbalance,
 		PolicyRouteDAL:        policyRoute,
@@ -308,7 +308,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		DataPermissionBIZ: bizDataPermission,
 		ConfigRedisSync:   configRedisSync,
 		PolicyRedisSync:   policyRedisSync,
-		RedisClient:       client,
+		RedisClient:       redisClient,
 		AuditLogBIZ:       bizAuditLog,
 	}
 	apiModel := &api2.Model{
@@ -495,7 +495,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	}
 	apiDashboard := &api5.Dashboard{
 		DB:          db,
-		RedisClient: client,
+		RedisClient: redisClient,
 		RedisSync:   configRedisSync,
 	}
 	dashboardDashboard := &dashboard.Dashboard{
@@ -513,7 +513,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	portalUserAPI := &api6.PortalUserAPI{
 		PortalUserBIZ: portalUser,
 	}
-	eventSubscriber := ops.ProvideEventSubscriber(client)
+	eventSubscriber := ops.ProvideEventSubscriber(redisClient)
 	consumer := &biz2.Consumer{
 		Subscriber: eventSubscriber,
 		EventDAL:   eventLog,

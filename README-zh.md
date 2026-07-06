@@ -16,7 +16,7 @@
 
 ## 项目介绍
 
-TokenLive Admin (TokenLive 控制台) 是 [TokenLive](https://github.com/tokenlive/tokenlive-gateway) 的管理控制台。本项目是一款专为大模型（LLM）算力生态打造的高性能、企业级大模型网关。网关基于成熟的微服务治理模型设计，内置丰富的智能路由与流量治理策略，天然支持海量并发流量与弹性横向扩容。通过深度优化请求链路，网关能够极大降低LLM调用失败率，为高并发、高可用的AI应用场景提供坚如磐石的稳定性保障。
+TokenLive Admin (TokenLive 控制台) 是 [TokenLive](https://github.com/tokenlive/tokenlive-gateway) 生态的运营与管理控制台。它负责管理模型供应商、模型、接入点、租户授权、API Key、RBAC、观测视图以及网关策略配置。实际请求执行由 TokenLive Gateway 负责；Admin 侧聚焦于配置、审计和同步网关运行所需的数据。
 
 ### 在线体验
 
@@ -36,16 +36,15 @@ TokenLive Admin (TokenLive 控制台) 是 [TokenLive](https://github.com/tokenli
 
 ### 治理策略
 
-在网关层面提供丰富的流量治理策略：
+提供网关策略配置页面，用于管理：
 
-- **路由策略** — 基于标签的请求路由与路由详情配置
-- **限流策略** — 服务端与客户端流量控制
-- **熔断隔离** — 基于失败率、慢调用率、TTFT 等指标的自动熔断，支持降级响应配置
-- **故障注入** — 模拟延迟与错误，用于高可用演练
-- **负载均衡** — 可插拔的负载均衡策略
-- **服务鉴权** — 服务间双向认证
-- **调用管理** — 跨服务调用链配置
-- **访问权限** — 细粒度的 API 级别权限控制
+- **染色打标策略** — 配置请求打标规则，供后续路由使用
+- **路由策略** — 基于标签的模型路由与路由详情配置
+- **限流策略** — 按请求、Token 或成本维度配置限流规则
+- **熔断隔离** — 基于失败率、慢调用率等指标的熔断隔离，支持 TTFT 慢调用指标与降级响应配置
+- **负载均衡** — 配置接入点负载均衡策略
+- **调用策略** — 配置 failfast/failover、重试规则与降级响应
+- **策略绑定** — 按租户、用户、模型和优先级绑定策略
 
 ### RBAC 与系统管理
 
@@ -89,8 +88,7 @@ tokenlive-admin/
 ├── docs/                  # Swagger 文档、ADR、规格说明
 ├── main.go                # 程序入口
 ├── Makefile               # 构建脚本
-├── Dockerfile             # Docker 多阶段构建
-└── docker-compose.yml     # Docker Compose 配置
+└── deploy/                # Docker 构建与 docker-compose 文件
 ```
 
 ## 技术栈
@@ -155,6 +153,7 @@ make start
 make docker-build
 
 # 使用 Docker Compose 启动（推荐）
+cd deploy/docker-compose
 docker-compose up -d
 ```
 
@@ -196,6 +195,20 @@ make build-cross-all   # 交叉编译（linux/darwin/windows）
 
 关键配置段：`[General]`、`[Storage]`、`[Storage.DB]`、`[Storage.Cache]`、`[Middleware]`。
 
+#### 环境变量配置
+
+敏感配置（密码、Token、连接串等）通过环境变量占位符配置。后端会从配置工作目录（默认 `configs/`）自动加载 `.env.local` 和 `.env`：
+
+```bash
+# 复制示例文件
+cp configs/.env.example configs/.env
+
+# 编辑本地配置
+vi configs/.env
+```
+
+环境变量格式：`${VAR_NAME:default_value}`，例如 `${ROOT_PASSWORD:admin}`。已存在的系统环境变量优先级高于 `configs/.env`。
+
 ## API 结构
 
 所有 API 以 `/api/v1/` 为前缀，遵循标准 CRUD 模式：
@@ -223,7 +236,8 @@ Swagger 文档通过注解自动生成，运行 `make swagger` 重新生成。
 ### Q: 如何查看日志？
 
 ```bash
-docker-compose logs -f tokenlive-admin
+cd deploy/docker-compose
+docker-compose logs -f tokenlive
 ```
 
 ## 许可证

@@ -2,6 +2,7 @@ package wirex
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -128,3 +129,10 @@ func InitAuth(ctx context.Context) (jwtx.Auther, func(), error) {
 		_ = auth.Release(ctx)
 	}, nil
 }
+
+func InitHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: 30 * time.Second,
+	}
+}
+

@@ -19,6 +19,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		InitCacher,
 		InitDB,
 		InitAuth,
+		InitHTTPClient,
 		wire.NewSet(wire.Struct(new(util.Trans), "*")),
 		wire.NewSet(wire.Struct(new(Injector), "*")),
 		mods.Set,
