@@ -4046,6 +4046,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/ops/portal/workspaces/{workspace_id}/bind-tenant": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PortalUserAPI"
+                ],
+                "summary": "Bind portal workspace to admin tenant",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "workspace ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "tenant code",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.bindWorkspaceTenantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ops/portal/workspaces/{workspace_id}/runtime-sync": {
             "post": {
                 "security": [
@@ -4057,6 +4114,48 @@ const docTemplate = `{
                     "PortalUserAPI"
                 ],
                 "summary": "Sync portal workspace API keys to gateway runtime",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "workspace ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ops/portal/workspaces/{workspace_id}/unbind-tenant": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PortalUserAPI"
+                ],
+                "summary": "Unbind portal workspace tenant",
                 "parameters": [
                     {
                         "type": "string",
@@ -4345,63 +4444,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/policy/policy-bindings/{id}/enabled": {
-            "put": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "PolicyBindingAPI"
-                ],
-                "summary": "Toggle policy binding enabled status by ID",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "unique id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Request body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/schema.PolicyBindingEnabledForm"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/policy/policy-circuit-breaks": {
             "get": {
                 "security": [
@@ -4640,6 +4682,75 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/policy/policy-circuit-breaks/{id}/copy-to-model": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PolicyCircuitBreakAPI"
+                ],
+                "summary": "Copy policy circuit break template to model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PolicyCopyToModelForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/schema.PolicyCircuitBreak"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/util.ResponseResult"
                         }
@@ -4916,6 +5027,75 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/policy/policy-invocations/{id}/copy-to-model": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PolicyInvocationAPI"
+                ],
+                "summary": "Copy policy invocation template to model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PolicyCopyToModelForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/schema.PolicyInvocation"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/policy/policy-limits": {
             "get": {
                 "security": [
@@ -5173,6 +5353,75 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/policy/policy-limits/{id}/copy-to-model": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PolicyLimitAPI"
+                ],
+                "summary": "Copy policy limit template to model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PolicyCopyToModelForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/schema.PolicyLimit"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/policy/policy-loadbalances": {
             "get": {
                 "security": [
@@ -5411,6 +5660,75 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/policy/policy-loadbalances/{id}/copy-to-model": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PolicyLoadbalanceAPI"
+                ],
+                "summary": "Copy policy loadbalance template to model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PolicyCopyToModelForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/schema.PolicyLoadbalance"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/util.ResponseResult"
                         }
@@ -5944,6 +6262,75 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/policy/policy-routes/{id}/copy-to-model": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PolicyRouteAPI"
+                ],
+                "summary": "Copy policy route template to model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PolicyCopyToModelForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/schema.PolicyRoute"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/policy/policy-taggings": {
             "get": {
                 "security": [
@@ -6182,6 +6569,75 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/policy/policy-taggings/{id}/copy-to-model": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "PolicyTaggingAPI"
+                ],
+                "summary": "Copy policy tagging template to model",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PolicyCopyToModelForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/schema.PolicyTagging"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/util.ResponseResult"
                         }
@@ -8878,6 +9334,14 @@ const docTemplate = `{
                 }
             }
         },
+        "api.bindWorkspaceTenantRequest": {
+            "type": "object",
+            "properties": {
+                "tenant_code": {
+                    "type": "string"
+                }
+            }
+        },
         "biz.PortalUserResult": {
             "type": "object",
             "properties": {
@@ -10359,9 +10823,6 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
-                "enabled": {
-                    "type": "integer"
-                },
                 "id": {
                     "type": "string"
                 },
@@ -10391,15 +10852,6 @@ const docTemplate = `{
                 }
             }
         },
-        "schema.PolicyBindingEnabledForm": {
-            "type": "object",
-            "properties": {
-                "enabled": {
-                    "description": "Enable status: 0-disabled, 1-enabled",
-                    "type": "integer"
-                }
-            }
-        },
         "schema.PolicyBindingForm": {
             "type": "object",
             "required": [
@@ -10416,13 +10868,6 @@ const docTemplate = `{
                 "description": {
                     "type": "string",
                     "maxLength": 255
-                },
-                "enabled": {
-                    "type": "integer",
-                    "enum": [
-                        0,
-                        1
-                    ]
                 },
                 "id": {
                     "type": "string"
@@ -10513,6 +10958,9 @@ const docTemplate = `{
                 },
                 "min_calls_threshold": {
                     "type": "integer"
+                },
+                "model_id": {
+                    "type": "string"
                 },
                 "modifier": {
                     "type": "string"
@@ -10635,6 +11083,11 @@ const docTemplate = `{
                     "description": "Min calls threshold",
                     "type": "integer"
                 },
+                "model_id": {
+                    "description": "Owner model ID; empty means template",
+                    "type": "string",
+                    "maxLength": 20
+                },
                 "modifier": {
                     "description": "Modifier",
                     "type": "string"
@@ -10683,6 +11136,22 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.PolicyCopyToModelForm": {
+            "type": "object",
+            "required": [
+                "model_id"
+            ],
+            "properties": {
+                "model_id": {
+                    "type": "string",
+                    "maxLength": 20
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 128
+                }
+            }
+        },
         "schema.PolicyInvocation": {
             "type": "object",
             "properties": {
@@ -10702,6 +11171,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "model_id": {
                     "type": "string"
                 },
                 "modifier": {
@@ -10757,6 +11229,11 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "model_id": {
+                    "description": "Owner model ID; empty means template",
+                    "type": "string",
+                    "maxLength": 20
                 },
                 "modifier": {
                     "description": "Modifier",
@@ -10819,6 +11296,9 @@ const docTemplate = `{
                 },
                 "max_wait_ms": {
                     "type": "integer"
+                },
+                "model_id": {
+                    "type": "string"
                 },
                 "modifier": {
                     "type": "string"
@@ -10896,6 +11376,11 @@ const docTemplate = `{
                     "description": "Max queue wait time (ms)",
                     "type": "integer"
                 },
+                "model_id": {
+                    "description": "Owner model ID; empty means template",
+                    "type": "string",
+                    "maxLength": 20
+                },
                 "modifier": {
                     "description": "Modifier",
                     "type": "string"
@@ -10950,6 +11435,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "model_id": {
+                    "type": "string"
+                },
                 "modifier": {
                     "type": "string"
                 },
@@ -10998,6 +11486,11 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "model_id": {
+                    "description": "Owner model ID; empty means template",
+                    "type": "string",
+                    "maxLength": 20
                 },
                 "modifier": {
                     "description": "Modifier",
@@ -11052,6 +11545,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "model_id": {
                     "type": "string"
                 },
                 "modifier": {
@@ -11195,6 +11691,11 @@ const docTemplate = `{
                     "description": "Unique ID",
                     "type": "string"
                 },
+                "model_id": {
+                    "description": "Owner model ID; empty means template",
+                    "type": "string",
+                    "maxLength": 20
+                },
                 "modifier": {
                     "description": "Modifier",
                     "type": "string"
@@ -11240,6 +11741,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "model_id": {
                     "type": "string"
                 },
                 "modifier": {
@@ -11305,6 +11809,11 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "model_id": {
+                    "description": "Owner model ID; empty means template",
+                    "type": "string",
+                    "maxLength": 20
                 },
                 "modifier": {
                     "description": "Modifier",
@@ -12021,6 +12530,9 @@ const docTemplate = `{
                 "creator": {
                     "type": "string"
                 },
+                "credits": {
+                    "type": "integer"
+                },
                 "deleted": {
                     "type": "string"
                 },
@@ -12042,9 +12554,6 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "quota": {
-                    "type": "integer"
-                },
                 "status": {
                     "type": "integer"
                 },
@@ -12064,6 +12573,10 @@ const docTemplate = `{
                 "user_id"
             ],
             "properties": {
+                "credits": {
+                    "description": "剩余额度(微元): -1表示无限制",
+                    "type": "integer"
+                },
                 "description": {
                     "description": "描述信息",
                     "type": "string",
@@ -12077,10 +12590,6 @@ const docTemplate = `{
                     "description": "API Key 友好名称",
                     "type": "string",
                     "maxLength": 64
-                },
-                "quota": {
-                    "description": "剩余配额: -1表示无限制",
-                    "type": "integer"
                 },
                 "status": {
                     "description": "状态: 1-启用, 2-禁用",

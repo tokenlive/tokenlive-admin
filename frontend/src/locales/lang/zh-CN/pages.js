@@ -337,6 +337,7 @@ export default {
     'pages.model.policy.unbind': '解除绑定',
     'pages.model.policy.unbindTip': '确定要解除该策略与模型的绑定关系吗？',
     'pages.model.policy.gotoEdit': '编辑策略',
+    'pages.model.policy.create': '新建策略',
     'pages.model.policy.form.policy_type': '策略类型',
     'pages.model.policy.form.policy_type.placeholder': '请选择策略类型',
     'pages.model.policy.form.policy_type.required': '请选择策略类型！',
@@ -534,7 +535,7 @@ export default {
     'pages.system.logger.form.user_name': '用户名称',
     'pages.system.logger.form.created_at': '创建时间',
     // tagging
-    'pages.tagging.add': '新建策略',
+    'pages.tagging.add': '新建策略模板',
     'pages.tagging.edit': '编辑策略',
     'pages.tagging.copy': '复制策略',
     'pages.tagging.delTip': '确定删除该流量染色策略吗？',
@@ -577,7 +578,7 @@ export default {
     'pages.tagging.form.created_at': '创建时间',
 
     // loadbalance
-    'pages.loadbalance.add': '新建策略',
+    'pages.loadbalance.add': '新建策略模板',
     'pages.loadbalance.edit': '编辑策略',
     'pages.loadbalance.copy': '复制策略',
     'pages.loadbalance.delTip': '确定删除该负载均衡策略吗？',
@@ -635,7 +636,7 @@ export default {
     'pages.loadbalance.form.latencyFailureMax.placeholder': '请输入失败惩罚上限（例如 30 秒），默认 30 秒',
 
     // tagRoute
-    'pages.tagRoute.add': '新建策略',
+    'pages.tagRoute.add': '新建策略模板',
     'pages.tagRoute.edit': '编辑策略',
     'pages.tagRoute.copy': '复制策略',
     'pages.tagRoute.delTip': '确定删除该标签路由策略吗？',
@@ -707,7 +708,7 @@ export default {
     'pages.tagRoute.form.description.placeholder': '请输入策略描述',
     'pages.tagRoute.form.created_at': '创建时间',
     // limit
-    'pages.limit.add': '新建策略',
+    'pages.limit.add': '新建策略模板',
     'pages.limit.edit': '编辑策略',
     'pages.limit.copy': '复制策略',
     'pages.limit.delTip': '确定删除该限流策略吗？',
@@ -841,7 +842,7 @@ export default {
     'pages.limit.form.version': '版本',
     'pages.limit.form.created_at': '创建时间',
     // invocation
-    'pages.invocation.add': '新建策略',
+    'pages.invocation.add': '新建策略模板',
     'pages.invocation.edit': '编辑策略',
     'pages.invocation.copy': '复制策略',
     'pages.invocation.delTip': '确定删除该请求容错策略吗？',
@@ -959,7 +960,7 @@ export default {
     'pages.invocation.form.fallbackTargets.placeholder': '请选择或输入降级目标模型，按回车确认',
     'pages.invocation.form.fallbackTargets.tooltip': '当当前模型调用失败时，将按顺序尝试降级到指定的备用模型',
     // circuitBreak
-    'pages.circuitBreak.add': '新建策略',
+    'pages.circuitBreak.add': '新建策略模板',
     'pages.circuitBreak.edit': '编辑策略',
     'pages.circuitBreak.copy': '复制策略',
     'pages.circuitBreak.delTip': '确定删除该熔断降级策略吗？',
@@ -1349,7 +1350,19 @@ export default {
     'pages.portalWorkspace.workspace_id': 'Workspace ID',
     'pages.portalWorkspace.workspace_id.placeholder': '输入 Workspace ID',
     'pages.portalWorkspace.workspace_id.required': '请输入 Workspace ID',
+    'pages.portalWorkspace.tenant_code': '租户编码',
+    'pages.portalWorkspace.tenant_code.placeholder': '输入 Admin 租户编码',
+    'pages.portalWorkspace.tenant_code.required': '请输入租户编码',
     'pages.portalWorkspace.search': '查询',
+    'pages.portalWorkspace.bind_tenant': '绑定并开通',
+    'pages.portalWorkspace.bind_tenant.confirm_title': '确认绑定租户并开通运行态',
+    'pages.portalWorkspace.bind_tenant.confirm_content':
+        'Workspace {workspaceId} 将绑定到租户 {tenantCode}，并同步运行态。',
+    'pages.portalWorkspace.bind_tenant.success': '租户绑定并开通完成',
+    'pages.portalWorkspace.unbind_tenant': '解绑租户',
+    'pages.portalWorkspace.unbind_tenant.confirm_title': '确认解绑租户',
+    'pages.portalWorkspace.unbind_tenant.confirm_content': 'Workspace {workspaceId} 将解除租户绑定，并同步运行态。',
+    'pages.portalWorkspace.unbind_tenant.success': '租户解绑完成',
     'pages.portalWorkspace.runtime_sync': '重同步运行态',
     'pages.portalWorkspace.runtime_sync.confirm_title': '确认重同步运行态',
     'pages.portalWorkspace.runtime_sync.success': '运行态重同步完成',
@@ -1364,6 +1377,7 @@ export default {
     'pages.portalWorkspace.table.created_at': '创建时间',
     'pages.portalWorkspace.table.updated_at': '更新时间',
     'pages.portalWorkspace.status.active': '启用',
+    'pages.portalWorkspace.status.enabled': '启用',
     'pages.portalWorkspace.status.disabled': '停用',
     'pages.portalWorkspace.status.revoked': '已撤销',
     'pages.portalWorkspace.status.expired': '已过期',

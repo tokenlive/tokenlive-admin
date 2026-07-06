@@ -115,6 +115,11 @@ definitions:
           type: integer
         type: array
     type: object
+  api.bindWorkspaceTenantRequest:
+    properties:
+      tenant_code:
+        type: string
+    type: object
   biz.PortalUserResult:
     properties:
       display_name:
@@ -1153,8 +1158,6 @@ definitions:
         type: string
       description:
         type: string
-      enabled:
-        type: integer
       id:
         type: string
       model_code:
@@ -1174,12 +1177,6 @@ definitions:
       user_id:
         type: string
     type: object
-  schema.PolicyBindingEnabledForm:
-    properties:
-      enabled:
-        description: 'Enable status: 0-disabled, 1-enabled'
-        type: integer
-    type: object
   schema.PolicyBindingForm:
     properties:
       created_at:
@@ -1189,11 +1186,6 @@ definitions:
       description:
         maxLength: 255
         type: string
-      enabled:
-        enum:
-        - 0
-        - 1
-        type: integer
       id:
         type: string
       model_code:
@@ -1260,6 +1252,8 @@ definitions:
         type: string
       min_calls_threshold:
         type: integer
+      model_id:
+        type: string
       modifier:
         type: string
       name:
@@ -1337,6 +1331,10 @@ definitions:
       min_calls_threshold:
         description: Min calls threshold
         type: integer
+      model_id:
+        description: Owner model ID; empty means template
+        maxLength: 20
+        type: string
       modifier:
         description: Modifier
         type: string
@@ -1377,6 +1375,17 @@ definitions:
     - name
     - sliding_window_type
     type: object
+  schema.PolicyCopyToModelForm:
+    properties:
+      model_id:
+        maxLength: 20
+        type: string
+      name:
+        maxLength: 128
+        type: string
+    required:
+    - model_id
+    type: object
   schema.PolicyInvocation:
     properties:
       created_at:
@@ -1390,6 +1399,8 @@ definitions:
       fallback_policy:
         type: string
       id:
+        type: string
+      model_id:
         type: string
       modifier:
         type: string
@@ -1423,6 +1434,10 @@ definitions:
         - $ref: '#/definitions/schema.FallbackPolicy'
         description: Fallback policy
       id:
+        type: string
+      model_id:
+        description: Owner model ID; empty means template
+        maxLength: 20
         type: string
       modifier:
         description: Modifier
@@ -1469,6 +1484,8 @@ definitions:
         type: string
       max_wait_ms:
         type: integer
+      model_id:
+        type: string
       modifier:
         type: string
       name:
@@ -1517,6 +1534,10 @@ definitions:
       max_wait_ms:
         description: Max queue wait time (ms)
         type: integer
+      model_id:
+        description: Owner model ID; empty means template
+        maxLength: 20
+        type: string
       modifier:
         description: Modifier
         type: string
@@ -1560,6 +1581,8 @@ definitions:
         type: integer
       id:
         type: string
+      model_id:
+        type: string
       modifier:
         type: string
       name:
@@ -1590,6 +1613,10 @@ definitions:
         description: Enabled
         type: integer
       id:
+        type: string
+      model_id:
+        description: Owner model ID; empty means template
+        maxLength: 20
         type: string
       modifier:
         description: Modifier
@@ -1632,6 +1659,8 @@ definitions:
       enabled:
         type: integer
       id:
+        type: string
+      model_id:
         type: string
       modifier:
         type: string
@@ -1730,6 +1759,10 @@ definitions:
       id:
         description: Unique ID
         type: string
+      model_id:
+        description: Owner model ID; empty means template
+        maxLength: 20
+        type: string
       modifier:
         description: Modifier
         type: string
@@ -1764,6 +1797,8 @@ definitions:
       enabled:
         type: integer
       id:
+        type: string
+      model_id:
         type: string
       modifier:
         type: string
@@ -1806,6 +1841,10 @@ definitions:
         - 1
         type: integer
       id:
+        type: string
+      model_id:
+        description: Owner model ID; empty means template
+        maxLength: 20
         type: string
       modifier:
         description: Modifier
@@ -2303,6 +2342,8 @@ definitions:
         type: string
       creator:
         type: string
+      credits:
+        type: integer
       deleted:
         type: string
       deleted_at:
@@ -2317,8 +2358,6 @@ definitions:
         type: string
       name:
         type: string
-      quota:
-        type: integer
       status:
         type: integer
       updated_at:
@@ -2328,6 +2367,9 @@ definitions:
     type: object
   schema.UserAPIKeyForm:
     properties:
+      credits:
+        description: '剩余额度(微元): -1表示无限制'
+        type: integer
       description:
         description: 描述信息
         maxLength: 255
@@ -2339,9 +2381,6 @@ definitions:
         description: API Key 友好名称
         maxLength: 64
         type: string
-      quota:
-        description: '剩余配额: -1表示无限制'
-        type: integer
       status:
         description: '状态: 1-启用, 2-禁用'
         enum:
@@ -4856,6 +4895,42 @@ paths:
       summary: List portal workspace API keys
       tags:
       - PortalUserAPI
+  /api/v1/ops/portal/workspaces/{workspace_id}/bind-tenant:
+    post:
+      parameters:
+      - description: workspace ID
+        in: path
+        name: workspace_id
+        required: true
+        type: string
+      - description: tenant code
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.bindWorkspaceTenantRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Bind portal workspace to admin tenant
+      tags:
+      - PortalUserAPI
   /api/v1/ops/portal/workspaces/{workspace_id}/runtime-sync:
     post:
       parameters:
@@ -4880,6 +4955,32 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Sync portal workspace API keys to gateway runtime
+      tags:
+      - PortalUserAPI
+  /api/v1/ops/portal/workspaces/{workspace_id}/unbind-tenant:
+    post:
+      parameters:
+      - description: workspace ID
+        in: path
+        name: workspace_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Unbind portal workspace tenant
       tags:
       - PortalUserAPI
   /api/v1/policy/policy-bindings:
@@ -5035,42 +5136,6 @@ paths:
       summary: Update policy binding record by ID
       tags:
       - PolicyBindingAPI
-  /api/v1/policy/policy-bindings/{id}/enabled:
-    put:
-      parameters:
-      - description: unique id
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Request body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/schema.PolicyBindingEnabledForm'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/util.ResponseResult'
-      security:
-      - ApiKeyAuth: []
-      summary: Toggle policy binding enabled status by ID
-      tags:
-      - PolicyBindingAPI
   /api/v1/policy/policy-circuit-breaks:
     get:
       responses:
@@ -5222,6 +5287,47 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Update policy circuit break record by ID
+      tags:
+      - PolicyCircuitBreakAPI
+  /api/v1/policy/policy-circuit-breaks/{id}/copy-to-model:
+    post:
+      parameters:
+      - description: template id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyCopyToModelForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyCircuitBreak'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Copy policy circuit break template to model
       tags:
       - PolicyCircuitBreakAPI
   /api/v1/policy/policy-invocations:
@@ -5377,6 +5483,47 @@ paths:
       summary: Update policy invocation record by ID
       tags:
       - PolicyInvocationAPI
+  /api/v1/policy/policy-invocations/{id}/copy-to-model:
+    post:
+      parameters:
+      - description: template id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyCopyToModelForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyInvocation'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Copy policy invocation template to model
+      tags:
+      - PolicyInvocationAPI
   /api/v1/policy/policy-limits:
     get:
       responses:
@@ -5530,6 +5677,47 @@ paths:
       summary: Update policy limit record by ID
       tags:
       - PolicyLimitAPI
+  /api/v1/policy/policy-limits/{id}/copy-to-model:
+    post:
+      parameters:
+      - description: template id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyCopyToModelForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyLimit'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Copy policy limit template to model
+      tags:
+      - PolicyLimitAPI
   /api/v1/policy/policy-loadbalances:
     get:
       responses:
@@ -5681,6 +5869,47 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Update policy loadbalance record by ID
+      tags:
+      - PolicyLoadbalanceAPI
+  /api/v1/policy/policy-loadbalances/{id}/copy-to-model:
+    post:
+      parameters:
+      - description: template id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyCopyToModelForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyLoadbalance'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Copy policy loadbalance template to model
       tags:
       - PolicyLoadbalanceAPI
   /api/v1/policy/policy-route-details:
@@ -5989,6 +6218,47 @@ paths:
       summary: Update policy route record by ID
       tags:
       - PolicyRouteAPI
+  /api/v1/policy/policy-routes/{id}/copy-to-model:
+    post:
+      parameters:
+      - description: template id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyCopyToModelForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyRoute'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Copy policy route template to model
+      tags:
+      - PolicyRouteAPI
   /api/v1/policy/policy-taggings:
     get:
       responses:
@@ -6140,6 +6410,47 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Update policy tagging record by ID
+      tags:
+      - PolicyTaggingAPI
+  /api/v1/policy/policy-taggings/{id}/copy-to-model:
+    post:
+      parameters:
+      - description: template id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyCopyToModelForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyTagging'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Copy policy tagging template to model
       tags:
       - PolicyTaggingAPI
   /api/v1/providers:

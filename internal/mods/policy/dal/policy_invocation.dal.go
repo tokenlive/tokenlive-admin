@@ -3,6 +3,7 @@ package dal
 import (
 	"context"
 
+	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
@@ -27,8 +28,18 @@ func (a *PolicyInvocation) Query(ctx context.Context, params schema.PolicyInvoca
 	}
 
 	db := GetPolicyInvocationDB(ctx, a.DB)
+	if v := params.ModelID; v != "" {
+		db = db.Where("model_id = ?", v)
+	} else {
+		db = db.Where("model_id = '' OR model_id IS NULL")
+	}
 	if v := params.Name; v != "" {
 		db = db.Where("name LIKE ?", "%"+v+"%")
+	}
+	if params.ModelID != "" && !util.FromIsRootUser(ctx) {
+		permTable := config.C.FormatTableName("data_permission")
+		db = db.Where("model_id IN (SELECT data_id FROM "+permTable+" WHERE type = ? AND user = ? AND tenant = ? AND permission & 1 = 1)",
+			"model", util.FromUsername(ctx), util.FromTenant(ctx))
 	}
 
 	var list schema.PolicyInvocations
@@ -80,8 +91,14 @@ func (a *PolicyInvocation) Update(ctx context.Context, item *schema.PolicyInvoca
 }
 
 // ExistsByUniqueKey checks whether a policy invocation with the given unique key already exists.
-func (a *PolicyInvocation) ExistsByUniqueKey(ctx context.Context, name string) (bool, error) {
-	ok, err := util.Exists(ctx, GetPolicyInvocationDB(ctx, a.DB).Where("name = ?", name))
+func (a *PolicyInvocation) ExistsByUniqueKey(ctx context.Context, modelID, name string) (bool, error) {
+	db := GetPolicyInvocationDB(ctx, a.DB).Where("name = ?", name)
+	if modelID == "" {
+		db = db.Where("model_id = '' OR model_id IS NULL")
+	} else {
+		db = db.Where("model_id = ?", modelID)
+	}
+	ok, err := util.Exists(ctx, db)
 	return ok, errors.WithStack(err)
 }
 

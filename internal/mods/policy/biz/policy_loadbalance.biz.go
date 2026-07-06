@@ -8,6 +8,7 @@ import (
 	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
+	resourceDal "github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
@@ -18,6 +19,8 @@ type PolicyLoadbalance struct {
 	PolicyLoadbalanceDAL *dal.PolicyLoadbalance
 	PolicyBindingDAL     *dal.PolicyBinding
 	PolicyRedisSync      *PolicyRedisSync
+	ModelDAL             *resourceDal.Model
+	DataPermissionDAL    *resourceDal.DataPermission
 	AuditLogBIZ          *opsBiz.AuditLog
 }
 
@@ -46,6 +49,9 @@ func (a *PolicyLoadbalance) Get(ctx context.Context, id string) (*schema.PolicyL
 	} else if policyLoadbalance == nil {
 		return nil, errors.NotFound("", "Policy loadbalance not found")
 	}
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyLoadbalance.ModelID, modelPermissionRead); err != nil {
+		return nil, err
+	}
 	var form schema.PolicyLoadbalanceForm
 	if err := policyLoadbalance.ConvertTo(&form); err != nil {
 		return nil, err
@@ -55,8 +61,13 @@ func (a *PolicyLoadbalance) Get(ctx context.Context, id string) (*schema.PolicyL
 
 // Create a new policy loadbalance in the data access object.
 func (a *PolicyLoadbalance) Create(ctx context.Context, formItem *schema.PolicyLoadbalanceForm) (*schema.PolicyLoadbalance, error) {
-	// Check unique key (name) before creating.
-	if exists, err := a.PolicyLoadbalanceDAL.ExistsByName(ctx, formItem.Name); err != nil {
+	model, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check unique key (model_id, name) before creating.
+	if exists, err := a.PolicyLoadbalanceDAL.ExistsByName(ctx, formItem.ModelID, formItem.Name); err != nil {
 		return nil, err
 	} else if exists {
 		return nil, errors.BadRequest("", "Policy loadbalance with the same name already exists")
@@ -74,8 +85,14 @@ func (a *PolicyLoadbalance) Create(ctx context.Context, formItem *schema.PolicyL
 		return nil, err
 	}
 
-	err := a.Trans.Exec(ctx, func(ctx context.Context) error {
-		return a.PolicyLoadbalanceDAL.Create(ctx, policyLoadbalance)
+	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
+		if err := a.PolicyLoadbalanceDAL.Create(ctx, policyLoadbalance); err != nil {
+			return err
+		}
+		if model == nil {
+			return nil
+		}
+		return createModelPolicyBinding(ctx, a.PolicyBindingDAL, "loadbalance", policyLoadbalance.ID, model)
 	})
 	if err != nil {
 		return nil, err
@@ -94,10 +111,20 @@ func (a *PolicyLoadbalance) Update(ctx context.Context, id string, formItem *sch
 	} else if policyLoadbalance == nil {
 		return errors.NotFound("", "Policy loadbalance not found")
 	}
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyLoadbalance.ModelID, modelPermissionWrite); err != nil {
+		return err
+	}
+	if err := rejectPolicyKindChange(policyLoadbalance.ModelID, formItem.ModelID); err != nil {
+		return err
+	}
+	model, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite)
+	if err != nil {
+		return err
+	}
 
-	// If name changed, ensure the new name is not occupied.
-	if policyLoadbalance.Name != formItem.Name {
-		if exists, err := a.PolicyLoadbalanceDAL.ExistsByName(ctx, formItem.Name); err != nil {
+	// If model/name changed, ensure the new name is not occupied in the model.
+	if policyLoadbalance.ModelID != formItem.ModelID || policyLoadbalance.Name != formItem.Name {
+		if exists, err := a.PolicyLoadbalanceDAL.ExistsByName(ctx, formItem.ModelID, formItem.Name); err != nil {
 			return err
 		} else if exists {
 			return errors.BadRequest("", "Policy loadbalance with the same name already exists")
@@ -114,15 +141,23 @@ func (a *PolicyLoadbalance) Update(ctx context.Context, id string, formItem *sch
 	policyLoadbalance.UpdatedAt = time.Now()
 
 	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		return a.PolicyLoadbalanceDAL.Update(ctx, policyLoadbalance)
+		if err := a.PolicyLoadbalanceDAL.Update(ctx, policyLoadbalance); err != nil {
+			return err
+		}
+		if model == nil {
+			return a.PolicyBindingDAL.DeleteByPolicyID(ctx, "loadbalance", policyLoadbalance.ID)
+		}
+		return replaceModelPolicyBinding(ctx, a.PolicyBindingDAL, "loadbalance", policyLoadbalance.ID, model)
 	})
 	if err != nil {
 		return err
 	}
 
 	// 级联同步引用此策略的维度到 Redis
-	if err := a.PolicyRedisSync.SyncPolicyChange(ctx, "loadbalance", id); err != nil {
-		return err
+	if policyLoadbalance.ModelID != "" {
+		if err := a.PolicyRedisSync.SyncPolicyChange(ctx, "loadbalance", id); err != nil {
+			return err
+		}
 	}
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyLoadbalance.ID, policyLoadbalance.Name, beforePolicy, policyLoadbalance)
@@ -138,24 +173,78 @@ func (a *PolicyLoadbalance) Delete(ctx context.Context, id string) error {
 	} else if policyLoadbalance == nil {
 		return errors.NotFound("", "Policy loadbalance not found")
 	}
-
-	if err := ensurePolicyUnbound(ctx, a.PolicyBindingDAL, "loadbalance", id); err != nil {
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyLoadbalance.ModelID, modelPermissionWrite); err != nil {
 		return err
 	}
 
 	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		return a.PolicyLoadbalanceDAL.Delete(ctx, id)
+		if err := a.PolicyLoadbalanceDAL.Delete(ctx, id); err != nil {
+			return err
+		}
+		return a.PolicyBindingDAL.DeleteByPolicyID(ctx, "loadbalance", id)
 	})
 	if err != nil {
 		return err
 	}
 
 	// 级联同步引用此策略的维度到 Redis
-	if err := a.PolicyRedisSync.SyncPolicyChange(ctx, "loadbalance", id); err != nil {
-		return err
+	if policyLoadbalance.ModelID != "" {
+		if err := a.PolicyRedisSync.SyncPolicyChange(ctx, "loadbalance", id); err != nil {
+			return err
+		}
 	}
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyLoadbalance.ID, policyLoadbalance.Name, policyLoadbalance, nil)
 
 	return nil
+}
+
+// CopyTemplateToModel copies a policy template into a model-owned policy instance.
+func (a *PolicyLoadbalance) CopyTemplateToModel(ctx context.Context, templateID, modelID, name string) (*schema.PolicyLoadbalance, error) {
+	template, err := a.PolicyLoadbalanceDAL.Get(ctx, templateID)
+	if err != nil {
+		return nil, err
+	} else if template == nil {
+		return nil, errors.NotFound("", "Policy loadbalance not found")
+	}
+	if template.ModelID != "" {
+		return nil, errors.BadRequest("", "Only policy templates can be copied to a model")
+	}
+	model, err := requireModelPermission(ctx, a.ModelDAL, a.DataPermissionDAL, modelID, modelPermissionWrite)
+	if err != nil {
+		return nil, err
+	}
+	if name == "" {
+		name = template.Name
+	}
+	name, err = nextPolicyName(ctx, name, modelID, a.PolicyLoadbalanceDAL.ExistsByName)
+	if err != nil {
+		return nil, err
+	}
+
+	instance := *template
+	instance.ID = util.NewXID()
+	instance.ModelID = modelID
+	instance.Name = name
+	instance.Creator = nil
+	instance.Modifier = nil
+	instance.CreatedAt = time.Now()
+	instance.UpdatedAt = time.Time{}
+	instance.Deleted = "0"
+	instance.DeletedAt = nil
+	if username := util.FromUsername(ctx); username != "" {
+		instance.Creator = &username
+	}
+
+	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
+		if err := a.PolicyLoadbalanceDAL.Create(ctx, &instance); err != nil {
+			return err
+		}
+		return createModelPolicyBinding(ctx, a.PolicyBindingDAL, "loadbalance", instance.ID, model)
+	})
+	if err != nil {
+		return nil, err
+	}
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, instance.ID, instance.Name, nil, &instance)
+	return &instance, nil
 }

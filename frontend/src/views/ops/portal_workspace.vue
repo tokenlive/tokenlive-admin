@@ -18,6 +18,15 @@
                             :placeholder="$t('pages.portalWorkspace.workspace_id.placeholder')"
                             @pressEnter="handleSearch" />
                     </a-form-item>
+                    <a-form-item
+                        :label="$t('pages.portalWorkspace.tenant_code')"
+                        style="margin-bottom: 0">
+                        <a-input
+                            v-model:value="formState.tenantCode"
+                            allow-clear
+                            class="portal-workspace-tenant-input"
+                            :placeholder="$t('pages.portalWorkspace.tenant_code.placeholder')" />
+                    </a-form-item>
                     <a-form-item style="margin-bottom: 0">
                         <a-button
                             type="primary"
@@ -27,6 +36,31 @@
                                 <search-outlined />
                             </template>
                             {{ $t('pages.portalWorkspace.search') }}
+                        </a-button>
+                    </a-form-item>
+                    <a-form-item style="margin-bottom: 0">
+                        <a-button
+                            type="primary"
+                            ghost
+                            :disabled="!currentWorkspaceId || !formState.tenantCode.trim()"
+                            :loading="binding"
+                            @click="handleBindTenant">
+                            <template #icon>
+                                <link-outlined />
+                            </template>
+                            {{ $t('pages.portalWorkspace.bind_tenant') }}
+                        </a-button>
+                    </a-form-item>
+                    <a-form-item style="margin-bottom: 0">
+                        <a-button
+                            danger
+                            :disabled="!currentWorkspaceId"
+                            :loading="unbinding"
+                            @click="handleUnbindTenant">
+                            <template #icon>
+                                <disconnect-outlined />
+                            </template>
+                            {{ $t('pages.portalWorkspace.unbind_tenant') }}
                         </a-button>
                     </a-form-item>
                     <a-form-item style="margin-bottom: 0">
@@ -73,7 +107,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import { SearchOutlined, SyncOutlined } from '@ant-design/icons-vue'
+import { DisconnectOutlined, LinkOutlined, SearchOutlined, SyncOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
 import apis from '@/apis'
 import { config } from '@/config'
@@ -84,11 +118,13 @@ defineOptions({
 })
 
 const { t } = useI18n()
-const formState = reactive({ workspaceId: '' })
+const formState = reactive({ workspaceId: '', tenantCode: '' })
 const currentWorkspaceId = ref('')
 const listData = ref([])
 const loading = ref(false)
 const syncing = ref(false)
+const binding = ref(false)
+const unbinding = ref(false)
 
 const columns = computed(() => [
     { title: t('pages.portalWorkspace.table.name'), key: 'name', dataIndex: 'name', width: 180 },
@@ -146,6 +182,74 @@ function handleSync() {
     })
 }
 
+function handleBindTenant() {
+    if (!currentWorkspaceId.value) return
+    const tenantCode = formState.tenantCode.trim()
+    if (!tenantCode) {
+        message.warning(t('pages.portalWorkspace.tenant_code.required'))
+        return
+    }
+
+    Modal.confirm({
+        title: t('pages.portalWorkspace.bind_tenant.confirm_title'),
+        content: t('pages.portalWorkspace.bind_tenant.confirm_content', {
+            workspaceId: currentWorkspaceId.value,
+            tenantCode,
+        }),
+        okText: t('pages.portalWorkspace.bind_tenant'),
+        onOk: async () => {
+            binding.value = true
+            try {
+                const { success } = await apis.ops.bindPortalWorkspaceTenant(currentWorkspaceId.value, tenantCode)
+                if (config('http.code.success') === success) {
+                    if (await syncRuntimeSilently()) {
+                        message.success(t('pages.portalWorkspace.bind_tenant.success'))
+                    }
+                    await handleSearch()
+                }
+            } finally {
+                binding.value = false
+            }
+        },
+    })
+}
+
+function handleUnbindTenant() {
+    if (!currentWorkspaceId.value) return
+
+    Modal.confirm({
+        title: t('pages.portalWorkspace.unbind_tenant.confirm_title'),
+        content: t('pages.portalWorkspace.unbind_tenant.confirm_content', {
+            workspaceId: currentWorkspaceId.value,
+        }),
+        okText: t('pages.portalWorkspace.unbind_tenant'),
+        onOk: async () => {
+            unbinding.value = true
+            try {
+                const { success } = await apis.ops.unbindPortalWorkspaceTenant(currentWorkspaceId.value)
+                if (config('http.code.success') === success) {
+                    if (await syncRuntimeSilently()) {
+                        message.success(t('pages.portalWorkspace.unbind_tenant.success'))
+                    }
+                    await handleSearch()
+                }
+            } finally {
+                unbinding.value = false
+            }
+        },
+    })
+}
+
+async function syncRuntimeSilently() {
+    syncing.value = true
+    try {
+        const { success } = await apis.ops.syncPortalWorkspaceRuntime(currentWorkspaceId.value)
+        return config('http.code.success') === success
+    } finally {
+        syncing.value = false
+    }
+}
+
 function statusText(status) {
     return t(`pages.portalWorkspace.status.${status || 'unknown'}`)
 }
@@ -170,6 +274,10 @@ function statusText(status) {
 
     .portal-workspace-input {
         width: min(420px, 100%);
+    }
+
+    .portal-workspace-tenant-input {
+        width: min(260px, 100%);
     }
 
     .portal-workspace-name {

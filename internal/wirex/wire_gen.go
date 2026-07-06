@@ -408,17 +408,21 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		PolicyLoadbalanceDAL: policyLoadbalance,
 		PolicyBindingDAL:     policyBinding,
 		PolicyRedisSync:      policyRedisSync,
+		ModelDAL:             model,
+		DataPermissionDAL:    dataPermission,
 		AuditLogBIZ:          bizAuditLog,
 	}
 	apiPolicyLoadbalance := &api4.PolicyLoadbalance{
 		PolicyLoadbalanceBIZ: bizPolicyLoadbalance,
 	}
 	bizPolicyRoute := &biz4.PolicyRoute{
-		Trans:            trans,
-		PolicyRouteDAL:   policyRoute,
-		PolicyBindingDAL: policyBinding,
-		PolicyRedisSync:  policyRedisSync,
-		AuditLogBIZ:      bizAuditLog,
+		Trans:             trans,
+		PolicyRouteDAL:    policyRoute,
+		PolicyBindingDAL:  policyBinding,
+		PolicyRedisSync:   policyRedisSync,
+		ModelDAL:          model,
+		DataPermissionDAL: dataPermission,
+		AuditLogBIZ:       bizAuditLog,
 	}
 	apiPolicyRoute := &api4.PolicyRoute{
 		PolicyRouteBIZ: bizPolicyRoute,
@@ -434,11 +438,13 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		PolicyRouteDetailBIZ: bizPolicyRouteDetail,
 	}
 	bizPolicyLimit := &biz4.PolicyLimit{
-		Trans:            trans,
-		PolicyLimitDAL:   policyLimit,
-		PolicyBindingDAL: policyBinding,
-		PolicyRedisSync:  policyRedisSync,
-		AuditLogBIZ:      bizAuditLog,
+		Trans:             trans,
+		PolicyLimitDAL:    policyLimit,
+		PolicyBindingDAL:  policyBinding,
+		PolicyRedisSync:   policyRedisSync,
+		ModelDAL:          model,
+		DataPermissionDAL: dataPermission,
+		AuditLogBIZ:       bizAuditLog,
 	}
 	apiPolicyLimit := &api4.PolicyLimit{
 		PolicyLimitBIZ: bizPolicyLimit,
@@ -448,6 +454,8 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		PolicyCircuitBreakDAL: policyCircuitBreak,
 		PolicyBindingDAL:      policyBinding,
 		PolicyRedisSync:       policyRedisSync,
+		ModelDAL:              model,
+		DataPermissionDAL:     dataPermission,
 		AuditLogBIZ:           bizAuditLog,
 	}
 	apiPolicyCircuitBreak := &api4.PolicyCircuitBreak{
@@ -458,6 +466,8 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		PolicyInvocationDAL: policyInvocation,
 		PolicyBindingDAL:    policyBinding,
 		PolicyRedisSync:     policyRedisSync,
+		ModelDAL:            model,
+		DataPermissionDAL:   dataPermission,
 		AuditLogBIZ:         bizAuditLog,
 	}
 	apiPolicyInvocation := &api4.PolicyInvocation{
@@ -473,11 +483,13 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		PolicyBindingBIZ: bizPolicyBinding,
 	}
 	bizPolicyTagging := &biz4.PolicyTagging{
-		Trans:            trans,
-		PolicyTaggingDAL: policyTagging,
-		PolicyBindingDAL: policyBinding,
-		PolicyRedisSync:  policyRedisSync,
-		AuditLogBIZ:      bizAuditLog,
+		Trans:             trans,
+		PolicyTaggingDAL:  policyTagging,
+		PolicyBindingDAL:  policyBinding,
+		PolicyRedisSync:   policyRedisSync,
+		ModelDAL:          model,
+		DataPermissionDAL: dataPermission,
+		AuditLogBIZ:       bizAuditLog,
 	}
 	apiPolicyTagging := &api4.PolicyTagging{
 		PolicyTaggingBIZ: bizPolicyTagging,

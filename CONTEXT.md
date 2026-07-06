@@ -53,10 +53,18 @@ AI 模型的上游服务商或自定义接入端点，例如 OpenAI、Azure Open
 ### 治理策略
 
 **Policy (治理策略)**:
-网关层面的流量治理规则集合，包括路由策略（policy_route）、限流策略（policy_limit）、熔断隔离策略（policy_circuit_break）、调用管理与重试策略（policy_invoke）、负载均衡策略（policy_load_balance）、染色打标策略（policy_tagging）等。这些策略作为独立无状态的"模板资产"存储在各自的表结构中，本身不包含具体的应用实体对象。
+网关层面的流量治理规则集合，包括路由策略（policy_route）、限流策略（policy_limit）、熔断隔离策略（policy_circuit_break）、调用管理与重试策略（policy_invoke）、负载均衡策略（policy_load_balance）、染色打标策略（policy_tagging）等。Policy 可以是策略模板，也可以是模型策略实例；只有模型策略实例参与运行时生效。
+
+**Policy Template (策略模板)**:
+`model_id` 为空的治理策略配置，由平台运营方维护，用于跨模型复用。策略模板不直接生效、不创建策略绑定、不同步到 Redis；用户在模板详情或模型详情中选择目标 Model 后，系统复制出一份新的模型策略实例。
+_Avoid_: 将策略模板直接绑定到租户、用户或模型运行时维度。
+
+**Model Policy (模型策略实例)**:
+`model_id` 非空的治理策略配置，归属于一个具体 Model，权限跟随该 Model 的数据权限。模型策略实例可以从策略模板复制生成，也可以在模型详情页直接创建；同一 Model 下策略名称唯一。
+_Avoid_: 将模型策略实例修改回写到原始策略模板。
 
 **Policy Binding (策略绑定)**:
-通过多对多关系绑定表（`policy_binding`），将具体的治理策略（`policy_id`）应用到指定的业务维度上。绑定维度由 `tenant_code`、`user_id`、`model_code` 三个核心物理字段组成，不限则为空字符串。`user_id` 存储的是 API Key 所关联的用户 ID，不区分来源系统。
+将模型策略实例应用到指定业务维度上的关系。策略绑定是系统内部运行时关系，不作为独立用户资产做数据权限管理；租户与用户等作用维度由绑定关系表达，启停状态由 Policy 本身决定。
 - **可叠加策略（Cumulative Policy）**：如限流、染色打标、路由、熔断。支持同一维度重复绑定不同策略实例，运行时网关将它们融合并累加生效。
 - **单选覆盖策略（Exclusive Policy）**：如负载均衡、调用重试。同一维度同种类型只能生效唯一实例，多级维度冲突时根据优先级链条覆盖合并。
 
@@ -77,7 +85,9 @@ AI 模型的上游服务商或自定义接入端点，例如 OpenAI、Azure Open
 - 一个首次第三方登录的 **Admin User** 可自动拥有一个 **Self-Service Tenant**
 - 一个 **Tenant** 可绑定多个 **Model**（通过 Tenant-Model Association）
 - 一个 **Tenant** 可对应零个或多个 Portal 的 **Workspace**（1:N，仅公共平台场景）
-- **Policy** 通过 **Policy Binding** 应用到 (tenant_code, user_id, model_code) 等维度组合上
+- **Policy Template** 可复制生成多个 **Model Policy**
+- **Model Policy** 属于一个 **Model**，权限跟随该 **Model**
+- **Policy Binding** 将 **Model Policy** 应用到 (tenant_code, user_id, model_code) 等维度组合上
 - 一个 **Model** 挂载到一个 **Provider**，并有多个 **Endpoint**
 
 ## Example dialogue

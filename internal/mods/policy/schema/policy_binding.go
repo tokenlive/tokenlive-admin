@@ -18,7 +18,6 @@ type PolicyBinding struct {
 	PolicyType  string          `json:"policy_type" gorm:"type:varchar(64);not null;uniqueIndex:uniq_dimensions_policy,priority:4;comment:策略类型：tagging / loadbalance / invocation / limit / route / circuit_break;"`
 	PolicyID    string          `json:"policy_id" gorm:"type:char(20);not null;uniqueIndex:uniq_dimensions_policy,priority:5;comment:关联的具体策略表主键 ID (XID);"`
 	Priority    int             `json:"priority" gorm:"type:int;not null;default:0;comment:冲突合并时的优先级，数字越小越优先;"`
-	Enabled     int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
 	Description *string         `json:"description,omitempty" gorm:"type:varchar(255);default:null;comment:备注描述;"`
 	Creator     *string         `json:"creator,omitempty" gorm:"type:varchar(255);default:null;comment:创建者;"`
 	Modifier    *string         `json:"modifier,omitempty" gorm:"type:varchar(255);default:null;comment:修改者;"`
@@ -41,7 +40,6 @@ func (a PolicyBinding) ConvertTo(form *PolicyBindingForm) error {
 	form.PolicyType = a.PolicyType
 	form.PolicyID = a.PolicyID
 	form.Priority = a.Priority
-	form.Enabled = a.Enabled
 	form.Description = a.Description
 	form.Creator = a.Creator
 	form.Modifier = a.Modifier
@@ -58,7 +56,6 @@ type PolicyBindingQueryParam struct {
 	ModelCode  string `form:"model_code"`  // Model code
 	PolicyType string `form:"policy_type"` // Policy type (tagging/loadbalance/invocation/limit/route/circuit_break)
 	PolicyID   string `form:"policy_id"`   // Policy ID
-	Enabled    *int   `form:"enabled"`     // Enabled status
 }
 
 // Defining the query options for the `PolicyBinding` struct.
@@ -84,7 +81,6 @@ type PolicyBindingForm struct {
 	PolicyType  string    `json:"policy_type" binding:"required,oneof=tagging loadbalance invocation limit route circuit_break"`
 	PolicyID    string    `json:"policy_id" binding:"required,max=20"`
 	Priority    int       `json:"priority" binding:"min=0"`
-	Enabled     int       `json:"enabled" binding:"oneof=0 1"`
 	Description *string   `json:"description" binding:"omitempty,max=255"`
 	Creator     *string   `json:"creator,omitempty"`
 	Modifier    *string   `json:"modifier,omitempty"`
@@ -111,19 +107,6 @@ func (a *PolicyBindingForm) FillTo(binding *PolicyBinding) error {
 	binding.PolicyType = a.PolicyType
 	binding.PolicyID = a.PolicyID
 	binding.Priority = a.Priority
-	binding.Enabled = a.Enabled
 	binding.Description = a.Description
-	return nil
-}
-
-// PolicyBindingEnabledForm toggles the enabled status of a policy binding.
-type PolicyBindingEnabledForm struct {
-	Enabled int `json:"enabled"` // Enable status: 0-disabled, 1-enabled
-}
-
-func (a *PolicyBindingEnabledForm) Validate() error {
-	if a.Enabled != 0 && a.Enabled != 1 {
-		return errors.BadRequest("", "enabled 字段必须为 0 或 1")
-	}
 	return nil
 }

@@ -116,6 +116,14 @@
                     {
                         "method": "POST",
                         "path": "/api/v1/ops/portal/workspaces/{workspace_id}/runtime-sync"
+                    },
+                    {
+                        "method": "POST",
+                        "path": "/api/v1/ops/portal/workspaces/{workspace_id}/bind-tenant"
+                    },
+                    {
+                        "method": "POST",
+                        "path": "/api/v1/ops/portal/workspaces/{workspace_id}/unbind-tenant"
                     }
                 ]
             }

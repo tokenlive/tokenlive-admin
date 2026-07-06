@@ -119,8 +119,9 @@
                     key="alias"
                     :tab="$t('pages.model.detail.tab.alias')" />
                 <a-tab-pane
-                    key="policy"
-                    :tab="$t('pages.model.detail.tab.policy')" />
+                    v-for="item in policyTypeTabs"
+                    :key="item.key"
+                    :tab="item.label" />
                 <a-tab-pane
                     key="member"
                     :tab="$t('pages.model.detail.tab.member')" />
@@ -316,41 +317,33 @@
             </div>
 
             <!-- 治理策略 Tab 内容 -->
-            <div v-else-if="activeTab === 'policy'">
+            <div v-else-if="isPolicyTab(activeTab)">
                 <div class="tab-toolbar">
-                    <a-button
-                        type="primary"
-                        ghost
-                        @click="$refs.policyBindRef.handleCreate()">
-                        {{ $t('pages.model.policy.bind') }}
-                    </a-button>
+                    <div class="tab-toolbar-left">
+                        <a-button
+                            type="primary"
+                            ghost
+                            @click="handleCreateModelPolicy">
+                            {{ $t('button.add') }}
+                        </a-button>
+                        <a-button @click="handleOpenCopyTemplate">
+                            <template #icon><copy-outlined /></template>
+                            从模板复制
+                        </a-button>
+                    </div>
                     <div class="tab-toolbar-right">
-                        <a-button @click="loadPolicyBindingList">
+                        <a-button @click="loadModelPolicies">
                             <template #icon><reload-outlined /></template>
                         </a-button>
                     </div>
                 </div>
                 <a-table
-                    :columns="policyColumns"
-                    :data-source="policyListData"
+                    :columns="modelPolicyColumns"
+                    :data-source="currentModelPolicies"
                     :loading="policyLoading"
                     :pagination="policyPagination"
                     @change="onPolicyTableChange">
                     <template #bodyCell="{ column, record }">
-                        <template v-if="'policy_type' === column.key">
-                            <a-tag :color="getPolicyTypeColor(record.policy_type)">
-                                {{ getPolicyTypeName(record.policy_type) }}
-                            </a-tag>
-                        </template>
-                        <template v-if="'policy_name' === column.key">
-                            {{ getPolicyName(record.policy_type, record.policy_id) }}
-                        </template>
-                        <template v-if="'tenant_code' === column.key">
-                            {{ record.tenant_code || $t('pages.model.policy.form.tenant_code.placeholder') }}
-                        </template>
-                        <template v-if="'user_id' === column.key">
-                            {{ record.user_id || $t('pages.model.policy.form.user_id.placeholder') }}
-                        </template>
                         <template v-if="'enabled' === column.key">
                             <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
                                 {{
@@ -364,31 +357,15 @@
                             {{ formatUtcDateTime(record.created_at) }}
                         </template>
                         <template v-if="'action' === column.key">
-                            <x-action-button @click="$refs.policyBindRef.handleEdit(record)">
+                            <x-action-button @click="handleEditModelPolicy(record)">
                                 <a-tooltip>
                                     <template #title> {{ $t('pages.endpoint.edit') }}</template>
                                     <edit-outlined />
                                 </a-tooltip>
                             </x-action-button>
-                            <x-action-button @click="handleTogglePolicyBindingEnabled(record)">
+                            <x-action-button @click="handleRemoveModelPolicy(record)">
                                 <a-tooltip>
-                                    <template #title>{{
-                                        record.enabled === 1
-                                            ? $t('pages.endpoint.disable')
-                                            : $t('pages.endpoint.enable')
-                                    }}</template>
-                                    <poweroff-outlined :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }"
-                                /></a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleGoToPolicyEdit(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('pages.model.policy.gotoEdit') }}</template>
-                                    <form-outlined />
-                                </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleRemovePolicy(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('pages.model.policy.unbind') }}</template>
+                                    <template #title> {{ $t('button.delete') }}</template>
                                     <delete-outlined style="color: #ff4d4f" />
                                 </a-tooltip>
                             </x-action-button>
@@ -486,12 +463,54 @@
             :model-id="modelId"
             @ok="loadEndpointList" />
 
-        <!-- 策略绑定编辑弹窗 -->
-        <model-policy-bind-dialog
-            v-if="modelData.model_code"
-            ref="policyBindRef"
-            :model-code="modelData.model_code"
-            @ok="loadPolicyBindingList" />
+        <loadbalance-edit-dialog
+            ref="loadbalanceEditRef"
+            @ok="loadModelPolicies" />
+        <tag-route-edit-dialog
+            ref="routeEditRef"
+            @ok="loadModelPolicies" />
+        <limit-edit-dialog
+            ref="limitEditRef"
+            @ok="loadModelPolicies" />
+        <circuit-break-edit-dialog
+            ref="circuitBreakEditRef"
+            @ok="loadModelPolicies" />
+        <invocation-edit-dialog
+            ref="invocationEditRef"
+            @ok="loadModelPolicies" />
+        <tagging-edit-dialog
+            ref="taggingEditRef"
+            @ok="loadModelPolicies" />
+
+        <a-modal
+            v-model:open="copyTemplateModal.open"
+            title="从策略模板复制"
+            :confirm-loading="copyTemplateModal.loading"
+            :ok-text="$t('button.confirm')"
+            :cancel-text="$t('button.cancel')"
+            @ok="handleCopyTemplateToModel">
+            <a-form layout="vertical">
+                <a-form-item label="策略模板">
+                    <a-select
+                        v-model:value="copyTemplateModal.templateId"
+                        show-search
+                        :filter-option="filterTemplateOption"
+                        placeholder="请选择策略模板">
+                        <a-select-option
+                            v-for="item in templateOptions"
+                            :key="item.id"
+                            :value="item.id">
+                            {{ item.name }}
+                        </a-select-option>
+                    </a-select>
+                </a-form-item>
+                <a-form-item label="新策略名称">
+                    <a-input
+                        v-model:value="copyTemplateModal.name"
+                        placeholder="不填则使用模板名称，冲突时自动追加后缀" />
+                </a-form-item>
+            </a-form>
+        </a-modal>
 
         <!-- 模型基本信息编辑弹窗 -->
         <model-edit-dialog
@@ -502,8 +521,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted, reactive, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import {
     ReloadOutlined,
@@ -512,7 +531,6 @@ import {
     ApiOutlined,
     LoadingOutlined,
     CopyOutlined,
-    FormOutlined,
     PoweroffOutlined,
 } from '@ant-design/icons-vue'
 import apis from '@/apis'
@@ -522,21 +540,38 @@ import { useI18n } from 'vue-i18n'
 import ModelAliasEditDialog from './ModelAliasEditDialog.vue'
 import ModelMemberEditDialog from './ModelMemberEditDialog.vue'
 import EndpointEditDialog from './EndpointEditDialog.vue'
-import ModelPolicyBindDialog from './ModelPolicyBindDialog.vue'
 import ModelEditDialog from './ModelEditDialog.vue'
+import LoadbalanceEditDialog from '@/views/policy/LoadbalanceEditDialog.vue'
+import TagRouteEditDialog from '@/views/policy/TagRouteEditDialog.vue'
+import LimitEditDialog from '@/views/policy/LimitEditDialog.vue'
+import CircuitBreakEditDialog from '@/views/policy/CircuitBreakEditDialog.vue'
+import InvocationEditDialog from '@/views/policy/InvocationEditDialog.vue'
+import TaggingEditDialog from '@/views/policy/TaggingEditDialog.vue'
 
 defineOptions({
     name: 'modelDetail',
 })
 
 const route = useRoute()
-const router = useRouter()
 const { t } = useI18n()
 const modelId = ref(route.params.id)
 const modelData = ref({})
 const activeTab = ref('endpoint')
 const modelEditRef = ref(null)
 const spaceOptions = ref([])
+const loadbalanceEditRef = ref(null)
+const routeEditRef = ref(null)
+const limitEditRef = ref(null)
+const circuitBreakEditRef = ref(null)
+const invocationEditRef = ref(null)
+const taggingEditRef = ref(null)
+const templateOptions = ref([])
+const copyTemplateModal = reactive({
+    open: false,
+    loading: false,
+    templateId: undefined,
+    name: '',
+})
 
 const hasPermission = (permission, bit) => {
     return (Number(permission) & bit) === bit
@@ -601,8 +636,23 @@ const aliasColumns = [
     },
 ]
 
-// 治理策略关联全量缓存用于映射
-const allPoliciesMap = ref({
+const policyTypeKeys = ['tagging', 'limit', 'invocation', 'route', 'loadbalance', 'circuit_break']
+const policyTypeTabs = computed(() => [
+    { key: 'tagging', label: getPolicyTypeName('tagging') },
+    { key: 'limit', label: getPolicyTypeName('limit') },
+    { key: 'invocation', label: getPolicyTypeName('invocation') },
+    { key: 'route', label: getPolicyTypeName('route') },
+    { key: 'loadbalance', label: getPolicyTypeName('loadbalance') },
+    { key: 'circuit_break', label: getPolicyTypeName('circuit_break') },
+])
+const currentPolicyType = computed(() => (isPolicyTab(activeTab.value) ? activeTab.value : 'limit'))
+
+function isPolicyTab(tabKey) {
+    return policyTypeKeys.includes(tabKey)
+}
+
+// 模型策略实例
+const modelPoliciesMap = ref({
     tagging: [],
     loadbalance: [],
     route: [],
@@ -612,7 +662,6 @@ const allPoliciesMap = ref({
 })
 
 // 治理策略绑定
-const policyListData = ref([])
 const policyLoading = ref(false)
 const policyPagination = reactive({
     current: 1,
@@ -622,35 +671,21 @@ const policyPagination = reactive({
     showTotal: (total) => `共 ${total} 条`,
 })
 
-const policyColumns = [
-    {
-        title: t('pages.model.policy.form.policy_type'),
-        key: 'policy_type',
-        width: 130,
-    },
+const modelPolicyColumns = [
     {
         title: t('pages.model.policy.form.policy_id'),
-        key: 'policy_name',
-    },
-    {
-        title: t('pages.model.policy.form.tenant_code'),
-        key: 'tenant_code',
-        width: 160,
-    },
-    {
-        title: t('pages.model.policy.form.user_id'),
-        key: 'user_id',
-        width: 160,
-    },
-    {
-        title: t('pages.model.policy.form.priority'),
-        dataIndex: 'priority',
-        width: 90,
+        dataIndex: 'name',
+        ellipsis: true,
     },
     {
         title: t('pages.model.form.enabled'),
         key: 'enabled',
         width: 100,
+    },
+    {
+        title: t('pages.model.form.description'),
+        dataIndex: 'description',
+        ellipsis: true,
     },
     {
         title: t('pages.model.form.created_at'),
@@ -663,6 +698,8 @@ const policyColumns = [
         width: 200,
     },
 ]
+
+const currentModelPolicies = computed(() => modelPoliciesMap.value[currentPolicyType.value] || [])
 
 // 模型选项（用于 endpoint 表单）
 const modelOptions = ref([])
@@ -794,7 +831,7 @@ onMounted(() => {
     loadProviderOptions()
     loadEndpointList()
     loadMemberList()
-    loadAllPoliciesForMapping()
+    loadModelPolicies()
     loadSpaceOptions()
 })
 
@@ -826,16 +863,24 @@ async function loadModelDetail() {
         const { data, success } = await apis.model.getModel(modelId.value)
         if (success) {
             modelData.value = data || {}
-            loadPolicyBindingList()
+            loadModelPolicies()
         }
     } catch (error) {
         // ignore
     }
 }
 
-async function loadAllPoliciesForMapping() {
+async function loadModelPolicies() {
+    if (!modelId.value) {
+        return
+    }
     try {
-        const params = { pageSize: 1000, current: 1 }
+        policyLoading.value = true
+        const params = {
+            pageSize: 1000,
+            current: 1,
+            model_id: modelId.value,
+        }
         const [tg, lb, rt, lim, cb, iv] = await Promise.allSettled([
             apis.policy.getTaggingList(params),
             apis.policy.getLoadbalanceList(params),
@@ -844,48 +889,16 @@ async function loadAllPoliciesForMapping() {
             apis.policy.getCircuitBreakList(params),
             apis.policy.getInvocationList(params),
         ])
-        if (tg.status === 'fulfilled' && tg.value?.success) allPoliciesMap.value.tagging = tg.value.data || []
-        if (lb.status === 'fulfilled' && lb.value?.success) allPoliciesMap.value.loadbalance = lb.value.data || []
-        if (rt.status === 'fulfilled' && rt.value?.success) allPoliciesMap.value.route = rt.value.data || []
-        if (lim.status === 'fulfilled' && lim.value?.success) allPoliciesMap.value.limit = lim.value.data || []
-        if (cb.status === 'fulfilled' && cb.value?.success) allPoliciesMap.value.circuit_break = cb.value.data || []
-        if (iv.status === 'fulfilled' && iv.value?.success) allPoliciesMap.value.invocation = iv.value.data || []
+        if (tg.status === 'fulfilled' && tg.value?.success) modelPoliciesMap.value.tagging = tg.value.data || []
+        if (lb.status === 'fulfilled' && lb.value?.success) modelPoliciesMap.value.loadbalance = lb.value.data || []
+        if (rt.status === 'fulfilled' && rt.value?.success) modelPoliciesMap.value.route = rt.value.data || []
+        if (lim.status === 'fulfilled' && lim.value?.success) modelPoliciesMap.value.limit = lim.value.data || []
+        if (cb.status === 'fulfilled' && cb.value?.success) modelPoliciesMap.value.circuit_break = cb.value.data || []
+        if (iv.status === 'fulfilled' && iv.value?.success) modelPoliciesMap.value.invocation = iv.value.data || []
+        policyPagination.total = currentModelPolicies.value.length
     } catch (e) {
         // ignore
-    }
-}
-
-function getPolicyName(policyType, policyId) {
-    if (!policyType || !policyId) return '--'
-    let typeKey = policyType
-    if (policyType === 'load_balance') typeKey = 'loadbalance'
-    if (policyType === 'invoke') typeKey = 'invocation'
-    const list = allPoliciesMap.value[typeKey] || []
-    const item = list.find((p) => p.id === policyId)
-    return item ? item.name : policyId
-}
-
-async function loadPolicyBindingList() {
-    if (!modelData.value.model_code) {
-        return
-    }
-    try {
-        policyLoading.value = true
-        const { data, success, total } = await apis.policy
-            .getPolicyBindingList({
-                pageSize: policyPagination.pageSize,
-                current: policyPagination.current,
-                model_code: modelData.value.model_code,
-            })
-            .catch(() => {
-                throw new Error()
-            })
-        policyLoading.value = false
-        if (config('http.code.success') === success) {
-            policyListData.value = data || []
-            policyPagination.total = total || 0
-        }
-    } catch (error) {
+    } finally {
         policyLoading.value = false
     }
 }
@@ -893,7 +906,7 @@ async function loadPolicyBindingList() {
 function onPolicyTableChange({ current, pageSize }) {
     policyPagination.current = current
     policyPagination.pageSize = pageSize
-    loadPolicyBindingList()
+    policyPagination.total = currentModelPolicies.value.length
 }
 
 function getPolicyTypeName(type) {
@@ -917,43 +930,120 @@ function getPolicyTypeName(type) {
     }
 }
 
-function getPolicyTypeColor(type) {
-    switch (type) {
-        case 'tagging':
-            return 'green'
-        case 'limit':
-            return 'orange'
-        case 'invocation':
-        case 'invoke':
-            return 'cyan'
-        case 'route':
-            return 'purple'
-        case 'loadbalance':
-        case 'load_balance':
-            return 'blue'
-        case 'circuit_break':
-            return 'red'
-        default:
-            return 'default'
+const policyEditRefMap = {
+    tagging: taggingEditRef,
+    limit: limitEditRef,
+    invocation: invocationEditRef,
+    route: routeEditRef,
+    loadbalance: loadbalanceEditRef,
+    circuit_break: circuitBreakEditRef,
+}
+
+const policyDeleteApiMap = {
+    tagging: apis.policy.delTagging,
+    limit: apis.policy.delLimit,
+    invocation: apis.policy.delInvocation,
+    route: apis.policy.delRoute,
+    loadbalance: apis.policy.delLoadbalance,
+    circuit_break: apis.policy.delCircuitBreak,
+}
+
+const policyListApiMap = {
+    tagging: apis.policy.getTaggingList,
+    limit: apis.policy.getLimitList,
+    invocation: apis.policy.getInvocationList,
+    route: apis.policy.getRouteList,
+    loadbalance: apis.policy.getLoadbalanceList,
+    circuit_break: apis.policy.getCircuitBreakList,
+}
+
+const policyCopyApiMap = {
+    tagging: apis.policy.copyTaggingToModel,
+    limit: apis.policy.copyLimitToModel,
+    invocation: apis.policy.copyInvocationToModel,
+    route: apis.policy.copyRouteToModel,
+    loadbalance: apis.policy.copyLoadbalanceToModel,
+    circuit_break: apis.policy.copyCircuitBreakToModel,
+}
+
+function handleCreateModelPolicy() {
+    policyEditRefMap[currentPolicyType.value]?.value?.handleCreate({
+        modelId: modelId.value,
+        title: t('pages.model.policy.create'),
+    })
+}
+
+function handleEditModelPolicy(record) {
+    policyEditRefMap[currentPolicyType.value]?.value?.handleEdit(record)
+}
+
+function filterTemplateOption(input, option) {
+    return option.children?.[0]?.children?.toLowerCase().includes(input.toLowerCase())
+}
+
+async function handleOpenCopyTemplate() {
+    try {
+        const listApi = policyListApiMap[currentPolicyType.value]
+        const { data, success } = await listApi({
+            pageSize: 1000,
+            current: 1,
+        }).catch(() => {
+            throw new Error()
+        })
+        if (config('http.code.success') === success) {
+            templateOptions.value = data || []
+        }
+        copyTemplateModal.templateId = undefined
+        copyTemplateModal.name = ''
+        copyTemplateModal.open = true
+    } catch (error) {
+        message.error(t('component.message.error.search'))
     }
 }
 
-function handleRemovePolicy({ id }) {
+async function handleCopyTemplateToModel() {
+    if (!copyTemplateModal.templateId) {
+        message.warning('请选择策略模板')
+        return
+    }
+    try {
+        copyTemplateModal.loading = true
+        const copyApi = policyCopyApiMap[currentPolicyType.value]
+        const { success } = await copyApi(copyTemplateModal.templateId, {
+            model_id: modelId.value,
+            name: copyTemplateModal.name || undefined,
+        }).catch(() => {
+            throw new Error()
+        })
+        if (config('http.code.success') === success) {
+            message.success(t('component.message.success.save'))
+            copyTemplateModal.open = false
+            await loadModelPolicies()
+        }
+    } catch (error) {
+        message.error('复制策略失败，请检查模板名称是否冲突')
+    } finally {
+        copyTemplateModal.loading = false
+    }
+}
+
+function handleRemoveModelPolicy({ id }) {
     Modal.confirm({
-        title: t('pages.model.policy.unbindTip'),
+        title: t('button.confirm'),
         okText: t('button.confirm'),
         okType: 'danger',
         onOk: () => {
             return new Promise((resolve, reject) => {
                 ;(async () => {
                     try {
-                        const { success } = await apis.policy.delPolicyBinding(id).catch(() => {
+                        const deleteApi = policyDeleteApiMap[currentPolicyType.value]
+                        const { success } = await deleteApi(id).catch(() => {
                             throw new Error()
                         })
                         if (config('http.code.success') === success) {
                             resolve()
                             message.success(t('component.message.success.delete'))
-                            await loadPolicyBindingList()
+                            await loadModelPolicies()
                         }
                     } catch (error) {
                         reject()
@@ -962,51 +1052,6 @@ function handleRemovePolicy({ id }) {
             })
         },
     })
-}
-
-// 策略类型 -> 策略列表路由 name 映射
-const policyRouteNameMap = {
-    tagging: 'taggingList',
-    limit: 'limitList',
-    invocation: 'invocationList',
-    route: 'routeList',
-    loadbalance: 'loadbalanceList',
-    load_balance: 'loadbalanceList',
-    invoke: 'invocationList',
-    circuit_break: 'circuitBreakList',
-}
-
-function handleGoToPolicyEdit(record) {
-    const routeName = policyRouteNameMap[record.policy_type]
-    if (!routeName || !record.policy_id) {
-        return
-    }
-    router.push({ name: routeName, query: { policyId: record.policy_id } })
-}
-
-const togglingPolicyBindings = ref({})
-
-async function handleTogglePolicyBindingEnabled(record) {
-    if (togglingPolicyBindings.value[record.id]) return
-    const nextEnabled = record.enabled === 1 ? 0 : 1
-    togglingPolicyBindings.value[record.id] = true
-    try {
-        const { success } = await apis.policy
-            .togglePolicyBindingEnabled(record.id, { enabled: nextEnabled })
-            .catch(() => {
-                throw new Error()
-            })
-        if (config('http.code.success') === success) {
-            message.success(
-                nextEnabled === 1 ? t('pages.endpoint.enable.success') : t('pages.endpoint.disable.success')
-            )
-            await loadPolicyBindingList()
-        }
-    } catch (error) {
-        // ignore, error already handled by interceptor
-    } finally {
-        togglingPolicyBindings.value[record.id] = false
-    }
 }
 
 async function loadAliasList() {

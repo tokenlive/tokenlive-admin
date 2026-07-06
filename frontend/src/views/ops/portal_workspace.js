@@ -2,6 +2,7 @@ function formatDateTime(value) {
     if (!value) return '-'
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return '-'
+    if (date.getUTCFullYear() <= 1) return '-'
 
     const pad = (num) => String(num).padStart(2, '0')
     return (
@@ -26,6 +27,7 @@ export function normalizePortalAPIKeys(items = []) {
 
 export function portalAPIKeyStatusColor(status) {
     const colorMap = {
+        enabled: 'green',
         active: 'green',
         disabled: 'orange',
         revoked: 'red',

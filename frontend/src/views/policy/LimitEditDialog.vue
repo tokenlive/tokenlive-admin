@@ -466,8 +466,9 @@ function removeSlidingWindow(index) {
     formData.value.sliding_windows.splice(index, 1)
 }
 
-function handleCreate() {
+function handleCreate(options = {}) {
     formData.value = {
+        model_id: options.modelId || '',
         name: '',
         type: 'request',
         limit_by: ['tenant', 'model'],
@@ -482,7 +483,7 @@ function handleCreate() {
     }
     showModal({
         type: 'create',
-        title: t('pages.limit.add'),
+        title: options.title || t('pages.limit.add'),
     })
 }
 
@@ -604,6 +605,7 @@ function handleOk() {
                     formData.value.effect === 'queuing' ? (formData.value.max_queue_time_seconds || 0) * 1000 : 0
 
                 const params = {
+                    model_id: formData.value.model_id || '',
                     name: values.name,
                     type: values.type,
                     limit_by: formData.value.limit_by || [],

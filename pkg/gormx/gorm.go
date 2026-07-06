@@ -71,8 +71,9 @@ func New(cfg Config) (*gorm.DB, error) {
 			TablePrefix:   cfg.TablePrefix,
 			SingularTable: true,
 		},
-		Logger:      &ZapGormLogger{LogLevel: logger.Warn},
-		PrepareStmt: cfg.PrepareStmt,
+		Logger:                                   &ZapGormLogger{LogLevel: logger.Warn},
+		PrepareStmt:                              cfg.PrepareStmt,
+		DisableForeignKeyConstraintWhenMigrating: true,
 	}
 
 	if cfg.Debug {
@@ -299,9 +300,15 @@ func (m *safeMigrator) CreateTable(values ...interface{}) error {
 		return m.Migrator.CreateTable(values...)
 	}
 	for _, value := range values {
-		zap.L().Warn("SafeMigrator: table creation detected! CreateTable skipped.",
+		zap.L().Warn("SafeMigrator: table creation detected! Executing CreateTable.",
 			zap.String("table", getTableName(value)),
 		)
+		if err := m.Migrator.CreateTable(value); err != nil {
+			zap.L().Error("SafeMigrator: CreateTable failed! Skipping error to avoid blocking startup.",
+				zap.String("table", getTableName(value)),
+				zap.Error(err),
+			)
+		}
 	}
 	return nil
 }
@@ -310,10 +317,17 @@ func (m *safeMigrator) AddColumn(value interface{}, name string) error {
 	if m.dbType == "sqlite3" {
 		return m.Migrator.AddColumn(value, name)
 	}
-	zap.L().Warn("SafeMigrator: table column addition detected! AddColumn skipped.",
+	zap.L().Warn("SafeMigrator: table column addition detected! Executing AddColumn.",
 		zap.String("table", getTableName(value)),
 		zap.String("column", name),
 	)
+	if err := m.Migrator.AddColumn(value, name); err != nil {
+		zap.L().Error("SafeMigrator: AddColumn failed! Skipping error to avoid blocking startup.",
+			zap.String("table", getTableName(value)),
+			zap.String("column", name),
+			zap.Error(err),
+		)
+	}
 	return nil
 }
 
@@ -321,10 +335,17 @@ func (m *safeMigrator) AlterColumn(value interface{}, field string) error {
 	if m.dbType == "sqlite3" {
 		return m.Migrator.AlterColumn(value, field)
 	}
-	zap.L().Warn("SafeMigrator: table column structure discrepancy detected! AlterColumn skipped.",
+	zap.L().Warn("SafeMigrator: table column structure discrepancy detected! Executing AlterColumn.",
 		zap.String("table", getTableName(value)),
 		zap.String("field", field),
 	)
+	if err := m.Migrator.AlterColumn(value, field); err != nil {
+		zap.L().Error("SafeMigrator: AlterColumn failed! Skipping error to avoid blocking startup.",
+			zap.String("table", getTableName(value)),
+			zap.String("field", field),
+			zap.Error(err),
+		)
+	}
 	return nil
 }
 
@@ -365,10 +386,17 @@ func (m *safeMigrator) CreateConstraint(value interface{}, name string) error {
 	if m.dbType == "sqlite3" {
 		return m.Migrator.CreateConstraint(value, name)
 	}
-	zap.L().Warn("SafeMigrator: table constraint creation detected! CreateConstraint skipped.",
+	zap.L().Warn("SafeMigrator: table constraint creation detected! Executing CreateConstraint.",
 		zap.String("table", getTableName(value)),
 		zap.String("constraint", name),
 	)
+	if err := m.Migrator.CreateConstraint(value, name); err != nil {
+		zap.L().Error("SafeMigrator: CreateConstraint failed! Skipping error to avoid blocking startup.",
+			zap.String("table", getTableName(value)),
+			zap.String("constraint", name),
+			zap.Error(err),
+		)
+	}
 	return nil
 }
 
@@ -376,10 +404,17 @@ func (m *safeMigrator) CreateIndex(value interface{}, name string) error {
 	if m.dbType == "sqlite3" {
 		return m.Migrator.CreateIndex(value, name)
 	}
-	zap.L().Warn("SafeMigrator: table index creation detected! CreateIndex skipped.",
+	zap.L().Warn("SafeMigrator: table index creation detected! Executing CreateIndex.",
 		zap.String("table", getTableName(value)),
 		zap.String("index", name),
 	)
+	if err := m.Migrator.CreateIndex(value, name); err != nil {
+		zap.L().Error("SafeMigrator: CreateIndex failed! Skipping error to avoid blocking startup.",
+			zap.String("table", getTableName(value)),
+			zap.String("index", name),
+			zap.Error(err),
+		)
+	}
 	return nil
 }
 

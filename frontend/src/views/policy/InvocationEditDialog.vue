@@ -589,8 +589,9 @@ function onTypeChange() {
     formData.value.idleTimeout = undefined
 }
 
-function handleCreate() {
+function handleCreate(options = {}) {
     loadModelOptions()
+    formData.value.model_id = options.modelId || ''
     formData.value.fallbackTargets = []
     formData.value.enabled = 0
     formData.value.type = 'failfast'
@@ -608,7 +609,7 @@ function handleCreate() {
     formData.value.idleTimeout = 0
     showModal({
         type: 'create',
-        title: t('pages.invocation.add'),
+        title: options.title || t('pages.invocation.add'),
     })
 }
 
@@ -803,6 +804,7 @@ function handleOk() {
                 }
                 const params = {
                     ...values,
+                    model_id: formData.value.model_id || '',
                     retry_policy: retryPolicy,
                     fallback_policy: fallbackPolicy,
                 }

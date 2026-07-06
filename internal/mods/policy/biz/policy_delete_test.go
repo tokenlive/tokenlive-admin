@@ -14,15 +14,19 @@ import (
 	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
+	resourceDal "github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
+	resourceSchema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
 )
 
-func TestPolicyDeleteRejectsBoundPolicy(t *testing.T) {
+func TestPolicyDeleteRemovesInternalBinding(t *testing.T) {
 	db := newPolicyDeleteTestDB(t)
 	biz := newPolicyLoadbalanceDeleteTestBiz(db)
+	createModelWithPermission(t, db, "model-1", "model-code", "alice", "tenant-a", 0b111)
 	require.NoError(t, db.Create(&schema.PolicyLoadbalance{
 		ID:        "policy-1",
+		ModelID:   "model-1",
 		Name:      "Loadbalance One",
 		Type:      "ROUND_ROBIN",
 		Deleted:   "0",
@@ -39,13 +43,15 @@ func TestPolicyDeleteRejectsBoundPolicy(t *testing.T) {
 
 	err := biz.Delete(newPolicyDeleteTestContext(), "policy-1")
 
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "对应模型下解绑")
-	require.Contains(t, err.Error(), "删除")
+	require.NoError(t, err)
 
 	var policy schema.PolicyLoadbalance
-	require.NoError(t, db.First(&policy, "id = ?", "policy-1").Error)
-	require.Equal(t, "0", policy.Deleted)
+	require.NoError(t, db.Unscoped().First(&policy, "id = ?", "policy-1").Error)
+	require.NotEqual(t, "0", policy.Deleted)
+
+	var bindings int64
+	require.NoError(t, db.Model(&schema.PolicyBinding{}).Where("policy_type = ? AND policy_id = ? AND deleted = '0'", "loadbalance", "policy-1").Count(&bindings).Error)
+	require.Equal(t, int64(0), bindings)
 }
 
 func newPolicyDeleteTestDB(t *testing.T) *gorm.DB {
@@ -57,6 +63,8 @@ func newPolicyDeleteTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, db.AutoMigrate(
 		&schema.PolicyLoadbalance{},
 		&schema.PolicyBinding{},
+		&resourceSchema.Model{},
+		&resourceSchema.DataPermission{},
 		&opsSchema.AuditLog{},
 	))
 	return db
@@ -69,6 +77,8 @@ func newPolicyLoadbalanceDeleteTestBiz(db *gorm.DB) *PolicyLoadbalance {
 		PolicyLoadbalanceDAL: &dal.PolicyLoadbalance{DB: db},
 		PolicyBindingDAL:     &dal.PolicyBinding{DB: db},
 		PolicyRedisSync:      &PolicyRedisSync{},
+		ModelDAL:             &resourceDal.Model{DB: db},
+		DataPermissionDAL:    &resourceDal.DataPermission{DB: db},
 		AuditLogBIZ: &opsBiz.AuditLog{
 			Trans:       trans,
 			AuditLogDAL: &opsDal.AuditLog{DB: db},

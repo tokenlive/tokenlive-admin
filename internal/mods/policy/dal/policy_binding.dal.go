@@ -42,9 +42,6 @@ func (a *PolicyBinding) Query(ctx context.Context, params schema.PolicyBindingQu
 	if params.PolicyID != "" {
 		db = db.Where("policy_id = ?", params.PolicyID)
 	}
-	if params.Enabled != nil {
-		db = db.Where("enabled = ?", *params.Enabled)
-	}
 
 	var list schema.PolicyBindings
 	pageResult, err := util.WrapPageQuery(ctx, db, params.PaginationParam, opt.QueryOptions, &list)
@@ -126,16 +123,18 @@ func (a *PolicyBinding) Update(ctx context.Context, item *schema.PolicyBinding) 
 	return errors.WithStack(result.Error)
 }
 
-// UpdateEnabled updates only the enabled status (and modifier) of the specified policy binding.
-func (a *PolicyBinding) UpdateEnabled(ctx context.Context, id string, enabled int, modifier string) error {
-	result := GetPolicyBindingDB(ctx, a.DB).Where("id=?", id).Updates(map[string]interface{}{
-		"enabled":  enabled,
-		"modifier": modifier,
-	})
-	return errors.WithStack(result.Error)
-}
-
 // Delete the specified policy binding from the database using logical deletion.
 func (a *PolicyBinding) Delete(ctx context.Context, id string) error {
 	return errors.WithStack(util.SoftDelete(ctx, GetPolicyBindingDB(ctx, a.DB), id))
+}
+
+// DeleteByPolicyID logically deletes bindings for a policy.
+func (a *PolicyBinding) DeleteByPolicyID(ctx context.Context, policyType, policyID string) error {
+	result := GetPolicyBindingDB(ctx, a.DB).
+		Where("policy_type = ? AND policy_id = ?", policyType, policyID).
+		Updates(map[string]interface{}{
+			"deleted":    util.NewXID(),
+			"deleted_at": gorm.Expr("CURRENT_TIMESTAMP"),
+		})
+	return errors.WithStack(result.Error)
 }

@@ -13,7 +13,8 @@ import (
 // Circuit break policy management
 type PolicyCircuitBreak struct {
 	ID                          string          `json:"id" gorm:"type:char(20);primaryKey;<-:create;comment:主键ID (XID);"`
-	Name                        string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_circuit_break_name;comment:策略名称;"`
+	ModelID                     string          `json:"model_id" gorm:"type:char(20);uniqueIndex:uniq_policy_circuit_break_model_name_deleted,priority:1;index:idx_policy_circuit_break_model;comment:所属模型ID，空表示策略模板;"`
+	Name                        string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_circuit_break_model_name_deleted,priority:2;comment:策略名称;"`
 	Level                       string          `json:"level" gorm:"type:varchar(64);not null;default:'INSTANCE';comment:熔断隔离级别：SERVICE / INSTANCE;"`
 	SlidingWindowType           string          `json:"sliding_window_type" gorm:"type:varchar(16);not null;default:'time';comment:滑动窗口类型：time / count;"`
 	SlidingWindowSize           int             `json:"sliding_window_size" gorm:"type:int;not null;default:20;comment:滑动窗口大小（次数或秒数）;"`
@@ -38,7 +39,7 @@ type PolicyCircuitBreak struct {
 	Modifier                    *string         `json:"modifier,omitempty" gorm:"type:varchar(255);default:null;comment:修改者;"`
 	CreatedAt                   time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
 	UpdatedAt                   time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
-	Deleted                     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';comment:逻辑删除标识;"`
+	Deleted                     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_policy_circuit_break_model_name_deleted,priority:3;comment:逻辑删除标识;"`
 	DeletedAt                   *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
@@ -49,6 +50,7 @@ func (a PolicyCircuitBreak) TableName() string {
 // ConvertTo Convert `PolicyCircuitBreak` to `PolicyCircuitBreakForm` object.
 func (a PolicyCircuitBreak) ConvertTo(form *PolicyCircuitBreakForm) error {
 	form.ID = a.ID
+	form.ModelID = a.ModelID
 	form.Name = a.Name
 	form.Level = a.Level
 	form.SlidingWindowType = a.SlidingWindowType
@@ -108,7 +110,8 @@ func (a PolicyCircuitBreak) ConvertTo(form *PolicyCircuitBreakForm) error {
 // Defining the query parameters for the `PolicyCircuitBreak` struct.
 type PolicyCircuitBreakQueryParam struct {
 	util.PaginationParam
-	Name string `form:"name"` // Policy name (like)
+	ModelID string `form:"model_id"` // Model ID
+	Name    string `form:"name"`     // Policy name (like)
 }
 
 // Defining the query options for the `PolicyCircuitBreak` struct.
@@ -128,6 +131,7 @@ type PolicyCircuitBreaks []*PolicyCircuitBreak
 // Defining the data structure for creating a `PolicyCircuitBreak` struct.
 type PolicyCircuitBreakForm struct {
 	ID                          string             `json:"id"`
+	ModelID                     string             `json:"model_id" binding:"max=20"`                     // Owner model ID; empty means template
 	Name                        string             `json:"name" binding:"required,max=128"`               // Policy name
 	Level                       string             `json:"level" binding:"required,max=64"`               // Policy level
 	SlidingWindowType           string             `json:"sliding_window_type" binding:"required,max=16"` // Sliding window type
@@ -174,6 +178,7 @@ func (a *PolicyCircuitBreakForm) Validate() error {
 
 // Convert `PolicyCircuitBreakForm` to `PolicyCircuitBreak` object.
 func (a *PolicyCircuitBreakForm) FillTo(policyCircuitBreak *PolicyCircuitBreak) error {
+	policyCircuitBreak.ModelID = a.ModelID
 	policyCircuitBreak.Name = a.Name
 	policyCircuitBreak.Level = a.Level
 	policyCircuitBreak.SlidingWindowType = a.SlidingWindowType

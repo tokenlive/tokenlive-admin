@@ -269,16 +269,17 @@ formRules.value = {
     relation: { required: true, message: t('pages.tagging.form.relation.required') },
 }
 
-function handleCreate() {
+function handleCreate(options = {}) {
     showModal({
         type: 'create',
-        title: t('pages.tagging.add'),
+        title: options.title || t('pages.tagging.add'),
     })
     formData.value.enabled = 1
     formData.value.order = 0
     formData.value.relation = 'AND'
     formData.value.conditions = []
     formData.value.actions = []
+    formData.value.model_id = options.modelId || ''
 }
 
 async function handleCopy(record = {}) {
@@ -401,6 +402,7 @@ function handleOk() {
                 showLoading()
                 const params = {
                     ...values,
+                    model_id: formData.value.model_id || '',
                     order: formData.value.order || 0,
                     conditions: formData.value.conditions,
                     actions: formData.value.actions,

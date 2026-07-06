@@ -152,7 +152,18 @@ func (m *Model) Update(ctx context.Context, id string, formItem *schema.ModelFor
 	model.UpdatedAt = time.Now()
 
 	err = m.Trans.Exec(ctx, func(ctx context.Context) error {
-		return m.ModelDAL.Update(ctx, model)
+		if err := m.ModelDAL.Update(ctx, model); err != nil {
+			return err
+		}
+		if originalModelCode != model.ModelCode {
+			policyBindingTable := config.C.FormatTableName("policy_binding")
+			if err := util.GetDB(ctx, m.ModelDAL.DB).Table(policyBindingTable).
+				Where("model_code = ? AND deleted = '0'", originalModelCode).
+				Updates(map[string]interface{}{"model_code": model.ModelCode}).Error; err != nil {
+				return errors.WithStack(err)
+			}
+		}
+		return nil
 	})
 	if err == nil {
 		_ = m.ConfigRedisSync.SyncModelByCode(ctx, originalModelCode)

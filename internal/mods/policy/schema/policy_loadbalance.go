@@ -13,7 +13,8 @@ import (
 // PolicyLoadbalance 负载均衡策略表
 type PolicyLoadbalance struct {
 	ID          string           `json:"id" gorm:"type:char(20);primaryKey;<-:create;comment:主键ID (XID);"`
-	Name        string           `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_loadbalance_name;comment:策略名称;"`
+	ModelID     string           `json:"model_id" gorm:"type:char(20);uniqueIndex:uniq_policy_loadbalance_model_name_deleted,priority:1;index:idx_policy_loadbalance_model;comment:所属模型ID，空表示策略模板;"`
+	Name        string           `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_loadbalance_model_name_deleted,priority:2;comment:策略名称;"`
 	Type        string           `json:"type" gorm:"type:varchar(64);not null;comment:负载均衡算法类型，如 ROUND_ROBIN / WEIGHTED / STICKY;"`
 	Version     int64            `json:"version" gorm:"type:bigint;not null;default:1;comment:配置版本号;"`
 	Enabled     int              `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
@@ -23,7 +24,7 @@ type PolicyLoadbalance struct {
 	Modifier    *string          `json:"modifier,omitempty" gorm:"type:varchar(255);default:null;comment:修改者;"`
 	CreatedAt   time.Time        `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
 	UpdatedAt   time.Time        `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
-	Deleted     string           `json:"-" gorm:"type:varchar(20);not null;default:'0';comment:逻辑删除标识;"`
+	Deleted     string           `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_policy_loadbalance_model_name_deleted,priority:3;comment:逻辑删除标识;"`
 	DeletedAt   *gorm.DeletedAt  `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
@@ -34,6 +35,7 @@ func (a PolicyLoadbalance) TableName() string {
 // ConvertTo Convert `PolicyLoadbalance` to `PolicyLoadbalanceForm` object.
 func (a PolicyLoadbalance) ConvertTo(form *PolicyLoadbalanceForm) error {
 	form.ID = a.ID
+	form.ModelID = a.ModelID
 	form.Name = a.Name
 	form.Type = a.Type
 	form.Version = a.Version
@@ -50,8 +52,9 @@ func (a PolicyLoadbalance) ConvertTo(form *PolicyLoadbalanceForm) error {
 // Defining the query parameters for the `PolicyLoadbalance` struct.
 type PolicyLoadbalanceQueryParam struct {
 	util.PaginationParam
-	Name string `form:"name"` // Policy name (like)
-	Type string `form:"type"` // Loadbalance type
+	ModelID string `form:"model_id"` // Model ID
+	Name    string `form:"name"`     // Policy name (like)
+	Type    string `form:"type"`     // Loadbalance type
 }
 
 // Defining the query options for the `PolicyLoadbalance` struct.
@@ -71,6 +74,7 @@ type PolicyLoadbalances []*PolicyLoadbalance
 // Defining the data structure for creating a `PolicyLoadbalance` struct.
 type PolicyLoadbalanceForm struct {
 	ID          string           `json:"id"`
+	ModelID     string           `json:"model_id" binding:"max=20"`       // Owner model ID; empty means template
 	Name        string           `json:"name" binding:"required,max=128"` // Policy name
 	Type        string           `json:"type" binding:"required,max=64"`  // Loadbalance policy type
 	Version     int64            `json:"version"`                         // Version
@@ -96,6 +100,7 @@ func (a *PolicyLoadbalanceForm) Validate() error {
 
 // Convert `PolicyLoadbalanceForm` to `PolicyLoadbalance` object.
 func (a *PolicyLoadbalanceForm) FillTo(policyLoadbalance *PolicyLoadbalance) error {
+	policyLoadbalance.ModelID = a.ModelID
 	policyLoadbalance.Name = a.Name
 	policyLoadbalance.Type = a.Type
 	policyLoadbalance.Enabled = a.Enabled

@@ -3,6 +3,7 @@ package biz
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -47,12 +48,43 @@ func TestPortalUserListWorkspaceAPIKeysUsesInternalAPI(t *testing.T) {
 	require.Equal(t, "tl_live", keys[0].KeyPrefix)
 	require.Equal(t, "abcd", keys[0].SecretLast4)
 	require.Equal(t, "active", keys[0].Status)
-	require.Equal(t, time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), keys[0].ExpiresAt)
+	require.NotNil(t, keys[0].ExpiresAt)
+	require.Equal(t, time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), *keys[0].ExpiresAt)
 
 	encoded, err := json.Marshal(keys[0])
 	require.NoError(t, err)
 	require.NotContains(t, string(encoded), "key_hash")
 	require.NotContains(t, string(encoded), "plaintext")
+}
+
+func TestPortalUserListWorkspaceAPIKeysKeepsNullableTimes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"api_keys": [{
+				"id": "key-1",
+				"status": "enabled",
+				"expires_at": null,
+				"last_used_at": null,
+				"created_at": "2026-06-30T00:00:00Z",
+				"updated_at": "2026-06-30T01:00:00Z"
+			}]
+		}`))
+	}))
+	defer server.Close()
+	restorePortalConfig(t, server.URL, "internal-token")
+
+	keys, err := (&PortalUser{}).ListWorkspaceAPIKeys(context.Background(), "workspace-1")
+
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+	require.Nil(t, keys[0].ExpiresAt)
+	require.Nil(t, keys[0].LastUsedAt)
+
+	encoded, err := json.Marshal(keys[0])
+	require.NoError(t, err)
+	require.Contains(t, string(encoded), `"expires_at":null`)
+	require.Contains(t, string(encoded), `"last_used_at":null`)
 }
 
 func TestPortalUserSyncWorkspaceRuntimePostsInternalAPI(t *testing.T) {
@@ -75,6 +107,52 @@ func TestPortalUserSyncWorkspaceRuntimePostsInternalAPI(t *testing.T) {
 	require.Equal(t, "Bearer internal-token", gotAuth)
 	require.Equal(t, http.MethodPost, gotMethod)
 	require.Equal(t, "/internal/v1/workspaces/workspace-1/runtime-sync", gotPath)
+}
+
+func TestPortalUserBindWorkspaceTenantPostsInternalAPI(t *testing.T) {
+	var gotAuth string
+	var gotMethod string
+	var gotPath string
+	var gotBody string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotMethod = r.Method
+		gotPath = r.URL.RequestURI()
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		gotBody = string(body)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	restorePortalConfig(t, server.URL, "internal-token")
+
+	err := (&PortalUser{}).BindWorkspaceTenant(context.Background(), "workspace-1", "tenant-a")
+
+	require.NoError(t, err)
+	require.Equal(t, "Bearer internal-token", gotAuth)
+	require.Equal(t, http.MethodPost, gotMethod)
+	require.Equal(t, "/internal/v1/workspaces/workspace-1/bind-tenant", gotPath)
+	require.JSONEq(t, `{"tenant_code":"tenant-a"}`, gotBody)
+}
+
+func TestPortalUserUnbindWorkspaceTenantPostsInternalAPI(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.RequestURI()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	restorePortalConfig(t, server.URL, "internal-token")
+
+	err := (&PortalUser{}).UnbindWorkspaceTenant(context.Background(), "workspace-1")
+
+	require.NoError(t, err)
+	require.Equal(t, http.MethodPost, gotMethod)
+	require.Equal(t, "/internal/v1/workspaces/workspace-1/unbind-tenant", gotPath)
 }
 
 func restorePortalConfig(t *testing.T, baseURL string, token string) {

@@ -49,17 +49,6 @@
                         <a-descriptions-item :label="$t('pages.policy.binding.priority')">
                             <a-tag>{{ item.priority }}</a-tag>
                         </a-descriptions-item>
-                        <a-descriptions-item
-                            :label="$t('pages.policy.binding.enabled')"
-                            :span="2">
-                            <a-tag :color="item.enabled === 1 ? 'success' : 'default'">
-                                {{
-                                    item.enabled === 1
-                                        ? $t('pages.policy.binding.enabled.active')
-                                        : $t('pages.policy.binding.enabled.inactive')
-                                }}
-                            </a-tag>
-                        </a-descriptions-item>
                     </a-descriptions>
                 </a-card>
             </div>

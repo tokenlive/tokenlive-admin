@@ -704,7 +704,8 @@ function removeAttribute(index) {
     formData.value.attributes.splice(index, 1)
 }
 
-function handleCreate() {
+function handleCreate(options = {}) {
+    formData.value.model_id = options.modelId || ''
     formData.value.enabled = 0
     formData.value.level = 'SERVICE'
     formData.value.sliding_window_type = 'time'
@@ -724,7 +725,7 @@ function handleCreate() {
     checkList.value = ['code']
     showModal({
         type: 'create',
-        title: t('pages.circuitBreak.add'),
+        title: options.title || t('pages.circuitBreak.add'),
     })
 }
 
@@ -940,6 +941,7 @@ function handleOk() {
                 }
 
                 const params = {
+                    model_id: formData.value.model_id || '',
                     name: formData.value.name,
                     level: formData.value.level,
                     sliding_window_type: formData.value.sliding_window_type,

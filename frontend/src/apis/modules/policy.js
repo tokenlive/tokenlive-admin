@@ -8,6 +8,8 @@ export const getLoadbalanceList = (params) => request.basic.get('/api/v1/policy/
 export const getLoadbalance = (id) => request.basic.get(`/api/v1/policy/policy-loadbalances/${id}`)
 // 添加负载均衡策略
 export const createLoadbalance = (params) => request.basic.post('/api/v1/policy/policy-loadbalances', params)
+export const copyLoadbalanceToModel = (id, params) =>
+    request.basic.post(`/api/v1/policy/policy-loadbalances/${id}/copy-to-model`, params)
 // 更新负载均衡策略
 export const updateLoadbalance = (id, params) => request.basic.put(`/api/v1/policy/policy-loadbalances/${id}`, params)
 // 删除负载均衡策略
@@ -18,6 +20,8 @@ export const getRouteList = (params) => request.basic.get('/api/v1/policy/policy
 export const getRoute = (id) => request.basic.get(`/api/v1/policy/policy-routes/${id}`)
 // 添加路由策略
 export const createRoute = (params) => request.basic.post('/api/v1/policy/policy-routes', params)
+export const copyRouteToModel = (id, params) =>
+    request.basic.post(`/api/v1/policy/policy-routes/${id}/copy-to-model`, params)
 // 更新路由策略
 export const updateRoute = (id, params) => request.basic.put(`/api/v1/policy/policy-routes/${id}`, params)
 // 删除路由策略
@@ -38,6 +42,8 @@ export const getLimitList = (params) => request.basic.get('/api/v1/policy/policy
 export const getLimit = (id) => request.basic.get(`/api/v1/policy/policy-limits/${id}`)
 // 添加限流策略
 export const createLimit = (params) => request.basic.post('/api/v1/policy/policy-limits', params)
+export const copyLimitToModel = (id, params) =>
+    request.basic.post(`/api/v1/policy/policy-limits/${id}/copy-to-model`, params)
 // 更新限流策略
 export const updateLimit = (id, params) => request.basic.put(`/api/v1/policy/policy-limits/${id}`, params)
 // 删除限流策略
@@ -48,6 +54,8 @@ export const getCircuitBreakList = (params) => request.basic.get('/api/v1/policy
 export const getCircuitBreak = (id) => request.basic.get(`/api/v1/policy/policy-circuit-breaks/${id}`)
 // 添加熔断策略
 export const createCircuitBreak = (params) => request.basic.post('/api/v1/policy/policy-circuit-breaks', params)
+export const copyCircuitBreakToModel = (id, params) =>
+    request.basic.post(`/api/v1/policy/policy-circuit-breaks/${id}/copy-to-model`, params)
 // 更新熔断策略
 export const updateCircuitBreak = (id, params) =>
     request.basic.put(`/api/v1/policy/policy-circuit-breaks/${id}`, params)
@@ -60,6 +68,8 @@ export const getInvocationList = (params) => request.basic.get('/api/v1/policy/p
 export const getInvocation = (id) => request.basic.get(`/api/v1/policy/policy-invocations/${id}`)
 // 添加请求容错策略
 export const createInvocation = (params) => request.basic.post('/api/v1/policy/policy-invocations', params)
+export const copyInvocationToModel = (id, params) =>
+    request.basic.post(`/api/v1/policy/policy-invocations/${id}/copy-to-model`, params)
 // 更新请求容错策略
 export const updateInvocation = (id, params) => request.basic.put(`/api/v1/policy/policy-invocations/${id}`, params)
 // 删除请求容错策略
@@ -73,9 +83,6 @@ export const getPolicyBinding = (id) => request.basic.get(`/api/v1/policy/policy
 export const createPolicyBinding = (params) => request.basic.post('/api/v1/policy/policy-bindings', params)
 // 更新策略绑定
 export const updatePolicyBinding = (id, params) => request.basic.put(`/api/v1/policy/policy-bindings/${id}`, params)
-// 切换策略绑定启用状态
-export const togglePolicyBindingEnabled = (id, params) =>
-    request.basic.put(`/api/v1/policy/policy-bindings/${id}/enabled`, params)
 // 删除策略绑定
 export const delPolicyBinding = (id) => request.basic.delete(`/api/v1/policy/policy-bindings/${id}`)
 
@@ -85,6 +92,8 @@ export const getTaggingList = (params) => request.basic.get('/api/v1/policy/poli
 export const getTagging = (id) => request.basic.get(`/api/v1/policy/policy-taggings/${id}`)
 // 添加流量染色策略
 export const createTagging = (params) => request.basic.post('/api/v1/policy/policy-taggings', params)
+export const copyTaggingToModel = (id, params) =>
+    request.basic.post(`/api/v1/policy/policy-taggings/${id}/copy-to-model`, params)
 // 更新流量染色策略
 export const updateTagging = (id, params) => request.basic.put(`/api/v1/policy/policy-taggings/${id}`, params)
 // 删除流量染色策略

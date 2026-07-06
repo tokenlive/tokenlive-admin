@@ -115,17 +115,6 @@
                     </a-input-number>
                 </a-form-item>
 
-                <!-- 启用状态 -->
-                <a-form-item
-                    :label="$t('pages.model.policy.form.enabled')"
-                    name="enabled">
-                    <a-switch
-                        v-model:checked="formData.enabled"
-                        :checked-value="1"
-                        :un-checked-value="0">
-                    </a-switch>
-                </a-form-item>
-
                 <!-- 备注 -->
                 <a-form-item
                     :label="$t('pages.provider.form.description')"
@@ -217,7 +206,6 @@ function handleCreate() {
         title: t('pages.model.policy.bind'),
     })
     formData.value.model_code = props.modelCode
-    formData.value.enabled = 1
     formData.value.priority = 0
     policyOptions.value = []
 }
@@ -303,7 +291,6 @@ function handleOk() {
                     user_id: formData.value.user_id || '',
                     description: formData.value.description,
                     priority: formData.value.priority || 0,
-                    enabled: formData.value.enabled,
                 }
 
                 let result = null

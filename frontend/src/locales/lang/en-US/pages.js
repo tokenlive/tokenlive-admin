@@ -338,6 +338,7 @@ export default {
     'pages.model.policy.unbind': 'Unbind Policy',
     'pages.model.policy.unbindTip': 'Are you sure you want to unbind this policy from the model?',
     'pages.model.policy.gotoEdit': 'Edit Policy',
+    'pages.model.policy.create': 'Create Policy',
     'pages.model.policy.form.policy_type': 'Policy Type',
     'pages.model.policy.form.policy_type.placeholder': 'Please select policy type',
     'pages.model.policy.form.policy_type.required': 'Please select policy type!',
@@ -536,7 +537,7 @@ export default {
     'pages.system.logger.form.user_name': 'User Name',
     'pages.system.logger.form.created_at': 'Created At',
     // tagging
-    'pages.tagging.add': 'Create Policy',
+    'pages.tagging.add': 'Create Policy Template',
     'pages.tagging.edit': 'Edit Policy',
     'pages.tagging.copy': 'Copy Policy',
     'pages.tagging.delTip': 'Are you sure you want to delete this traffic tagging policy?',
@@ -579,7 +580,7 @@ export default {
     'pages.tagging.form.created_at': 'Created At',
 
     // loadbalance
-    'pages.loadbalance.add': 'Create Policy',
+    'pages.loadbalance.add': 'Create Policy Template',
     'pages.loadbalance.edit': 'Edit Policy',
     'pages.loadbalance.copy': 'Copy Policy',
     'pages.loadbalance.delTip': 'Are you sure you want to delete this load balance policy?',
@@ -641,7 +642,7 @@ export default {
         'Please enter max failure penalty (e.g. 30 seconds), default 30 seconds',
 
     // tagRoute
-    'pages.tagRoute.add': 'Create Policy',
+    'pages.tagRoute.add': 'Create Policy Template',
     'pages.tagRoute.edit': 'Edit Policy',
     'pages.tagRoute.copy': 'Copy Policy',
     'pages.tagRoute.delTip': 'Are you sure you want to delete this tag routing policy?',
@@ -715,7 +716,7 @@ export default {
     'pages.tagRoute.form.description.placeholder': 'Please enter the description',
     'pages.tagRoute.form.created_at': 'Created At',
     // limit
-    'pages.limit.add': 'Create Policy',
+    'pages.limit.add': 'Create Policy Template',
     'pages.limit.edit': 'Edit Rate Limit Policy',
     'pages.limit.copy': 'Copy Rate Limit Policy',
     'pages.limit.delTip': 'Are you sure you want to delete this rate limit policy?',
@@ -853,7 +854,7 @@ export default {
     'pages.limit.form.version': 'Version',
     'pages.limit.form.created_at': 'Created At',
     // invocation
-    'pages.invocation.add': 'Create Policy',
+    'pages.invocation.add': 'Create Policy Template',
     'pages.invocation.edit': 'Edit Invocation Policy',
     'pages.invocation.copy': 'Copy Invocation Policy',
     'pages.invocation.delTip': 'Are you sure you want to delete this invocation policy?',
@@ -977,7 +978,7 @@ export default {
     'pages.invocation.form.fallbackTargets.tooltip':
         'When the current model call fails, it will attempt to fallback to the specified backup models in sequence.',
     // circuitBreak
-    'pages.circuitBreak.add': 'Create Policy',
+    'pages.circuitBreak.add': 'Create Policy Template',
     'pages.circuitBreak.edit': 'Edit Circuit Breaker Policy',
     'pages.circuitBreak.copy': 'Copy Circuit Breaker Policy',
     'pages.circuitBreak.delTip': 'Are you sure you want to delete this circuit breaker policy?',
@@ -1372,7 +1373,20 @@ export default {
     'pages.portalWorkspace.workspace_id': 'Workspace ID',
     'pages.portalWorkspace.workspace_id.placeholder': 'Enter Workspace ID',
     'pages.portalWorkspace.workspace_id.required': 'Enter Workspace ID',
+    'pages.portalWorkspace.tenant_code': 'Tenant Code',
+    'pages.portalWorkspace.tenant_code.placeholder': 'Enter Admin Tenant Code',
+    'pages.portalWorkspace.tenant_code.required': 'Enter Tenant Code',
     'pages.portalWorkspace.search': 'Search',
+    'pages.portalWorkspace.bind_tenant': 'Bind and activate',
+    'pages.portalWorkspace.bind_tenant.confirm_title': 'Bind tenant and activate runtime',
+    'pages.portalWorkspace.bind_tenant.confirm_content':
+        'Workspace {workspaceId} will be bound to tenant {tenantCode} and synced to runtime.',
+    'pages.portalWorkspace.bind_tenant.success': 'Tenant binding and runtime activation complete',
+    'pages.portalWorkspace.unbind_tenant': 'Unbind tenant',
+    'pages.portalWorkspace.unbind_tenant.confirm_title': 'Unbind tenant',
+    'pages.portalWorkspace.unbind_tenant.confirm_content':
+        'Workspace {workspaceId} will be unbound from its tenant and synced to runtime.',
+    'pages.portalWorkspace.unbind_tenant.success': 'Tenant unbound',
     'pages.portalWorkspace.runtime_sync': 'Sync runtime',
     'pages.portalWorkspace.runtime_sync.confirm_title': 'Sync runtime state',
     'pages.portalWorkspace.runtime_sync.success': 'Runtime sync complete',
@@ -1387,6 +1401,7 @@ export default {
     'pages.portalWorkspace.table.created_at': 'Created at',
     'pages.portalWorkspace.table.updated_at': 'Updated at',
     'pages.portalWorkspace.status.active': 'Active',
+    'pages.portalWorkspace.status.enabled': 'Enabled',
     'pages.portalWorkspace.status.disabled': 'Disabled',
     'pages.portalWorkspace.status.revoked': 'Revoked',
     'pages.portalWorkspace.status.expired': 'Expired',

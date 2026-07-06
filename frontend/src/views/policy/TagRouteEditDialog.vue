@@ -606,12 +606,13 @@ async function saveRouteDetails(routeId) {
     }
 }
 
-function handleCreate() {
+function handleCreate(options = {}) {
+    formData.value.model_id = options.modelId || ''
     formData.value.enabled = 0
     formData.value.details = [createEmptyDetail()]
     showModal({
         type: 'create',
-        title: t('pages.tagRoute.add'),
+        title: options.title || t('pages.tagRoute.add'),
     })
 }
 
@@ -671,6 +672,7 @@ function handleOk() {
                 showLoading()
                 const params = {
                     ...values,
+                    model_id: formData.value.model_id || '',
                     enabled: formData.value.enabled,
                     description: formData.value.description,
                 }

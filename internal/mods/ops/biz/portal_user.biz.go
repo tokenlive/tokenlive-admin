@@ -1,6 +1,7 @@
 package biz
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -25,15 +26,15 @@ type PortalSearchResponse struct {
 }
 
 type PortalWorkspaceAPIKey struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	KeyPrefix   string    `json:"key_prefix"`
-	SecretLast4 string    `json:"secret_last4"`
-	Status      string    `json:"status"`
-	ExpiresAt   time.Time `json:"expires_at"`
-	LastUsedAt  time.Time `json:"last_used_at"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	KeyPrefix   string     `json:"key_prefix"`
+	SecretLast4 string     `json:"secret_last4"`
+	Status      string     `json:"status"`
+	ExpiresAt   *time.Time `json:"expires_at"`
+	LastUsedAt  *time.Time `json:"last_used_at"`
+	CreatedAt   *time.Time `json:"created_at"`
+	UpdatedAt   *time.Time `json:"updated_at"`
 }
 
 type PortalWorkspaceAPIKeysResponse struct {
@@ -126,15 +127,71 @@ func (a *PortalUser) SyncWorkspaceRuntime(ctx context.Context, workspaceID strin
 	return nil
 }
 
+func (a *PortalUser) BindWorkspaceTenant(ctx context.Context, workspaceID string, tenantCode string) error {
+	body, err := json.Marshal(map[string]string{"tenant_code": tenantCode})
+	if err != nil {
+		return err
+	}
+	req, err := newPortalInternalRequestWithBody(
+		ctx,
+		http.MethodPost,
+		"/internal/v1/workspaces/"+url.PathEscape(workspaceID)+"/bind-tenant",
+		body,
+	)
+	if err != nil {
+		return err
+	}
+
+	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("portal returned unexpected status: %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func (a *PortalUser) UnbindWorkspaceTenant(ctx context.Context, workspaceID string) error {
+	req, err := newPortalInternalRequest(
+		ctx,
+		http.MethodPost,
+		"/internal/v1/workspaces/"+url.PathEscape(workspaceID)+"/unbind-tenant",
+	)
+	if err != nil {
+		return err
+	}
+
+	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("portal returned unexpected status: %d", resp.StatusCode)
+	}
+	return nil
+}
+
 func newPortalInternalRequest(ctx context.Context, method string, path string) (*http.Request, error) {
+	return newPortalInternalRequestWithBody(ctx, method, path, nil)
+}
+
+func newPortalInternalRequestWithBody(ctx context.Context, method string, path string, body []byte) (*http.Request, error) {
 	portalCfg := config.C.Portal
 	if portalCfg.BaseURL == "" {
 		return nil, fmt.Errorf("portal base URL not configured")
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(portalCfg.BaseURL, "/")+path, nil)
+	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(portalCfg.BaseURL, "/")+path, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	if portalCfg.InternalAPIToken != "" {
 		req.Header.Set("Authorization", "Bearer "+portalCfg.InternalAPIToken)

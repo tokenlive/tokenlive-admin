@@ -127,3 +127,32 @@ func (a *PolicyLimit) Delete(c *gin.Context) {
 	}
 	util.ResOK(c)
 }
+
+// @Tags PolicyLimitAPI
+// @Security ApiKeyAuth
+// @Summary Copy policy limit template to model
+// @Param id path string true "template id"
+// @Param body body schema.PolicyCopyToModelForm true "Request body"
+// @Success 200 {object} util.ResponseResult{data=schema.PolicyLimit}
+// @Failure 400 {object} util.ResponseResult
+// @Failure 401 {object} util.ResponseResult
+// @Failure 500 {object} util.ResponseResult
+// @Router /api/v1/policy/policy-limits/{id}/copy-to-model [post]
+func (a *PolicyLimit) CopyToModel(c *gin.Context) {
+	ctx := c.Request.Context()
+	item := new(schema.PolicyCopyToModelForm)
+	if err := util.ParseJSON(c, item); err != nil {
+		util.ResError(c, err)
+		return
+	} else if err := item.Validate(); err != nil {
+		util.ResError(c, err)
+		return
+	}
+
+	result, err := a.PolicyLimitBIZ.CopyTemplateToModel(ctx, c.Param("id"), item.ModelID, item.Name)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResSuccess(c, result)
+}

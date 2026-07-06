@@ -226,7 +226,7 @@ const enabledSwitch = computed({
     },
 })
 
-function handleCreate() {
+function handleCreate(options = {}) {
     formData.value.enabled = 0
     formData.value.cost_weight = 0.5
     formData.value.latency_weight = 0.5
@@ -237,9 +237,10 @@ function handleCreate() {
     formData.value.latency_metric = 'total'
     formData.value.latency_failure_penalty = 3
     formData.value.latency_failure_max = ''
+    formData.value.model_id = options.modelId || ''
     showModal({
         type: 'create',
-        title: t('pages.loadbalance.add'),
+        title: options.title || t('pages.loadbalance.add'),
     })
 }
 
@@ -365,6 +366,7 @@ function handleOk() {
                 showLoading()
                 const params = {
                     ...values,
+                    model_id: formData.value.model_id || '',
                 }
                 if (values.type === 'composite') {
                     params.params = JSON.stringify({

@@ -2,6 +2,8 @@ package schema
 
 import (
 	"encoding/json"
+
+	"github.com/tokenlive/tokenlive-admin/pkg/errors"
 )
 
 // Policy 网关策略大聚合传输结构体，对应网关侧的 policy.Policy。
@@ -13,6 +15,18 @@ type Policy struct {
 	RoutePolicies        []*PolicyRouteForm        `json:"route_policies,omitempty"`
 	CircuitBreakPolicies []*PolicyCircuitBreakForm `json:"circuit_break_policies,omitempty"`
 	TaggingPolicies      []*PolicyTaggingForm      `json:"tagging_policies,omitempty"`
+}
+
+type PolicyCopyToModelForm struct {
+	ModelID string `json:"model_id" binding:"required,max=20"`
+	Name    string `json:"name" binding:"max=128"`
+}
+
+func (a *PolicyCopyToModelForm) Validate() error {
+	if a.ModelID == "" {
+		return errors.BadRequest("", "model_id is required")
+	}
+	return nil
 }
 
 // MarshalJSON 自定义序列化，在序列化为写入 Redis 的 JSON 串时，递归过滤清除与网关无关的数据库元数据/审计字段以精简数据体积

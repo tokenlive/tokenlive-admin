@@ -52,8 +52,66 @@ func (a *PolicyBinding) Get(ctx context.Context, id string) (*schema.PolicyBindi
 	return &form, nil
 }
 
+func (a *PolicyBinding) requireBindablePolicy(ctx context.Context, policyType, policyID string) error {
+	if policyID == "" {
+		return errors.BadRequest("", "PolicyID is required")
+	}
+
+	var modelID string
+	db := util.GetDB(ctx, a.PolicyBindingDAL.DB)
+	switch policyType {
+	case "loadbalance":
+		var item schema.PolicyLoadbalance
+		if err := db.Select("model_id").Where("id = ? AND deleted = '0'", policyID).First(&item).Error; err != nil {
+			return errors.NotFound("", "Policy not found")
+		}
+		modelID = item.ModelID
+	case "invocation":
+		var item schema.PolicyInvocation
+		if err := db.Select("model_id").Where("id = ? AND deleted = '0'", policyID).First(&item).Error; err != nil {
+			return errors.NotFound("", "Policy not found")
+		}
+		modelID = item.ModelID
+	case "limit":
+		var item schema.PolicyLimit
+		if err := db.Select("model_id").Where("id = ? AND deleted = '0'", policyID).First(&item).Error; err != nil {
+			return errors.NotFound("", "Policy not found")
+		}
+		modelID = item.ModelID
+	case "circuit_break":
+		var item schema.PolicyCircuitBreak
+		if err := db.Select("model_id").Where("id = ? AND deleted = '0'", policyID).First(&item).Error; err != nil {
+			return errors.NotFound("", "Policy not found")
+		}
+		modelID = item.ModelID
+	case "tagging":
+		var item schema.PolicyTagging
+		if err := db.Select("model_id").Where("id = ? AND deleted = '0'", policyID).First(&item).Error; err != nil {
+			return errors.NotFound("", "Policy not found")
+		}
+		modelID = item.ModelID
+	case "route":
+		var item schema.PolicyRoute
+		if err := db.Select("model_id").Where("id = ? AND deleted = '0'", policyID).First(&item).Error; err != nil {
+			return errors.NotFound("", "Policy not found")
+		}
+		modelID = item.ModelID
+	default:
+		return errors.BadRequest("", "Invalid policy type")
+	}
+
+	if modelID == "" {
+		return errors.BadRequest("", "Policy template cannot be bound")
+	}
+	return nil
+}
+
 // Create a new policy binding in the data access object.
 func (a *PolicyBinding) Create(ctx context.Context, formItem *schema.PolicyBindingForm) (*schema.PolicyBinding, error) {
+	if err := a.requireBindablePolicy(ctx, formItem.PolicyType, formItem.PolicyID); err != nil {
+		return nil, err
+	}
+
 	// 1. Check unique combination to prevent uk_dimensions_policy database index error.
 	existsUnique, err := a.PolicyBindingDAL.ExistsByUniqueKey(ctx, formItem.TenantCode, formItem.UserID, formItem.ModelCode, formItem.PolicyType, formItem.PolicyID)
 	if err != nil {
@@ -120,6 +178,10 @@ func (a *PolicyBinding) Update(ctx context.Context, id string, formItem *schema.
 		binding.PolicyType != formItem.PolicyType
 
 	if dimChanged || binding.PolicyID != formItem.PolicyID {
+		if err := a.requireBindablePolicy(ctx, formItem.PolicyType, formItem.PolicyID); err != nil {
+			return err
+		}
+
 		existsUnique, err := a.PolicyBindingDAL.ExistsByUniqueKey(ctx, formItem.TenantCode, formItem.UserID, formItem.ModelCode, formItem.PolicyType, formItem.PolicyID)
 		if err != nil {
 			return err
@@ -160,42 +222,6 @@ func (a *PolicyBinding) Update(ctx context.Context, id string, formItem *schema.
 		if err := a.PolicyRedisSync.SyncDimension(ctx, oldTenantCode, oldUserID, oldModelCode); err != nil {
 			return err
 		}
-	}
-
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicyBinding, binding.ID, binding.PolicyID, beforePolicy, binding)
-
-	return nil
-}
-
-// ToggleEnabled updates only the enabled status of a policy binding and re-syncs the dimension to Redis.
-// Toggling does not change the binding's dimensions, so no exclusive-policy or unique-key checks are needed.
-func (a *PolicyBinding) ToggleEnabled(ctx context.Context, id string, formItem *schema.PolicyBindingEnabledForm) error {
-	binding, err := a.PolicyBindingDAL.Get(ctx, id)
-	if err != nil {
-		return err
-	} else if binding == nil {
-		return errors.NotFound("", "Policy binding not found")
-	}
-
-	// No-op if the status is unchanged.
-	if binding.Enabled == formItem.Enabled {
-		return nil
-	}
-
-	beforePolicy := *binding
-
-	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		return a.PolicyBindingDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
-	})
-	if err != nil {
-		return err
-	}
-
-	binding.Enabled = formItem.Enabled
-
-	// The aggregated policy snapshot is filtered by enabled = 1, so the dimension must be re-synced.
-	if err := a.PolicyRedisSync.SyncDimension(ctx, binding.TenantCode, binding.UserID, binding.ModelCode); err != nil {
-		return err
 	}
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicyBinding, binding.ID, binding.PolicyID, beforePolicy, binding)

@@ -30,7 +30,8 @@ type TaggingAction struct {
 // PolicyTagging 流量染色策略表
 type PolicyTagging struct {
 	ID          string          `json:"id" gorm:"type:char(20);primaryKey;<-:create;comment:主键ID (XID);"`
-	Name        string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_tagging_name;comment:策略名称;"`
+	ModelID     string          `json:"model_id" gorm:"type:char(20);uniqueIndex:uniq_policy_tagging_model_name_deleted,priority:1;index:idx_policy_tagging_model;comment:所属模型ID，空表示策略模板;"`
+	Name        string          `json:"name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_policy_tagging_model_name_deleted,priority:2;comment:策略名称;"`
 	Order       int             `json:"order" gorm:"type:int;not null;default:0;comment:执行顺序，数字越小越优先;"`
 	Relation    string          `json:"relation" gorm:"type:varchar(16);not null;default:'AND';comment:多条件之间的逻辑关系：AND / OR;"`
 	Conditions  *string         `json:"conditions,omitempty" gorm:"type:json;default:null;comment:匹配条件列表，嵌套 Condition 数组;"`
@@ -42,7 +43,7 @@ type PolicyTagging struct {
 	Modifier    *string         `json:"modifier,omitempty" gorm:"type:varchar(255);default:null;comment:修改者;"`
 	CreatedAt   time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
 	UpdatedAt   time.Time       `json:"updated_at,omitempty" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
-	Deleted     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';comment:逻辑删除标识;"`
+	Deleted     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_policy_tagging_model_name_deleted,priority:3;comment:逻辑删除标识;"`
 	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
@@ -53,6 +54,7 @@ func (a PolicyTagging) TableName() string {
 // ConvertTo Convert `PolicyTagging` to `PolicyTaggingForm` object.
 func (a PolicyTagging) ConvertTo(form *PolicyTaggingForm) error {
 	form.ID = a.ID
+	form.ModelID = a.ModelID
 	form.Name = a.Name
 	form.Order = a.Order
 	form.Relation = a.Relation
@@ -79,7 +81,8 @@ func (a PolicyTagging) ConvertTo(form *PolicyTaggingForm) error {
 // Defining the query parameters for the `PolicyTagging` struct.
 type PolicyTaggingQueryParam struct {
 	util.PaginationParam
-	Name string `form:"name"` // Policy name (like)
+	ModelID string `form:"model_id"` // Model ID
+	Name    string `form:"name"`     // Policy name (like)
 }
 
 // Defining the query options for the `PolicyTagging` struct.
@@ -99,6 +102,7 @@ type PolicyTaggings []*PolicyTagging
 // Defining the data structure for creating or updating a `PolicyTagging` struct.
 type PolicyTaggingForm struct {
 	ID          string           `json:"id"`
+	ModelID     string           `json:"model_id" binding:"max=20"`                // Owner model ID; empty means template
 	Name        string           `json:"name" binding:"required,max=128"`          // Policy name
 	Order       int              `json:"order"`                                    // Execution order
 	Relation    string           `json:"relation" binding:"required,oneof=AND OR"` // Relation type
@@ -147,6 +151,7 @@ func (a *PolicyTaggingForm) Validate() error {
 
 // Convert `PolicyTaggingForm` to `PolicyTagging` object.
 func (a *PolicyTaggingForm) FillTo(policyTagging *PolicyTagging) error {
+	policyTagging.ModelID = a.ModelID
 	policyTagging.Name = a.Name
 	policyTagging.Order = a.Order
 	policyTagging.Relation = a.Relation

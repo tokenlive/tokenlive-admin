@@ -33,12 +33,13 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		return nil
 	}
 
-	// 1. 获取该维度下所有启用的有效绑定 (未删除)，按照优先级排序，数字越小越优先，其次按创建时间降序
+	// 1. 获取该维度下所有有效绑定 (未删除)，按照优先级排序，数字越小越优先，其次按创建时间降序。
+	// 绑定关系本身不带启停状态；是否生效由具体策略表的 enabled 决定。
 	var bindings []schema.PolicyBinding
 	db := util.GetDB(ctx, s.PolicyBindingDAL.DB).
 		Model(new(schema.PolicyBinding)).
 		Where("tenant_code = ? AND user_id = ? AND model_code = ?", tenantCode, userID, modelCode).
-		Where("enabled = 1 AND deleted = '0'").
+		Where("deleted = '0'").
 		Order("priority ASC, created_at DESC")
 	if err := db.Find(&bindings).Error; err != nil {
 		return err

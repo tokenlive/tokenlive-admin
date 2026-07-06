@@ -2,8 +2,10 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -63,12 +65,64 @@ func TestPortalUserAPISyncWorkspaceRuntime(t *testing.T) {
 	require.Equal(t, "/internal/v1/workspaces/workspace-1/runtime-sync", gotPath)
 }
 
+func TestPortalUserAPIBindWorkspaceTenant(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	var gotBody string
+	portal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.RequestURI()
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		gotBody = string(body)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer portal.Close()
+	restorePortalConfig(t, portal.URL, "internal-token")
+
+	router := newPortalUserTestRouter()
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/workspaces/workspace-1/bind-tenant", strings.NewReader(`{"tenant_code":"tenant-a"}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, req)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, http.MethodPost, gotMethod)
+	require.Equal(t, "/internal/v1/workspaces/workspace-1/bind-tenant", gotPath)
+	require.JSONEq(t, `{"tenant_code":"tenant-a"}`, gotBody)
+}
+
+func TestPortalUserAPIUnbindWorkspaceTenant(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	portal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.RequestURI()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer portal.Close()
+	restorePortalConfig(t, portal.URL, "internal-token")
+
+	router := newPortalUserTestRouter()
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/workspaces/workspace-1/unbind-tenant", nil)
+
+	router.ServeHTTP(recorder, req)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, http.MethodPost, gotMethod)
+	require.Equal(t, "/internal/v1/workspaces/workspace-1/unbind-tenant", gotPath)
+}
+
 func newPortalUserTestRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	api := &PortalUserAPI{PortalUserBIZ: &biz.PortalUser{}}
 	router.GET("/workspaces/:workspace_id/api-keys", api.ListWorkspaceAPIKeys)
 	router.POST("/workspaces/:workspace_id/runtime-sync", api.SyncWorkspaceRuntime)
+	router.POST("/workspaces/:workspace_id/bind-tenant", api.BindWorkspaceTenant)
+	router.POST("/workspaces/:workspace_id/unbind-tenant", api.UnbindWorkspaceTenant)
 	return router
 }
 

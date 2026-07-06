@@ -435,6 +435,7 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 	slidingWindowsJSON := "[]"
 	polExclusive := &policySchema.PolicyLimit{
 		ID:             "pol-exclusive-1",
+		ModelID:        model1.ID,
 		Name:           "cascade-exclusive-limit",
 		Type:           "request",
 		SlidingWindows: &slidingWindowsJSON,
@@ -443,6 +444,7 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 	}
 	polShared := &policySchema.PolicyLimit{
 		ID:             "pol-shared-1",
+		ModelID:        model1.ID,
 		Name:           "cascade-shared-limit",
 		Type:           "request",
 		SlidingWindows: &slidingWindowsJSON,
@@ -459,7 +461,6 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 		ModelCode:  model1.ModelCode,
 		PolicyType: "limit",
 		PolicyID:   polExclusive.ID,
-		Enabled:    1,
 		Deleted:    "0",
 	}
 	// - 绑定2：共享策略 绑定到 模型1
@@ -468,7 +469,6 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 		ModelCode:  model1.ModelCode,
 		PolicyType: "limit",
 		PolicyID:   polShared.ID,
-		Enabled:    1,
 		Deleted:    "0",
 	}
 	// - 绑定3：共享策略 绑定到 模型2
@@ -477,7 +477,6 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 		ModelCode:  model2.ModelCode,
 		PolicyType: "limit",
 		PolicyID:   polShared.ID,
-		Enabled:    1,
 		Deleted:    "0",
 	}
 	assert.NoError(db.Create(binding1).Error)

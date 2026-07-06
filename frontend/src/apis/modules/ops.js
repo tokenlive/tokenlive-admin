@@ -13,3 +13,11 @@ export const getPortalWorkspaceAPIKeys = (workspaceId) =>
 // 触发 Portal 工作空间 API Key 运行态重同步
 export const syncPortalWorkspaceRuntime = (workspaceId) =>
     request.basic.post(`/api/v1/ops/portal/workspaces/${workspaceId}/runtime-sync`)
+
+// 绑定 Portal 工作空间到 Admin 租户
+export const bindPortalWorkspaceTenant = (workspaceId, tenantCode) =>
+    request.basic.post(`/api/v1/ops/portal/workspaces/${workspaceId}/bind-tenant`, { tenant_code: tenantCode })
+
+// 解除 Portal 工作空间的 Admin 租户绑定
+export const unbindPortalWorkspaceTenant = (workspaceId) =>
+    request.basic.post(`/api/v1/ops/portal/workspaces/${workspaceId}/unbind-tenant`)
