@@ -14,10 +14,17 @@ export const getPortalWorkspaceAPIKeys = (workspaceId) =>
 export const syncPortalWorkspaceRuntime = (workspaceId) =>
     request.basic.post(`/api/v1/ops/portal/workspaces/${workspaceId}/runtime-sync`)
 
-// 绑定 Portal 工作空间到 Admin 租户
-export const bindPortalWorkspaceTenant = (workspaceId, tenantCode) =>
-    request.basic.post(`/api/v1/ops/portal/workspaces/${workspaceId}/bind-tenant`, { tenant_code: tenantCode })
+// 查询 Portal 工作空间运行态访问授权
+export const getPortalWorkspaceRuntimeAccess = (workspaceId) =>
+    request.basic.get(`/api/v1/ops/portal/workspaces/${workspaceId}/runtime-access`)
 
-// 解除 Portal 工作空间的 Admin 租户绑定
-export const unbindPortalWorkspaceTenant = (workspaceId) =>
-    request.basic.post(`/api/v1/ops/portal/workspaces/${workspaceId}/unbind-tenant`)
+// 开通 Portal 工作空间运行态访问
+export const activatePortalWorkspaceRuntimeAccess = (workspaceId, scopeCode, scopeType = 'tenant') =>
+    request.basic.put(`/api/v1/ops/portal/workspaces/${workspaceId}/runtime-access`, {
+        scope_type: scopeType,
+        scope_code: scopeCode,
+    })
+
+// 停用 Portal 工作空间运行态访问
+export const disablePortalWorkspaceRuntimeAccess = (workspaceId) =>
+    request.basic.post(`/api/v1/ops/portal/workspaces/${workspaceId}/runtime-access/disable`)

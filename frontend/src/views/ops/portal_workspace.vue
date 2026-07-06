@@ -19,13 +19,13 @@
                             @pressEnter="handleSearch" />
                     </a-form-item>
                     <a-form-item
-                        :label="$t('pages.portalWorkspace.tenant_code')"
+                        :label="$t('pages.portalWorkspace.scope_code')"
                         style="margin-bottom: 0">
                         <a-input
-                            v-model:value="formState.tenantCode"
+                            v-model:value="formState.scopeCode"
                             allow-clear
                             class="portal-workspace-tenant-input"
-                            :placeholder="$t('pages.portalWorkspace.tenant_code.placeholder')" />
+                            :placeholder="$t('pages.portalWorkspace.scope_code.placeholder')" />
                     </a-form-item>
                     <a-form-item style="margin-bottom: 0">
                         <a-button
@@ -42,25 +42,25 @@
                         <a-button
                             type="primary"
                             ghost
-                            :disabled="!currentWorkspaceId || !formState.tenantCode.trim()"
-                            :loading="binding"
-                            @click="handleBindTenant">
+                            :disabled="!currentWorkspaceId || !formState.scopeCode.trim()"
+                            :loading="activating"
+                            @click="handleActivateRuntimeAccess">
                             <template #icon>
                                 <link-outlined />
                             </template>
-                            {{ $t('pages.portalWorkspace.bind_tenant') }}
+                            {{ $t('pages.portalWorkspace.activate_runtime_access') }}
                         </a-button>
                     </a-form-item>
                     <a-form-item style="margin-bottom: 0">
                         <a-button
                             danger
                             :disabled="!currentWorkspaceId"
-                            :loading="unbinding"
-                            @click="handleUnbindTenant">
+                            :loading="disabling"
+                            @click="handleDisableRuntimeAccess">
                             <template #icon>
                                 <disconnect-outlined />
                             </template>
-                            {{ $t('pages.portalWorkspace.unbind_tenant') }}
+                            {{ $t('pages.portalWorkspace.disable_runtime_access') }}
                         </a-button>
                     </a-form-item>
                     <a-form-item style="margin-bottom: 0">
@@ -75,6 +75,30 @@
                         </a-button>
                     </a-form-item>
                 </a-form>
+            </div>
+
+            <div
+                v-if="currentWorkspaceId"
+                class="portal-runtime-access">
+                <a-descriptions
+                    size="small"
+                    :column="{ xs: 1, sm: 2, md: 4 }"
+                    bordered>
+                    <a-descriptions-item :label="$t('pages.portalWorkspace.runtime_access.status')">
+                        <a-tag :color="runtimeAccessStatusColor(runtimeAccess?.status)">
+                            {{ runtimeAccessStatusText(runtimeAccess?.status) }}
+                        </a-tag>
+                    </a-descriptions-item>
+                    <a-descriptions-item :label="$t('pages.portalWorkspace.runtime_access.scope_type')">
+                        {{ runtimeAccess?.scope_type || '-' }}
+                    </a-descriptions-item>
+                    <a-descriptions-item :label="$t('pages.portalWorkspace.runtime_access.scope_code')">
+                        {{ runtimeAccess?.scope_code || '-' }}
+                    </a-descriptions-item>
+                    <a-descriptions-item :label="$t('pages.portalWorkspace.runtime_access.updated_at')">
+                        {{ runtimeAccess?.updated_at || '-' }}
+                    </a-descriptions-item>
+                </a-descriptions>
             </div>
 
             <a-table
@@ -118,13 +142,14 @@ defineOptions({
 })
 
 const { t } = useI18n()
-const formState = reactive({ workspaceId: '', tenantCode: '' })
+const formState = reactive({ workspaceId: '', scopeCode: '' })
 const currentWorkspaceId = ref('')
 const listData = ref([])
+const runtimeAccess = ref(null)
 const loading = ref(false)
 const syncing = ref(false)
-const binding = ref(false)
-const unbinding = ref(false)
+const activating = ref(false)
+const disabling = ref(false)
 
 const columns = computed(() => [
     { title: t('pages.portalWorkspace.table.name'), key: 'name', dataIndex: 'name', width: 180 },
@@ -154,9 +179,18 @@ async function handleSearch() {
         if (config('http.code.success') === success) {
             currentWorkspaceId.value = workspaceId
             listData.value = normalizePortalAPIKeys(data || [])
+            await loadRuntimeAccess(workspaceId)
         }
     } finally {
         loading.value = false
+    }
+}
+
+async function loadRuntimeAccess(workspaceId) {
+    const { success, data } = await apis.ops.getPortalWorkspaceRuntimeAccess(workspaceId)
+    if (config('http.code.success') === success) {
+        runtimeAccess.value = data || null
+        formState.scopeCode = data?.scope_code || formState.scopeCode
     }
 }
 
@@ -182,76 +216,77 @@ function handleSync() {
     })
 }
 
-function handleBindTenant() {
+function handleActivateRuntimeAccess() {
     if (!currentWorkspaceId.value) return
-    const tenantCode = formState.tenantCode.trim()
-    if (!tenantCode) {
-        message.warning(t('pages.portalWorkspace.tenant_code.required'))
+    const scopeCode = formState.scopeCode.trim()
+    if (!scopeCode) {
+        message.warning(t('pages.portalWorkspace.scope_code.required'))
         return
     }
 
     Modal.confirm({
-        title: t('pages.portalWorkspace.bind_tenant.confirm_title'),
-        content: t('pages.portalWorkspace.bind_tenant.confirm_content', {
+        title: t('pages.portalWorkspace.activate_runtime_access.confirm_title'),
+        content: t('pages.portalWorkspace.activate_runtime_access.confirm_content', {
             workspaceId: currentWorkspaceId.value,
-            tenantCode,
+            scopeCode,
         }),
-        okText: t('pages.portalWorkspace.bind_tenant'),
+        okText: t('pages.portalWorkspace.activate_runtime_access'),
         onOk: async () => {
-            binding.value = true
+            activating.value = true
             try {
-                const { success } = await apis.ops.bindPortalWorkspaceTenant(currentWorkspaceId.value, tenantCode)
+                const { success } = await apis.ops.activatePortalWorkspaceRuntimeAccess(
+                    currentWorkspaceId.value,
+                    scopeCode
+                )
                 if (config('http.code.success') === success) {
-                    if (await syncRuntimeSilently()) {
-                        message.success(t('pages.portalWorkspace.bind_tenant.success'))
-                    }
+                    message.success(t('pages.portalWorkspace.activate_runtime_access.success'))
                     await handleSearch()
                 }
             } finally {
-                binding.value = false
+                activating.value = false
             }
         },
     })
 }
 
-function handleUnbindTenant() {
+function handleDisableRuntimeAccess() {
     if (!currentWorkspaceId.value) return
 
     Modal.confirm({
-        title: t('pages.portalWorkspace.unbind_tenant.confirm_title'),
-        content: t('pages.portalWorkspace.unbind_tenant.confirm_content', {
+        title: t('pages.portalWorkspace.disable_runtime_access.confirm_title'),
+        content: t('pages.portalWorkspace.disable_runtime_access.confirm_content', {
             workspaceId: currentWorkspaceId.value,
         }),
-        okText: t('pages.portalWorkspace.unbind_tenant'),
+        okText: t('pages.portalWorkspace.disable_runtime_access'),
         onOk: async () => {
-            unbinding.value = true
+            disabling.value = true
             try {
-                const { success } = await apis.ops.unbindPortalWorkspaceTenant(currentWorkspaceId.value)
+                const { success } = await apis.ops.disablePortalWorkspaceRuntimeAccess(currentWorkspaceId.value)
                 if (config('http.code.success') === success) {
-                    if (await syncRuntimeSilently()) {
-                        message.success(t('pages.portalWorkspace.unbind_tenant.success'))
-                    }
+                    message.success(t('pages.portalWorkspace.disable_runtime_access.success'))
                     await handleSearch()
                 }
             } finally {
-                unbinding.value = false
+                disabling.value = false
             }
         },
     })
-}
-
-async function syncRuntimeSilently() {
-    syncing.value = true
-    try {
-        const { success } = await apis.ops.syncPortalWorkspaceRuntime(currentWorkspaceId.value)
-        return config('http.code.success') === success
-    } finally {
-        syncing.value = false
-    }
 }
 
 function statusText(status) {
     return t(`pages.portalWorkspace.status.${status || 'unknown'}`)
+}
+
+function runtimeAccessStatusText(status) {
+    return t(`pages.portalWorkspace.runtime_access.status.${status || 'none'}`)
+}
+
+function runtimeAccessStatusColor(status) {
+    const colorMap = {
+        active: 'green',
+        disabled: 'orange',
+    }
+    return colorMap[status] || 'default'
 }
 </script>
 
@@ -278,6 +313,10 @@ function statusText(status) {
 
     .portal-workspace-tenant-input {
         width: min(260px, 100%);
+    }
+
+    .portal-runtime-access {
+        margin-bottom: 16px;
     }
 
     .portal-workspace-name {

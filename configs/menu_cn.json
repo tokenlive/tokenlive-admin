@@ -118,12 +118,16 @@
                         "path": "/api/v1/ops/portal/workspaces/{workspace_id}/runtime-sync"
                     },
                     {
-                        "method": "POST",
-                        "path": "/api/v1/ops/portal/workspaces/{workspace_id}/bind-tenant"
+                        "method": "GET",
+                        "path": "/api/v1/ops/portal/workspaces/{workspace_id}/runtime-access"
+                    },
+                    {
+                        "method": "PUT",
+                        "path": "/api/v1/ops/portal/workspaces/{workspace_id}/runtime-access"
                     },
                     {
                         "method": "POST",
-                        "path": "/api/v1/ops/portal/workspaces/{workspace_id}/unbind-tenant"
+                        "path": "/api/v1/ops/portal/workspaces/{workspace_id}/runtime-access/disable"
                     }
                 ]
             }

@@ -41,6 +41,23 @@ type PortalWorkspaceAPIKeysResponse struct {
 	APIKeys []PortalWorkspaceAPIKey `json:"api_keys"`
 }
 
+type PortalWorkspaceRuntimeAccess struct {
+	WorkspaceID string     `json:"workspace_id"`
+	ScopeType   string     `json:"scope_type"`
+	ScopeCode   string     `json:"scope_code"`
+	Status      string     `json:"status"`
+	ActivatedAt *time.Time `json:"activated_at"`
+	ActivatedBy string     `json:"activated_by"`
+	DisabledAt  *time.Time `json:"disabled_at"`
+	DisabledBy  string     `json:"disabled_by"`
+	CreatedAt   *time.Time `json:"created_at"`
+	UpdatedAt   *time.Time `json:"updated_at"`
+}
+
+type PortalWorkspaceRuntimeAccessResponse struct {
+	RuntimeAccess *PortalWorkspaceRuntimeAccess `json:"runtime_access"`
+}
+
 func (a *PortalUser) Search(ctx context.Context, keyword string, limit int) ([]PortalUserResult, error) {
 	portalCfg := config.C.Portal
 	if portalCfg.BaseURL == "" {
@@ -127,15 +144,42 @@ func (a *PortalUser) SyncWorkspaceRuntime(ctx context.Context, workspaceID strin
 	return nil
 }
 
-func (a *PortalUser) BindWorkspaceTenant(ctx context.Context, workspaceID string, tenantCode string) error {
-	body, err := json.Marshal(map[string]string{"tenant_code": tenantCode})
+func (a *PortalUser) GetWorkspaceRuntimeAccess(ctx context.Context, workspaceID string) (*PortalWorkspaceRuntimeAccess, error) {
+	req, err := newPortalInternalRequest(
+		ctx,
+		http.MethodGet,
+		"/internal/v1/workspaces/"+url.PathEscape(workspaceID)+"/runtime-access",
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("portal returned unexpected status: %d", resp.StatusCode)
+	}
+
+	var res PortalWorkspaceRuntimeAccessResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, err
+	}
+	return res.RuntimeAccess, nil
+}
+
+func (a *PortalUser) ActivateWorkspaceRuntimeAccess(ctx context.Context, workspaceID string, scopeType string, scopeCode string) error {
+	body, err := json.Marshal(map[string]string{"scope_type": scopeType, "scope_code": scopeCode})
 	if err != nil {
 		return err
 	}
 	req, err := newPortalInternalRequestWithBody(
 		ctx,
-		http.MethodPost,
-		"/internal/v1/workspaces/"+url.PathEscape(workspaceID)+"/bind-tenant",
+		http.MethodPut,
+		"/internal/v1/workspaces/"+url.PathEscape(workspaceID)+"/runtime-access",
 		body,
 	)
 	if err != nil {
@@ -154,11 +198,11 @@ func (a *PortalUser) BindWorkspaceTenant(ctx context.Context, workspaceID string
 	return nil
 }
 
-func (a *PortalUser) UnbindWorkspaceTenant(ctx context.Context, workspaceID string) error {
+func (a *PortalUser) DisableWorkspaceRuntimeAccess(ctx context.Context, workspaceID string) error {
 	req, err := newPortalInternalRequest(
 		ctx,
 		http.MethodPost,
-		"/internal/v1/workspaces/"+url.PathEscape(workspaceID)+"/unbind-tenant",
+		"/internal/v1/workspaces/"+url.PathEscape(workspaceID)+"/runtime-access/disable",
 	)
 	if err != nil {
 		return err

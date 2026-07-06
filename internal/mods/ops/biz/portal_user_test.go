@@ -109,7 +109,34 @@ func TestPortalUserSyncWorkspaceRuntimePostsInternalAPI(t *testing.T) {
 	require.Equal(t, "/internal/v1/workspaces/workspace-1/runtime-sync", gotPath)
 }
 
-func TestPortalUserBindWorkspaceTenantPostsInternalAPI(t *testing.T) {
+func TestPortalUserGetWorkspaceRuntimeAccessUsesInternalAPI(t *testing.T) {
+	var gotAuth string
+	var gotMethod string
+	var gotPath string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotMethod = r.Method
+		gotPath = r.URL.RequestURI()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"runtime_access":{"workspace_id":"workspace-1","scope_type":"tenant","scope_code":"tenant-a","status":"active"}}`))
+	}))
+	defer server.Close()
+	restorePortalConfig(t, server.URL, "internal-token")
+
+	access, err := (&PortalUser{}).GetWorkspaceRuntimeAccess(context.Background(), "workspace-1")
+
+	require.NoError(t, err)
+	require.NotNil(t, access)
+	require.Equal(t, "Bearer internal-token", gotAuth)
+	require.Equal(t, http.MethodGet, gotMethod)
+	require.Equal(t, "/internal/v1/workspaces/workspace-1/runtime-access", gotPath)
+	require.Equal(t, "tenant", access.ScopeType)
+	require.Equal(t, "tenant-a", access.ScopeCode)
+	require.Equal(t, "active", access.Status)
+}
+
+func TestPortalUserActivateWorkspaceRuntimeAccessPutsInternalAPI(t *testing.T) {
 	var gotAuth string
 	var gotMethod string
 	var gotPath string
@@ -127,16 +154,16 @@ func TestPortalUserBindWorkspaceTenantPostsInternalAPI(t *testing.T) {
 	defer server.Close()
 	restorePortalConfig(t, server.URL, "internal-token")
 
-	err := (&PortalUser{}).BindWorkspaceTenant(context.Background(), "workspace-1", "tenant-a")
+	err := (&PortalUser{}).ActivateWorkspaceRuntimeAccess(context.Background(), "workspace-1", "tenant", "tenant-a")
 
 	require.NoError(t, err)
 	require.Equal(t, "Bearer internal-token", gotAuth)
-	require.Equal(t, http.MethodPost, gotMethod)
-	require.Equal(t, "/internal/v1/workspaces/workspace-1/bind-tenant", gotPath)
-	require.JSONEq(t, `{"tenant_code":"tenant-a"}`, gotBody)
+	require.Equal(t, http.MethodPut, gotMethod)
+	require.Equal(t, "/internal/v1/workspaces/workspace-1/runtime-access", gotPath)
+	require.JSONEq(t, `{"scope_type":"tenant","scope_code":"tenant-a"}`, gotBody)
 }
 
-func TestPortalUserUnbindWorkspaceTenantPostsInternalAPI(t *testing.T) {
+func TestPortalUserDisableWorkspaceRuntimeAccessPostsInternalAPI(t *testing.T) {
 	var gotMethod string
 	var gotPath string
 
@@ -148,11 +175,11 @@ func TestPortalUserUnbindWorkspaceTenantPostsInternalAPI(t *testing.T) {
 	defer server.Close()
 	restorePortalConfig(t, server.URL, "internal-token")
 
-	err := (&PortalUser{}).UnbindWorkspaceTenant(context.Background(), "workspace-1")
+	err := (&PortalUser{}).DisableWorkspaceRuntimeAccess(context.Background(), "workspace-1")
 
 	require.NoError(t, err)
 	require.Equal(t, http.MethodPost, gotMethod)
-	require.Equal(t, "/internal/v1/workspaces/workspace-1/unbind-tenant", gotPath)
+	require.Equal(t, "/internal/v1/workspaces/workspace-1/runtime-access/disable", gotPath)
 }
 
 func restorePortalConfig(t *testing.T, baseURL string, token string) {

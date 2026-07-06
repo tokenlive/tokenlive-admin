@@ -59,8 +59,9 @@ func (a *Ops) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) error 
 		g.GET("portal/users", a.PortalUserAPI.Query)
 		g.GET("portal/workspaces/:workspace_id/api-keys", a.PortalUserAPI.ListWorkspaceAPIKeys)
 		g.POST("portal/workspaces/:workspace_id/runtime-sync", a.PortalUserAPI.SyncWorkspaceRuntime)
-		g.POST("portal/workspaces/:workspace_id/bind-tenant", a.PortalUserAPI.BindWorkspaceTenant)
-		g.POST("portal/workspaces/:workspace_id/unbind-tenant", a.PortalUserAPI.UnbindWorkspaceTenant)
+		g.GET("portal/workspaces/:workspace_id/runtime-access", a.PortalUserAPI.GetWorkspaceRuntimeAccess)
+		g.PUT("portal/workspaces/:workspace_id/runtime-access", a.PortalUserAPI.ActivateWorkspaceRuntimeAccess)
+		g.POST("portal/workspaces/:workspace_id/runtime-access/disable", a.PortalUserAPI.DisableWorkspaceRuntimeAccess)
 	}
 
 	auditLogs := v1.Group("audit-logs")
