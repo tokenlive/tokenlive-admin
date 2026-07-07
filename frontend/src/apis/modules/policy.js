@@ -75,17 +75,6 @@ export const updateInvocation = (id, params) => request.basic.put(`/api/v1/polic
 // 删除请求容错策略
 export const delInvocation = (id) => request.basic.delete(`/api/v1/policy/policy-invocations/${id}`)
 
-// 获取策略绑定列表
-export const getPolicyBindingList = (params) => request.basic.get('/api/v1/policy/policy-bindings', params)
-// 获取策略绑定单条数据
-export const getPolicyBinding = (id) => request.basic.get(`/api/v1/policy/policy-bindings/${id}`)
-// 添加策略绑定
-export const createPolicyBinding = (params) => request.basic.post('/api/v1/policy/policy-bindings', params)
-// 更新策略绑定
-export const updatePolicyBinding = (id, params) => request.basic.put(`/api/v1/policy/policy-bindings/${id}`, params)
-// 删除策略绑定
-export const delPolicyBinding = (id) => request.basic.delete(`/api/v1/policy/policy-bindings/${id}`)
-
 // 获取流量染色策略列表
 export const getTaggingList = (params) => request.basic.get('/api/v1/policy/policy-taggings', params)
 // 获取流量染色策略单条数据

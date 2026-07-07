@@ -85,12 +85,7 @@
                                 <copy-outlined style="color: #52c41a" />
                             </a-tooltip>
                         </x-action-button>
-                        <x-action-button @click="handleViewBindings(record)">
-                            <a-tooltip>
-                                <template #title> {{ $t('pages.policy.binding.view') }}</template>
-                                <link-outlined style="color: #1890ff" />
-                            </a-tooltip>
-                        </x-action-button>
+
                         <x-action-button @click="handleRemove(record)">
                             <a-tooltip>
                                 <template #title> {{ $t('pages.system.delete') }}</template>
@@ -105,12 +100,6 @@
         <edit-dialog
             ref="editDialogRef"
             @ok="onOk"></edit-dialog>
-
-        <!-- 策略绑定抽屉 -->
-        <policy-binding-drawer
-            v-model:visible="bindingDrawerVisible"
-            policy-type="limit"
-            :policy-id="selectedPolicyId" />
     </div>
 </template>
 
@@ -123,8 +112,7 @@ import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
 import { usePagination } from '@/hooks'
 import EditDialog from './LimitEditDialog.vue'
-import PolicyBindingDrawer from './PolicyBindingDrawer.vue'
-import { PlusOutlined, EditOutlined, DeleteOutlined, LinkOutlined, CopyOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
 
 defineOptions({
@@ -155,14 +143,13 @@ const columns = [
         width: 180,
         sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     },
-    { title: t('button.action'), key: 'action', fixed: 'right', width: 200 },
+    { title: t('button.action'), key: 'action', fixed: 'right', width: 160 },
 ]
 
 const { listData, loading, showLoading, hideLoading, paginationState, searchFormData, resetPagination } =
     usePagination()
 const editDialogRef = ref()
-const bindingDrawerVisible = ref(false)
-const selectedPolicyId = ref('')
+
 const limitTypeMap = {
     request: '请求量限流',
     token: 'Token数限流',
@@ -270,10 +257,5 @@ function handleSearch() {
 
 async function onOk() {
     await getPageList()
-}
-
-function handleViewBindings(record) {
-    selectedPolicyId.value = record.id
-    bindingDrawerVisible.value = true
 }
 </script>
