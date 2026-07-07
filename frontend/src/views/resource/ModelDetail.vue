@@ -354,9 +354,15 @@
                             </a-tag>
                         </template>
                         <template v-if="'scope_type' === column.key">
-                            <span v-if="record.scope_type === 'global'">全局</span>
-                            <span v-else-if="record.scope_type === 'tenant'">租户</span>
-                            <span v-else-if="record.scope_type === 'user'">用户</span>
+                            <span v-if="record.scope_type === 'global'">
+                                {{ $t('pages.policy.form.scope_type.global') }}
+                            </span>
+                            <span v-else-if="record.scope_type === 'tenant'">
+                                {{ $t('pages.policy.form.scope_type.tenant') }}
+                            </span>
+                            <span v-else-if="record.scope_type === 'user'">
+                                {{ $t('pages.policy.form.scope_type.user') }}
+                            </span>
                             <span v-else>-</span>
                         </template>
                         <template v-if="'created_at' === column.key">
@@ -734,18 +740,18 @@ const modelPolicyColumns = [
         ellipsis: true,
     },
     {
-        title: '适用维度',
+        title: t('pages.policy.form.scope_type'),
         key: 'scope_type',
         width: 120,
     },
     {
-        title: '维度取值',
+        title: t('pages.policy.form.scope_code'),
         dataIndex: 'scope_code',
         ellipsis: true,
         width: 150,
     },
     {
-        title: '优先级',
+        title: t('pages.policy.form.priority') || '优先级',
         dataIndex: 'priority',
         width: 80,
     },

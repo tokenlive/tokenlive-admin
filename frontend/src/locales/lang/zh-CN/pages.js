@@ -1260,6 +1260,7 @@ export default {
     'pages.policy.form.scope_type.global': '全局',
     'pages.policy.form.scope_type.tenant': '租户',
     'pages.policy.form.scope_type.user': '用户',
+    'pages.policy.form.scope_code': '维度取值',
     'pages.policy.form.scope_code.tenant': '适用租户',
     'pages.policy.form.scope_code.tenant.placeholder': '请输入租户Code',
     'pages.policy.form.scope_code.user': '适用用户',

@@ -267,7 +267,6 @@ CREATE TABLE IF NOT EXISTS `endpoint`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='Endpoint 定义表，一个 provider 可配置多个上游地址';
 
-
 -- 染色打标策略表
 CREATE TABLE IF NOT EXISTS `policy_tagging`
 (

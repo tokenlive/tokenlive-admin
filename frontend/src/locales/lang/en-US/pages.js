@@ -1284,6 +1284,7 @@ export default {
     'pages.policy.form.scope_type.global': 'Global',
     'pages.policy.form.scope_type.tenant': 'Tenant',
     'pages.policy.form.scope_type.user': 'User',
+    'pages.policy.form.scope_code': 'Dimension Value',
     'pages.policy.form.scope_code.tenant': 'Target Tenant',
     'pages.policy.form.scope_code.tenant.placeholder': 'Please enter tenant code',
     'pages.policy.form.scope_code.user': 'Target User',
