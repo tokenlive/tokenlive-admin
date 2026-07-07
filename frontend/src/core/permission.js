@@ -1,7 +1,7 @@
 import { createProgress } from '@/plugins/progress'
 import router from '@/router'
 import { whiteList } from '@/router/config'
-import { useAppStore, useUserStore } from '@/store'
+import { useAppStore, useRouterStore, useUserStore } from '@/store'
 
 const progress = createProgress()
 
@@ -18,7 +18,23 @@ router.beforeEach((to, from, next) => {
     // 设置标题
     document.title = title ? `${title} - ${import.meta.env.VITE_TITLE}` : import.meta.env.VITE_TITLE
 
-    if (whiteList.includes(to.name)) {
+    if (to.name === 'login') {
+        if (isLogin) {
+            if (complete) {
+                const routerStore = useRouterStore()
+                const indexRoute = routerStore.indexRoute
+                next(indexRoute || { name: 'index' })
+            } else {
+                appStore.init().then(() => {
+                    const routerStore = useRouterStore()
+                    const indexRoute = routerStore.indexRoute
+                    next(indexRoute || { name: 'index' })
+                })
+            }
+        } else {
+            next()
+        }
+    } else if (whiteList.includes(to.name)) {
         // 在白名单
         next()
     } else {
