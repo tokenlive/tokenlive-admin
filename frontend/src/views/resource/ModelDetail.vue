@@ -166,7 +166,12 @@
                     @change="onEndpointTableChange">
                     <template #bodyCell="{ column, record }">
                         <template v-if="'provider_id' === column.key">
-                            {{ getProviderName(record.provider_id) }}
+                            <a
+                                v-if="record.provider_id"
+                                @click.prevent="goToProviderDetail(record.provider_id)">
+                                {{ getProviderName(record.provider_id) }}
+                            </a>
+                            <span v-else>--</span>
                         </template>
                         <template v-if="'url' === column.key">
                             <a-tooltip :title="record.url">
@@ -369,6 +374,21 @@
                             {{ formatUtcDateTime(record.created_at) }}
                         </template>
                         <template v-if="'action' === column.key">
+                            <x-action-button
+                                :disabled="togglingModelPolicies[record.id]"
+                                @click="handleToggleModelPolicyEnabled(record)">
+                                <a-tooltip>
+                                    <template #title>{{
+                                        record.enabled === 1
+                                            ? $t('pages.endpoint.disable')
+                                            : $t('pages.endpoint.enable')
+                                    }}</template>
+                                    <loading-outlined v-if="togglingModelPolicies[record.id]" />
+                                    <poweroff-outlined
+                                        v-else
+                                        :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }" />
+                                </a-tooltip>
+                            </x-action-button>
                             <x-action-button @click="handleEditModelPolicy(record)">
                                 <a-tooltip>
                                     <template #title> {{ $t('pages.endpoint.edit') }}</template>
@@ -571,7 +591,7 @@
 
 <script setup>
 import { ref, onMounted, reactive, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import {
     ReloadOutlined,
@@ -602,6 +622,7 @@ defineOptions({
 })
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const modelId = ref(route.params.id)
 const modelData = ref({})
@@ -763,7 +784,7 @@ const modelPolicyColumns = [
     {
         title: t('button.action'),
         key: 'action',
-        width: 200,
+        width: 220,
     },
 ]
 
@@ -920,6 +941,11 @@ function getProviderName(id) {
     return p ? p.name : id
 }
 
+function goToProviderDetail(id) {
+    if (!id) return
+    router.push({ name: 'providerDetail', params: { id } })
+}
+
 function getInheritedProtocol(providerId) {
     if (!providerId) return ''
     const p = providerOptions.value.find((item) => item.id === providerId)
@@ -1016,6 +1042,15 @@ const policyDeleteApiMap = {
     circuit_break: apis.policy.delCircuitBreak,
 }
 
+const policyToggleEnabledApiMap = {
+    tagging: apis.policy.toggleTaggingEnabled,
+    limit: apis.policy.toggleLimitEnabled,
+    invocation: apis.policy.toggleInvocationEnabled,
+    route: apis.policy.toggleRouteEnabled,
+    loadbalance: apis.policy.toggleLoadbalanceEnabled,
+    circuit_break: apis.policy.toggleCircuitBreakEnabled,
+}
+
 const policyListApiMap = {
     tagging: apis.policy.getTaggingList,
     limit: apis.policy.getLimitList,
@@ -1043,6 +1078,34 @@ function handleCreateModelPolicy() {
 
 function handleEditModelPolicy(record) {
     policyEditRefMap[currentPolicyType.value]?.value?.handleEdit(record)
+}
+
+const togglingModelPolicies = ref({})
+
+async function handleToggleModelPolicyEnabled(record) {
+    if (togglingModelPolicies.value[record.id]) return
+    const toggleApi = policyToggleEnabledApiMap[currentPolicyType.value]
+    if (!toggleApi) return
+
+    const nextEnabled = record.enabled === 1 ? 0 : 1
+    togglingModelPolicies.value[record.id] = true
+    try {
+        const { success } = await toggleApi(record.id, {
+            enabled: nextEnabled,
+        }).catch(() => {
+            throw new Error()
+        })
+        if (config('http.code.success') === success) {
+            message.success(
+                nextEnabled === 1 ? t('pages.endpoint.enable.success') : t('pages.endpoint.disable.success')
+            )
+            await loadModelPolicies()
+        }
+    } catch (error) {
+        // ignore, error already handled by interceptor
+    } finally {
+        togglingModelPolicies.value[record.id] = false
+    }
 }
 
 function filterTemplateOption(input, option) {

@@ -17,7 +17,7 @@ import (
 type PolicyCircuitBreak struct {
 	Trans                 *util.Trans
 	PolicyCircuitBreakDAL *dal.PolicyCircuitBreak
-	PolicyRedisSync       *PolicyRedisSync
+	PolicyRedisSync       PolicyChangeSyncer
 	ModelDAL              *resourceDal.Model
 	DataPermissionDAL     *resourceDal.DataPermission
 	AuditLogBIZ           *opsBiz.AuditLog
@@ -152,6 +152,33 @@ func (a *PolicyCircuitBreak) Update(ctx context.Context, id string, formItem *sc
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyCircuitBreak.ID, policyCircuitBreak.Name, beforePolicy, policyCircuitBreak)
 
+	return nil
+}
+
+// ToggleEnabled updates only the enabled status of a policy and re-syncs policy cache.
+func (a *PolicyCircuitBreak) ToggleEnabled(ctx context.Context, id string, formItem *schema.PolicyEnabledForm) error {
+	policyCircuitBreak, err := a.PolicyCircuitBreakDAL.Get(ctx, id)
+	if err != nil {
+		return err
+	} else if policyCircuitBreak == nil {
+		return errors.NotFound("", "Policy circuit break not found")
+	}
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyCircuitBreak.ModelID, modelPermissionWrite); err != nil {
+		return err
+	}
+	if policyCircuitBreak.Enabled == formItem.Enabled {
+		return nil
+	}
+
+	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyCircuitBreakDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
+	})
+	if err != nil {
+		return err
+	}
+
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "circuit_break", "toggle_enabled", policyCircuitBreak.ScopeType, policyCircuitBreak.ScopeCode, policyCircuitBreak.ModelID)
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyCircuitBreak.ID, policyCircuitBreak.Name, map[string]int{"enabled": policyCircuitBreak.Enabled}, map[string]int{"enabled": formItem.Enabled})
 	return nil
 }
 

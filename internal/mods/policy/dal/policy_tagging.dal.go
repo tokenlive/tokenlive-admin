@@ -102,6 +102,15 @@ func (a *PolicyTagging) Update(ctx context.Context, item *schema.PolicyTagging) 
 	return errors.WithStack(result.Error)
 }
 
+// UpdateEnabled updates only the enabled status (and modifier) of the specified policy.
+func (a *PolicyTagging) UpdateEnabled(ctx context.Context, id string, enabled int, modifier string) error {
+	result := GetPolicyTaggingDB(ctx, a.DB).Where("id=?", id).Updates(map[string]interface{}{
+		"enabled":  enabled,
+		"modifier": modifier,
+	})
+	return errors.WithStack(result.Error)
+}
+
 // Delete the specified policy tagging from the database using logical deletion.
 func (a *PolicyTagging) Delete(ctx context.Context, id string) error {
 	return errors.WithStack(util.SoftDelete(ctx, GetPolicyTaggingDB(ctx, a.DB), id))

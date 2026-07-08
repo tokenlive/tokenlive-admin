@@ -17,7 +17,7 @@ import (
 type PolicyInvocation struct {
 	Trans               *util.Trans
 	PolicyInvocationDAL *dal.PolicyInvocation
-	PolicyRedisSync     *PolicyRedisSync
+	PolicyRedisSync     PolicyChangeSyncer
 	ModelDAL            *resourceDal.Model
 	DataPermissionDAL   *resourceDal.DataPermission
 	AuditLogBIZ         *opsBiz.AuditLog
@@ -152,6 +152,33 @@ func (a *PolicyInvocation) Update(ctx context.Context, id string, formItem *sche
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyInvocation.ID, policyInvocation.Name, beforePolicy, policyInvocation)
 
+	return nil
+}
+
+// ToggleEnabled updates only the enabled status of a policy and re-syncs policy cache.
+func (a *PolicyInvocation) ToggleEnabled(ctx context.Context, id string, formItem *schema.PolicyEnabledForm) error {
+	policyInvocation, err := a.PolicyInvocationDAL.Get(ctx, id)
+	if err != nil {
+		return err
+	} else if policyInvocation == nil {
+		return errors.NotFound("", "Policy invocation not found")
+	}
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyInvocation.ModelID, modelPermissionWrite); err != nil {
+		return err
+	}
+	if policyInvocation.Enabled == formItem.Enabled {
+		return nil
+	}
+
+	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyInvocationDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
+	})
+	if err != nil {
+		return err
+	}
+
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "invocation", "toggle_enabled", policyInvocation.ScopeType, policyInvocation.ScopeCode, policyInvocation.ModelID)
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyInvocation.ID, policyInvocation.Name, map[string]int{"enabled": policyInvocation.Enabled}, map[string]int{"enabled": formItem.Enabled})
 	return nil
 }
 

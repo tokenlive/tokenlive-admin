@@ -17,7 +17,7 @@ import (
 type PolicyTagging struct {
 	Trans             *util.Trans
 	PolicyTaggingDAL  *dal.PolicyTagging
-	PolicyRedisSync   *PolicyRedisSync
+	PolicyRedisSync   PolicyChangeSyncer
 	ModelDAL          *resourceDal.Model
 	DataPermissionDAL *resourceDal.DataPermission
 	AuditLogBIZ       *opsBiz.AuditLog
@@ -146,6 +146,33 @@ func (a *PolicyTagging) Update(ctx context.Context, id string, formItem *schema.
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyTagging.ID, policyTagging.Name, beforePolicy, policyTagging)
 
+	return nil
+}
+
+// ToggleEnabled updates only the enabled status of a policy and re-syncs policy cache.
+func (a *PolicyTagging) ToggleEnabled(ctx context.Context, id string, formItem *schema.PolicyEnabledForm) error {
+	policyTagging, err := a.PolicyTaggingDAL.Get(ctx, id)
+	if err != nil {
+		return err
+	} else if policyTagging == nil {
+		return errors.NotFound("", "Policy tagging not found")
+	}
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyTagging.ModelID, modelPermissionWrite); err != nil {
+		return err
+	}
+	if policyTagging.Enabled == formItem.Enabled {
+		return nil
+	}
+
+	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyTaggingDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
+	})
+	if err != nil {
+		return err
+	}
+
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "tagging", "toggle_enabled", policyTagging.ScopeType, policyTagging.ScopeCode, policyTagging.ModelID)
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyTagging.ID, policyTagging.Name, map[string]int{"enabled": policyTagging.Enabled}, map[string]int{"enabled": formItem.Enabled})
 	return nil
 }
 

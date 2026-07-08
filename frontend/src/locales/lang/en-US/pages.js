@@ -632,6 +632,10 @@ export default {
     'pages.loadbalance.form.sourceType.placeholder': 'Please select source type',
     'pages.loadbalance.form.sourceKey': 'Source Key',
     'pages.loadbalance.form.sourceKey.placeholder': 'Please enter source key (e.g. X-Endpoint-Code)',
+    'pages.loadbalance.form.allowDegrade': 'Allow Degrade',
+    'pages.loadbalance.form.allowDegrade.placeholder': 'Select whether to allow degrade to other endpoints',
+    'pages.loadbalance.form.allowDegrade.extra':
+        'Whether to allow degrade to other available endpoints if the specified endpoint is not matched (if true, fallback to round-robin; if false, return empty/request failed)',
 
     // least_latency
     'pages.loadbalance.form.latencyWindow': 'Latency Window',
@@ -1278,6 +1282,8 @@ export default {
     'pages.policy.binding.view': 'View Bindings',
     'pages.policy.copy': 'Copy Policy',
     'pages.policy.copy.suffix': 'Copy',
+    'pages.policy.sort.up': 'Move up',
+    'pages.policy.sort.down': 'Move down',
     'pages.policy.form.priority': 'Priority',
     'pages.policy.form.priority.placeholder': 'Smaller value has higher priority',
     'pages.policy.form.scope_type': 'Scope Dimension',

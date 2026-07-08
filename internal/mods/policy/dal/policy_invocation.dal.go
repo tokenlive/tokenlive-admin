@@ -90,6 +90,15 @@ func (a *PolicyInvocation) Update(ctx context.Context, item *schema.PolicyInvoca
 	return errors.WithStack(result.Error)
 }
 
+// UpdateEnabled updates only the enabled status (and modifier) of the specified policy.
+func (a *PolicyInvocation) UpdateEnabled(ctx context.Context, id string, enabled int, modifier string) error {
+	result := GetPolicyInvocationDB(ctx, a.DB).Where("id=?", id).Updates(map[string]interface{}{
+		"enabled":  enabled,
+		"modifier": modifier,
+	})
+	return errors.WithStack(result.Error)
+}
+
 // ExistsByUniqueKey checks whether a policy invocation with the given unique key already exists.
 func (a *PolicyInvocation) ExistsByUniqueKey(ctx context.Context, scopeType, scopeCode, modelID, name string) (bool, error) {
 	db := GetPolicyInvocationDB(ctx, a.DB).Where("name = ?", name)

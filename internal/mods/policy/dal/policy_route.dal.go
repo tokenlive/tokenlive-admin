@@ -102,6 +102,15 @@ func (a *PolicyRoute) Update(ctx context.Context, item *schema.PolicyRoute) erro
 	return errors.WithStack(result.Error)
 }
 
+// UpdateEnabled updates only the enabled status (and modifier) of the specified policy.
+func (a *PolicyRoute) UpdateEnabled(ctx context.Context, id string, enabled int, modifier string) error {
+	result := GetPolicyRouteDB(ctx, a.DB).Where("id=?", id).Updates(map[string]interface{}{
+		"enabled":  enabled,
+		"modifier": modifier,
+	})
+	return errors.WithStack(result.Error)
+}
+
 // Delete the specified policy route from the database using logical deletion.
 func (a *PolicyRoute) Delete(ctx context.Context, id string) error {
 	return errors.WithStack(util.SoftDelete(ctx, GetPolicyRouteDB(ctx, a.DB), id))

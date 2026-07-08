@@ -17,7 +17,7 @@ import (
 type PolicyLimit struct {
 	Trans             *util.Trans
 	PolicyLimitDAL    *dal.PolicyLimit
-	PolicyRedisSync   *PolicyRedisSync
+	PolicyRedisSync   PolicyChangeSyncer
 	ModelDAL          *resourceDal.Model
 	DataPermissionDAL *resourceDal.DataPermission
 	AuditLogBIZ       *opsBiz.AuditLog
@@ -149,6 +149,33 @@ func (a *PolicyLimit) Update(ctx context.Context, id string, formItem *schema.Po
 	}
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyLimit.ID, policyLimit.Name, beforePolicy, policyLimit)
+	return nil
+}
+
+// ToggleEnabled updates only the enabled status of a policy and re-syncs policy cache.
+func (a *PolicyLimit) ToggleEnabled(ctx context.Context, id string, formItem *schema.PolicyEnabledForm) error {
+	policyLimit, err := a.PolicyLimitDAL.Get(ctx, id)
+	if err != nil {
+		return err
+	} else if policyLimit == nil {
+		return errors.NotFound("", "Policy limit not found")
+	}
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyLimit.ModelID, modelPermissionWrite); err != nil {
+		return err
+	}
+	if policyLimit.Enabled == formItem.Enabled {
+		return nil
+	}
+
+	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyLimitDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
+	})
+	if err != nil {
+		return err
+	}
+
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "limit", "toggle_enabled", policyLimit.ScopeType, policyLimit.ScopeCode, policyLimit.ModelID)
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyLimit.ID, policyLimit.Name, map[string]int{"enabled": policyLimit.Enabled}, map[string]int{"enabled": formItem.Enabled})
 	return nil
 }
 

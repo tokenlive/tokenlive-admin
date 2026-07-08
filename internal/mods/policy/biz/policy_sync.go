@@ -191,20 +191,6 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		len(policyAgg.CircuitBreakPolicies) == 0 &&
 		len(policyAgg.TaggingPolicies) == 0 {
 
-		var existingPolicy map[string]interface{}
-		if oldData, err := s.RedisClient.HGet(ctx, redisKey, redisField).Result(); err == nil && oldData != "" {
-			_ = json.Unmarshal([]byte(oldData), &existingPolicy)
-		}
-		if existingPolicy != nil && existingPolicy["billing"] != nil {
-			finalMap := map[string]interface{}{
-				"billing": existingPolicy["billing"],
-			}
-			finalJSON, err := json.Marshal(finalMap)
-			if err == nil {
-				action = "hset_billing_only"
-				return s.RedisClient.HSet(ctx, redisKey, redisField, string(finalJSON)).Err()
-			}
-		}
 		action = "hdel_empty_policy"
 		return s.RedisClient.HDel(ctx, redisKey, redisField).Err()
 	}
@@ -215,32 +201,8 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		return err
 	}
 
-	var finalMap map[string]interface{}
-	if err := json.Unmarshal(jsonData, &finalMap); err != nil {
-		return err
-	}
-	if finalMap == nil {
-		finalMap = make(map[string]interface{})
-	}
-
-	var existingPolicy map[string]interface{}
-	if oldData, err := s.RedisClient.HGet(ctx, redisKey, redisField).Result(); err == nil && oldData != "" {
-		_ = json.Unmarshal([]byte(oldData), &existingPolicy)
-	}
-
-	if existingPolicy != nil {
-		if billingVal, ok := existingPolicy["billing"]; ok {
-			finalMap["billing"] = billingVal
-		}
-	}
-
-	finalJSON, err := json.Marshal(finalMap)
-	if err != nil {
-		return err
-	}
-
 	action = "hset_policy"
-	return s.RedisClient.HSet(ctx, redisKey, redisField, string(finalJSON)).Err()
+	return s.RedisClient.HSet(ctx, redisKey, redisField, string(jsonData)).Err()
 }
 
 // SyncPolicyChange 当某个具体的策略配置变更时，同步该策略对应的维度

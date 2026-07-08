@@ -17,7 +17,7 @@ import (
 type PolicyLoadbalance struct {
 	Trans                *util.Trans
 	PolicyLoadbalanceDAL *dal.PolicyLoadbalance
-	PolicyRedisSync      *PolicyRedisSync
+	PolicyRedisSync      PolicyChangeSyncer
 	ModelDAL             *resourceDal.Model
 	DataPermissionDAL    *resourceDal.DataPermission
 	AuditLogBIZ          *opsBiz.AuditLog
@@ -146,6 +146,33 @@ func (a *PolicyLoadbalance) Update(ctx context.Context, id string, formItem *sch
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyLoadbalance.ID, policyLoadbalance.Name, beforePolicy, policyLoadbalance)
 
+	return nil
+}
+
+// ToggleEnabled updates only the enabled status of a policy and re-syncs policy cache.
+func (a *PolicyLoadbalance) ToggleEnabled(ctx context.Context, id string, formItem *schema.PolicyEnabledForm) error {
+	policyLoadbalance, err := a.PolicyLoadbalanceDAL.Get(ctx, id)
+	if err != nil {
+		return err
+	} else if policyLoadbalance == nil {
+		return errors.NotFound("", "Policy loadbalance not found")
+	}
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyLoadbalance.ModelID, modelPermissionWrite); err != nil {
+		return err
+	}
+	if policyLoadbalance.Enabled == formItem.Enabled {
+		return nil
+	}
+
+	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyLoadbalanceDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
+	})
+	if err != nil {
+		return err
+	}
+
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "loadbalance", "toggle_enabled", policyLoadbalance.ScopeType, policyLoadbalance.ScopeCode, policyLoadbalance.ModelID)
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyLoadbalance.ID, policyLoadbalance.Name, map[string]int{"enabled": policyLoadbalance.Enabled}, map[string]int{"enabled": formItem.Enabled})
 	return nil
 }
 

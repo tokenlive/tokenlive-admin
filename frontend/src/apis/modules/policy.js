@@ -12,6 +12,9 @@ export const copyLoadbalanceToModel = (id, params) =>
     request.basic.post(`/api/v1/policy/policy-loadbalances/${id}/copy-to-model`, params)
 // 更新负载均衡策略
 export const updateLoadbalance = (id, params) => request.basic.put(`/api/v1/policy/policy-loadbalances/${id}`, params)
+// 切换负载均衡策略启用状态
+export const toggleLoadbalanceEnabled = (id, params) =>
+    request.basic.put(`/api/v1/policy/policy-loadbalances/${id}/enabled`, params)
 // 删除负载均衡策略
 export const delLoadbalance = (id) => request.basic.delete(`/api/v1/policy/policy-loadbalances/${id}`)
 // 获取路由策略列表
@@ -24,6 +27,9 @@ export const copyRouteToModel = (id, params) =>
     request.basic.post(`/api/v1/policy/policy-routes/${id}/copy-to-model`, params)
 // 更新路由策略
 export const updateRoute = (id, params) => request.basic.put(`/api/v1/policy/policy-routes/${id}`, params)
+// 切换路由策略启用状态
+export const toggleRouteEnabled = (id, params) =>
+    request.basic.put(`/api/v1/policy/policy-routes/${id}/enabled`, params)
 // 删除路由策略
 export const delRoute = (id) => request.basic.delete(`/api/v1/policy/policy-routes/${id}`)
 // 获取路由详情列表
@@ -46,6 +52,9 @@ export const copyLimitToModel = (id, params) =>
     request.basic.post(`/api/v1/policy/policy-limits/${id}/copy-to-model`, params)
 // 更新限流策略
 export const updateLimit = (id, params) => request.basic.put(`/api/v1/policy/policy-limits/${id}`, params)
+// 切换限流策略启用状态
+export const toggleLimitEnabled = (id, params) =>
+    request.basic.put(`/api/v1/policy/policy-limits/${id}/enabled`, params)
 // 删除限流策略
 export const delLimit = (id) => request.basic.delete(`/api/v1/policy/policy-limits/${id}`)
 // 获取熔断策略列表
@@ -59,6 +68,9 @@ export const copyCircuitBreakToModel = (id, params) =>
 // 更新熔断策略
 export const updateCircuitBreak = (id, params) =>
     request.basic.put(`/api/v1/policy/policy-circuit-breaks/${id}`, params)
+// 切换熔断策略启用状态
+export const toggleCircuitBreakEnabled = (id, params) =>
+    request.basic.put(`/api/v1/policy/policy-circuit-breaks/${id}/enabled`, params)
 // 删除熔断策略
 export const delCircuitBreak = (id) => request.basic.delete(`/api/v1/policy/policy-circuit-breaks/${id}`)
 
@@ -72,6 +84,9 @@ export const copyInvocationToModel = (id, params) =>
     request.basic.post(`/api/v1/policy/policy-invocations/${id}/copy-to-model`, params)
 // 更新请求容错策略
 export const updateInvocation = (id, params) => request.basic.put(`/api/v1/policy/policy-invocations/${id}`, params)
+// 切换请求容错策略启用状态
+export const toggleInvocationEnabled = (id, params) =>
+    request.basic.put(`/api/v1/policy/policy-invocations/${id}/enabled`, params)
 // 删除请求容错策略
 export const delInvocation = (id) => request.basic.delete(`/api/v1/policy/policy-invocations/${id}`)
 
@@ -85,5 +100,8 @@ export const copyTaggingToModel = (id, params) =>
     request.basic.post(`/api/v1/policy/policy-taggings/${id}/copy-to-model`, params)
 // 更新流量染色策略
 export const updateTagging = (id, params) => request.basic.put(`/api/v1/policy/policy-taggings/${id}`, params)
+// 切换流量染色策略启用状态
+export const toggleTaggingEnabled = (id, params) =>
+    request.basic.put(`/api/v1/policy/policy-taggings/${id}/enabled`, params)
 // 删除流量染色策略
 export const delTagging = (id) => request.basic.delete(`/api/v1/policy/policy-taggings/${id}`)

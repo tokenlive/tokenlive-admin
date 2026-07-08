@@ -112,6 +112,35 @@ func (a *PolicyCircuitBreak) Update(c *gin.Context) {
 
 // @Tags PolicyCircuitBreakAPI
 // @Security ApiKeyAuth
+// @Summary Toggle policy circuit break enabled status by ID
+// @Param id path string true "unique id"
+// @Param body body schema.PolicyEnabledForm true "Request body"
+// @Success 200 {object} util.ResponseResult
+// @Failure 400 {object} util.ResponseResult
+// @Failure 401 {object} util.ResponseResult
+// @Failure 500 {object} util.ResponseResult
+// @Router /api/v1/policy/policy-circuit-breaks/{id}/enabled [put]
+func (a *PolicyCircuitBreak) UpdateEnabled(c *gin.Context) {
+	ctx := c.Request.Context()
+	item := new(schema.PolicyEnabledForm)
+	if err := util.ParseJSON(c, item); err != nil {
+		util.ResError(c, err)
+		return
+	} else if err := item.Validate(); err != nil {
+		util.ResError(c, err)
+		return
+	}
+
+	err := a.PolicyCircuitBreakBIZ.ToggleEnabled(ctx, c.Param("id"), item)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResOK(c)
+}
+
+// @Tags PolicyCircuitBreakAPI
+// @Security ApiKeyAuth
 // @Summary Delete policy circuit break record by ID
 // @Param id path string true "unique id"
 // @Success 200 {object} util.ResponseResult

@@ -17,7 +17,7 @@ import (
 type PolicyRoute struct {
 	Trans             *util.Trans
 	PolicyRouteDAL    *dal.PolicyRoute
-	PolicyRedisSync   *PolicyRedisSync
+	PolicyRedisSync   PolicyChangeSyncer
 	ModelDAL          *resourceDal.Model
 	DataPermissionDAL *resourceDal.DataPermission
 	AuditLogBIZ       *opsBiz.AuditLog
@@ -149,6 +149,33 @@ func (a *PolicyRoute) Update(ctx context.Context, id string, formItem *schema.Po
 	}
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyRoute.ID, policyRoute.Name, beforePolicy, policyRoute)
+	return nil
+}
+
+// ToggleEnabled updates only the enabled status of a policy and re-syncs policy cache.
+func (a *PolicyRoute) ToggleEnabled(ctx context.Context, id string, formItem *schema.PolicyEnabledForm) error {
+	policyRoute, err := a.PolicyRouteDAL.Get(ctx, id)
+	if err != nil {
+		return err
+	} else if policyRoute == nil {
+		return errors.NotFound("", "Policy route not found")
+	}
+	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyRoute.ModelID, modelPermissionWrite); err != nil {
+		return err
+	}
+	if policyRoute.Enabled == formItem.Enabled {
+		return nil
+	}
+
+	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyRouteDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
+	})
+	if err != nil {
+		return err
+	}
+
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "route", "toggle_enabled", policyRoute.ScopeType, policyRoute.ScopeCode, policyRoute.ModelID)
+	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyRoute.ID, policyRoute.Name, map[string]int{"enabled": policyRoute.Enabled}, map[string]int{"enabled": formItem.Enabled})
 	return nil
 }
 

@@ -105,6 +105,15 @@ func (a *PolicyLoadbalance) Update(ctx context.Context, item *schema.PolicyLoadb
 	return errors.WithStack(result.Error)
 }
 
+// UpdateEnabled updates only the enabled status (and modifier) of the specified policy.
+func (a *PolicyLoadbalance) UpdateEnabled(ctx context.Context, id string, enabled int, modifier string) error {
+	result := GetPolicyLoadbalanceDB(ctx, a.DB).Where("id=?", id).Updates(map[string]interface{}{
+		"enabled":  enabled,
+		"modifier": modifier,
+	})
+	return errors.WithStack(result.Error)
+}
+
 // Delete the specified policy loadbalance from the database using logical deletion.
 func (a *PolicyLoadbalance) Delete(ctx context.Context, id string) error {
 	return errors.WithStack(util.SoftDelete(ctx, GetPolicyLoadbalanceDB(ctx, a.DB), id))

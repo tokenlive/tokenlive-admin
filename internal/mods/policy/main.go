@@ -44,6 +44,7 @@ func (a *Policy) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) err
 		policyLoadbalance.POST("", a.PolicyLoadbalanceAPI.Create)
 		policyLoadbalance.POST(":id/copy-to-model", a.PolicyLoadbalanceAPI.CopyToModel)
 		policyLoadbalance.PUT(":id", a.PolicyLoadbalanceAPI.Update)
+		policyLoadbalance.PUT(":id/enabled", a.PolicyLoadbalanceAPI.UpdateEnabled)
 		policyLoadbalance.DELETE(":id", a.PolicyLoadbalanceAPI.Delete)
 	}
 	policyRoute := v1.Group("policy-routes")
@@ -53,6 +54,7 @@ func (a *Policy) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) err
 		policyRoute.POST("", a.PolicyRouteAPI.Create)
 		policyRoute.POST(":id/copy-to-model", a.PolicyRouteAPI.CopyToModel)
 		policyRoute.PUT(":id", a.PolicyRouteAPI.Update)
+		policyRoute.PUT(":id/enabled", a.PolicyRouteAPI.UpdateEnabled)
 		policyRoute.DELETE(":id", a.PolicyRouteAPI.Delete)
 	}
 	policyRouteDetail := v1.Group("policy-route-details")
@@ -70,6 +72,7 @@ func (a *Policy) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) err
 		policyLimit.POST("", a.PolicyLimitAPI.Create)
 		policyLimit.POST(":id/copy-to-model", a.PolicyLimitAPI.CopyToModel)
 		policyLimit.PUT(":id", a.PolicyLimitAPI.Update)
+		policyLimit.PUT(":id/enabled", a.PolicyLimitAPI.UpdateEnabled)
 		policyLimit.DELETE(":id", a.PolicyLimitAPI.Delete)
 	}
 	policyCircuitBreak := v1.Group("policy-circuit-breaks")
@@ -79,6 +82,7 @@ func (a *Policy) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) err
 		policyCircuitBreak.POST("", a.PolicyCircuitBreakAPI.Create)
 		policyCircuitBreak.POST(":id/copy-to-model", a.PolicyCircuitBreakAPI.CopyToModel)
 		policyCircuitBreak.PUT(":id", a.PolicyCircuitBreakAPI.Update)
+		policyCircuitBreak.PUT(":id/enabled", a.PolicyCircuitBreakAPI.UpdateEnabled)
 		policyCircuitBreak.DELETE(":id", a.PolicyCircuitBreakAPI.Delete)
 	}
 
@@ -89,6 +93,7 @@ func (a *Policy) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) err
 		policyInvocation.POST("", a.PolicyInvocationAPI.Create)
 		policyInvocation.POST(":id/copy-to-model", a.PolicyInvocationAPI.CopyToModel)
 		policyInvocation.PUT(":id", a.PolicyInvocationAPI.Update)
+		policyInvocation.PUT(":id/enabled", a.PolicyInvocationAPI.UpdateEnabled)
 		policyInvocation.DELETE(":id", a.PolicyInvocationAPI.Delete)
 	}
 
@@ -99,6 +104,7 @@ func (a *Policy) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) err
 		policyTagging.POST("", a.PolicyTaggingAPI.Create)
 		policyTagging.POST(":id/copy-to-model", a.PolicyTaggingAPI.CopyToModel)
 		policyTagging.PUT(":id", a.PolicyTaggingAPI.Update)
+		policyTagging.PUT(":id/enabled", a.PolicyTaggingAPI.UpdateEnabled)
 		policyTagging.DELETE(":id", a.PolicyTaggingAPI.Delete)
 	}
 	return nil

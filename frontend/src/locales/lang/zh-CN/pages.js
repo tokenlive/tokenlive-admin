@@ -628,6 +628,10 @@ export default {
     'pages.loadbalance.form.sourceType.placeholder': '请选择来源类型',
     'pages.loadbalance.form.sourceKey': '来源键名',
     'pages.loadbalance.form.sourceKey.placeholder': '请输入来源键名（例如 X-Endpoint-Code）',
+    'pages.loadbalance.form.allowDegrade': '允许降级其他节点',
+    'pages.loadbalance.form.allowDegrade.placeholder': '选择未匹配到指定节点时是否允许降级到其他可用节点',
+    'pages.loadbalance.form.allowDegrade.extra':
+        '未匹配到指定节点时，是否允许降级使用其他可用节点（开启则执行轮询兜底，关闭则返回空/请求失败）',
 
     // least_latency
     'pages.loadbalance.form.latencyWindow': '统计窗口',
@@ -1254,6 +1258,8 @@ export default {
     'pages.policy.binding.view': '查看绑定',
     'pages.policy.copy': '复制策略',
     'pages.policy.copy.suffix': '副本',
+    'pages.policy.sort.up': '上移',
+    'pages.policy.sort.down': '下移',
     'pages.policy.form.priority': '优先级',
     'pages.policy.form.priority.placeholder': '数值越小越优先',
     'pages.policy.form.scope_type': '适用维度',

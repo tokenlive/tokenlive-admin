@@ -102,6 +102,15 @@ func (a *PolicyLimit) Update(ctx context.Context, item *schema.PolicyLimit) erro
 	return errors.WithStack(result.Error)
 }
 
+// UpdateEnabled updates only the enabled status (and modifier) of the specified policy.
+func (a *PolicyLimit) UpdateEnabled(ctx context.Context, id string, enabled int, modifier string) error {
+	result := GetPolicyLimitDB(ctx, a.DB).Where("id=?", id).Updates(map[string]interface{}{
+		"enabled":  enabled,
+		"modifier": modifier,
+	})
+	return errors.WithStack(result.Error)
+}
+
 // Delete the specified policy limit from the database using logical deletion.
 func (a *PolicyLimit) Delete(ctx context.Context, id string) error {
 	return errors.WithStack(util.SoftDelete(ctx, GetPolicyLimitDB(ctx, a.DB), id))

@@ -117,6 +117,16 @@
                         </a-form-item>
                     </a-col>
                 </a-row>
+                <a-row :gutter="16">
+                    <a-col :span="24">
+                        <a-form-item
+                            :label="$t('pages.loadbalance.form.allowDegrade')"
+                            name="allow_degrade"
+                            :extra="$t('pages.loadbalance.form.allowDegrade.extra')">
+                            <a-switch v-model:checked="formData.allow_degrade" />
+                        </a-form-item>
+                    </a-col>
+                </a-row>
             </template>
 
             <template v-if="formData.type === 'least_latency'">
@@ -284,6 +294,7 @@ function handleCreate(options = {}) {
     formData.value.session_header = ''
     formData.value.source_type = 'header'
     formData.value.source_key = ''
+    formData.value.allow_degrade = true
     formData.value.latency_window = ''
     formData.value.latency_metric = 'total'
     formData.value.latency_failure_penalty = 3
@@ -321,6 +332,7 @@ async function handleCopy(record = {}) {
     let sessionHeader = ''
     let sourceType = 'header'
     let sourceKey = ''
+    let allowDegrade = true
     let latencyWindow = ''
     let latencyMetric = 'total'
     let latencyFailurePenalty = 3
@@ -334,6 +346,7 @@ async function handleCopy(record = {}) {
                 if (paramsObj.session_header !== undefined) sessionHeader = paramsObj.session_header
                 if (paramsObj.source_type !== undefined) sourceType = paramsObj.source_type
                 if (paramsObj.source_key !== undefined) sourceKey = paramsObj.source_key
+                if (paramsObj.allow_degrade !== undefined) allowDegrade = paramsObj.allow_degrade
                 if (paramsObj.latency_window !== undefined) latencyWindow = paramsObj.latency_window
                 if (paramsObj.latency_metric !== undefined) latencyMetric = paramsObj.latency_metric
                 if (paramsObj.latency_failure_penalty !== undefined)
@@ -349,6 +362,7 @@ async function handleCopy(record = {}) {
     data.session_header = sessionHeader
     data.source_type = sourceType
     data.source_key = sourceKey
+    data.allow_degrade = allowDegrade
     data.latency_window = latencyWindow
     data.latency_metric = latencyMetric
     data.latency_failure_penalty = latencyFailurePenalty
@@ -381,6 +395,7 @@ async function handleEdit(record = {}) {
     let sessionHeader = ''
     let sourceType = 'header'
     let sourceKey = ''
+    let allowDegrade = true
     let latencyWindow = ''
     let latencyMetric = 'total'
     let latencyFailurePenalty = 3
@@ -394,6 +409,7 @@ async function handleEdit(record = {}) {
                 if (paramsObj.session_header !== undefined) sessionHeader = paramsObj.session_header
                 if (paramsObj.source_type !== undefined) sourceType = paramsObj.source_type
                 if (paramsObj.source_key !== undefined) sourceKey = paramsObj.source_key
+                if (paramsObj.allow_degrade !== undefined) allowDegrade = paramsObj.allow_degrade
                 if (paramsObj.latency_window !== undefined) latencyWindow = paramsObj.latency_window
                 if (paramsObj.latency_metric !== undefined) latencyMetric = paramsObj.latency_metric
                 if (paramsObj.latency_failure_penalty !== undefined)
@@ -409,6 +425,7 @@ async function handleEdit(record = {}) {
     data.session_header = sessionHeader
     data.source_type = sourceType
     data.source_key = sourceKey
+    data.allow_degrade = allowDegrade
     data.latency_window = latencyWindow
     data.latency_metric = latencyMetric
     data.latency_failure_penalty = latencyFailurePenalty
@@ -450,6 +467,7 @@ function handleOk() {
                     params.params = JSON.stringify({
                         source_type: formData.value.source_type || 'header',
                         source_key: formData.value.source_key || '',
+                        allow_degrade: formData.value.allow_degrade !== undefined ? formData.value.allow_degrade : true,
                     })
                 } else if (values.type === 'least_latency') {
                     const p = {}
@@ -474,6 +492,7 @@ function handleOk() {
                 delete params.session_header
                 delete params.source_type
                 delete params.source_key
+                delete params.allow_degrade
                 delete params.latency_window
                 delete params.latency_metric
                 delete params.latency_failure_penalty
