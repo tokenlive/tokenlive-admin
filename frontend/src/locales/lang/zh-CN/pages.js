@@ -1254,7 +1254,7 @@ export default {
     'pages.policy.binding.view': '查看绑定',
     'pages.policy.copy': '复制策略',
     'pages.policy.copy.suffix': '副本',
-    'pages.policy.form.priority': '冲突优先级',
+    'pages.policy.form.priority': '优先级',
     'pages.policy.form.priority.placeholder': '数值越小越优先',
     'pages.policy.form.scope_type': '适用维度',
     'pages.policy.form.scope_type.global': '全局',
