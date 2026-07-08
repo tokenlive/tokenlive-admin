@@ -46,13 +46,15 @@ const useAppStore = defineStore('app', {
          */
         init() {
             const routerStore = useRouterStore()
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => {
                 Promise.all([routerStore.getRouterList()])
                     .then(() => {
                         this.complete = true
                         resolve()
                     })
-                    .catch(() => {})
+                    .catch((err) => {
+                        reject(err)
+                    })
             })
         },
         /**

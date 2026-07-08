@@ -49,6 +49,12 @@ func (a *EventLog) Query(ctx context.Context, params schema.EventQueryParam, opt
 	if v := params.PolicyID; v != "" {
 		db = db.Where("policy_id = ?", v)
 	}
+	if v := params.RequestID; v != "" {
+		db = db.Where("request_id = ?", v)
+	}
+	if v := params.TraceID; v != "" {
+		db = db.Where("trace_id = ?", v)
+	}
 	if v := params.StartTime; v != "" {
 		if t, err := time.Parse(time.RFC3339, v); err == nil {
 			db = db.Where("event_time >= ?", t)

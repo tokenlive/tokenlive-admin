@@ -49,6 +49,8 @@ type EventQueryParam struct {
 	EndpointID   string `form:"endpoint_id"`   // Filter by endpoint ID
 	EndpointCode string `form:"endpoint_code"` // Filter by endpoint code
 	PolicyID     string `form:"policy_id"`     // Filter by policy ID
+	RequestID    string `form:"request_id"`    // Filter by request ID
+	TraceID      string `form:"trace_id"`      // Filter by trace ID
 	StartTime    string `form:"start_time"`    // Filter by start time (ISO 8601 / unix)
 	EndTime      string `form:"end_time"`      // Filter by end time (ISO 8601 / unix)
 }

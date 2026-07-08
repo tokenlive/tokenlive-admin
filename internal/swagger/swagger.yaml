@@ -1368,6 +1368,12 @@ definitions:
     required:
     - model_id
     type: object
+  schema.PolicyEnabledForm:
+    properties:
+      enabled:
+        description: 'Enable status: 0-disabled, 1-enabled'
+        type: integer
+    type: object
   schema.PolicyInvocation:
     properties:
       created_at:
@@ -4825,6 +4831,14 @@ paths:
         in: query
         name: policy_id
         type: string
+      - description: Request ID filter
+        in: query
+        name: request_id
+        type: string
+      - description: Trace ID filter
+        in: query
+        name: trace_id
+        type: string
       - description: Start time (ISO 8601)
         in: query
         name: start_time
@@ -5269,6 +5283,42 @@ paths:
       summary: Copy policy circuit break template to model
       tags:
       - PolicyCircuitBreakAPI
+  /api/v1/policy/policy-circuit-breaks/{id}/enabled:
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyEnabledForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Toggle policy circuit break enabled status by ID
+      tags:
+      - PolicyCircuitBreakAPI
   /api/v1/policy/policy-invocations:
     get:
       responses:
@@ -5461,6 +5511,42 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Copy policy invocation template to model
+      tags:
+      - PolicyInvocationAPI
+  /api/v1/policy/policy-invocations/{id}/enabled:
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyEnabledForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Toggle policy invocation enabled status by ID
       tags:
       - PolicyInvocationAPI
   /api/v1/policy/policy-limits:
@@ -5657,6 +5743,42 @@ paths:
       summary: Copy policy limit template to model
       tags:
       - PolicyLimitAPI
+  /api/v1/policy/policy-limits/{id}/enabled:
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyEnabledForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Toggle policy limit enabled status by ID
+      tags:
+      - PolicyLimitAPI
   /api/v1/policy/policy-loadbalances:
     get:
       responses:
@@ -5849,6 +5971,42 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Copy policy loadbalance template to model
+      tags:
+      - PolicyLoadbalanceAPI
+  /api/v1/policy/policy-loadbalances/{id}/enabled:
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyEnabledForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Toggle policy loadbalance enabled status by ID
       tags:
       - PolicyLoadbalanceAPI
   /api/v1/policy/policy-route-details:
@@ -6198,6 +6356,42 @@ paths:
       summary: Copy policy route template to model
       tags:
       - PolicyRouteAPI
+  /api/v1/policy/policy-routes/{id}/enabled:
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyEnabledForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Toggle policy route enabled status by ID
+      tags:
+      - PolicyRouteAPI
   /api/v1/policy/policy-taggings:
     get:
       responses:
@@ -6390,6 +6584,42 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Copy policy tagging template to model
+      tags:
+      - PolicyTaggingAPI
+  /api/v1/policy/policy-taggings/{id}/enabled:
+    put:
+      parameters:
+      - description: unique id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyEnabledForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Toggle policy tagging enabled status by ID
       tags:
       - PolicyTaggingAPI
   /api/v1/providers:

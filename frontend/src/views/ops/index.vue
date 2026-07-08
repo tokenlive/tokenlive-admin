@@ -191,16 +191,14 @@
                             <a-select-option value="endpoint_code">{{
                                 $t('pages.ops.filter.endpoint_code')
                             }}</a-select-option>
+                            <a-select-option value="request_id">{{ $t('pages.ops.table.request_id') }}</a-select-option>
+                            <a-select-option value="trace_id">{{ $t('pages.ops.table.trace_id') }}</a-select-option>
                         </a-select>
                         <a-input
                             v-model:value="searchValue"
                             allow-clear
-                            style="width: 150px"
-                            :placeholder="
-                                searchType === 'model_code'
-                                    ? $t('pages.ops.filter.model')
-                                    : $t('pages.ops.filter.endpoint_code')
-                            " />
+                            style="width: 180px"
+                            :placeholder="searchPlaceholder" />
                     </a-input-group>
                 </a-form-item>
                 <a-form-item>
@@ -422,6 +420,8 @@ const filterForm = reactive({
     model_code: '',
     provider_name: '',
     endpoint_code: '',
+    request_id: '',
+    trace_id: '',
 })
 
 // 组合查询条件1：选择维度（租户/供应商）
@@ -438,17 +438,27 @@ watch([searchType2, searchValue2], ([type, val]) => {
     }
 })
 
-// 组合查询条件2：选择维度（模型编码/端点编码）
+// 组合查询条件2：选择维度（模型编码/端点编码/请求ID/追踪ID）
 const searchType = ref('model_code')
 const searchValue = ref('')
 
+const searchPlaceholder = computed(() => {
+    const map = {
+        model_code: t('pages.ops.filter.model'),
+        endpoint_code: t('pages.ops.filter.endpoint_code'),
+        request_id: t('pages.ops.table.request_id'),
+        trace_id: t('pages.ops.table.trace_id'),
+    }
+    return map[searchType.value] || ''
+})
+
 watch([searchType, searchValue], ([type, val]) => {
-    if (type === 'model_code') {
-        filterForm.model_code = val ? val.trim() : ''
-        filterForm.endpoint_code = ''
-    } else {
-        filterForm.endpoint_code = val ? val.trim() : ''
-        filterForm.model_code = ''
+    filterForm.model_code = ''
+    filterForm.endpoint_code = ''
+    filterForm.request_id = ''
+    filterForm.trace_id = ''
+    if (val) {
+        filterForm[type] = val.trim()
     }
 })
 
@@ -470,6 +480,8 @@ const matchesFilter = (evt) => {
         return false
     if (filterForm.endpoint_code && !evt.endpoint_code?.toLowerCase().includes(filterForm.endpoint_code.toLowerCase()))
         return false
+    if (filterForm.request_id && evt.request_id !== filterForm.request_id) return false
+    if (filterForm.trace_id && evt.trace_id !== filterForm.trace_id) return false
     return true
 }
 

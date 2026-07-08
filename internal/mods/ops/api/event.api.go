@@ -23,6 +23,8 @@ type EventAPI struct {
 // @Param model_code query string false "Model code filter"
 // @Param endpoint_id query string false "Endpoint ID filter"
 // @Param policy_id query string false "Policy ID filter"
+// @Param request_id query string false "Request ID filter"
+// @Param trace_id query string false "Trace ID filter"
 // @Param start_time query string false "Start time (ISO 8601)"
 // @Param end_time query string false "End time (ISO 8601)"
 // @Success 200 {object} util.ResponseResult{data=schema.EventLogs}

@@ -25,11 +25,18 @@ router.beforeEach((to, from, next) => {
                 const indexRoute = routerStore.indexRoute
                 next(indexRoute || { name: 'index' })
             } else {
-                appStore.init().then(() => {
-                    const routerStore = useRouterStore()
-                    const indexRoute = routerStore.indexRoute
-                    next(indexRoute || { name: 'index' })
-                })
+                appStore
+                    .init()
+                    .then(() => {
+                        const routerStore = useRouterStore()
+                        const indexRoute = routerStore.indexRoute
+                        next(indexRoute || { name: 'index' })
+                    })
+                    .catch(() => {
+                        userStore.logout().then(() => {
+                            next({ name: 'login' })
+                        })
+                    })
             }
         } else {
             next()
@@ -46,9 +53,19 @@ router.beforeEach((to, from, next) => {
                 next()
             } else {
                 // 初始化未加载完成
-                appStore.init().then(() => {
-                    next({ ...to, replace: true })
-                })
+                appStore
+                    .init()
+                    .then(() => {
+                        next({ ...to, replace: true })
+                    })
+                    .catch(() => {
+                        userStore.logout().then(() => {
+                            next({
+                                name: 'login',
+                                query: { redirect: encodeURIComponent(location.href) },
+                            })
+                        })
+                    })
             }
         } else {
             // 未登录
