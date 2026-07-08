@@ -488,6 +488,16 @@ func (s *ConfigRedisSync) SyncModelCodeChange(ctx context.Context, modelID, oldM
 		}
 	}
 
+	// 5.5 清理旧 modelCode 相关的核心缓存与控制版本字段
+	if config.C.Sync.Endpoints {
+		_ = s.RedisClient.Del(ctx, "aigw:config:endpoints:"+oldModelCode).Err()
+	}
+	if config.C.Sync.Policies {
+		_ = s.RedisClient.Del(ctx, "aigw:policies:model:"+oldModelCode).Err()
+	}
+	_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, oldModelCode).Err()
+	_ = s.RedisClient.Del(ctx, RedisKeyConfigModelAliasesPrefix+oldModelCode).Err()
+
 	return nil
 }
 
@@ -526,6 +536,11 @@ func (s *ConfigRedisSync) SyncModelDisable(ctx context.Context, modelID, modelCo
 
 	// 5. 清理该模型所有别名的 Redis key
 	_ = s.deleteAliasesByModelId(ctx, modelID)
+
+	// 6. 清理计费策略缓存
+	if config.C.Sync.Policies {
+		_ = s.RedisClient.Del(ctx, "aigw:policies:model:"+modelCode).Err()
+	}
 
 	return nil
 }
@@ -728,6 +743,39 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 					endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + m.ModelCode + ":endpoints"
 					_ = s.RedisClient.Del(ctx, endpointsKey).Err()
 				}
+			}
+		}
+	}
+
+	// 6.5. 清理 Redis 中存在但数据库中已不存在的废弃模型缓存
+	redisModelCodes, err := s.RedisClient.HKeys(ctx, RedisKeyConfigModelVersions).Result()
+	if err == nil && len(redisModelCodes) > 0 {
+		activeModelsMap := make(map[string]bool)
+		for _, m := range models {
+			activeModelsMap[m.ModelCode] = true
+		}
+		for _, obsoleteCode := range redisModelCodes {
+			if !activeModelsMap[obsoleteCode] {
+				// 从 model_versions 中删除
+				_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, obsoleteCode).Err()
+				// 清除端点和策略
+				if config.C.Sync.Endpoints {
+					_ = s.RedisClient.Del(ctx, "aigw:config:endpoints:"+obsoleteCode).Err()
+				}
+				if config.C.Sync.Policies {
+					_ = s.RedisClient.Del(ctx, "aigw:policies:model:"+obsoleteCode).Err()
+				}
+				// 清理各租户的关联授权
+				for _, tenantCode := range tenantCodes {
+					modelsKey := "aigw:tenant:" + tenantCode + ":models"
+					_ = s.RedisClient.SRem(ctx, modelsKey, obsoleteCode).Err()
+					if config.C.Sync.Endpoints {
+						endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + obsoleteCode + ":endpoints"
+						_ = s.RedisClient.Del(ctx, endpointsKey).Err()
+					}
+				}
+				// 清理反向别名索引
+				_ = s.RedisClient.Del(ctx, RedisKeyConfigModelAliasesPrefix+obsoleteCode).Err()
 			}
 		}
 	}

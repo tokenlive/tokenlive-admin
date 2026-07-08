@@ -497,3 +497,85 @@ func TestModelSync_CascadeDelete(t *testing.T) {
 	db.Unscoped().Delete(polShared)
 	db.Unscoped().Delete(tenantModel1)
 }
+
+func TestModelSync_ObsoleteCacheCleanup(t *testing.T) {
+	if config.C.Storage.Cache.Type != "redis" {
+		t.Skip("skip test because cache type is not redis")
+	}
+
+	injector := GetTestInjector()
+	ctx := context.Background()
+
+	// 1. 初始化 Redis Client
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     config.C.Storage.Cache.Redis.Addr,
+		DB:       config.C.Storage.Cache.Redis.DB,
+		Username: config.C.Storage.Cache.Redis.Username,
+		Password: config.C.Storage.Cache.Redis.Password,
+	})
+	defer rdb.Close()
+
+	// 2. 预置一个废弃模型数据到 Redis 缓存中
+	obsoleteModelCode := "m-obsolete-test-code"
+
+	// A. 写入 aigw:config:model_versions
+	err := rdb.HSet(ctx, "aigw:config:model_versions", obsoleteModelCode, "100").Err()
+	assert.NoError(t, err)
+
+	// B. 写入独立端点与费率配置
+	err = rdb.Set(ctx, "aigw:config:endpoints:"+obsoleteModelCode, "junk-endpoint-data", 0).Err()
+	assert.NoError(t, err)
+	err = rdb.Set(ctx, "aigw:policies:model:"+obsoleteModelCode, "junk-policy-data", 0).Err()
+	assert.NoError(t, err)
+
+	// C. 写入租户关联缓存
+	testTenantCode := "t-obsolete-test-tenant"
+	tenantModelsKey := "aigw:tenant:" + testTenantCode + ":models"
+	err = rdb.SAdd(ctx, tenantModelsKey, obsoleteModelCode).Err()
+	assert.NoError(t, err)
+	tenantEndpointsKey := "aigw:tenant:" + testTenantCode + ":model:" + obsoleteModelCode + ":endpoints"
+	err = rdb.Set(ctx, tenantEndpointsKey, "junk-endpoints", 0).Err()
+	assert.NoError(t, err)
+
+	// D. 写入反向别名缓存
+	reverseAliasKey := "aigw:config:model_aliases:" + obsoleteModelCode
+	err = rdb.Set(ctx, reverseAliasKey, "junk-alias", 0).Err()
+	assert.NoError(t, err)
+
+	// 3. 执行全量覆盖同步 SyncAllToRedis
+	syncBiz := injector.M.Resource.ModelAPI.ModelBIZ.ConfigRedisSync
+	err = syncBiz.SyncAllToRedis(ctx)
+	assert.NoError(t, err)
+
+	// 4. 验证废弃模型的缓存已被完全清除
+	// A. model_versions 中不再包含该 field
+	existsInVersions, err := rdb.HExists(ctx, "aigw:config:model_versions", obsoleteModelCode).Result()
+	assert.NoError(t, err)
+	assert.False(t, existsInVersions)
+
+	// B. 独立端点和费率配置已删除
+	existsEndpoints, err := rdb.Exists(ctx, "aigw:config:endpoints:"+obsoleteModelCode).Result()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), existsEndpoints)
+
+	existsPolicies, err := rdb.Exists(ctx, "aigw:policies:model:"+obsoleteModelCode).Result()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), existsPolicies)
+
+	// C. 租户内允许模型集合被移除，租户模型端点被删除
+	isMember, err := rdb.SIsMember(ctx, tenantModelsKey, obsoleteModelCode).Result()
+	assert.NoError(t, err)
+	assert.False(t, isMember)
+
+	existsTenantEndpoints, err := rdb.Exists(ctx, tenantEndpointsKey).Result()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), existsTenantEndpoints)
+
+	// D. 反向别名缓存已删除
+	existsReverseAlias, err := rdb.Exists(ctx, reverseAliasKey).Result()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), existsReverseAlias)
+
+	// 5. 清理租户 models key
+	_ = rdb.Del(ctx, tenantModelsKey).Err()
+}
