@@ -138,8 +138,8 @@ type PolicyCircuitBreaks []*PolicyCircuitBreak
 type PolicyCircuitBreakForm struct {
 	ID                          string             `json:"id"`
 	ModelID                     string             `json:"model_id" binding:"max=20"`                     // Owner model ID; empty means template
-	ScopeType                   string             `json:"scope_type" binding:"max=32"`                  // Scope type
-	ScopeCode                   string             `json:"scope_code" binding:"max=128"`                 // Scope code
+	ScopeType                   string             `json:"scope_type" binding:"max=32"`                   // Scope type
+	ScopeCode                   string             `json:"scope_code" binding:"max=128"`                  // Scope code
 	Priority                    int                `json:"priority" binding:"min=0"`                      // Priority
 	Name                        string             `json:"name" binding:"required,max=128"`               // Policy name
 	Level                       string             `json:"level" binding:"required,max=64"`               // Policy level
@@ -181,6 +181,9 @@ func (a *PolicyCircuitBreakForm) Validate() error {
 	}
 	if a.Level != "SERVICE" && a.Level != "INSTANCE" {
 		return errors.BadRequest("", "Level must be either SERVICE or INSTANCE")
+	}
+	if err := validatePolicyScope(a.ScopeType, a.ScopeCode, false); err != nil {
+		return err
 	}
 	return nil
 }

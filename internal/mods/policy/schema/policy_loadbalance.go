@@ -104,6 +104,9 @@ func (a *PolicyLoadbalanceForm) Validate() error {
 	if a.Type == "" {
 		return errors.BadRequest("", "Type is required")
 	}
+	if err := validatePolicyScope(a.ScopeType, a.ScopeCode, false); err != nil {
+		return err
+	}
 	return nil
 }
 

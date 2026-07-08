@@ -107,6 +107,9 @@ func (a *PolicyRouteForm) Validate() error {
 	if a.Name == "" {
 		return errors.BadRequest("", "Name is required")
 	}
+	if err := validatePolicyScope(a.ScopeType, a.ScopeCode, false); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -91,7 +91,7 @@ func (a *PolicyInvocation) Create(ctx context.Context, formItem *schema.PolicyIn
 	if err != nil {
 		return nil, err
 	}
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyInvocation.ScopeType, policyInvocation.ScopeCode, policyInvocation.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "invocation", "create", policyInvocation.ScopeType, policyInvocation.ScopeCode, policyInvocation.ModelID)
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyInvocation.ID, policyInvocation.Name, nil, policyInvocation)
 
@@ -117,7 +117,7 @@ func (a *PolicyInvocation) Update(ctx context.Context, id string, formItem *sche
 	}
 
 	// If unique key fields changed, ensure the new combination is not occupied.
-	if policyInvocation.ScopeType != formItem.ScopeType || policyInvocation.ScopeCode != formItem.ScopeCode || policyInvocation.ModelID != formItem.ModelID || policyInvocation.Name != formItem.Name {
+	if policyInvocation.ModelID != formItem.ModelID || policyInvocation.Name != formItem.Name {
 		if exists, err := a.PolicyInvocationDAL.ExistsByUniqueKey(ctx, formItem.ScopeType, formItem.ScopeCode, formItem.ModelID, formItem.Name); err != nil {
 			return err
 		} else if exists {
@@ -145,9 +145,9 @@ func (a *PolicyInvocation) Update(ctx context.Context, id string, formItem *sche
 	}
 
 	// 级联同步引用此策略的维度到 Redis
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, beforePolicy.ScopeType, beforePolicy.ScopeCode, beforePolicy.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "invocation", "update_old_dimension", beforePolicy.ScopeType, beforePolicy.ScopeCode, beforePolicy.ModelID)
 	if beforePolicy.ScopeType != policyInvocation.ScopeType || beforePolicy.ScopeCode != policyInvocation.ScopeCode || beforePolicy.ModelID != policyInvocation.ModelID {
-		_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyInvocation.ScopeType, policyInvocation.ScopeCode, policyInvocation.ModelID)
+		_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "invocation", "update_new_dimension", policyInvocation.ScopeType, policyInvocation.ScopeCode, policyInvocation.ModelID)
 	}
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyInvocation.ID, policyInvocation.Name, beforePolicy, policyInvocation)
@@ -175,7 +175,7 @@ func (a *PolicyInvocation) Delete(ctx context.Context, id string) error {
 	}
 
 	// 级联同步引用此策略的维度到 Redis
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyInvocation.ScopeType, policyInvocation.ScopeCode, policyInvocation.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "invocation", "delete", policyInvocation.ScopeType, policyInvocation.ScopeCode, policyInvocation.ModelID)
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyInvocation.ID, policyInvocation.Name, policyInvocation, nil)
 
@@ -236,7 +236,7 @@ func (a *PolicyInvocation) CopyTemplateToModel(ctx context.Context, templateID s
 	if err != nil {
 		return nil, err
 	}
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, instance.ScopeType, instance.ScopeCode, instance.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "invocation", "copy_template_to_model", instance.ScopeType, instance.ScopeCode, instance.ModelID)
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, instance.ID, instance.Name, nil, &instance)
 	return &instance, nil
 }

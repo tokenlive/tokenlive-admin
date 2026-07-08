@@ -297,6 +297,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		PolicyCircuitBreakDAL: policyCircuitBreak,
 		PolicyInvocationDAL:   policyInvocation,
 		PolicyTaggingDAL:      policyTagging,
+		ModelDAL:              model,
 	}
 	bizModel := &biz3.Model{
 		Trans:             trans,
@@ -427,6 +428,8 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	bizPolicyRouteDetail := &biz4.PolicyRouteDetail{
 		Trans:                trans,
 		PolicyRouteDetailDAL: policyRouteDetail,
+		PolicyRouteDAL:       policyRoute,
+		PolicyRedisSync:      policyRedisSync,
 	}
 	apiPolicyRouteDetail := &api4.PolicyRouteDetail{
 		PolicyRouteDetailBIZ: bizPolicyRouteDetail,

@@ -34,4 +34,5 @@ var Set = wire.NewSet(
 	wire.Struct(new(api.PolicyTagging), "*"),
 
 	wire.Struct(new(biz.PolicyRedisSync), "*"),
+	wire.Bind(new(biz.PolicyChangeSyncer), new(*biz.PolicyRedisSync)),
 )

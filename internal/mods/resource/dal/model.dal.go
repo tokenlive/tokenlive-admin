@@ -78,6 +78,27 @@ func (m *Model) Get(ctx context.Context, id string, opts ...schema.ModelQueryOpt
 	return item, nil
 }
 
+// GetModelCodeByID returns model_code for the specified model id.
+func (m *Model) GetModelCodeByID(ctx context.Context, id string) (string, error) {
+	item, err := m.Get(ctx, id)
+	if err != nil || item == nil {
+		return "", err
+	}
+	return item.ModelCode, nil
+}
+
+// GetIDByModelCode returns model id for the specified model_code.
+func (m *Model) GetIDByModelCode(ctx context.Context, modelCode string) (string, error) {
+	item := new(schema.Model)
+	ok, err := util.FindOne(ctx, GetModelDB(ctx, m.DB).Where("model_code=?", modelCode), util.QueryOptions{}, item)
+	if err != nil {
+		return "", errors.WithStack(err)
+	} else if !ok {
+		return "", nil
+	}
+	return item.ID, nil
+}
+
 // Exists checks if the specified model exists.
 func (m *Model) Exists(ctx context.Context, id string) (bool, error) {
 	ok, err := util.Exists(ctx, GetModelDB(ctx, m.DB).Where("id=?", id))

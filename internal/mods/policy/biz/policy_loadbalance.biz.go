@@ -88,7 +88,7 @@ func (a *PolicyLoadbalance) Create(ctx context.Context, formItem *schema.PolicyL
 	if err != nil {
 		return nil, err
 	}
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyLoadbalance.ScopeType, policyLoadbalance.ScopeCode, policyLoadbalance.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "loadbalance", "create", policyLoadbalance.ScopeType, policyLoadbalance.ScopeCode, policyLoadbalance.ModelID)
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyLoadbalance.ID, policyLoadbalance.Name, nil, policyLoadbalance)
 
@@ -114,7 +114,7 @@ func (a *PolicyLoadbalance) Update(ctx context.Context, id string, formItem *sch
 	}
 
 	// If unique key fields changed, ensure the new combination is not occupied.
-	if policyLoadbalance.ScopeType != formItem.ScopeType || policyLoadbalance.ScopeCode != formItem.ScopeCode || policyLoadbalance.ModelID != formItem.ModelID || policyLoadbalance.Name != formItem.Name {
+	if policyLoadbalance.ModelID != formItem.ModelID || policyLoadbalance.Name != formItem.Name {
 		if exists, err := a.PolicyLoadbalanceDAL.ExistsByName(ctx, formItem.ScopeType, formItem.ScopeCode, formItem.ModelID, formItem.Name); err != nil {
 			return err
 		} else if exists {
@@ -139,9 +139,9 @@ func (a *PolicyLoadbalance) Update(ctx context.Context, id string, formItem *sch
 	}
 
 	// 级联同步引用此策略的维度到 Redis
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, beforePolicy.ScopeType, beforePolicy.ScopeCode, beforePolicy.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "loadbalance", "update_old_dimension", beforePolicy.ScopeType, beforePolicy.ScopeCode, beforePolicy.ModelID)
 	if beforePolicy.ScopeType != policyLoadbalance.ScopeType || beforePolicy.ScopeCode != policyLoadbalance.ScopeCode || beforePolicy.ModelID != policyLoadbalance.ModelID {
-		_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyLoadbalance.ScopeType, policyLoadbalance.ScopeCode, policyLoadbalance.ModelID)
+		_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "loadbalance", "update_new_dimension", policyLoadbalance.ScopeType, policyLoadbalance.ScopeCode, policyLoadbalance.ModelID)
 	}
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyLoadbalance.ID, policyLoadbalance.Name, beforePolicy, policyLoadbalance)
@@ -169,7 +169,7 @@ func (a *PolicyLoadbalance) Delete(ctx context.Context, id string) error {
 	}
 
 	// 级联同步引用此策略的维度到 Redis
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyLoadbalance.ScopeType, policyLoadbalance.ScopeCode, policyLoadbalance.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "loadbalance", "delete", policyLoadbalance.ScopeType, policyLoadbalance.ScopeCode, policyLoadbalance.ModelID)
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyLoadbalance.ID, policyLoadbalance.Name, policyLoadbalance, nil)
 
@@ -231,7 +231,7 @@ func (a *PolicyLoadbalance) CopyTemplateToModel(ctx context.Context, templateID 
 	if err != nil {
 		return nil, err
 	}
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, instance.ScopeType, instance.ScopeCode, instance.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "loadbalance", "copy_template_to_model", instance.ScopeType, instance.ScopeCode, instance.ModelID)
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, instance.ID, instance.Name, nil, &instance)
 	return &instance, nil
 }

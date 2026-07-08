@@ -14,6 +14,8 @@ import (
 type PolicyRouteDetail struct {
 	Trans                *util.Trans
 	PolicyRouteDetailDAL *dal.PolicyRouteDetail
+	PolicyRouteDAL       *dal.PolicyRoute
+	PolicyRedisSync      PolicyChangeSyncer
 }
 
 // Query policy route details from the data access object based on the provided parameters and options.
@@ -66,6 +68,9 @@ func (a *PolicyRouteDetail) Create(ctx context.Context, formItem *schema.PolicyR
 	if err != nil {
 		return nil, err
 	}
+	if err := a.syncParentRoutePolicy(ctx, policyRouteDetail.RouteId); err != nil {
+		return nil, err
+	}
 	return policyRouteDetail, nil
 }
 
@@ -83,21 +88,41 @@ func (a *PolicyRouteDetail) Update(ctx context.Context, id string, formItem *sch
 	}
 	policyRouteDetail.UpdatedAt = time.Now()
 
-	return a.Trans.Exec(ctx, func(ctx context.Context) error {
+	if err := a.Trans.Exec(ctx, func(ctx context.Context) error {
 		return a.PolicyRouteDetailDAL.Update(ctx, policyRouteDetail)
-	})
+	}); err != nil {
+		return err
+	}
+	return a.syncParentRoutePolicy(ctx, policyRouteDetail.RouteId)
 }
 
 // Delete the specified policy route detail from the data access object.
 func (a *PolicyRouteDetail) Delete(ctx context.Context, id string) error {
-	exists, err := a.PolicyRouteDetailDAL.Exists(ctx, id)
+	policyRouteDetail, err := a.PolicyRouteDetailDAL.Get(ctx, id)
 	if err != nil {
 		return err
-	} else if !exists {
+	} else if policyRouteDetail == nil {
 		return errors.NotFound("", "Policy route detail not found")
 	}
 
-	return a.Trans.Exec(ctx, func(ctx context.Context) error {
+	if err := a.Trans.Exec(ctx, func(ctx context.Context) error {
 		return a.PolicyRouteDetailDAL.Delete(ctx, id)
-	})
+	}); err != nil {
+		return err
+	}
+	return a.syncParentRoutePolicy(ctx, policyRouteDetail.RouteId)
+}
+
+func (a *PolicyRouteDetail) syncParentRoutePolicy(ctx context.Context, routeID string) error {
+	if a.PolicyRedisSync == nil || a.PolicyRouteDAL == nil {
+		return nil
+	}
+	policyRoute, err := a.PolicyRouteDAL.Get(ctx, routeID)
+	if err != nil {
+		return err
+	}
+	if policyRoute == nil {
+		return errors.NotFound("", "Policy route not found")
+	}
+	return syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "route_detail", "sync_parent_route_policy", policyRoute.ScopeType, policyRoute.ScopeCode, policyRoute.ModelID)
 }

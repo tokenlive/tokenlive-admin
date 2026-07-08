@@ -91,7 +91,7 @@ func (a *PolicyCircuitBreak) Create(ctx context.Context, formItem *schema.Policy
 	if err != nil {
 		return nil, err
 	}
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyCircuitBreak.ScopeType, policyCircuitBreak.ScopeCode, policyCircuitBreak.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "circuit_break", "create", policyCircuitBreak.ScopeType, policyCircuitBreak.ScopeCode, policyCircuitBreak.ModelID)
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyCircuitBreak.ID, policyCircuitBreak.Name, nil, policyCircuitBreak)
 
@@ -117,7 +117,7 @@ func (a *PolicyCircuitBreak) Update(ctx context.Context, id string, formItem *sc
 	}
 
 	// If unique key fields changed, ensure the new combination is not occupied.
-	if policyCircuitBreak.ScopeType != formItem.ScopeType || policyCircuitBreak.ScopeCode != formItem.ScopeCode || policyCircuitBreak.ModelID != formItem.ModelID || policyCircuitBreak.Name != formItem.Name {
+	if policyCircuitBreak.ModelID != formItem.ModelID || policyCircuitBreak.Name != formItem.Name {
 		if exists, err := a.PolicyCircuitBreakDAL.ExistsByUniqueKey(ctx, formItem.ScopeType, formItem.ScopeCode, formItem.ModelID, formItem.Name); err != nil {
 			return err
 		} else if exists {
@@ -145,9 +145,9 @@ func (a *PolicyCircuitBreak) Update(ctx context.Context, id string, formItem *sc
 	}
 
 	// 级联更新引用此策略的维度到 Redis
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, beforePolicy.ScopeType, beforePolicy.ScopeCode, beforePolicy.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "circuit_break", "update_old_dimension", beforePolicy.ScopeType, beforePolicy.ScopeCode, beforePolicy.ModelID)
 	if beforePolicy.ScopeType != policyCircuitBreak.ScopeType || beforePolicy.ScopeCode != policyCircuitBreak.ScopeCode || beforePolicy.ModelID != policyCircuitBreak.ModelID {
-		_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyCircuitBreak.ScopeType, policyCircuitBreak.ScopeCode, policyCircuitBreak.ModelID)
+		_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "circuit_break", "update_new_dimension", policyCircuitBreak.ScopeType, policyCircuitBreak.ScopeCode, policyCircuitBreak.ModelID)
 	}
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyCircuitBreak.ID, policyCircuitBreak.Name, beforePolicy, policyCircuitBreak)
@@ -175,7 +175,7 @@ func (a *PolicyCircuitBreak) Delete(ctx context.Context, id string) error {
 	}
 
 	// 级联更新引用此策略的维度到 Redis
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyCircuitBreak.ScopeType, policyCircuitBreak.ScopeCode, policyCircuitBreak.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "circuit_break", "delete", policyCircuitBreak.ScopeType, policyCircuitBreak.ScopeCode, policyCircuitBreak.ModelID)
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyCircuitBreak.ID, policyCircuitBreak.Name, policyCircuitBreak, nil)
 
@@ -236,7 +236,7 @@ func (a *PolicyCircuitBreak) CopyTemplateToModel(ctx context.Context, templateID
 	if err != nil {
 		return nil, err
 	}
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, instance.ScopeType, instance.ScopeCode, instance.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "circuit_break", "copy_template_to_model", instance.ScopeType, instance.ScopeCode, instance.ModelID)
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, instance.ID, instance.Name, nil, &instance)
 	return &instance, nil
 }

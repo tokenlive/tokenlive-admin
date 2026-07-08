@@ -143,6 +143,9 @@ func (a *PolicyLimitForm) Validate() error {
 	if a.RelationType == "" {
 		return errors.BadRequest("", "RelationType is required")
 	}
+	if err := validatePolicyScope(a.ScopeType, a.ScopeCode, false); err != nil {
+		return err
+	}
 	return nil
 }
 

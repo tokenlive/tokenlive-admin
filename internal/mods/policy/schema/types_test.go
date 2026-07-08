@@ -61,6 +61,10 @@ func TestPolicy_MarshalJSON_IgnoreKeys(t *testing.T) {
 	p := &Policy{
 		LoadBalancePolicy: &PolicyLoadbalanceForm{
 			ID:          "lb-id",
+			ModelID:     "model-1",
+			ScopeType:   "tenant",
+			ScopeCode:   "tenant-a",
+			Priority:    10,
 			Name:        "lb-name",
 			Type:        "round_robin",
 			Enabled:     1,
@@ -70,6 +74,10 @@ func TestPolicy_MarshalJSON_IgnoreKeys(t *testing.T) {
 		},
 		InvocationPolicy: &PolicyInvocationForm{
 			ID:          "inv-id",
+			ModelID:     "model-1",
+			ScopeType:   "global",
+			ScopeCode:   "",
+			Priority:    20,
 			Name:        "inv-name",
 			Type:        "failover",
 			Enabled:     1,
@@ -98,10 +106,13 @@ func TestPolicy_MarshalJSON_IgnoreKeys(t *testing.T) {
 	if !ok {
 		t.Fatal("expected load_balance_policy map")
 	}
-	for _, key := range []string{"enabled", "description", "creator", "modifier", "created_at", "updated_at"} {
+	for _, key := range []string{"model_id", "scope_type", "scope_code", "enabled", "description", "creator", "modifier", "created_at", "updated_at"} {
 		if _, exists := lb[key]; exists {
 			t.Errorf("expected key '%s' to be ignored in load_balance_policy, but it exists", key)
 		}
+	}
+	if lb["priority"] != float64(10) {
+		t.Errorf("expected priority 10, got %v", lb["priority"])
 	}
 	if lb["id"] != "lb-id" {
 		t.Errorf("expected id 'lb-id', got %v", lb["id"])
@@ -115,10 +126,13 @@ func TestPolicy_MarshalJSON_IgnoreKeys(t *testing.T) {
 	if !ok {
 		t.Fatal("expected invocation_policy map")
 	}
-	for _, key := range []string{"enabled", "description", "creator", "modifier", "created_at", "updated_at"} {
+	for _, key := range []string{"model_id", "scope_type", "scope_code", "enabled", "description", "creator", "modifier", "created_at", "updated_at"} {
 		if _, exists := inv[key]; exists {
 			t.Errorf("expected key '%s' to be ignored in invocation_policy, but it exists", key)
 		}
+	}
+	if inv["priority"] != float64(20) {
+		t.Errorf("expected priority 20, got %v", inv["priority"])
 	}
 	if inv["id"] != "inv-id" {
 		t.Errorf("expected id 'inv-id', got %v", inv["id"])

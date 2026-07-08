@@ -91,7 +91,7 @@ func (a *PolicyLimit) Create(ctx context.Context, formItem *schema.PolicyLimitFo
 	if err != nil {
 		return nil, err
 	}
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyLimit.ScopeType, policyLimit.ScopeCode, policyLimit.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "limit", "create", policyLimit.ScopeType, policyLimit.ScopeCode, policyLimit.ModelID)
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyLimit.ID, policyLimit.Name, nil, policyLimit)
 	return policyLimit, nil
 }
@@ -115,7 +115,7 @@ func (a *PolicyLimit) Update(ctx context.Context, id string, formItem *schema.Po
 	}
 
 	// If unique key fields changed, ensure the new combination is not occupied.
-	if policyLimit.ScopeType != formItem.ScopeType || policyLimit.ScopeCode != formItem.ScopeCode || policyLimit.ModelID != formItem.ModelID || policyLimit.Name != formItem.Name {
+	if policyLimit.ModelID != formItem.ModelID || policyLimit.Name != formItem.Name {
 		if exists, err := a.PolicyLimitDAL.ExistsByUniqueKey(ctx, formItem.ScopeType, formItem.ScopeCode, formItem.ModelID, formItem.Name); err != nil {
 			return err
 		} else if exists {
@@ -143,9 +143,9 @@ func (a *PolicyLimit) Update(ctx context.Context, id string, formItem *schema.Po
 	}
 
 	// 级联同步引用此策略的维度到 Redis
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, beforePolicy.ScopeType, beforePolicy.ScopeCode, beforePolicy.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "limit", "update_old_dimension", beforePolicy.ScopeType, beforePolicy.ScopeCode, beforePolicy.ModelID)
 	if beforePolicy.ScopeType != policyLimit.ScopeType || beforePolicy.ScopeCode != policyLimit.ScopeCode || beforePolicy.ModelID != policyLimit.ModelID {
-		_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyLimit.ScopeType, policyLimit.ScopeCode, policyLimit.ModelID)
+		_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "limit", "update_new_dimension", policyLimit.ScopeType, policyLimit.ScopeCode, policyLimit.ModelID)
 	}
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyLimit.ID, policyLimit.Name, beforePolicy, policyLimit)
@@ -172,7 +172,7 @@ func (a *PolicyLimit) Delete(ctx context.Context, id string) error {
 	}
 
 	// 级联同步引用此策略的维度到 Redis
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, policyLimit.ScopeType, policyLimit.ScopeCode, policyLimit.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "limit", "delete", policyLimit.ScopeType, policyLimit.ScopeCode, policyLimit.ModelID)
 
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyLimit.ID, policyLimit.Name, policyLimit, nil)
 	return nil
@@ -232,7 +232,7 @@ func (a *PolicyLimit) CopyTemplateToModel(ctx context.Context, templateID string
 	if err != nil {
 		return nil, err
 	}
-	_ = a.PolicyRedisSync.SyncPolicyChange(ctx, instance.ScopeType, instance.ScopeCode, instance.ModelID)
+	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "limit", "copy_template_to_model", instance.ScopeType, instance.ScopeCode, instance.ModelID)
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, instance.ID, instance.Name, nil, &instance)
 	return &instance, nil
 }

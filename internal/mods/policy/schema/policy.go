@@ -29,6 +29,34 @@ func (a *PolicyCopyToModelForm) Validate() error {
 	if a.ModelID == "" {
 		return errors.BadRequest("", "model_id is required")
 	}
+	if a.ScopeType != nil || a.ScopeCode != nil {
+		var scopeType, scopeCode string
+		if a.ScopeType != nil {
+			scopeType = *a.ScopeType
+		}
+		if a.ScopeCode != nil {
+			scopeCode = *a.ScopeCode
+		}
+		if err := validatePolicyScope(scopeType, scopeCode, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validatePolicyScope(scopeType, scopeCode string, allowEmptyScopeCode bool) error {
+	switch scopeType {
+	case "", "global":
+		if scopeCode != "" {
+			return errors.BadRequest("", "scope_code must be empty when scope_type is global")
+		}
+	case "tenant", "user":
+		if scopeCode == "" && !allowEmptyScopeCode {
+			return errors.BadRequest("", "scope_code is required when scope_type is %s", scopeType)
+		}
+	default:
+		return errors.BadRequest("", "scope_type must be one of global, tenant, user")
+	}
 	return nil
 }
 
@@ -56,6 +84,9 @@ func cleanJSONMap(m map[string]interface{}) {
 		"modifier":    true,
 		"created_at":  true,
 		"updated_at":  true,
+		"model_id":    true,
+		"scope_type":  true,
+		"scope_code":  true,
 		"enabled":     true,
 		"description": true,
 	}
