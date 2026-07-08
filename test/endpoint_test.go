@@ -59,6 +59,7 @@ func TestEndpoint_CreateWithModelID(t *testing.T) {
 
 	// ===== Create Endpoint with new fields (ModelID, RealModel, Priority) =====
 	endpointFormItem := schema.EndpointForm{
+		Code:        "test-endpoint-create-primary",
 		ProviderID:  provider.ID,
 		ModelID:     model.ID,
 		URL:         "https://api.openai.com/v1/chat/completions",
@@ -92,6 +93,7 @@ func TestEndpoint_CreateWithModelID(t *testing.T) {
 
 	// ===== Update Endpoint =====
 	updateFormItem := schema.EndpointForm{
+		Code:        "test-endpoint-create-primary",
 		ProviderID:  provider.ID,
 		ModelID:     model.ID,
 		URL:         "https://api.openai.com/v1/chat/completions",
@@ -130,6 +132,7 @@ func TestEndpoint_QueryByModelID(t *testing.T) {
 
 	// Create two endpoints under the same model
 	endpointFormItem1 := schema.EndpointForm{
+		Code:        "test-endpoint-query-primary",
 		ProviderID:  provider.ID,
 		ModelID:     model.ID,
 		URL:         "https://api.openai.com/v1/chat/completions",
@@ -146,6 +149,7 @@ func TestEndpoint_QueryByModelID(t *testing.T) {
 	assert.NotEmpty(endpoint1.ID)
 
 	endpointFormItem2 := schema.EndpointForm{
+		Code:        "test-endpoint-query-backup",
 		ProviderID:  provider.ID,
 		ModelID:     model.ID,
 		URL:         "https://api.backup.com/v1/chat/completions",
@@ -198,6 +202,7 @@ func TestEndpoint_SelectEndpoint(t *testing.T) {
 
 	// Create endpoints with different priorities and weights
 	endpointFormItem1 := schema.EndpointForm{
+		Code:        "test-endpoint-select-primary",
 		ProviderID:  provider.ID,
 		ModelID:     model.ID,
 		URL:         "https://api.openai.com/v1/chat/completions",
@@ -214,6 +219,7 @@ func TestEndpoint_SelectEndpoint(t *testing.T) {
 	assert.NotEmpty(endpoint1.ID)
 
 	endpointFormItem2 := schema.EndpointForm{
+		Code:        "test-endpoint-select-backup",
 		ProviderID:  provider.ID,
 		ModelID:     model.ID,
 		URL:         "https://api.backup.com/v1/chat/completions",
@@ -261,6 +267,7 @@ func TestEndpoint_TestConnectivity(t *testing.T) {
 
 	// 1. 测试未保存的临时草稿配置 (POST /api/v1/endpoints/test)
 	testDraftForm := schema.EndpointForm{
+		Code:        "test-endpoint-connectivity-draft",
 		ProviderID:  provider.ID,
 		ModelID:     model.ID,
 		URL:         "https://invalid-domain-xxx-yyy.com/v1/chat/completions",
@@ -281,6 +288,7 @@ func TestEndpoint_TestConnectivity(t *testing.T) {
 
 	// 2. 测试已保存的端点配置 (POST /api/v1/endpoints/:id/test)
 	endpointFormItem := schema.EndpointForm{
+		Code:        "test-endpoint-connectivity-saved",
 		ProviderID:  provider.ID,
 		ModelID:     model.ID,
 		URL:         "https://invalid-domain-xxx-yyy.com/v1/chat/completions",
@@ -316,10 +324,12 @@ func TestEndpoint_DuplicateCheck(t *testing.T) {
 	provider, model := setupEndpointDeps(t, e, "dup")
 
 	endpointFormItem1 := schema.EndpointForm{
+		Code:        "test-endpoint-duplicate-check",
 		ProviderID:  provider.ID,
 		ModelID:     model.ID,
 		URL:         "https://api.openai.com/v1/chat/completions",
 		ApiKey:      "sk-test-key-123",
+		Protocol:    "openai",
 		RealModel:   "gpt-4",
 		Priority:    1,
 		Weight:      1,
@@ -333,21 +343,32 @@ func TestEndpoint_DuplicateCheck(t *testing.T) {
 		Expect().Status(http.StatusOK).JSON().Decode(&util.ResponseResult{Data: &endpoint1})
 	assert.NotEmpty(endpoint1.ID)
 
-	// 2. Duplicate endpoint creation (same model, provider, url, api_key, real_model) should fail with Conflict (409)
+	// 2. Duplicate endpoint creation (same model, provider, url, api_key, protocol, real_model) should fail with Conflict (409)
 	e.POST(baseAPI + "/endpoints").WithJSON(endpointFormItem1).
 		Expect().Status(http.StatusConflict)
 
-	// 3. Creation with different RealModel should succeed
+	// 3. Creation with different Protocol should succeed
 	endpointFormItem2 := endpointFormItem1
-	endpointFormItem2.RealModel = "gpt-4-turbo"
+	endpointFormItem2.Code = "test-endpoint-different-protocol"
+	endpointFormItem2.Protocol = "anthropic"
 	var endpoint2 schema.Endpoint
 	e.POST(baseAPI + "/endpoints").WithJSON(endpointFormItem2).
 		Expect().Status(http.StatusOK).JSON().Decode(&util.ResponseResult{Data: &endpoint2})
 	assert.NotEmpty(endpoint2.ID)
 
+	// 4. Creation with different RealModel should still succeed
+	endpointFormItem3 := endpointFormItem1
+	endpointFormItem3.Code = "test-endpoint-different-real-model"
+	endpointFormItem3.RealModel = "gpt-4-turbo"
+	var endpoint3 schema.Endpoint
+	e.POST(baseAPI + "/endpoints").WithJSON(endpointFormItem3).
+		Expect().Status(http.StatusOK).JSON().Decode(&util.ResponseResult{Data: &endpoint3})
+	assert.NotEmpty(endpoint3.ID)
+
 	// ===== Cleanup =====
 	e.DELETE(baseAPI + "/endpoints/" + endpoint1.ID).Expect().Status(http.StatusOK)
 	e.DELETE(baseAPI + "/endpoints/" + endpoint2.ID).Expect().Status(http.StatusOK)
+	e.DELETE(baseAPI + "/endpoints/" + endpoint3.ID).Expect().Status(http.StatusOK)
 	e.DELETE(baseAPI + "/models/" + model.ID).Expect().Status(http.StatusOK)
 	e.DELETE(baseAPI + "/providers/" + provider.ID).Expect().Status(http.StatusOK)
 }

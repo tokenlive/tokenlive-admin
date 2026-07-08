@@ -76,10 +76,10 @@ func (e *Endpoint) Exists(ctx context.Context, id string) (bool, error) {
 	return ok, errors.WithStack(err)
 }
 
-// ExistsDuplicate checks if an active endpoint with the same model, provider, url, api_key, and real_model already exists.
-func (e *Endpoint) ExistsDuplicate(ctx context.Context, modelID, providerID, url, apiKey, realModel string, excludeID string) (bool, error) {
+// ExistsDuplicate checks if an active endpoint with the same route identity already exists.
+func (e *Endpoint) ExistsDuplicate(ctx context.Context, modelID, providerID, url, apiKey, protocol, realModel string, excludeID string) (bool, error) {
 	db := GetEndpointDB(ctx, e.DB).
-		Where("model_id = ? AND provider_id = ? AND url = ? AND api_key = ? AND real_model = ?", modelID, providerID, url, apiKey, realModel)
+		Where("model_id = ? AND provider_id = ? AND url = ? AND api_key = ? AND protocol = ? AND real_model = ?", modelID, providerID, url, apiKey, protocol, realModel)
 	if len(excludeID) > 0 {
 		db = db.Where("id != ?", excludeID)
 	}

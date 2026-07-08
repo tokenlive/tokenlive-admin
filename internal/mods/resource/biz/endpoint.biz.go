@@ -213,11 +213,11 @@ func (e *Endpoint) Get(ctx context.Context, id string) (*schema.Endpoint, error)
 // Create a new endpoint.
 func (e *Endpoint) Create(ctx context.Context, formItem *schema.EndpointForm) (*schema.Endpoint, error) {
 	// Exists check for duplicate endpoint
-	exists, err := e.EndpointDAL.ExistsDuplicate(ctx, formItem.ModelID, formItem.ProviderID, formItem.URL, formItem.ApiKey, formItem.RealModel, "")
+	exists, err := e.EndpointDAL.ExistsDuplicate(ctx, formItem.ModelID, formItem.ProviderID, formItem.URL, formItem.ApiKey, formItem.Protocol, formItem.RealModel, "")
 	if err != nil {
 		return nil, err
 	} else if exists {
-		return nil, errors.Conflict("", "已经存在相同模型、相同供应商、相同 URL、相同 API Key 和相同真实模型的 Endpoint 记录")
+		return nil, errors.Conflict("", "已经存在相同模型、相同供应商、相同 URL、相同 API Key、相同协议类型和相同真实模型的 Endpoint 记录")
 	}
 
 	// Exists check for code uniqueness
@@ -268,11 +268,11 @@ func (e *Endpoint) Update(ctx context.Context, id string, formItem *schema.Endpo
 	}
 
 	// Exists check (excluding self)
-	exists, err := e.EndpointDAL.ExistsDuplicate(ctx, formItem.ModelID, formItem.ProviderID, formItem.URL, formItem.ApiKey, formItem.RealModel, id)
+	exists, err := e.EndpointDAL.ExistsDuplicate(ctx, formItem.ModelID, formItem.ProviderID, formItem.URL, formItem.ApiKey, formItem.Protocol, formItem.RealModel, id)
 	if err != nil {
 		return err
 	} else if exists {
-		return errors.Conflict("", "已经存在相同模型、相同供应商、相同 URL、相同 API Key 和相同真实模型的 Endpoint 记录")
+		return errors.Conflict("", "已经存在相同模型、相同供应商、相同 URL、相同 API Key、相同协议类型和相同真实模型的 Endpoint 记录")
 	}
 
 	// Exists check for code uniqueness (excluding self)
