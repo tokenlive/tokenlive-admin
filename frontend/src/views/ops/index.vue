@@ -6,7 +6,8 @@
             style="margin-bottom: 16px">
             <a-col
                 :xs="12"
-                :sm="6">
+                :sm="8"
+                :md="4">
                 <a-card
                     class="ops-stat-card ops-stat-card--blue"
                     :bordered="false">
@@ -19,7 +20,8 @@
             </a-col>
             <a-col
                 :xs="12"
-                :sm="6">
+                :sm="8"
+                :md="4">
                 <a-card
                     class="ops-stat-card ops-stat-card--red"
                     :bordered="false">
@@ -32,7 +34,8 @@
             </a-col>
             <a-col
                 :xs="12"
-                :sm="6">
+                :sm="8"
+                :md="4">
                 <a-card
                     class="ops-stat-card ops-stat-card--orange"
                     :bordered="false">
@@ -45,7 +48,8 @@
             </a-col>
             <a-col
                 :xs="12"
-                :sm="6">
+                :sm="8"
+                :md="4">
                 <a-card
                     class="ops-stat-card ops-stat-card--purple"
                     :bordered="false">
@@ -54,6 +58,36 @@
                         <div class="ops-stat-card__label">{{ $t('pages.ops.invocation_fail') }}</div>
                     </div>
                     <close-circle-outlined class="ops-stat-card__icon" />
+                </a-card>
+            </a-col>
+            <a-col
+                :xs="12"
+                :sm="8"
+                :md="4">
+                <a-card
+                    class="ops-stat-card ops-stat-card--blue"
+                    :bordered="false">
+                    <div class="ops-stat-card__content">
+                        <div class="ops-stat-card__value">{{ stats.model_failover_count?.toLocaleString() || 0 }}</div>
+                        <div class="ops-stat-card__label">{{ $t('pages.ops.model_failover') }}</div>
+                    </div>
+                    <swap-outlined class="ops-stat-card__icon" />
+                </a-card>
+            </a-col>
+            <a-col
+                :xs="12"
+                :sm="8"
+                :md="4">
+                <a-card
+                    class="ops-stat-card ops-stat-card--cyan"
+                    :bordered="false">
+                    <div class="ops-stat-card__content">
+                        <div class="ops-stat-card__value">
+                            {{ stats.endpoint_failover_count?.toLocaleString() || 0 }}
+                        </div>
+                        <div class="ops-stat-card__label">{{ $t('pages.ops.endpoint_failover') }}</div>
+                    </div>
+                    <retweet-outlined class="ops-stat-card__icon" />
                 </a-card>
             </a-col>
         </a-row>
@@ -154,7 +188,10 @@
                         <a-select-option value="circuit_break">{{ $t('pages.ops.circuit_break') }}</a-select-option>
                         <a-select-option value="rate_limit">{{ $t('pages.ops.rate_limit') }}</a-select-option>
                         <a-select-option value="invocation_fail">{{ $t('pages.ops.invocation_fail') }}</a-select-option>
-                        <a-select-option value="lb_switch">{{ $t('pages.ops.lb_switch') }}</a-select-option>
+                        <a-select-option value="model_failover">{{ $t('pages.ops.model_failover') }}</a-select-option>
+                        <a-select-option value="endpoint_failover">{{
+                            $t('pages.ops.endpoint_failover')
+                        }}</a-select-option>
                     </a-select>
                 </a-form-item>
                 <a-form-item>
@@ -378,6 +415,8 @@ import {
     ThunderboltOutlined,
     CloseCircleOutlined,
     SyncOutlined,
+    SwapOutlined,
+    RetweetOutlined,
 } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import apis from '@/apis'
@@ -508,7 +547,8 @@ const eventTypeName = (type) => {
         circuit_break: t('pages.ops.circuit_break'),
         rate_limit: t('pages.ops.rate_limit'),
         invocation_fail: t('pages.ops.invocation_fail'),
-        lb_switch: t('pages.ops.lb_switch'),
+        model_failover: t('pages.ops.model_failover'),
+        endpoint_failover: t('pages.ops.endpoint_failover'),
     }
     return map[type] || type
 }
@@ -518,7 +558,8 @@ const eventTypeColor = (type) => {
         circuit_break: opsChartPalette.error,
         rate_limit: opsChartPalette.warning,
         invocation_fail: opsChartPalette.strategy,
-        lb_switch: opsChartPalette.system,
+        model_failover: opsChartPalette.system,
+        endpoint_failover: opsChartPalette.traffic,
     }
     return map[type] || 'default'
 }
@@ -706,7 +747,13 @@ const trendChartOptions = computed(() => {
     const times = trend.map((p) => p.time?.split(' ')[1] || p.time || '')
     const isD = isDark.value
     return {
-        color: [opsChartPalette.error, opsChartPalette.warning, opsChartPalette.strategy, opsChartPalette.system],
+        color: [
+            opsChartPalette.error,
+            opsChartPalette.warning,
+            opsChartPalette.strategy,
+            opsChartPalette.system,
+            opsChartPalette.traffic,
+        ],
         tooltip: {
             ...chartTooltip(isD),
             axisPointer: {
@@ -719,7 +766,8 @@ const trendChartOptions = computed(() => {
                 t('pages.ops.circuit_break'),
                 t('pages.ops.rate_limit'),
                 t('pages.ops.invocation_fail'),
-                t('pages.ops.lb_switch'),
+                t('pages.ops.model_failover'),
+                t('pages.ops.endpoint_failover'),
             ],
             top: 6,
             right: 8,
@@ -776,13 +824,23 @@ const trendChartOptions = computed(() => {
                 },
             },
             {
-                name: t('pages.ops.lb_switch'),
+                name: t('pages.ops.model_failover'),
                 type: 'line',
                 smooth: true,
                 symbol: 'circle',
                 symbolSize: 5,
-                data: trend.map((p) => p.lb_switch || 0),
+                data: trend.map((p) => p.model_failover || 0),
                 itemStyle: { color: opsChartPalette.system },
+                lineStyle: { width: 2 },
+            },
+            {
+                name: t('pages.ops.endpoint_failover'),
+                type: 'line',
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 5,
+                data: trend.map((p) => p.endpoint_failover || 0),
+                itemStyle: { color: opsChartPalette.traffic },
                 lineStyle: { width: 2 },
             },
         ],
@@ -792,7 +850,13 @@ const trendChartOptions = computed(() => {
 const distributionChartOptions = computed(() => {
     const isD = isDark.value
     return {
-        color: [opsChartPalette.error, opsChartPalette.warning, opsChartPalette.strategy, opsChartPalette.system],
+        color: [
+            opsChartPalette.error,
+            opsChartPalette.warning,
+            opsChartPalette.strategy,
+            opsChartPalette.system,
+            opsChartPalette.traffic,
+        ],
         tooltip: { ...chartTooltip(isD, 'item'), formatter: '{b}: {c} ({d}%)' },
         legend: {
             orient: 'vertical',
@@ -829,8 +893,12 @@ const distributionChartOptions = computed(() => {
                         name: t('pages.ops.invocation_fail'),
                     },
                     {
-                        value: stats.value.lb_switch_count || 0,
-                        name: t('pages.ops.lb_switch'),
+                        value: stats.value.model_failover_count || 0,
+                        name: t('pages.ops.model_failover'),
+                    },
+                    {
+                        value: stats.value.endpoint_failover_count || 0,
+                        name: t('pages.ops.endpoint_failover'),
                     },
                 ],
             },
@@ -1124,6 +1192,10 @@ onUnmounted(() => {
     background: var(--ops-purple);
 }
 
+.ops-stat-card--cyan::before {
+    background: var(--ops-cyan);
+}
+
 .ops-stat-card :deep(.ant-card-body) {
     display: flex;
     justify-content: space-between;
@@ -1179,6 +1251,11 @@ onUnmounted(() => {
 .ops-stat-card--purple .ops-stat-card__icon {
     color: var(--ops-purple);
     background: rgba(139, 92, 246, 0.12);
+}
+
+.ops-stat-card--cyan .ops-stat-card__icon {
+    color: var(--ops-cyan);
+    background: rgba(35, 199, 183, 0.12);
 }
 
 .ops-filter-form {

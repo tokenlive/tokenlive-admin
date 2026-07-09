@@ -9,10 +9,11 @@ import (
 
 // Event types
 const (
-	EventTypeCircuitBreak   = "circuit_break"
-	EventTypeRateLimit      = "rate_limit"
-	EventTypeInvocationFail = "invocation_fail"
-	EventTypeLBSwitch       = "lb_switch"
+	EventTypeCircuitBreak     = "circuit_break"
+	EventTypeRateLimit        = "rate_limit"
+	EventTypeInvocationFail   = "invocation_fail"
+	EventTypeModelFailover    = "model_failover"
+	EventTypeEndpointFailover = "endpoint_failover"
 )
 
 // EventLog records policy execution events from the AI Gateway.
@@ -77,11 +78,12 @@ type EventTypeCount struct {
 
 // TrendPoint represents a point in the trend chart.
 type TrendPoint struct {
-	Time           string `json:"time"`
-	CircuitBreak   int64  `json:"circuit_break"`
-	RateLimit      int64  `json:"rate_limit"`
-	InvocationFail int64  `json:"invocation_fail"`
-	LBSwitch       int64  `json:"lb_switch"`
+	Time             string `json:"time"`
+	CircuitBreak     int64  `json:"circuit_break"`
+	RateLimit        int64  `json:"rate_limit"`
+	InvocationFail   int64  `json:"invocation_fail"`
+	ModelFailover    int64  `json:"model_failover"`
+	EndpointFailover int64  `json:"endpoint_failover"`
 }
 
 // RankingItem represents an item in tenant/model ranking.
@@ -92,12 +94,13 @@ type RankingItem struct {
 
 // EventStatistics represents the full statistics response.
 type EventStatistics struct {
-	TotalEvents         int64         `json:"total_events"`
-	CircuitBreakCount   int64         `json:"circuit_break_count"`
-	RateLimitCount      int64         `json:"rate_limit_count"`
-	InvocationFailCount int64         `json:"invocation_fail_count"`
-	LBSwitchCount       int64         `json:"lb_switch_count"`
-	Trend               []TrendPoint  `json:"trend"`
+	TotalEvents           int64         `json:"total_events"`
+	CircuitBreakCount     int64         `json:"circuit_break_count"`
+	RateLimitCount        int64         `json:"rate_limit_count"`
+	InvocationFailCount   int64         `json:"invocation_fail_count"`
+	ModelFailoverCount    int64         `json:"model_failover_count"`
+	EndpointFailoverCount int64         `json:"endpoint_failover_count"`
+	Trend                 []TrendPoint  `json:"trend"`
 	TenantRanking       []RankingItem `json:"tenant_ranking"`
 	ModelRanking        []RankingItem `json:"model_ranking"`
 }

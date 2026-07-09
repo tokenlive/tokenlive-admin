@@ -54,8 +54,10 @@ func (a *EventBiz) GetStatistics(ctx context.Context, timeRange string) (*schema
 			stats.RateLimitCount = tc.Count
 		case schema.EventTypeInvocationFail:
 			stats.InvocationFailCount = tc.Count
-		case schema.EventTypeLBSwitch:
-			stats.LBSwitchCount = tc.Count
+		case schema.EventTypeModelFailover:
+			stats.ModelFailoverCount = tc.Count
+		case schema.EventTypeEndpointFailover:
+			stats.EndpointFailoverCount = tc.Count
 		}
 	}
 

@@ -10049,10 +10049,13 @@ const docTemplate = `{
                 "circuit_break_count": {
                     "type": "integer"
                 },
+                "endpoint_failover_count": {
+                    "type": "integer"
+                },
                 "invocation_fail_count": {
                     "type": "integer"
                 },
-                "lb_switch_count": {
+                "model_failover_count": {
                     "type": "integer"
                 },
                 "model_ranking": {
@@ -12641,10 +12644,13 @@ const docTemplate = `{
                 "circuit_break": {
                     "type": "integer"
                 },
+                "endpoint_failover": {
+                    "type": "integer"
+                },
                 "invocation_fail": {
                     "type": "integer"
                 },
-                "lb_switch": {
+                "model_failover": {
                     "type": "integer"
                 },
                 "rate_limit": {
