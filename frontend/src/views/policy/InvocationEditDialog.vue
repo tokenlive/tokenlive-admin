@@ -355,6 +355,24 @@
                                 <span class="scheme-unit">ms</span>
                             </div>
                         </div>
+                        <!-- 排除失败端点 -->
+                        <div class="scheme-row">
+                            <span class="scheme-label required">
+                                {{ $t('pages.invocation.form.retryPolicy.excludeFailedEndpoint') }}
+                                <a-tooltip
+                                    :title="$t('pages.invocation.form.retryPolicy.excludeFailedEndpoint.tooltip')">
+                                    <question-circle-outlined style="margin-left: 4px; color: #999" />
+                                </a-tooltip>
+                            </span>
+                            <div
+                                class="scheme-input"
+                                style="justify-content: flex-start">
+                                <a-switch
+                                    v-model:checked="formData.excludeFailedEndpoint"
+                                    checked-children="ON"
+                                    un-checked-children="OFF" />
+                            </div>
+                        </div>
                     </div>
                 </a-form-item>
             </template>
@@ -739,6 +757,12 @@ function populateFormData(cloned) {
                 : cloned.retry_policy.idleTimeout !== undefined
                   ? cloned.retry_policy.idleTimeout
                   : 0
+        cloned.excludeFailedEndpoint =
+            cloned.retry_policy.exclude_failed_endpoint !== undefined
+                ? cloned.retry_policy.exclude_failed_endpoint
+                : cloned.retry_policy.excludeFailedEndpoint !== undefined
+                  ? cloned.retry_policy.excludeFailedEndpoint
+                  : true
         cloned.errorCodes = (cloned.retry_policy.error_codes || cloned.retry_policy.errorCodes || []).map(String)
         cloned.errorMessages = (cloned.retry_policy.error_messages || cloned.retry_policy.errorMessages || []).map(
             String
@@ -778,6 +802,7 @@ function populateFormData(cloned) {
 
         cloned.totalTimeout = 60000
         cloned.idleTimeout = 0
+        cloned.excludeFailedEndpoint = true
         cloned.errorCodes = []
         cloned.errorMessages = []
         cloned.codePolicy = { parser: '', expression: '', statuses: [], contentTypes: ['application/json'] }
@@ -849,6 +874,7 @@ function handleOk() {
                         ttft_timeout: formData.value.ttftTimeout || 0,
                         total_timeout: formData.value.totalTimeout || 0,
                         idle_timeout: formData.value.idleTimeout || 0,
+                        exclude_failed_endpoint: formData.value.excludeFailedEndpoint !== false,
                     }
                 }
                 let fallbackPolicy = undefined

@@ -141,3 +141,40 @@ func TestPolicy_MarshalJSON_IgnoreKeys(t *testing.T) {
 		t.Errorf("expected type 'failover', got %v", inv["type"])
 	}
 }
+
+func TestRetryPolicy_UnmarshalJSON_ExcludeFailedEndpoint(t *testing.T) {
+	rawTrue := `{
+		"retry": 3,
+		"excludeFailedEndpoint": true
+	}`
+	var r1 RetryPolicy
+	if err := json.Unmarshal([]byte(rawTrue), &r1); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+	if r1.ExcludeFailedEndpoint == nil || *r1.ExcludeFailedEndpoint != true {
+		t.Errorf("expected ExcludeFailedEndpoint to be true, got %v", r1.ExcludeFailedEndpoint)
+	}
+
+	rawFalse := `{
+		"retry": 3,
+		"exclude_failed_endpoint": false
+	}`
+	var r2 RetryPolicy
+	if err := json.Unmarshal([]byte(rawFalse), &r2); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+	if r2.ExcludeFailedEndpoint == nil || *r2.ExcludeFailedEndpoint != false {
+		t.Errorf("expected ExcludeFailedEndpoint to be false, got %v", r2.ExcludeFailedEndpoint)
+	}
+
+	rawNull := `{
+		"retry": 3
+	}`
+	var r3 RetryPolicy
+	if err := json.Unmarshal([]byte(rawNull), &r3); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+	if r3.ExcludeFailedEndpoint != nil {
+		t.Errorf("expected ExcludeFailedEndpoint to be nil, got %v", r3.ExcludeFailedEndpoint)
+	}
+}

@@ -912,6 +912,9 @@ export default {
     'pages.invocation.form.retryPolicy.timeout.required': '总超时时间是必填项！',
     'pages.invocation.form.retryPolicy.timeout.unit': '毫秒',
     'pages.invocation.form.retryPolicy.timeout.tooltip': '总超时时间对错误与正常返回请求均生效',
+    'pages.invocation.form.retryPolicy.excludeFailedEndpoint': '排除失败端点',
+    'pages.invocation.form.retryPolicy.excludeFailedEndpoint.tooltip':
+        '开启时，发生重试会切换到其他可用端点(故障转移)；关闭时，将在刚才出错的端点原地重试(配合会话粘性以保护缓存)',
     'pages.invocation.form.errorCondition': '重试错误条件',
     'pages.invocation.form.errorCondition.required': '错误码和错误消息至少配置一个！',
     'pages.invocation.form.errorCondition.tooltip': '指定触发重试的错误条件，错误码和错误消息二选一配置即可',

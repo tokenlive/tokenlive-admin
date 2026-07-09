@@ -223,11 +223,12 @@ type RetryPolicy struct {
 	ErrorMessages  []string           `json:"error_messages"`    // 需要重试的错误消息列表
 	CodePolicy     *ErrorParserPolicy `json:"code_policy"`       // 错误码解析策略
 	MessagePolicy  *ErrorParserPolicy `json:"message_policy"`    // 错误消息解析策略
-	ConnectTimeout int                `json:"connect_timeout"`   // 建立连接超时 (毫秒)
-	TtftTimeout    int                `json:"ttft_timeout"`      // 首字超时 (毫秒)
-	TotalTimeout   int                `json:"total_timeout"`     // 请求总超时 (毫秒)
-	IdleTimeout    int                `json:"idle_timeout"`      // 读空闲超时 (毫秒)
-	Version        int64              `json:"version,omitempty"` // 版本标识 (保留)
+	ConnectTimeout        int                `json:"connect_timeout"`        // 建立连接超时 (毫秒)
+	TtftTimeout           int                `json:"ttft_timeout"`           // 首字超时 (毫秒)
+	TotalTimeout          int                `json:"total_timeout"`          // 请求总超时 (毫秒)
+	IdleTimeout           int                `json:"idle_timeout"`           // 读空闲超时 (毫秒)
+	ExcludeFailedEndpoint *bool              `json:"exclude_failed_endpoint"` // 重试时是否排除失败的端点
+	Version               int64              `json:"version,omitempty"`      // 版本标识 (保留)
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling to handle string/integer conversion for ErrorCodes.
@@ -241,8 +242,9 @@ func (r *RetryPolicy) UnmarshalJSON(data []byte) error {
 		MessagePolicyCamel  *ErrorParserPolicy `json:"messagePolicy"`
 		ConnectTimeoutCamel int                `json:"connectTimeout"`
 		TtftTimeoutCamel    int                `json:"ttftTimeout"`
-		TotalTimeoutCamel   int                `json:"totalTimeout"`
-		IdleTimeoutCamel    int                `json:"idleTimeout"`
+		TotalTimeoutCamel          int                `json:"totalTimeout"`
+		IdleTimeoutCamel           int                `json:"idleTimeout"`
+		ExcludeFailedEndpointCamel *bool              `json:"excludeFailedEndpoint"`
 		*Alias
 	}{
 		Alias: (*Alias)(r),
@@ -300,6 +302,10 @@ func (r *RetryPolicy) UnmarshalJSON(data []byte) error {
 	}
 	if aux.IdleTimeoutCamel > 0 {
 		r.IdleTimeout = aux.IdleTimeoutCamel
+	}
+
+	if aux.ExcludeFailedEndpointCamel != nil {
+		r.ExcludeFailedEndpoint = aux.ExcludeFailedEndpointCamel
 	}
 
 	return nil

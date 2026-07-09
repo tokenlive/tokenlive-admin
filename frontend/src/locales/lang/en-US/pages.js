@@ -927,6 +927,9 @@ export default {
     'pages.invocation.form.retryPolicy.timeout.unit': 'ms',
     'pages.invocation.form.retryPolicy.timeout.tooltip':
         'Total timeout applies to both error and normal response requests',
+    'pages.invocation.form.retryPolicy.excludeFailedEndpoint': 'Exclude Failed Endpoint',
+    'pages.invocation.form.retryPolicy.excludeFailedEndpoint.tooltip':
+        'When enabled, retries will failover to other available endpoints; when disabled, retries will occur in-place on the same endpoint that failed (useful with session stickiness to protect caching)',
     'pages.invocation.form.errorCondition': 'Retry Error Condition',
     'pages.invocation.form.errorCondition.required': 'At least one of error codes or error messages is required!',
     'pages.invocation.form.errorCondition.tooltip':
