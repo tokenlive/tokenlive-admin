@@ -7,7 +7,7 @@
             <a-col
                 :xs="12"
                 :sm="8"
-                :md="4">
+                :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--blue"
                     :bordered="false">
@@ -21,7 +21,7 @@
             <a-col
                 :xs="12"
                 :sm="8"
-                :md="4">
+                :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--red"
                     :bordered="false">
@@ -35,7 +35,7 @@
             <a-col
                 :xs="12"
                 :sm="8"
-                :md="4">
+                :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--orange"
                     :bordered="false">
@@ -49,7 +49,7 @@
             <a-col
                 :xs="12"
                 :sm="8"
-                :md="4">
+                :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--purple"
                     :bordered="false">
@@ -63,7 +63,37 @@
             <a-col
                 :xs="12"
                 :sm="8"
-                :md="4">
+                :md="3">
+                <a-card
+                    class="ops-stat-card ops-stat-card--teal"
+                    :bordered="false">
+                    <div class="ops-stat-card__content">
+                        <div class="ops-stat-card__value">{{ stats.retry_error_count?.toLocaleString() || 0 }}</div>
+                        <div class="ops-stat-card__label">{{ $t('pages.ops.retry_error') }}</div>
+                    </div>
+                    <sync-outlined class="ops-stat-card__icon" />
+                </a-card>
+            </a-col>
+            <a-col
+                :xs="12"
+                :sm="8"
+                :md="3">
+                <a-card
+                    class="ops-stat-card ops-stat-card--rose"
+                    :bordered="false">
+                    <div class="ops-stat-card__content">
+                        <div class="ops-stat-card__value">
+                            {{ stats.circuit_breaker_error_count?.toLocaleString() || 0 }}
+                        </div>
+                        <div class="ops-stat-card__label">{{ $t('pages.ops.circuit_breaker_error') }}</div>
+                    </div>
+                    <stop-outlined class="ops-stat-card__icon" />
+                </a-card>
+            </a-col>
+            <a-col
+                :xs="12"
+                :sm="8"
+                :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--blue"
                     :bordered="false">
@@ -77,7 +107,7 @@
             <a-col
                 :xs="12"
                 :sm="8"
-                :md="4">
+                :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--cyan"
                     :bordered="false">
@@ -188,6 +218,10 @@
                         <a-select-option value="circuit_break">{{ $t('pages.ops.circuit_break') }}</a-select-option>
                         <a-select-option value="rate_limit">{{ $t('pages.ops.rate_limit') }}</a-select-option>
                         <a-select-option value="invocation_fail">{{ $t('pages.ops.invocation_fail') }}</a-select-option>
+                        <a-select-option value="retry_error">{{ $t('pages.ops.retry_error') }}</a-select-option>
+                        <a-select-option value="circuit_breaker_error">{{
+                            $t('pages.ops.circuit_breaker_error')
+                        }}</a-select-option>
                         <a-select-option value="model_failover">{{ $t('pages.ops.model_failover') }}</a-select-option>
                         <a-select-option value="endpoint_failover">{{
                             $t('pages.ops.endpoint_failover')
@@ -415,6 +449,7 @@ import {
     ThunderboltOutlined,
     CloseCircleOutlined,
     SyncOutlined,
+    StopOutlined,
     SwapOutlined,
     RetweetOutlined,
 } from '@ant-design/icons-vue'
@@ -547,6 +582,8 @@ const eventTypeName = (type) => {
         circuit_break: t('pages.ops.circuit_break'),
         rate_limit: t('pages.ops.rate_limit'),
         invocation_fail: t('pages.ops.invocation_fail'),
+        retry_error: t('pages.ops.retry_error'),
+        circuit_breaker_error: t('pages.ops.circuit_breaker_error'),
         model_failover: t('pages.ops.model_failover'),
         endpoint_failover: t('pages.ops.endpoint_failover'),
     }
@@ -558,6 +595,8 @@ const eventTypeColor = (type) => {
         circuit_break: opsChartPalette.error,
         rate_limit: opsChartPalette.warning,
         invocation_fail: opsChartPalette.strategy,
+        retry_error: opsChartPalette.retry,
+        circuit_breaker_error: opsChartPalette.circuitError,
         model_failover: opsChartPalette.system,
         endpoint_failover: opsChartPalette.traffic,
     }
@@ -704,6 +743,8 @@ const opsChartPalette = {
     warning: '#ffb020',
     error: '#ff4d5e',
     strategy: '#8b5cf6',
+    retry: '#06b6d4',
+    circuitError: '#e11d48',
 }
 
 function chartTextColor(isD, level = 'secondary') {
@@ -751,6 +792,8 @@ const trendChartOptions = computed(() => {
             opsChartPalette.error,
             opsChartPalette.warning,
             opsChartPalette.strategy,
+            opsChartPalette.retry,
+            opsChartPalette.circuitError,
             opsChartPalette.system,
             opsChartPalette.traffic,
         ],
@@ -766,6 +809,8 @@ const trendChartOptions = computed(() => {
                 t('pages.ops.circuit_break'),
                 t('pages.ops.rate_limit'),
                 t('pages.ops.invocation_fail'),
+                t('pages.ops.retry_error'),
+                t('pages.ops.circuit_breaker_error'),
                 t('pages.ops.model_failover'),
                 t('pages.ops.endpoint_failover'),
             ],
@@ -824,6 +869,26 @@ const trendChartOptions = computed(() => {
                 },
             },
             {
+                name: t('pages.ops.retry_error'),
+                type: 'line',
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 5,
+                data: trend.map((p) => p.retry_error || 0),
+                itemStyle: { color: opsChartPalette.retry },
+                lineStyle: { width: 2 },
+            },
+            {
+                name: t('pages.ops.circuit_breaker_error'),
+                type: 'line',
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 5,
+                data: trend.map((p) => p.circuit_breaker_error || 0),
+                itemStyle: { color: opsChartPalette.circuitError },
+                lineStyle: { width: 2 },
+            },
+            {
                 name: t('pages.ops.model_failover'),
                 type: 'line',
                 smooth: true,
@@ -854,6 +919,8 @@ const distributionChartOptions = computed(() => {
             opsChartPalette.error,
             opsChartPalette.warning,
             opsChartPalette.strategy,
+            opsChartPalette.retry,
+            opsChartPalette.circuitError,
             opsChartPalette.system,
             opsChartPalette.traffic,
         ],
@@ -891,6 +958,14 @@ const distributionChartOptions = computed(() => {
                     {
                         value: stats.value.invocation_fail_count || 0,
                         name: t('pages.ops.invocation_fail'),
+                    },
+                    {
+                        value: stats.value.retry_error_count || 0,
+                        name: t('pages.ops.retry_error'),
+                    },
+                    {
+                        value: stats.value.circuit_breaker_error_count || 0,
+                        name: t('pages.ops.circuit_breaker_error'),
                     },
                     {
                         value: stats.value.model_failover_count || 0,
@@ -1194,6 +1269,24 @@ onUnmounted(() => {
 
 .ops-stat-card--cyan::before {
     background: var(--ops-cyan);
+}
+
+.ops-stat-card--teal::before {
+    background: #06b6d4;
+}
+
+.ops-stat-card--teal .ops-stat-card__icon {
+    color: #06b6d4;
+    background: rgba(6, 182, 212, 0.12);
+}
+
+.ops-stat-card--rose::before {
+    background: #e11d48;
+}
+
+.ops-stat-card--rose .ops-stat-card__icon {
+    color: #e11d48;
+    background: rgba(225, 29, 72, 0.12);
 }
 
 .ops-stat-card :deep(.ant-card-body) {

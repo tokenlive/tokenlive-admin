@@ -1278,6 +1278,8 @@ export default {
     'pages.ops.circuit_break': '熔断触发',
     'pages.ops.rate_limit': '限流触发',
     'pages.ops.invocation_fail': '调用失败',
+    'pages.ops.retry_error': '重试错误记录',
+    'pages.ops.circuit_breaker_error': '熔断错误记录',
     'pages.ops.model_failover': '模型故障转移',
     'pages.ops.endpoint_failover': '端点故障转移',
     'pages.ops.trend.title': '事件趋势',

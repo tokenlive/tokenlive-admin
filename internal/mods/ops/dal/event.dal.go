@@ -130,6 +130,8 @@ func (a *EventLog) TrendByHour(ctx context.Context, startTime, endTime time.Time
 			SUM(CASE WHEN event_type = 'circuit_break' THEN 1 ELSE 0 END) as circuit_break,
 			SUM(CASE WHEN event_type = 'rate_limit' THEN 1 ELSE 0 END) as rate_limit,
 			SUM(CASE WHEN event_type = 'invocation_fail' THEN 1 ELSE 0 END) as invocation_fail,
+			SUM(CASE WHEN event_type = 'retry_error' THEN 1 ELSE 0 END) as retry_error,
+			SUM(CASE WHEN event_type = 'circuit_breaker_error' THEN 1 ELSE 0 END) as circuit_breaker_error,
 			SUM(CASE WHEN event_type = 'model_failover' THEN 1 ELSE 0 END) as model_failover,
 			SUM(CASE WHEN event_type = 'endpoint_failover' THEN 1 ELSE 0 END) as endpoint_failover`).
 		Where("event_time >= ? AND event_time <= ?", startTime, endTime).
@@ -147,6 +149,8 @@ func (a *EventLog) TrendByDay(ctx context.Context, startTime, endTime time.Time)
 			SUM(CASE WHEN event_type = 'circuit_break' THEN 1 ELSE 0 END) as circuit_break,
 			SUM(CASE WHEN event_type = 'rate_limit' THEN 1 ELSE 0 END) as rate_limit,
 			SUM(CASE WHEN event_type = 'invocation_fail' THEN 1 ELSE 0 END) as invocation_fail,
+			SUM(CASE WHEN event_type = 'retry_error' THEN 1 ELSE 0 END) as retry_error,
+			SUM(CASE WHEN event_type = 'circuit_breaker_error' THEN 1 ELSE 0 END) as circuit_breaker_error,
 			SUM(CASE WHEN event_type = 'model_failover' THEN 1 ELSE 0 END) as model_failover,
 			SUM(CASE WHEN event_type = 'endpoint_failover' THEN 1 ELSE 0 END) as endpoint_failover`).
 		Where("event_time >= ? AND event_time <= ?", startTime, endTime).
