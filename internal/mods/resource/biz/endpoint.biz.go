@@ -570,6 +570,11 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 		if protocol == "anthropic" {
 			req.Header.Set("x-api-key", apiKey)
 			req.Header.Set("anthropic-version", "2023-06-01")
+			// 如果是非官方 Anthropic 域名且 apiKey 不为空，则自动补充 Authorization: Bearer <key>
+			// 以兼容类似于商汤(Sensenova)等使用 Anthropic 协议但采用 OpenAI 鉴权机制的第三方提供商
+			if !strings.Contains(url, "anthropic.com") {
+				req.Header.Set("Authorization", "Bearer "+apiKey)
+			}
 		} else {
 			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
