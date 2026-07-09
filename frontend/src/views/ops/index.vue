@@ -327,7 +327,7 @@
                                 v-if="record.policy_id">
                                 <a-typography-text
                                     class="ops-expanded-code"
-                                    copyable
+                                    :copyable="getCopyableConfig(record.policy_id)"
                                     :ellipsis="{ tooltip: true }">
                                     {{ record.policy_id }}
                                 </a-typography-text>
@@ -337,7 +337,7 @@
                                 v-if="record.endpoint_code">
                                 <a-typography-text
                                     class="ops-expanded-code"
-                                    copyable
+                                    :copyable="getCopyableConfig(record.endpoint_code)"
                                     :ellipsis="{ tooltip: true }">
                                     {{ record.endpoint_code }}
                                 </a-typography-text>
@@ -347,7 +347,7 @@
                                 v-if="record.endpoint_id">
                                 <a-typography-text
                                     class="ops-expanded-code"
-                                    copyable
+                                    :copyable="getCopyableConfig(record.endpoint_id)"
                                     :ellipsis="{ tooltip: true }">
                                     {{ record.endpoint_id }}
                                 </a-typography-text>
@@ -357,7 +357,7 @@
                                 v-if="record.request_id">
                                 <a-typography-text
                                     class="ops-expanded-code"
-                                    copyable
+                                    :copyable="getCopyableConfig(record.request_id)"
                                     :ellipsis="{ tooltip: true }">
                                     {{ record.request_id }}
                                 </a-typography-text>
@@ -367,7 +367,7 @@
                                 v-if="record.trace_id">
                                 <a-typography-text
                                     class="ops-expanded-code"
-                                    copyable
+                                    :copyable="getCopyableConfig(record.trace_id)"
                                     :ellipsis="{ tooltip: true }">
                                     {{ record.trace_id }}
                                 </a-typography-text>
@@ -608,6 +608,11 @@ const formatTime = (val) => {
     const d = new Date(val)
     return d.toLocaleString()
 }
+
+const getCopyableConfig = (text) => ({
+    text: text == null ? '' : String(text),
+    onCopy: () => message.success(t('component.message.success.copy')),
+})
 
 // Data fetching
 const fetchData = async () => {
