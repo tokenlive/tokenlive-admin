@@ -180,7 +180,7 @@ func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem 
 	if apiKey == "" {
 		keys := provider.GetApiKeys()
 		if len(keys) > 0 {
-			apiKey = keys[0]
+			apiKey = keys[0].Value
 		}
 	}
 

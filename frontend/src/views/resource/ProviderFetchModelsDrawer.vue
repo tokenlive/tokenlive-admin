@@ -142,9 +142,9 @@ const providerId = ref('')
 const providerApiKeys = ref([])
 
 const apiKeyOptions = computed(() => {
-    return providerApiKeys.value.map((key) => ({
-        value: key,
-        label: maskKey(key),
+    return providerApiKeys.value.map((item) => ({
+        value: item.value,
+        label: maskKey(item.value),
     }))
 })
 
@@ -261,7 +261,7 @@ function handleConfirm() {
         space_code: formData.value.space_code,
         base_url: formData.value.base_url,
         api_key: formData.value.api_key,
-        api_keys: providerApiKeys.value,
+        api_keys: providerApiKeys.value.map((item) => item.value),
         models: selectedModels.value.map((id) => {
             const model = modelList.value.find((m) => m.id === id)
             return {
@@ -277,7 +277,7 @@ function handleOpen(record) {
     providerId.value = record.id
     providerApiKeys.value = Array.isArray(record.api_keys) ? cloneDeep(record.api_keys) : []
     const defaultBaseUrl = record.url || ''
-    const defaultApiKey = providerApiKeys.value.length > 0 ? providerApiKeys.value[0] : undefined
+    const defaultApiKey = providerApiKeys.value.length > 0 ? providerApiKeys.value[0].value : undefined
     formData.value = {
         space_code: undefined,
         base_url: defaultBaseUrl,

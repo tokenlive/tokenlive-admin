@@ -52,15 +52,21 @@ type ProviderQueryResult struct {
 // Providers defines a slice of Provider.
 type Providers []*Provider
 
+// ApiKeyItem represents a single API key with optional description.
+type ApiKeyItem struct {
+	Value       string `json:"value"`
+	Description string `json:"description"`
+}
+
 // ProviderForm defines the form for creating/updating a Provider.
 type ProviderForm struct {
-	Code        string   `json:"code" binding:"required,max=128"`    // Provider unique code
-	Name        string   `json:"name" binding:"required,max=128"`    // Provider display name
-	Protocol    string   `json:"protocol" binding:"required,max=64"` // Protocol type: openai / anthropic / ...
-	URL         string   `json:"url"`                                // Provider API base URL
-	ApiKeys     []string `json:"api_keys"`                           // Upstream API key list
-	Enabled     int      `json:"enabled"`                            // Enable status: 0-disabled, 1-enabled
-	Description string   `json:"description"`                        // Description
+	Code        string       `json:"code" binding:"required,max=128"`    // Provider unique code
+	Name        string       `json:"name" binding:"required,max=128"`    // Provider display name
+	Protocol    string       `json:"protocol" binding:"required,max=64"` // Protocol type: openai / anthropic / ...
+	URL         string       `json:"url"`                                // Provider API base URL
+	ApiKeys     []ApiKeyItem `json:"api_keys"`                           // Upstream API key list
+	Enabled     int          `json:"enabled"`                            // Enable status: 0-disabled, 1-enabled
+	Description string       `json:"description"`                        // Description
 }
 
 func (p *ProviderForm) Validate() error {
@@ -83,12 +89,12 @@ func (p *ProviderForm) FillTo(provider *Provider) error {
 	return nil
 }
 
-// GetApiKeys deserializes the JSON api_keys field into a string slice.
-func (p *Provider) GetApiKeys() []string {
+// GetApiKeys deserializes the JSON api_keys field into an ApiKeyItem slice.
+func (p *Provider) GetApiKeys() []ApiKeyItem {
 	if len(p.ApiKeys) == 0 {
 		return nil
 	}
-	var keys []string
+	var keys []ApiKeyItem
 	_ = json.Unmarshal(p.ApiKeys, &keys)
 	return keys
 }

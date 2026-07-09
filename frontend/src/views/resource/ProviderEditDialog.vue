@@ -75,16 +75,20 @@
                 :label="$t('pages.provider.form.api_keys')"
                 name="api_keys">
                 <div
-                    v-for="(key, index) in formData.api_keys"
+                    v-for="(item, index) in formData.api_keys"
                     :key="index"
-                    style="display: flex; align-items: center; margin-bottom: 8px">
+                    style="display: flex; align-items: center; margin-bottom: 8px; gap: 8px">
                     <a-input-password
-                        v-model:value="formData.api_keys[index]"
+                        v-model:value="formData.api_keys[index].value"
                         :placeholder="$t('pages.provider.form.api_keys.placeholder')"
-                        style="flex: 1; margin-right: 8px" />
+                        style="flex: 2" />
+                    <a-input
+                        v-model:value="formData.api_keys[index].description"
+                        :placeholder="$t('pages.provider.form.api_keys.description_placeholder', '备注')"
+                        style="flex: 1" />
                     <minus-circle-outlined
                         @click="removeApiKey(index)"
-                        style="color: #ff4d4f; cursor: pointer" />
+                        style="color: #ff4d4f; cursor: pointer; flex-shrink: 0" />
                 </div>
                 <a-button
                     type="dashed"
@@ -133,7 +137,7 @@ function addApiKey() {
     if (!formData.value.api_keys) {
         formData.value.api_keys = []
     }
-    formData.value.api_keys.push('')
+    formData.value.api_keys.push({ value: '', description: '' })
 }
 
 function removeApiKey(index) {
@@ -164,7 +168,7 @@ async function handleEdit(record = {}) {
     formRecord.value = data
     formData.value = cloneDeep(data)
     if (!Array.isArray(formData.value.api_keys)) {
-        formData.value.api_keys = formData.value.api_keys ? [formData.value.api_keys] : []
+        formData.value.api_keys = []
     }
 }
 

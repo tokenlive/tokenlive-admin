@@ -165,7 +165,7 @@ func (s *GatewaySync) GetGatewayConfig(ctx context.Context, modelCode string) (*
 			apiKeys := ep.Provider.GetApiKeys()
 			var primaryKey string
 			if len(apiKeys) > 0 {
-				primaryKey = apiKeys[0]
+				primaryKey = apiKeys[0].Value
 			}
 			providersMap[providerName] = ProviderConfig{
 				Protocol:   ep.Provider.Protocol,

@@ -465,7 +465,7 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 	if apiKey == "" {
 		keys := provider.GetApiKeys()
 		if len(keys) > 0 {
-			apiKey = keys[0]
+			apiKey = keys[0].Value
 		}
 	}
 

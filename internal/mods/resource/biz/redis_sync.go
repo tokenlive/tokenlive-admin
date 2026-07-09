@@ -111,7 +111,10 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 			if ep.ApiKey != "" {
 				apiKeys = []string{ep.ApiKey}
 			} else {
-				apiKeys = ep.Provider.GetApiKeys()
+				items := ep.Provider.GetApiKeys()
+				for _, item := range items {
+					apiKeys = append(apiKeys, item.Value)
+				}
 			}
 			if len(apiKeys) == 0 {
 				apiKeys = []string{""}

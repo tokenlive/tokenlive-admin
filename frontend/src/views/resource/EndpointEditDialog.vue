@@ -380,17 +380,9 @@ async function handleCopy(record = {}) {
     })
     const copiedData = cloneDeep(record)
     delete copiedData.id
-    delete copiedData.code
     delete copiedData.created_at
     delete copiedData.updated_at
     delete copiedData.status_points
-    // 供应商详情页:保留 api_key,清空 real_model
-    // 模型详情页:清空 api_key,保留 real_model
-    if (props.providerId) {
-        delete copiedData.real_model
-    } else {
-        delete copiedData.api_key
-    }
 
     formData.value = copiedData
     metadataList.value = jsonToMetadata(record.metadata)
@@ -411,23 +403,29 @@ function handleOk() {
                 let result = null
                 switch (modal.value.type) {
                     case 'create':
-                        result = await apis.endpoint.createEndpoint(params).catch(() => {
-                            throw new Error()
+                        result = await apis.endpoint.createEndpoint(params).catch((err) => {
+                            throw err
                         })
                         break
                     case 'edit':
-                        result = await apis.endpoint.updateEndpoint(formData.value.id, params).catch(() => {
-                            throw new Error()
+                        result = await apis.endpoint.updateEndpoint(formData.value.id, params).catch((err) => {
+                            throw err
                         })
                         break
                 }
                 hideLoading()
                 if (config('http.code.success') === result?.success) {
                     hideModal()
+                    message.success(t('component.message.success.save'))
                     emit('ok')
+                } else {
+                    message.error(result?.error?.detail || t('component.message.error.save'))
                 }
             } catch (error) {
                 hideLoading()
+                const errMsg =
+                    error.response?.data?.error?.detail || error.message || t('component.message.error.request')
+                message.error(errMsg)
             }
         })
         .catch(() => {
