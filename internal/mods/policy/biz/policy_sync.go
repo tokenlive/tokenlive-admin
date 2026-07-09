@@ -192,7 +192,13 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		len(policyAgg.TaggingPolicies) == 0 {
 
 		action = "hdel_empty_policy"
-		return s.RedisClient.HDel(ctx, redisKey, redisField).Err()
+		err := s.RedisClient.HDel(ctx, redisKey, redisField).Err()
+		if err == nil {
+			if pubErr := s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err(); pubErr != nil {
+				policyRedisSyncLogger(ctx).Warn("Failed to publish policy update notification to redis channel", zap.Error(pubErr))
+			}
+		}
+		return err
 	}
 
 	// 序列化为 JSON
@@ -202,7 +208,13 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 	}
 
 	action = "hset_policy"
-	return s.RedisClient.HSet(ctx, redisKey, redisField, string(jsonData)).Err()
+	err = s.RedisClient.HSet(ctx, redisKey, redisField, string(jsonData)).Err()
+	if err == nil {
+		if pubErr := s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err(); pubErr != nil {
+			policyRedisSyncLogger(ctx).Warn("Failed to publish policy update notification to redis channel", zap.Error(pubErr))
+		}
+	}
+	return err
 }
 
 // SyncPolicyChange 当某个具体的策略配置变更时，同步该策略对应的维度
