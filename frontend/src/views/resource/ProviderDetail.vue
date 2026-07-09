@@ -318,7 +318,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive, h } from 'vue'
+import { ref, onMounted, reactive, h, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { message, Modal, Radio } from 'ant-design-vue'
 import {
@@ -486,6 +486,29 @@ onMounted(() => {
     loadEndpointList()
     loadMemberList()
 })
+
+watch(
+    () => route.params.id,
+    (newId) => {
+        if (newId && route.name === 'providerDetail') {
+            providerId.value = newId
+            // 重置状态以防残留旧数据
+            providerData.value = {}
+            endpointListData.value = []
+            memberListData.value = []
+
+            endpointPagination.current = 1
+            memberPagination.current = 1
+
+            // 重新加载
+            loadProviderDetail()
+            loadModelOptions()
+            loadProviderOptions()
+            loadEndpointList()
+            loadMemberList()
+        }
+    }
+)
 
 // 供应商编辑
 function handleEditProvider() {

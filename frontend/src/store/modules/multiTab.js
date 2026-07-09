@@ -21,6 +21,26 @@ const useMultiTabStore = defineStore('multiTab', {
          * @param {object} route
          */
         open({ route } = {}) {
+            // 针对模型详情页和供应商详情页，只保留一个开启的状态
+            const uniqueNames = ['modelDetail', 'providerDetail']
+            if (uniqueNames.includes(route?.name)) {
+                const oldIndex = findIndex(this.list, { name: route.name })
+                if (oldIndex > -1) {
+                    const oldRoute = this.list[oldIndex]
+                    if (oldRoute.path !== route.path) {
+                        // 替换旧的详情页为新的详情页
+                        this._setList({
+                            index: oldIndex,
+                            length: 1,
+                            value: route,
+                        })
+                        this._setCurrent(oldIndex)
+                        this._setIframeList()
+                        return
+                    }
+                }
+            }
+
             const index = findIndex(this.list, { path: route?.path })
             // 判断是否已存在
             if (index > -1) {

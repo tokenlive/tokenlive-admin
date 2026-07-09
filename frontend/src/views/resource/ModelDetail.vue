@@ -603,7 +603,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive, computed } from 'vue'
+import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import {
@@ -936,6 +936,43 @@ onMounted(() => {
     loadModelPolicies()
     loadSpaceOptions()
 })
+
+watch(
+    () => route.params.id,
+    (newId) => {
+        if (newId && route.name === 'modelDetail') {
+            modelId.value = newId
+            // 重置状态以防残留旧数据
+            modelData.value = {}
+            aliasListData.value = []
+            modelPoliciesMap.value = {
+                tagging: [],
+                loadbalance: [],
+                route: [],
+                limit: [],
+                circuit_break: [],
+                invocation: [],
+            }
+            endpointListData.value = []
+            memberListData.value = []
+
+            aliasPagination.current = 1
+            policyPagination.current = 1
+            endpointPagination.current = 1
+            memberPagination.current = 1
+
+            // 重新加载
+            loadModelDetail()
+            loadAliasList()
+            loadModelOptions()
+            loadProviderOptions()
+            loadEndpointList()
+            loadMemberList()
+            loadModelPolicies()
+            loadSpaceOptions()
+        }
+    }
+)
 
 const endpointFilterProviderId = ref(undefined)
 const endpointFilterEnabled = ref(undefined)
