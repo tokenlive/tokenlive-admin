@@ -83,6 +83,20 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		return nil
 	}
 
+	// 取消跨模型全局策略（模板）同步（只保留 model_id 有值的具体模型专属策略同步）
+	if modelCode == "" || modelCode == "*" {
+		if s.RedisClient != nil && redisKey != "" && redisField != "" {
+			_ = s.RedisClient.HDel(ctx, redisKey, redisField).Err()
+			if redisField == "*" {
+				_ = s.RedisClient.Del(ctx, redisKey).Err()
+			}
+			util.ClearGatewayConfigCache()
+			_ = s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err()
+		}
+		action = "skip_template_cleanup"
+		return nil
+	}
+
 	// 多表级联聚合策略
 	policyAgg := &schema.Policy{}
 
@@ -194,6 +208,7 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		action = "hdel_empty_policy"
 		err := s.RedisClient.HDel(ctx, redisKey, redisField).Err()
 		if err == nil {
+			util.ClearGatewayConfigCache()
 			if pubErr := s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err(); pubErr != nil {
 				policyRedisSyncLogger(ctx).Warn("Failed to publish policy update notification to redis channel", zap.Error(pubErr))
 			}
@@ -210,6 +225,7 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 	action = "hset_policy"
 	err = s.RedisClient.HSet(ctx, redisKey, redisField, string(jsonData)).Err()
 	if err == nil {
+		util.ClearGatewayConfigCache()
 		if pubErr := s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err(); pubErr != nil {
 			policyRedisSyncLogger(ctx).Warn("Failed to publish policy update notification to redis channel", zap.Error(pubErr))
 		}

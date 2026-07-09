@@ -37,6 +37,10 @@ func getGatewayConfigCache() *cache.Cache {
 	return gatewayConfigCache
 }
 
+func init() {
+	util.ClearGatewayConfigCacheFunc = ClearGatewayConfigCache
+}
+
 // ClearGatewayConfigCache 主动清除所有网关缓存项
 func ClearGatewayConfigCache() {
 	getGatewayConfigCache().Flush()
@@ -272,7 +276,7 @@ func (s *GatewaySync) GetGatewayPolicies(ctx context.Context, modelCode string) 
 
 	// 1. loadbalance
 	var lbs []policySchema.PolicyLoadbalance
-	_ = db.Table(config.C.FormatTableName("policy_loadbalance")).Where("enabled = 1 AND deleted = '0'").Find(&lbs)
+	_ = db.Table(config.C.FormatTableName("policy_loadbalance")).Where("enabled = 1 AND deleted = '0' AND model_id IS NOT NULL AND model_id != ''").Find(&lbs)
 	sort.Slice(lbs, func(i, j int) bool {
 		if lbs[i].Priority != lbs[j].Priority {
 			return lbs[i].Priority < lbs[j].Priority
@@ -299,7 +303,7 @@ func (s *GatewaySync) GetGatewayPolicies(ctx context.Context, modelCode string) 
 
 	// 2. invocation
 	var invocations []policySchema.PolicyInvocation
-	_ = db.Table(config.C.FormatTableName("policy_invocation")).Where("enabled = 1 AND deleted = '0'").Find(&invocations)
+	_ = db.Table(config.C.FormatTableName("policy_invocation")).Where("enabled = 1 AND deleted = '0' AND model_id IS NOT NULL AND model_id != ''").Find(&invocations)
 	sort.Slice(invocations, func(i, j int) bool {
 		if invocations[i].Priority != invocations[j].Priority {
 			return invocations[i].Priority < invocations[j].Priority
@@ -326,7 +330,7 @@ func (s *GatewaySync) GetGatewayPolicies(ctx context.Context, modelCode string) 
 
 	// 3. limit
 	var limits []policySchema.PolicyLimit
-	_ = db.Table(config.C.FormatTableName("policy_limit")).Where("enabled = 1 AND deleted = '0'").Find(&limits)
+	_ = db.Table(config.C.FormatTableName("policy_limit")).Where("enabled = 1 AND deleted = '0' AND model_id IS NOT NULL AND model_id != ''").Find(&limits)
 	sort.Slice(limits, func(i, j int) bool {
 		if limits[i].Priority != limits[j].Priority {
 			return limits[i].Priority < limits[j].Priority
@@ -351,7 +355,7 @@ func (s *GatewaySync) GetGatewayPolicies(ctx context.Context, modelCode string) 
 
 	// 4. circuit_break
 	var cbs []policySchema.PolicyCircuitBreak
-	_ = db.Table(config.C.FormatTableName("policy_circuit_break")).Where("enabled = 1 AND deleted = '0'").Find(&cbs)
+	_ = db.Table(config.C.FormatTableName("policy_circuit_break")).Where("enabled = 1 AND deleted = '0' AND model_id IS NOT NULL AND model_id != ''").Find(&cbs)
 	sort.Slice(cbs, func(i, j int) bool {
 		if cbs[i].Priority != cbs[j].Priority {
 			return cbs[i].Priority < cbs[j].Priority
@@ -376,7 +380,7 @@ func (s *GatewaySync) GetGatewayPolicies(ctx context.Context, modelCode string) 
 
 	// 5. tagging
 	var taggings []policySchema.PolicyTagging
-	_ = db.Table(config.C.FormatTableName("policy_tagging")).Where("enabled = 1 AND deleted = '0'").Find(&taggings)
+	_ = db.Table(config.C.FormatTableName("policy_tagging")).Where("enabled = 1 AND deleted = '0' AND model_id IS NOT NULL AND model_id != ''").Find(&taggings)
 	sort.Slice(taggings, func(i, j int) bool {
 		if taggings[i].Priority != taggings[j].Priority {
 			return taggings[i].Priority < taggings[j].Priority
@@ -401,7 +405,7 @@ func (s *GatewaySync) GetGatewayPolicies(ctx context.Context, modelCode string) 
 
 	// 6. route
 	var routes []policySchema.PolicyRoute
-	_ = db.Table(config.C.FormatTableName("policy_route")).Preload("Details").Where("enabled = 1 AND deleted = '0'").Find(&routes)
+	_ = db.Table(config.C.FormatTableName("policy_route")).Preload("Details").Where("enabled = 1 AND deleted = '0' AND model_id IS NOT NULL AND model_id != ''").Find(&routes)
 	sort.Slice(routes, func(i, j int) bool {
 		if routes[i].Priority != routes[j].Priority {
 			return routes[i].Priority < routes[j].Priority

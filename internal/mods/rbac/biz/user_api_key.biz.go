@@ -219,6 +219,7 @@ func (a *UserAPIKey) Delete(ctx context.Context, id string) error {
 
 	// 逻辑删除时直接从 Redis 清除 Key
 	if a.RedisClient != nil {
+		util.ClearGatewayConfigCache()
 		_ = a.RedisClient.Del(ctx, apiKeyRuntimeRedisKeys(apiKey.APIKey)...).Err()
 		_ = a.RedisClient.Publish(ctx, "aigw:channel:apikey_update", "purge").Err()
 	}
@@ -256,6 +257,7 @@ func (a *UserAPIKey) syncToRedis(ctx context.Context, apiKey *schema.UserAPIKey)
 
 	// 逻辑删除或者已删除，直接清除 Redis 缓存
 	if apiKey.Deleted != "0" {
+		util.ClearGatewayConfigCache()
 		err := a.RedisClient.Del(ctx, apiKeyRuntimeRedisKeys(apiKey.APIKey)...).Err()
 		if err == nil {
 			_ = a.RedisClient.Publish(ctx, "aigw:channel:apikey_update", "purge").Err()
@@ -287,6 +289,7 @@ func (a *UserAPIKey) syncToRedis(ctx context.Context, apiKey *schema.UserAPIKey)
 	if err := a.RedisClient.HSet(ctx, redisKey, fields).Err(); err != nil {
 		return err
 	}
+	util.ClearGatewayConfigCache()
 	_ = a.RedisClient.Publish(ctx, "aigw:channel:apikey_update", "purge").Err()
 	return nil
 }

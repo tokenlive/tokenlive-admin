@@ -296,7 +296,11 @@ func (s *ConfigRedisSync) SyncAlias(ctx context.Context, alias string, modelCode
 
 	// 2. 反向索引：modelCode → Set[aliases]
 	reverseKey := RedisKeyConfigModelAliasesPrefix + modelCode
-	return s.RedisClient.SAdd(ctx, reverseKey, alias).Err()
+	err := s.RedisClient.SAdd(ctx, reverseKey, alias).Err()
+	if err == nil {
+		ClearGatewayConfigCache()
+	}
+	return err
 }
 
 // DeleteAlias removes a single alias mapping from Redis and updates the reverse index.
@@ -315,7 +319,11 @@ func (s *ConfigRedisSync) DeleteAlias(ctx context.Context, alias string) error {
 	}
 
 	// 3. 删除正向映射
-	return s.RedisClient.Del(ctx, key).Err()
+	err = s.RedisClient.Del(ctx, key).Err()
+	if err == nil {
+		ClearGatewayConfigCache()
+	}
+	return err
 }
 
 // SyncAliasesByModelId re-syncs all aliases for a given model ID to Redis.
@@ -409,7 +417,11 @@ func (s *ConfigRedisSync) incrementVersion(ctx context.Context, modelCode string
 	if s.RedisClient == nil {
 		return nil
 	}
-	return s.RedisClient.HIncrBy(ctx, RedisKeyConfigModelVersions, modelCode, 1).Err()
+	err := s.RedisClient.HIncrBy(ctx, RedisKeyConfigModelVersions, modelCode, 1).Err()
+	if err == nil {
+		ClearGatewayConfigCache()
+	}
+	return err
 }
 
 func (s *ConfigRedisSync) queryResolvedEndpointsByCode(ctx context.Context, modelCode string) (schema.Endpoints, error) {
@@ -875,6 +887,7 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 		}
 	}
 
+	ClearGatewayConfigCache()
 	return nil
 }
 
