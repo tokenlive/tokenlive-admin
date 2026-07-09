@@ -40,6 +40,9 @@ func (e *Endpoint) Query(ctx context.Context, params schema.EndpointQueryParam, 
 	if v := params.LikeURL; len(v) > 0 {
 		db = db.Where("url LIKE ?", "%"+v+"%")
 	}
+	if v := params.Enabled; v != nil {
+		db = db.Where("enabled = ?", *v)
+	}
 
 	var list schema.Endpoints
 	pageResult, err := util.WrapPageQuery(ctx, db, params.PaginationParam, opt.QueryOptions, &list)

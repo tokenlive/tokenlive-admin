@@ -386,6 +386,7 @@ export default {
     'pages.endpoint.delTip': 'Are you sure you want to delete this endpoint?',
     'pages.endpoint.recent_status': 'Recent Status',
     'pages.endpoint.filter.provider': 'Select a provider',
+    'pages.endpoint.filter.status': 'Select status',
     'pages.endpoint.form.provider_id': 'Provider',
     'pages.endpoint.form.provider_id.placeholder': 'Please select a provider',
     'pages.endpoint.form.provider_id.required': 'Provider is required!',

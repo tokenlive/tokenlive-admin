@@ -140,7 +140,7 @@
                         <a-select
                             v-model:value="endpointFilterProviderId"
                             :placeholder="$t('pages.endpoint.filter.provider')"
-                            style="width: 200px"
+                            style="width: 200px; margin-right: 8px"
                             allow-clear
                             show-search
                             :filter-option="filterProviderOption"
@@ -150,6 +150,19 @@
                                 :key="p.id"
                                 :value="p.id">
                                 {{ p.name }}
+                            </a-select-option>
+                        </a-select>
+                        <a-select
+                            v-model:value="endpointFilterEnabled"
+                            :placeholder="$t('pages.endpoint.filter.status')"
+                            style="width: 150px; margin-right: 8px"
+                            allow-clear
+                            @change="handleEndpointFilterChange">
+                            <a-select-option :value="1">
+                                {{ $t('pages.endpoint.form.enabled.active') }}
+                            </a-select-option>
+                            <a-select-option :value="0">
+                                {{ $t('pages.endpoint.form.enabled.inactive') }}
                             </a-select-option>
                         </a-select>
                         <a-button @click="loadEndpointList">
@@ -925,6 +938,7 @@ onMounted(() => {
 })
 
 const endpointFilterProviderId = ref(undefined)
+const endpointFilterEnabled = ref(undefined)
 
 function handleEndpointFilterChange() {
     endpointPagination.current = 1
@@ -1291,6 +1305,7 @@ async function loadEndpointList() {
                 current: endpointPagination.current,
                 model_id: modelId.value,
                 provider_id: endpointFilterProviderId.value || undefined,
+                enabled: endpointFilterEnabled.value !== undefined ? endpointFilterEnabled.value : undefined,
             })
             .catch(() => {
                 throw new Error()

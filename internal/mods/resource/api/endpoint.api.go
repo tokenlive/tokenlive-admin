@@ -20,6 +20,7 @@ type Endpoint struct {
 // @Param pageSize query int true "pagination size" default(10)
 // @Param provider_id query string false "Provider ID"
 // @Param url query string false "URL (like)"
+// @Param enabled query int false "Enabled status (0: disabled, 1: enabled)"
 // @Success 200 {object} util.ResponseResult{data=[]schema.Endpoint}
 // @Failure 401 {object} util.ResponseResult
 // @Failure 500 {object} util.ResponseResult

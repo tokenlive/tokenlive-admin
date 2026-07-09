@@ -377,6 +377,7 @@ export default {
     'pages.endpoint.delTip': '确定删除该端点吗？',
     'pages.endpoint.recent_status': '最近使用状态',
     'pages.endpoint.filter.provider': '请选择供应商',
+    'pages.endpoint.filter.status': '请选择状态',
     'pages.endpoint.form.provider_id': '供应商',
     'pages.endpoint.form.provider_id.placeholder': '请选择供应商',
     'pages.endpoint.form.provider_id.required': '供应商是必填项！',

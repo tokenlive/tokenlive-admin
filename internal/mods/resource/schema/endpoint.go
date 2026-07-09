@@ -55,6 +55,7 @@ type EndpointQueryParam struct {
 	ModelID    string `form:"model_id"`    // Filter by model ID
 	LikeURL    string `form:"url"`         // URL (like)
 	Priority   int    `form:"priority"`    // Filter by priority
+	Enabled    *int   `form:"enabled"`     // Filter by enabled status
 }
 
 // EndpointQueryOptions defines the query options for Endpoint.
