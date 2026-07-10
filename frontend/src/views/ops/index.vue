@@ -10,7 +10,9 @@
                 :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--blue"
-                    :bordered="false">
+                    :class="{ 'ops-stat-card--active': !filterForm.event_type }"
+                    :bordered="false"
+                    @click="handleCardClick(undefined)">
                     <div class="ops-stat-card__content">
                         <div class="ops-stat-card__value">{{ stats.total_events?.toLocaleString() || 0 }}</div>
                         <div class="ops-stat-card__label">{{ $t('pages.ops.total_events') }}</div>
@@ -24,7 +26,9 @@
                 :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--red"
-                    :bordered="false">
+                    :class="{ 'ops-stat-card--active': filterForm.event_type === 'circuit_break' }"
+                    :bordered="false"
+                    @click="handleCardClick('circuit_break')">
                     <div class="ops-stat-card__content">
                         <div class="ops-stat-card__value">{{ stats.circuit_break_count?.toLocaleString() || 0 }}</div>
                         <div class="ops-stat-card__label">{{ $t('pages.ops.circuit_break') }}</div>
@@ -38,7 +42,9 @@
                 :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--orange"
-                    :bordered="false">
+                    :class="{ 'ops-stat-card--active': filterForm.event_type === 'rate_limit' }"
+                    :bordered="false"
+                    @click="handleCardClick('rate_limit')">
                     <div class="ops-stat-card__content">
                         <div class="ops-stat-card__value">{{ stats.rate_limit_count?.toLocaleString() || 0 }}</div>
                         <div class="ops-stat-card__label">{{ $t('pages.ops.rate_limit') }}</div>
@@ -52,7 +58,9 @@
                 :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--purple"
-                    :bordered="false">
+                    :class="{ 'ops-stat-card--active': filterForm.event_type === 'invocation_fail' }"
+                    :bordered="false"
+                    @click="handleCardClick('invocation_fail')">
                     <div class="ops-stat-card__content">
                         <div class="ops-stat-card__value">{{ stats.invocation_fail_count?.toLocaleString() || 0 }}</div>
                         <div class="ops-stat-card__label">{{ $t('pages.ops.invocation_fail') }}</div>
@@ -66,7 +74,9 @@
                 :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--teal"
-                    :bordered="false">
+                    :class="{ 'ops-stat-card--active': filterForm.event_type === 'retry_error' }"
+                    :bordered="false"
+                    @click="handleCardClick('retry_error')">
                     <div class="ops-stat-card__content">
                         <div class="ops-stat-card__value">{{ stats.retry_error_count?.toLocaleString() || 0 }}</div>
                         <div class="ops-stat-card__label">{{ $t('pages.ops.retry_error') }}</div>
@@ -80,7 +90,9 @@
                 :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--rose"
-                    :bordered="false">
+                    :class="{ 'ops-stat-card--active': filterForm.event_type === 'circuit_breaker_error' }"
+                    :bordered="false"
+                    @click="handleCardClick('circuit_breaker_error')">
                     <div class="ops-stat-card__content">
                         <div class="ops-stat-card__value">
                             {{ stats.circuit_breaker_error_count?.toLocaleString() || 0 }}
@@ -96,7 +108,9 @@
                 :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--blue"
-                    :bordered="false">
+                    :class="{ 'ops-stat-card--active': filterForm.event_type === 'model_failover' }"
+                    :bordered="false"
+                    @click="handleCardClick('model_failover')">
                     <div class="ops-stat-card__content">
                         <div class="ops-stat-card__value">{{ stats.model_failover_count?.toLocaleString() || 0 }}</div>
                         <div class="ops-stat-card__label">{{ $t('pages.ops.model_failover') }}</div>
@@ -110,7 +124,9 @@
                 :md="3">
                 <a-card
                     class="ops-stat-card ops-stat-card--cyan"
-                    :bordered="false">
+                    :class="{ 'ops-stat-card--active': filterForm.event_type === 'endpoint_failover' }"
+                    :bordered="false"
+                    @click="handleCardClick('endpoint_failover')">
                     <div class="ops-stat-card__content">
                         <div class="ops-stat-card__value">
                             {{ stats.endpoint_failover_count?.toLocaleString() || 0 }}
@@ -163,38 +179,6 @@
                     <x-chart
                         :options="distributionChartOptions"
                         height="320"
-                        :loading="loading" />
-                </a-card>
-            </a-col>
-        </a-row>
-
-        <!-- 第三行：租户排行 + 模型排行 -->
-        <a-row
-            :gutter="16"
-            style="margin-bottom: 16px">
-            <a-col
-                :xs="24"
-                :lg="12">
-                <a-card
-                    class="ops-panel"
-                    :title="$t('pages.ops.tenant_ranking')"
-                    :bordered="false">
-                    <x-chart
-                        :options="tenantRankingOptions"
-                        height="280"
-                        :loading="loading" />
-                </a-card>
-            </a-col>
-            <a-col
-                :xs="24"
-                :lg="12">
-                <a-card
-                    class="ops-panel"
-                    :title="$t('pages.ops.model_ranking')"
-                    :bordered="false">
-                    <x-chart
-                        :options="modelRankingOptions"
-                        height="280"
                         :loading="loading" />
                 </a-card>
             </a-col>
@@ -305,14 +289,81 @@
                     <template v-else-if="column.key === 'event_time'">
                         {{ formatTime(record.event_time) }}
                     </template>
+                    <template v-else-if="column.key === 'tenant_code'">
+                        <div
+                            class="ops-table-cell-interactive"
+                            v-if="record.tenant_code">
+                            <span class="ops-cell-text">{{ record.tenant_code }}</span>
+                            <a-tooltip :title="$t('pages.ops.table.track')">
+                                <a-button
+                                    type="link"
+                                    size="small"
+                                    class="ops-cell-filter-btn"
+                                    @click="handleFilterField('tenant_code', record.tenant_code)">
+                                    <template #icon><search-outlined /></template>
+                                </a-button>
+                            </a-tooltip>
+                        </div>
+                        <span v-else>--</span>
+                    </template>
                     <template v-else-if="column.key === 'model_code'">
-                        <a
-                            v-if="record.model_code && modelMap[record.model_code]"
-                            @click="goToModelDetail(record.model_code)"
-                            style="cursor: pointer">
-                            {{ record.model_code }}
-                        </a>
-                        <span v-else>{{ record.model_code || '--' }}</span>
+                        <div
+                            class="ops-table-cell-interactive"
+                            v-if="record.model_code">
+                            <span class="ops-cell-text">
+                                <a
+                                    v-if="modelMap[record.model_code]"
+                                    @click="goToModelDetail(record.model_code)"
+                                    style="cursor: pointer">
+                                    {{ record.model_code }}
+                                </a>
+                                <span v-else>{{ record.model_code }}</span>
+                            </span>
+                            <a-tooltip :title="$t('pages.ops.table.track')">
+                                <a-button
+                                    type="link"
+                                    size="small"
+                                    class="ops-cell-filter-btn"
+                                    @click="handleFilterField('model_code', record.model_code)">
+                                    <template #icon><search-outlined /></template>
+                                </a-button>
+                            </a-tooltip>
+                        </div>
+                        <span v-else>--</span>
+                    </template>
+                    <template v-else-if="column.key === 'endpoint_code'">
+                        <div
+                            class="ops-table-cell-interactive"
+                            v-if="record.endpoint_code">
+                            <span class="ops-cell-text">{{ record.endpoint_code }}</span>
+                            <a-tooltip :title="$t('pages.ops.table.track')">
+                                <a-button
+                                    type="link"
+                                    size="small"
+                                    class="ops-cell-filter-btn"
+                                    @click="handleFilterField('endpoint_code', record.endpoint_code)">
+                                    <template #icon><search-outlined /></template>
+                                </a-button>
+                            </a-tooltip>
+                        </div>
+                        <span v-else>--</span>
+                    </template>
+                    <template v-else-if="column.key === 'provider_name'">
+                        <div
+                            class="ops-table-cell-interactive"
+                            v-if="record.provider_name">
+                            <span class="ops-cell-text">{{ record.provider_name }}</span>
+                            <a-tooltip :title="$t('pages.ops.table.track')">
+                                <a-button
+                                    type="link"
+                                    size="small"
+                                    class="ops-cell-filter-btn"
+                                    @click="handleFilterField('provider_name', record.provider_name)">
+                                    <template #icon><search-outlined /></template>
+                                </a-button>
+                            </a-tooltip>
+                        </div>
+                        <span v-else>--</span>
                     </template>
                 </template>
                 <template #expandedRowRender="{ record }">
@@ -355,22 +406,46 @@
                             <a-descriptions-item
                                 :label="$t('pages.ops.table.request_id')"
                                 v-if="record.request_id">
-                                <a-typography-text
-                                    class="ops-expanded-code"
-                                    :copyable="getCopyableConfig(record.request_id)"
-                                    :ellipsis="{ tooltip: true }">
-                                    {{ record.request_id }}
-                                </a-typography-text>
+                                <div style="display: flex; align-items: center; gap: 8px; width: 100%">
+                                    <a-typography-text
+                                        class="ops-expanded-code"
+                                        style="flex: 1; min-width: 0"
+                                        :copyable="getCopyableConfig(record.request_id)"
+                                        :ellipsis="{ tooltip: true }">
+                                        {{ record.request_id }}
+                                    </a-typography-text>
+                                    <a-tooltip :title="$t('pages.ops.table.track')">
+                                        <a-button
+                                            type="link"
+                                            size="small"
+                                            style="padding: 0; height: auto"
+                                            @click="handleFilterField('request_id', record.request_id)">
+                                            <template #icon><search-outlined /></template>
+                                        </a-button>
+                                    </a-tooltip>
+                                </div>
                             </a-descriptions-item>
                             <a-descriptions-item
                                 :label="$t('pages.ops.table.trace_id')"
                                 v-if="record.trace_id">
-                                <a-typography-text
-                                    class="ops-expanded-code"
-                                    :copyable="getCopyableConfig(record.trace_id)"
-                                    :ellipsis="{ tooltip: true }">
-                                    {{ record.trace_id }}
-                                </a-typography-text>
+                                <div style="display: flex; align-items: center; gap: 8px; width: 100%">
+                                    <a-typography-text
+                                        class="ops-expanded-code"
+                                        style="flex: 1; min-width: 0"
+                                        :copyable="getCopyableConfig(record.trace_id)"
+                                        :ellipsis="{ tooltip: true }">
+                                        {{ record.trace_id }}
+                                    </a-typography-text>
+                                    <a-tooltip :title="$t('pages.ops.table.track')">
+                                        <a-button
+                                            type="link"
+                                            size="small"
+                                            style="padding: 0; height: auto"
+                                            @click="handleFilterField('trace_id', record.trace_id)">
+                                            <template #icon><search-outlined /></template>
+                                        </a-button>
+                                    </a-tooltip>
+                                </div>
                             </a-descriptions-item>
                             <a-descriptions-item
                                 :label="$t('pages.ops.table.threshold') + ' / ' + $t('pages.ops.table.current_value')"
@@ -452,6 +527,7 @@ import {
     StopOutlined,
     SwapOutlined,
     RetweetOutlined,
+    SearchOutlined,
 } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import apis from '@/apis'
@@ -569,10 +645,22 @@ let wsManualClose = false
 const columns = computed(() => [
     { title: t('pages.ops.table.time'), key: 'event_time', dataIndex: 'event_time', width: 140 },
     { title: t('pages.ops.table.type'), key: 'event_type', dataIndex: 'event_type', width: 80 },
-    { title: t('pages.ops.table.tenant'), dataIndex: 'tenant_code', width: 70, ellipsis: true },
+    { title: t('pages.ops.table.tenant'), key: 'tenant_code', dataIndex: 'tenant_code', width: 70, ellipsis: true },
     { title: t('pages.ops.table.model'), key: 'model_code', dataIndex: 'model_code', width: 120, ellipsis: true },
-    { title: t('pages.ops.table.endpoint_code'), dataIndex: 'endpoint_code', width: 120, ellipsis: true },
-    { title: t('pages.ops.table.provider'), dataIndex: 'provider_name', width: 120, ellipsis: true },
+    {
+        title: t('pages.ops.table.endpoint_code'),
+        key: 'endpoint_code',
+        dataIndex: 'endpoint_code',
+        width: 120,
+        ellipsis: true,
+    },
+    {
+        title: t('pages.ops.table.provider'),
+        key: 'provider_name',
+        dataIndex: 'provider_name',
+        width: 120,
+        ellipsis: true,
+    },
     { title: t('pages.ops.table.policy_name'), dataIndex: 'policy_name', width: 160, ellipsis: true },
 ])
 
@@ -664,6 +752,47 @@ const handleSearch = () => {
     fetchEvents()
 }
 
+const handleFilterField = (field, val) => {
+    if (field === 'tenant_code') {
+        searchType2.value = 'tenant_code'
+        searchValue2.value = val
+        filterForm.tenant_code = val ? val.trim() : ''
+        filterForm.provider_name = ''
+    } else if (field === 'provider_name') {
+        searchType2.value = 'provider_name'
+        searchValue2.value = val
+        filterForm.provider_name = val ? val.trim() : ''
+        filterForm.tenant_code = ''
+    } else if (['model_code', 'endpoint_code', 'request_id', 'trace_id'].includes(field)) {
+        searchType.value = field
+        searchValue.value = val
+        filterForm.model_code = ''
+        filterForm.endpoint_code = ''
+        filterForm.request_id = ''
+        filterForm.trace_id = ''
+        if (val) {
+            filterForm[field] = val.trim()
+        }
+    }
+
+    handleSearch()
+
+    // 滚动到筛选面板
+    const el = document.querySelector('.ops-filter-form')
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+}
+
+const handleCardClick = (type) => {
+    if (filterForm.event_type === type) {
+        filterForm.event_type = undefined
+    } else {
+        filterForm.event_type = type
+    }
+    handleSearch()
+}
+
 const handleResetSearch = () => {
     filterForm.event_type = undefined
     searchType2.value = 'tenant_code'
@@ -671,6 +800,15 @@ const handleResetSearch = () => {
     searchType.value = 'model_code'
     searchValue.value = ''
     searchTimeRange.value = null
+
+    // 同步清空 filterForm 的字段，避免 watch 的微任务延迟导致 fetchEvents 时拿到旧值
+    filterForm.tenant_code = ''
+    filterForm.provider_name = ''
+    filterForm.model_code = ''
+    filterForm.endpoint_code = ''
+    filterForm.request_id = ''
+    filterForm.trace_id = ''
+
     pagination.current = 1
     fetchEvents()
 }
@@ -986,86 +1124,6 @@ const distributionChartOptions = computed(() => {
     }
 })
 
-const tenantRankingOptions = computed(() => {
-    const ranking = stats.value.tenant_ranking || []
-    const isD = isDark.value
-    return {
-        tooltip: chartTooltip(isD),
-        grid: { left: 110, right: 42, bottom: 12, top: 14 },
-        xAxis: {
-            type: 'value',
-            name: t('pages.circuitBreak.form.slidingWindow.unit.count'),
-            nameTextStyle: { color: chartTextColor(isD), padding: [0, 0, 0, 8] },
-            ...axisStyle(isD),
-            splitLine: splitLineStyle(isD),
-        },
-        yAxis: {
-            type: 'category',
-            data: ranking.map((r) => r.name).reverse(),
-            ...axisStyle(isD),
-        },
-        series: [
-            {
-                name: t('pages.ops.event_count'),
-                type: 'bar',
-                barWidth: 14,
-                showBackground: true,
-                backgroundStyle: {
-                    color: isD ? 'rgba(148, 163, 184, 0.06)' : 'rgba(22, 32, 51, 0.04)',
-                },
-                label: {
-                    show: true,
-                    position: 'right',
-                    color: chartTextColor(isD),
-                    fontSize: 11,
-                },
-                data: ranking.map((r) => r.count).reverse(),
-                itemStyle: { color: opsChartPalette.system, borderRadius: [0, 6, 6, 0] },
-            },
-        ],
-    }
-})
-
-const modelRankingOptions = computed(() => {
-    const ranking = stats.value.model_ranking || []
-    const isD = isDark.value
-    return {
-        tooltip: chartTooltip(isD),
-        grid: { left: 120, right: 42, bottom: 12, top: 14 },
-        xAxis: {
-            type: 'value',
-            name: t('pages.circuitBreak.form.slidingWindow.unit.count'),
-            nameTextStyle: { color: chartTextColor(isD), padding: [0, 0, 0, 8] },
-            ...axisStyle(isD),
-            splitLine: splitLineStyle(isD),
-        },
-        yAxis: {
-            type: 'category',
-            data: ranking.map((r) => r.name).reverse(),
-            ...axisStyle(isD),
-        },
-        series: [
-            {
-                name: t('pages.ops.event_count'),
-                type: 'bar',
-                barWidth: 14,
-                showBackground: true,
-                backgroundStyle: {
-                    color: isD ? 'rgba(148, 163, 184, 0.06)' : 'rgba(22, 32, 51, 0.04)',
-                },
-                label: {
-                    show: true,
-                    position: 'right',
-                    color: chartTextColor(isD),
-                    fontSize: 11,
-                },
-                data: ranking.map((r) => r.count).reverse(),
-                itemStyle: { color: opsChartPalette.strategy, borderRadius: [0, 6, 6, 0] },
-            },
-        ],
-    }
-})
-
 // Lifecycle
 onMounted(async () => {
     await Promise.all([fetchData(), fetchEvents(), loadModelMap()])
@@ -1220,12 +1278,20 @@ onUnmounted(() => {
     position: relative;
     overflow: hidden;
     margin-bottom: 16px;
+    cursor: pointer;
 }
 
 .ops-stat-card:hover {
     transform: translateY(-2px);
     border-color: rgba(47, 140, 255, 0.28);
     box-shadow: 0 18px 44px var(--ops-card-shadow-hover);
+}
+
+.ops-stat-card--active {
+    border-color: var(--color-primary, #2f8cff) !important;
+    box-shadow:
+        0 0 0 2px rgba(47, 140, 255, 0.18),
+        0 14px 34px var(--ops-card-shadow) !important;
 }
 
 .ops-stat-card::before {
@@ -1516,5 +1582,35 @@ onUnmounted(() => {
     font-weight: 500;
     font-size: 14px;
     color: var(--ops-text);
+}
+
+/* 鼠标悬浮浮现过滤按钮的单元格样式 */
+.ops-table-cell-interactive {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+}
+
+.ops-cell-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ops-cell-filter-btn {
+    opacity: 0;
+    pointer-events: none;
+    padding: 0 !important;
+    height: auto !important;
+    line-height: 1 !important;
+    transition: opacity 0.2s ease;
+}
+
+.ops-table-cell-interactive:hover .ops-cell-filter-btn {
+    opacity: 1;
+    pointer-events: auto;
 }
 </style>

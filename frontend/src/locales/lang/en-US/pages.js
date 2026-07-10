@@ -1328,6 +1328,7 @@ export default {
     'pages.ops.table.message': 'Message',
     'pages.ops.table.request_id': 'Request ID',
     'pages.ops.table.trace_id': 'Trace ID',
+    'pages.ops.table.track': 'Track Request',
     'pages.ops.table.endpoint_id': 'Endpoint ID',
     'pages.ops.table.endpoint_code': 'Endpoint Code',
     'pages.ops.event_count': 'Event Count',

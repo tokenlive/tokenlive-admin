@@ -1304,6 +1304,7 @@ export default {
     'pages.ops.table.message': '消息',
     'pages.ops.table.request_id': '请求ID',
     'pages.ops.table.trace_id': '追踪ID',
+    'pages.ops.table.track': '请求追踪',
     'pages.ops.table.endpoint_id': '端点ID',
     'pages.ops.table.endpoint_code': '端点编码',
     'pages.ops.event_count': '事件数',

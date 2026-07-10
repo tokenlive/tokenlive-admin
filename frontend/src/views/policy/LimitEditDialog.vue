@@ -636,6 +636,16 @@ function populateFormData(cloned) {
     if (!cloned.scope_code) {
         cloned.scope_code = ''
     }
+
+    // 解析 effect 状态
+    if (cloned.max_wait_ms > 0) {
+        cloned.effect = 'queuing'
+        cloned.max_queue_time_seconds = cloned.max_wait_ms / 1000
+    } else {
+        cloned.effect = 'failFast'
+        cloned.max_queue_time_seconds = 1 // 默认1秒
+    }
+
     formData.value = cloned
 }
 
