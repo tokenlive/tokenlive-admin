@@ -157,11 +157,11 @@ cd deploy/docker-compose
 docker-compose up -d
 ```
 
-See [DEPLOY.md](DEPLOY.md) for detailed deployment instructions.
+See [DEPLOY.md](DEPLOY.md) (or [DEPLOY-zh.md](DEPLOY-zh.md) for Chinese) for detailed deployment instructions.
 
 ### Production Deployment
 
-For production environments, it is highly recommended to use the unified orchestration repository [tokenlive-deploy](https://github.com/tokenlive/tokenlive-deploy). It provides a production-ready, one-click Docker Compose deployment configuration containing Admin Console, Gateway, Caddy reverse proxy, Redis, and Prometheus.
+For production environments, it is highly recommended to use the unified orchestration repository [tokenlive-deploy](https://github.com/tokenlive/tokenlive-deploy). It provides a production-ready, one-click Docker Compose deployment configuration containing Admin Console, Gateway, Caddy reverse proxy, Redis, and Prometheus. For full setup instructions, see the [tokenlive-deploy orchestrated guide in DEPLOY.md](DEPLOY.md#3-orchestrated-deployment-with-tokenlive-deploy-recommended) (or [Chinese version](DEPLOY-zh.md#三使用-tokenlive-deploy-统一编排部署推荐)).
 
 ## Build Commands
 

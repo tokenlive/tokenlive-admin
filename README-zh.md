@@ -157,11 +157,11 @@ cd deploy/docker-compose
 docker-compose up -d
 ```
 
-详见 [DEPLOY.md](DEPLOY.md)。
+详见 [DEPLOY-zh.md](DEPLOY-zh.md) (或英文版 [DEPLOY.md](DEPLOY.md))。
 
 ### 生产部署
 
-对于生产环境，强烈建议使用统一的编排部署项目 [tokenlive-deploy](https://github.com/tokenlive/tokenlive-deploy)。该项目提供了开箱即用的一键 Docker Compose 部署配置，集成了 Admin 控制台、Gateway 网关、Caddy 反向代理、Redis 以及 Prometheus 等核心组件。
+对于生产环境，强烈建议使用统一的编排部署项目 [tokenlive-deploy](https://github.com/tokenlive/tokenlive-deploy)。该项目提供了开箱即用的一键 Docker Compose 部署配置，集成了 Admin 控制台、Gateway 网关、Caddy 反向代理、Redis 以及 Prometheus 等核心组件。详细部署指引请参考 [DEPLOY-zh.md 中的生产部署一节](DEPLOY-zh.md#三使用-tokenlive-deploy-统一编排部署推荐) (或 [英文版](DEPLOY.md#3-orchestrated-deployment-with-tokenlive-deploy-recommended))。
 
 ## 构建命令
 
