@@ -226,6 +226,7 @@ const ownerOptions = ref([
     { value: 'Meta', label: 'Meta (Llama)' },
     { value: 'Mistral', label: 'Mistral' },
     { value: 'Ollama', label: 'Ollama' },
+    { value: 'xAI', label: 'xAI' },
 ])
 
 function filterOwnerOption(input, option) {

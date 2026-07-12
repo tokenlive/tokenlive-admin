@@ -144,7 +144,7 @@ const providerApiKeys = ref([])
 const apiKeyOptions = computed(() => {
     return providerApiKeys.value.map((item) => ({
         value: item.value,
-        label: maskKey(item.value),
+        label: item.description ? `${maskKey(item.value)} (${item.description})` : maskKey(item.value),
     }))
 })
 
