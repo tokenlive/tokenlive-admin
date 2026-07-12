@@ -23,7 +23,7 @@ export default {
     loadbalanceList: '负载均衡',
     routeList: '标签路由',
     limitList: '模型限流',
-    invocationList: '请求容错',
+    invocationList: '容错降级',
     circuitBreakList: '熔断降级',
     taggingList: '流量染色',
     'menu.account.settings': '个人设置',

@@ -74,20 +74,20 @@ export const toggleCircuitBreakEnabled = (id, params) =>
 // 删除熔断策略
 export const delCircuitBreak = (id) => request.basic.delete(`/api/v1/policy/policy-circuit-breaks/${id}`)
 
-// 获取请求容错策略列表
+// 获取容错降级策略列表
 export const getInvocationList = (params) => request.basic.get('/api/v1/policy/policy-invocations', params)
-// 获取请求容错策略单条数据
+// 获取容错降级策略单条数据
 export const getInvocation = (id) => request.basic.get(`/api/v1/policy/policy-invocations/${id}`)
-// 添加请求容错策略
+// 添加容错降级策略
 export const createInvocation = (params) => request.basic.post('/api/v1/policy/policy-invocations', params)
 export const copyInvocationToModel = (id, params) =>
     request.basic.post(`/api/v1/policy/policy-invocations/${id}/copy-to-model`, params)
-// 更新请求容错策略
+// 更新容错降级策略
 export const updateInvocation = (id, params) => request.basic.put(`/api/v1/policy/policy-invocations/${id}`, params)
-// 切换请求容错策略启用状态
+// 切换容错降级策略启用状态
 export const toggleInvocationEnabled = (id, params) =>
     request.basic.put(`/api/v1/policy/policy-invocations/${id}/enabled`, params)
-// 删除请求容错策略
+// 删除容错降级策略
 export const delInvocation = (id) => request.basic.delete(`/api/v1/policy/policy-invocations/${id}`)
 
 // 获取流量染色策略列表
