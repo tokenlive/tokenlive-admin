@@ -209,9 +209,6 @@ function onOpenChange(value) {
             letter-spacing: 0.04em;
             padding: 5px 10px 0 35px;
             margin: 0;
-            .basic-menu__name {
-                font-size: 11px;
-            }
         }
 
         &.ant-menu-dark {
