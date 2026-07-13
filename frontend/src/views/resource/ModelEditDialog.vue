@@ -213,6 +213,7 @@ const ownerOptions = ref([
     { value: 'DeepSeek', label: 'DeepSeek' },
     { value: 'Google', label: 'Google' },
     { value: 'Anthropic', label: 'Anthropic' },
+    { value: 'JD', label: 'JD (京东 JoyCode)' },
     { value: 'XiaoMi', label: 'XiaoMi (小米)' },
     { value: 'Qwen', label: 'Qwen (通义千问)' },
     { value: 'Zhipu AI', label: 'Zhipu AI (智谱清言)' },

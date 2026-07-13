@@ -1307,7 +1307,7 @@ export default {
     'pages.ops.rate_limit': 'Rate Limit',
     'pages.ops.invocation_fail': 'Invocation Fail',
     'pages.ops.retry_error': 'Retry Error',
-    'pages.ops.circuit_breaker_error': 'Circuit Breaker Error',
+    'pages.ops.circuit_breaker_error': 'CB Error',
     'pages.ops.model_failover': 'Model Failover',
     'pages.ops.endpoint_failover': 'Endpoint Failover',
     'pages.ops.trend.title': 'Event Trend',

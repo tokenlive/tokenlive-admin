@@ -47,6 +47,7 @@
                             <a-select-option value="openai">OpenAI</a-select-option>
                             <a-select-option value="anthropic">Anthropic</a-select-option>
                             <a-select-option value="gemini">Gemini</a-select-option>
+                            <a-select-option value="joycode">JoyCode</a-select-option>
                         </a-select>
                     </a-form-item>
                 </a-col>
