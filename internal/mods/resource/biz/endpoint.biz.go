@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
 	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
@@ -532,6 +533,24 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 				"stream":     false,
 			}
 			reqBody, _ = json.Marshal(bodyMap)
+		} else if protocol == "joycode" {
+			base := url
+			if base == "" {
+				base = "http://joycode-api-saas.jd.com"
+			}
+			isAnt := strings.Contains(strings.ToLower(realModel), "claude")
+			if isAnt {
+				reqURL = strings.TrimRight(base, "/") + "/api/saas/anthropic/v1/messages"
+			} else {
+				reqURL = strings.TrimRight(base, "/") + "/api/saas/openai/v2/chat/completions"
+			}
+			bodyMap := map[string]interface{}{
+				"model":      realModel,
+				"messages":   []map[string]string{{"role": "user", "content": "ping"}},
+				"max_tokens": 1,
+				"stream":     false,
+			}
+			reqBody, _ = json.Marshal(bodyMap)
 		} else {
 			// 默认 openai 兼容协议
 			if strings.Contains(url, "/chat/completions") {
@@ -575,6 +594,10 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			if !strings.Contains(url, "anthropic.com") {
 				req.Header.Set("Authorization", "Bearer "+apiKey)
 			}
+		} else if protocol == "joycode" {
+			req.Header.Set("ptKey", apiKey)
+			req.Header.Set("loginType", "PIN_JD_CLOUD")
+			req.Header.Set("x-ms-client-request-id", uuid.NewString())
 		} else {
 			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
@@ -704,21 +727,118 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			}, nil
 		}
 
-		if len(antResp.Content) == 0 {
-			return &schema.EndpointTestResult{
-				Success:   false,
-				LatencyMs: latency,
-				Message:   "上游响应不符合 Anthropic 规范 (未获取到 Content)",
-				Detail:    rawDetail,
-			}, nil
+		detailText := "连接成功 (未返回文本内容)"
+		if len(antResp.Content) > 0 {
+			detailText = antResp.Content[0].Text
 		}
 
 		return &schema.EndpointTestResult{
 			Success:   true,
 			LatencyMs: latency,
 			Message:   "测试连接成功",
-			Detail:    antResp.Content[0].Text,
+			Detail:    detailText,
 		}, nil
+
+	} else if protocol == "joycode" {
+		// 校验 JoyCode (根据模型分流解析响应)
+		isAnt := strings.Contains(strings.ToLower(realModel), "claude")
+		if isAnt {
+			var antResp struct {
+				Content []struct {
+					Text string `json:"text"`
+				} `json:"content"`
+				Error *struct {
+					Type    string `json:"type"`
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			_ = json.Unmarshal(bodyBytes, &antResp)
+
+			if resp.StatusCode != http.StatusOK {
+				errMsg := fmt.Sprintf("JoyCode 上游返回错误状态码: %d", resp.StatusCode)
+				if antResp.Error != nil && antResp.Error.Message != "" {
+					errMsg = fmt.Sprintf("JoyCode 上游返回错误状态码: %d (%s)", resp.StatusCode, antResp.Error.Message)
+				}
+				return &schema.EndpointTestResult{
+					Success:   false,
+					LatencyMs: latency,
+					Message:   errMsg,
+					Detail:    rawDetail,
+				}, nil
+			}
+
+			if antResp.Error != nil {
+				return &schema.EndpointTestResult{
+					Success:   false,
+					LatencyMs: latency,
+					Message:   fmt.Sprintf("JoyCode Anthropic 上游返回业务报错: %s", antResp.Error.Message),
+					Detail:    rawDetail,
+				}, nil
+			}
+
+			detailText := "连接成功 (未返回文本内容)"
+			if len(antResp.Content) > 0 {
+				detailText = antResp.Content[0].Text
+			}
+
+			return &schema.EndpointTestResult{
+				Success:   true,
+				LatencyMs: latency,
+				Message:   "测试连接成功",
+				Detail:    detailText,
+			}, nil
+		} else {
+			var oaResp struct {
+				Choices []struct {
+					Message struct {
+						Content string `json:"content"`
+					} `json:"message"`
+				} `json:"choices"`
+				Error *struct {
+					Message string `json:"message"`
+					Type    string `json:"type"`
+				} `json:"error"`
+			}
+			_ = json.Unmarshal(bodyBytes, &oaResp)
+
+			if resp.StatusCode != http.StatusOK {
+				errMsg := fmt.Sprintf("JoyCode 上游返回错误状态码: %d", resp.StatusCode)
+				if oaResp.Error != nil && oaResp.Error.Message != "" {
+					errMsg = fmt.Sprintf("JoyCode 上游返回错误状态码: %d (%s)", resp.StatusCode, oaResp.Error.Message)
+				}
+				return &schema.EndpointTestResult{
+					Success:   false,
+					LatencyMs: latency,
+					Message:   errMsg,
+					Detail:    rawDetail,
+				}, nil
+			}
+
+			if oaResp.Error != nil {
+				return &schema.EndpointTestResult{
+					Success:   false,
+					LatencyMs: latency,
+					Message:   fmt.Sprintf("JoyCode 上游返回业务报错: %s", oaResp.Error.Message),
+					Detail:    rawDetail,
+				}, nil
+			}
+
+			if len(oaResp.Choices) == 0 {
+				return &schema.EndpointTestResult{
+					Success:   false,
+					LatencyMs: latency,
+					Message:   "JoyCode 上游响应不符合 OpenAI 规范 (未获取到 Choices 数组)",
+					Detail:    rawDetail,
+				}, nil
+			}
+
+			return &schema.EndpointTestResult{
+				Success:   true,
+				LatencyMs: latency,
+				Message:   "测试连接成功",
+				Detail:    oaResp.Choices[0].Message.Content,
+			}, nil
+		}
 
 	} else {
 		// 校验 OpenAI Chat

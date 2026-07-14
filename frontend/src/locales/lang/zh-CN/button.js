@@ -1,5 +1,6 @@
 export default {
     'button.add': '添加',
+    'button.createPolicy': '创建策略',
     'button.menu': '菜单',
     'button.button': '按钮',
     'button.edit': '编辑',

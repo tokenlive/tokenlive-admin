@@ -394,13 +394,15 @@ const endpointColumns = [
         width: 150,
     },
     {
-        title: t('pages.endpoint.form.weight'),
-        dataIndex: 'weight',
-        width: 80,
+        title: t('pages.endpoint.form.priority'),
+        dataIndex: 'priority',
+        key: 'priority',
+        width: 90,
+        sorter: (a, b) => (a.priority ?? 0) - (b.priority ?? 0),
     },
     {
-        title: t('pages.endpoint.form.priority'),
-        key: 'priority',
+        title: t('pages.endpoint.form.weight'),
+        dataIndex: 'weight',
         width: 80,
     },
     {

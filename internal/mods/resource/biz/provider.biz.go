@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
 	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
@@ -192,35 +193,87 @@ func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem 
 	if baseURL == "" {
 		return nil, errors.BadRequest("", "Base URL is required, please provide it or set provider URL")
 	}
-	reqURL := baseURL + "/models"
+	var upstreamModels []schema.UpstreamModel
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
-	if err != nil {
-		return nil, errors.BadRequest("", "Failed to create request: %s", err.Error())
-	}
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	}
-	req.Header.Set("Accept", "application/json")
+	if provider.Protocol == "joycode" {
+		reqURL := baseURL + "/api/saas/models/v2/modelList"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, strings.NewReader("{}"))
+		if err != nil {
+			return nil, errors.BadRequest("", "Failed to create request: %s", err.Error())
+		}
+		req.Header.Set("ptKey", apiKey)
+		req.Header.Set("loginType", "PIN_JD_CLOUD")
+		req.Header.Set("x-ms-client-request-id", uuid.NewString())
+		req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, errors.BadRequest("", "Failed to call upstream: %s", err.Error())
-	}
-	defer resp.Body.Close()
+		client := &http.Client{Timeout: 30 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, errors.BadRequest("", "Failed to call upstream: %s", err.Error())
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, errors.BadRequest("", "Upstream returned status %d: %s", resp.StatusCode, string(body))
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, errors.BadRequest("", "Upstream returned status %d: %s", resp.StatusCode, string(body))
+		}
+
+		var joycodeResp struct {
+			Code int `json:"code"`
+			Data []struct {
+				ChatApiModel string `json:"chatApiModel"`
+				Label        string `json:"label"`
+			} `json:"data"`
+			Msg string `json:"msg"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&joycodeResp); err != nil {
+			return nil, errors.BadRequest("", "Failed to parse upstream response: %s", err.Error())
+		}
+
+		for _, m := range joycodeResp.Data {
+			modelID := m.ChatApiModel
+			if modelID == "" {
+				modelID = m.Label
+			}
+			if modelID != "" {
+				upstreamModels = append(upstreamModels, schema.UpstreamModel{
+					ID:      modelID,
+					Object:  "model",
+					OwnedBy: "jd",
+				})
+			}
+		}
+	} else {
+		reqURL := baseURL + "/models"
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+		if err != nil {
+			return nil, errors.BadRequest("", "Failed to create request: %s", err.Error())
+		}
+		if apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+		}
+		req.Header.Set("Accept", "application/json")
+
+		client := &http.Client{Timeout: 30 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, errors.BadRequest("", "Failed to call upstream: %s", err.Error())
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, errors.BadRequest("", "Upstream returned status %d: %s", resp.StatusCode, string(body))
+		}
+
+		var modelsResp struct {
+			Data []schema.UpstreamModel `json:"data"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&modelsResp); err != nil {
+			return nil, errors.BadRequest("", "Failed to parse upstream response: %s", err.Error())
+		}
+		upstreamModels = modelsResp.Data
 	}
 
-	var modelsResp struct {
-		Data []schema.UpstreamModel `json:"data"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&modelsResp); err != nil {
-		return nil, errors.BadRequest("", "Failed to parse upstream response: %s", err.Error())
-	}
-
-	return &schema.FetchModelsResult{Models: modelsResp.Data}, nil
+	return &schema.FetchModelsResult{Models: upstreamModels}, nil
 }

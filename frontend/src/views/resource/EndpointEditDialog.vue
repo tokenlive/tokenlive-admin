@@ -105,6 +105,14 @@
                     style="width: 100%" />
             </a-form-item>
             <a-form-item
+                :label="$t('pages.endpoint.form.weight')"
+                name="weight">
+                <a-input-number
+                    v-model:value="formData.weight"
+                    :min="0"
+                    style="width: 100%" />
+            </a-form-item>
+            <a-form-item
                 :label="$t('pages.endpoint.form.url')"
                 name="url">
                 <a-input
@@ -132,14 +140,6 @@
                     <a-select-option value="gemini">Gemini</a-select-option>
                     <a-select-option value="joycode">JoyCode</a-select-option>
                 </a-select>
-            </a-form-item>
-            <a-form-item
-                :label="$t('pages.endpoint.form.weight')"
-                name="weight">
-                <a-input-number
-                    v-model:value="formData.weight"
-                    :min="0"
-                    style="width: 100%" />
             </a-form-item>
             <a-form-item
                 :label="$t('pages.endpoint.form.input_price')"

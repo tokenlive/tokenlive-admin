@@ -1,5 +1,6 @@
 export default {
     'button.add': 'Add',
+    'button.createPolicy': 'Create Policy',
     'button.edit': 'Edit',
     'button.delete': 'Delete',
     'button.search': 'Search',

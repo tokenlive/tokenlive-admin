@@ -1487,6 +1487,14 @@ onUnmounted(() => {
     font-weight: 500;
 }
 
+.ops-table-panel :deep(.ant-tag-red) {
+    background: #ff4d4f;
+}
+
+.ops-table-panel :deep(.ant-tag-blue) {
+    background: #1677ff;
+}
+
 .ops-detail-text {
     color: rgba(0, 0, 0, 0.45);
 }

@@ -274,6 +274,11 @@ func normalizeRequestTypesForProtocol(protocol string, requestTypes []string) []
 			case "chat_completion", "embedding", "responses", "messages":
 				add(rt)
 			}
+		case "joycode":
+			switch rt {
+			case "chat_completion", "responses", "messages":
+				add(rt)
+			}
 		default:
 			add(rt)
 		}
