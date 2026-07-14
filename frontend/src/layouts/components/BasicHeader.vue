@@ -122,7 +122,9 @@
                         <a-avatar
                             class="mr-8-1 display-inline-flex justify-content-center"
                             :size="24"
-                            :src="userInfo?.avatar">
+                            :src="userInfo?.avatar || undefined"
+                            :style="userInfo?.avatar ? {} : { backgroundColor: avatarColor, color: '#fff' }">
+                            {{ !userInfo?.avatar ? avatarText : '' }}
                         </a-avatar>
                         <span>{{ userInfo?.name }}</span>
                     </action-button>
@@ -209,6 +211,27 @@ const cpStyles = computed(() => {
 })
 const cpShowLeftSlot = computed(() => !!slots.left)
 const cpShowDefaultSlot = computed(() => !!slots.default)
+
+/**
+ * 头像兜底显示的首字（取用户名第一个字符）
+ */
+const avatarText = computed(() => {
+    const name = userInfo.value?.name
+    return name ? name.trim().charAt(0).toUpperCase() : '?'
+})
+
+/**
+ * 根据用户名生成稳定的头像底色，未设置头像时使用
+ */
+const avatarColor = computed(() => {
+    const palette = ['#1677ff', '#52c41a', '#fa8c16', '#eb2f96', '#722ed1', '#13c2c2', '#f5222d', '#2f54eb']
+    const name = userInfo.value?.name || ''
+    let sum = 0
+    for (let i = 0; i < name.length; i++) {
+        sum += name.charCodeAt(i)
+    }
+    return palette[sum % palette.length]
+})
 const themeToggleTitle = computed(() =>
     t(config.value.theme === 'dark' ? 'app.setting.theme.switch.light' : 'app.setting.theme.switch.dark')
 )

@@ -97,6 +97,7 @@
                             type="primary"
                             ghost
                             @click="$refs.endpointEditRef.handleCreate()">
+                            <template #icon><plus-outlined /></template>
                             {{ $t('pages.endpoint.add') }}
                         </a-button>
                         <a-button @click="handleFetchModels">
@@ -225,6 +226,7 @@
                         type="primary"
                         ghost
                         @click="$refs.memberEditRef.handleCreate()">
+                        <template #icon><plus-outlined /></template>
                         {{ $t('pages.member.add') }}
                     </a-button>
                     <div class="tab-toolbar-right">
@@ -330,6 +332,7 @@ import {
     LoadingOutlined,
     PoweroffOutlined,
     ImportOutlined,
+    PlusOutlined,
 } from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { config } from '@/config'

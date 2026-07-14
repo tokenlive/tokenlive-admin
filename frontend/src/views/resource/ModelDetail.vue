@@ -134,6 +134,7 @@
                         type="primary"
                         ghost
                         @click="$refs.endpointEditRef.handleCreate()">
+                        <template #icon><plus-outlined /></template>
                         {{ $t('pages.endpoint.add') }}
                     </a-button>
                     <div class="tab-toolbar-right">
@@ -291,6 +292,7 @@
                         type="primary"
                         ghost
                         @click="$refs.aliasEditRef.handleCreate()">
+                        <template #icon><plus-outlined /></template>
                         {{ $t('pages.model.alias.create') }}
                     </a-button>
                     <div class="tab-toolbar-right">
@@ -342,6 +344,7 @@
                             type="primary"
                             ghost
                             @click="handleCreateModelPolicy">
+                            <template #icon><plus-outlined /></template>
                             {{ $t('button.createPolicy') }}
                         </a-button>
                         <a-button @click="handleOpenCopyTemplate">
@@ -426,6 +429,7 @@
                         type="primary"
                         ghost
                         @click="$refs.memberEditRef.handleCreate()">
+                        <template #icon><plus-outlined /></template>
                         {{ $t('pages.member.add') }}
                     </a-button>
                     <div class="tab-toolbar-right">
@@ -614,6 +618,7 @@ import {
     LoadingOutlined,
     CopyOutlined,
     PoweroffOutlined,
+    PlusOutlined,
 } from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { config } from '@/config'
