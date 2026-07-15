@@ -614,6 +614,7 @@ async function onFetchModelsConfirm({ providerId, space_code, base_url, api_key,
         base_url,
         keysToCreate,
         protocol,
+        auth_type: provider?.auth_type || 'api_key',
         models,
     })
 }

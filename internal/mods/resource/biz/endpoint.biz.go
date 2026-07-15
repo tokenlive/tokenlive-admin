@@ -241,6 +241,15 @@ func (e *Endpoint) Create(ctx context.Context, formItem *schema.EndpointForm) (*
 		return nil, err
 	}
 
+	if endpoint.AuthType == "" {
+		if provider, _ := e.ProviderDAL.Get(ctx, endpoint.ProviderID); provider != nil {
+			endpoint.AuthType = provider.AuthType
+		}
+	}
+	if endpoint.AuthType == "" {
+		endpoint.AuthType = "api_key"
+	}
+
 	err = e.Trans.Exec(ctx, func(ctx context.Context) error {
 		if err := e.EndpointDAL.Create(ctx, endpoint); err != nil {
 			return err
@@ -297,6 +306,16 @@ func (e *Endpoint) Update(ctx context.Context, id string, formItem *schema.Endpo
 	if err := formItem.FillTo(endpoint); err != nil {
 		return err
 	}
+
+	if endpoint.AuthType == "" {
+		if provider, _ := e.ProviderDAL.Get(ctx, endpoint.ProviderID); provider != nil {
+			endpoint.AuthType = provider.AuthType
+		}
+	}
+	if endpoint.AuthType == "" {
+		endpoint.AuthType = "api_key"
+	}
+
 	endpoint.Modifier = util.FromUsername(ctx)
 	endpoint.UpdatedAt = time.Now()
 

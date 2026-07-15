@@ -182,6 +182,25 @@ func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem 
 		return nil, errors.NotFound("", "Provider not found")
 	}
 
+	// If the provider uses OAuth and the token is expiring (or expired), refresh it first!
+	if provider.AuthType == "oauth_token" {
+		cred := provider.GetOAuth()
+		if cred != nil && cred.RefreshToken != "" {
+			now := time.Now()
+			if cred.ExpiresAt == nil || cred.ExpiresAt.Before(now.Add(5*time.Minute)) {
+				// Trigger a synchronous refresh using the DB-locked TokenRefresher
+				refresher := NewTokenRefresher(p.ProviderDAL.DB, p.ConfigRedisSync)
+				refresher.lockAndRefreshProvider(ctx, *provider)
+
+				// Reload the provider from DB to obtain the newly refreshed access token
+				refreshedProvider, err := p.ProviderDAL.Get(ctx, providerID)
+				if err == nil && refreshedProvider != nil {
+					provider = refreshedProvider
+				}
+			}
+		}
+	}
+
 	apiKey := formItem.APIKey
 	if apiKey == "" {
 		keys := provider.GetApiKeys()
@@ -312,6 +331,11 @@ func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem 
 		}
 	} else {
 		reqURL := baseURL + "/models"
+		if provider.Protocol == "xai" || strings.Contains(strings.ToLower(baseURL), "api.x.ai") {
+			if !strings.HasSuffix(baseURL, "/v1") {
+				reqURL = baseURL + "/v1/models"
+			}
+		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 		if err != nil {
 			return nil, errors.BadRequest("", "Failed to create request: %s", err.Error())

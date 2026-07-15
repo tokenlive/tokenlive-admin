@@ -203,6 +203,7 @@ async function handleOk() {
                     model_id: modelId,
                     url: importContext.value.base_url,
                     api_key: key,
+                    auth_type: importContext.value.auth_type || 'api_key',
                     protocol: '',
                     real_model: selectedModel.id,
                     enabled: 1,
