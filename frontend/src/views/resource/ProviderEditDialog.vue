@@ -178,6 +178,7 @@ function removeApiKey(index) {
 
 const oauthLoading = ref(false)
 let oauthPollTimer = null
+let oauthPollDeadline = 0
 
 async function startXaiOAuth() {
     try {
@@ -193,23 +194,22 @@ async function startXaiOAuth() {
         if (!authWindow) {
             message.warning('弹出窗口被浏览器拦截，请允许弹出窗口后重试')
         }
+        if (data.user_code) {
+            message.info(`请在打开的页面中确认设备码：${data.user_code}`, 8)
+        }
 
         if (oauthPollTimer) {
             clearInterval(oauthPollTimer)
         }
 
+        // Device-code flow: poll until the backend receives the token, or time out.
+        oauthPollDeadline = Date.now() + 10 * 60 * 1000
         oauthPollTimer = setInterval(async () => {
-            if (authWindow && authWindow.closed) {
-                const statusRes = await apis.provider.pollOAuthStatus(data.state).catch()
-                if (statusRes && statusRes.success && statusRes.data?.status === 'success') {
-                    handleOAuthSuccess(statusRes.data)
-                } else {
-                    message.info('授权窗口已关闭，已终止绑定流程')
-                    stopOAuthPolling()
-                }
+            if (Date.now() > oauthPollDeadline) {
+                message.warning('授权超时，请重试')
+                stopOAuthPolling()
                 return
             }
-
             const { data: statusData, success: statusSuccess } = await apis.provider.pollOAuthStatus(data.state).catch()
             if (statusSuccess && statusData?.status === 'success') {
                 handleOAuthSuccess(statusData)
@@ -229,12 +229,19 @@ function handleOAuthSuccess(authData) {
             description: 'OAuth Token (x.ai)',
         },
     ]
-    formData.value.oauth_refresh_token = authData.refresh_token
-    if (authData.expires_in > 0) {
-        formData.value.expires_at = new Date(Date.now() + authData.expires_in * 1000).toISOString()
-    } else {
-        formData.value.expires_at = null
+    // base_url is what the model call uses -> store it into the provider url column.
+    if (authData.base_url) {
+        formData.value.url = authData.base_url
     }
+    // refresh_token + token_endpoint + expires_at are consolidated into the oauth JSON column.
+    const oauth = {
+        refresh_token: authData.refresh_token,
+        token_endpoint: authData.token_endpoint,
+    }
+    if (authData.expires_in > 0) {
+        oauth.expires_at = new Date(Date.now() + authData.expires_in * 1000).toISOString()
+    }
+    formData.value.oauth = oauth
     stopOAuthPolling()
 }
 
@@ -287,8 +294,7 @@ function handleOk() {
                 const params = {
                     ...values,
                     api_keys: formData.value.api_keys,
-                    oauth_refresh_token: formData.value.oauth_refresh_token,
-                    expires_at: formData.value.expires_at,
+                    oauth: formData.value.oauth,
                 }
                 let result = null
                 switch (modal.value.type) {

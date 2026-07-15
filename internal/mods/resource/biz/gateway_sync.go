@@ -205,13 +205,23 @@ func (s *GatewaySync) GetGatewayConfig(ctx context.Context, modelCode string) (*
 			authType = "api_key"
 		}
 
+		// API Key inheritance:
+		// - oauth_token: OAuth 凭证是 provider 级身份，强制读 provider，忽略 endpoint 覆盖。
+		// - api_key: 保留 endpoint > provider 的手动覆盖能力。
+		endpointKey := ep.ApiKey
+		if authType == "oauth_token" || endpointKey == "" {
+			if keys := ep.Provider.GetApiKeys(); len(keys) > 0 {
+				endpointKey = keys[0].Value
+			}
+		}
+
 		epCfg := EndpointConfig{
 			ID:        ep.ID,
 			Code:      ep.Code,
 			Provider:  providerName,
 			URL:       ep.URL,
 			RealModel: realModel,
-			APIKey:    ep.ApiKey,
+			APIKey:    endpointKey,
 			AuthType:  authType,
 			Protocol:  ep.Protocol,
 			Priority:  ep.Priority,

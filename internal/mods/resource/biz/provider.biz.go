@@ -3,7 +3,6 @@ package biz
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -202,14 +201,23 @@ func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem 
 	var upstreamModels []schema.UpstreamModel
 
 	if provider.Protocol == "joycode" {
-		reqURL := baseURL + "/api/saas/models/v2/modelList"
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, strings.NewReader("{}"))
+		var reqURL string
+		if strings.HasPrefix(baseURL, "https://") {
+			reqURL = signJoyCodeGatewayURL(baseURL, "joycode_modelList")
+		} else {
+			reqURL = baseURL + "/api/saas/models/v2/modelList"
+		}
+
+		reqBody := injectJoyCodePayload([]byte("{}"))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, strings.NewReader(string(reqBody)))
 		if err != nil {
 			return nil, errors.BadRequest("", "Failed to create request: %s", err.Error())
 		}
 		req.Header.Set("ptKey", apiKey)
-		req.Header.Set("loginType", "PIN_JD_CLOUD")
+		req.Header.Set("loginType", getLoginTypeForPtKey(apiKey))
 		req.Header.Set("x-ms-client-request-id", uuid.NewString())
+		req.Header.Set("client", "JoyCodeIDE")
+		req.Header.Set("clientVersion", "3.8.61")
 		req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 
 		client := &http.Client{Timeout: 30 * time.Second}
@@ -224,16 +232,69 @@ func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem 
 			return nil, errors.BadRequest("", "Upstream returned status %d: %s", resp.StatusCode, string(body))
 		}
 
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, errors.BadRequest("", "Failed to read upstream response body: %s", err.Error())
+		}
+
 		var joycodeResp struct {
-			Code int `json:"code"`
+			Code interface{} `json:"code"`
 			Data []struct {
 				ChatApiModel string `json:"chatApiModel"`
 				Label        string `json:"label"`
 			} `json:"data"`
-			Msg string `json:"msg"`
+			Msg     string `json:"msg"`
+			Message string `json:"message"`
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&joycodeResp); err != nil {
-			return nil, errors.BadRequest("", "Failed to parse upstream response: %s", err.Error())
+		if err := json.Unmarshal(body, &joycodeResp); err != nil {
+			return nil, errors.BadRequest("", "Failed to parse upstream response: %s (Raw body: %s)", err.Error(), string(body))
+		}
+
+		isSuccess := false
+		if joycodeResp.Code != nil {
+			switch val := joycodeResp.Code.(type) {
+			case float64:
+				if val == 0 {
+					isSuccess = true
+				}
+			case string:
+				if val == "0" || val == "200" || val == "" {
+					isSuccess = true
+				}
+			}
+		} else {
+			isSuccess = true
+		}
+
+		if !isSuccess {
+			errMsg := joycodeResp.Msg
+			if errMsg == "" {
+				errMsg = joycodeResp.Message
+			}
+			if errMsg == "" {
+				errMsg = string(body)
+			}
+
+			// 如果是接口不存在的报错，说明上游网关未注册 modelList API，进行优雅降级，返回内置的默认模型列表
+			if strings.Contains(strings.ToLower(errMsg), "the current api does not exist") ||
+				strings.Contains(strings.ToLower(errMsg), "apidoesnotexist") {
+				defaultModels := []string{
+					"joyai-code",
+					"kimi-k2",
+					"deepseek-v3.1",
+					"doubao-seed",
+				}
+				for _, mID := range defaultModels {
+					upstreamModels = append(upstreamModels, schema.UpstreamModel{
+						ID:      mID,
+						Object:  "model",
+						OwnedBy: "jd",
+					})
+				}
+				return &schema.FetchModelsResult{Models: upstreamModels}, nil
+			}
+
+			return nil, errors.BadRequest("", "JoyCode 上游业务报错 (%v): %s", joycodeResp.Code, errMsg)
 		}
 
 		for _, m := range joycodeResp.Data {
@@ -286,35 +347,185 @@ func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem 
 
 var oauthResultCache = cache.New(5*time.Minute, 1*time.Minute)
 
+const (
+	// xaiOAuthClientID is xAI's public Grok CLI OAuth client. It only permits the
+	// device-authorization grant (RFC 8628); a browser authorization-code redirect
+	// to localhost is rejected with HTTP 403.
+	xaiOAuthClientID   = "b1a00492-073a-47ea-816f-4c329264a828"
+	xaiOAuthScope      = "openid profile email offline_access grok-cli:access api:access"
+	xaiDeviceCodeGrant = "urn:ietf:params:oauth:grant-type:device_code"
+	xaiDiscoveryURL    = "https://auth.x.ai/.well-known/openid-configuration"
+	// xaiDefaultBaseURL is the official xAI API base URL used to call the model.
+	xaiDefaultBaseURL = "https://api.x.ai/v1"
+)
+
 type OAuthTokenResult struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int    `json:"expires_in"`
+	AccessToken   string `json:"access_token"`
+	RefreshToken  string `json:"refresh_token"`
+	ExpiresIn     int    `json:"expires_in"`
+	TokenEndpoint string `json:"token_endpoint"`
+	BaseURL       string `json:"base_url"`
 }
 
-func (p *Provider) StartOAuthFlow(ctx context.Context, providerName string) (string, string, error) {
+// OAuthStartResult carries the device-code details returned to the frontend so it
+// can open the verification page and poll for completion.
+type OAuthStartResult struct {
+	URL      string `json:"url"`
+	UserCode string `json:"user_code"`
+	State    string `json:"state"`
+}
+
+type xaiDiscovery struct {
+	DeviceAuthorizationEndpoint string `json:"device_authorization_endpoint"`
+	TokenEndpoint               string `json:"token_endpoint"`
+}
+
+// StartOAuthFlow launches xAI's OAuth device-code flow: it requests a device code,
+// returns the verification URL for the user to open, and starts a background
+// goroutine that polls the token endpoint until the user authorizes.
+func (p *Provider) StartOAuthFlow(ctx context.Context, providerName string) (*OAuthStartResult, error) {
 	if providerName != "xai" {
-		return "", "", errors.BadRequest("", "Unsupported oauth provider: %s", providerName)
+		return nil, errors.BadRequest("", "Unsupported oauth provider: %s", providerName)
 	}
 
-	clientID := getEnvWithDefault("OAUTH_XAI_CLIENT_ID", "b1a00492-073a-47ea-816f-4c329264a828")
-	redirectURI := getEnvWithDefault("OAUTH_REDIRECT_URI", "http://localhost:8040/api/v1/providers/oauth/callback")
+	clientID := getEnvWithDefault("OAUTH_XAI_CLIENT_ID", xaiOAuthClientID)
 
-	// Generate PKCE
-	verifier := generateCodeVerifier()
-	challenge := generatePKCEChallenge(verifier)
-
-	// Encrypt state containing code_verifier
-	state, err := EncryptState(verifier)
+	disc, err := discoverXAIEndpoints(ctx)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to encrypt state: %w", err)
+		return nil, fmt.Errorf("xai oauth discovery failed: %w", err)
 	}
 
-	// Build auth URL
-	authURL := fmt.Sprintf("https://x.ai/oauth2/authorize?client_id=%s&redirect_uri=%s&response_type=code&state=%s&code_challenge=%s&code_challenge_method=S256",
-		clientID, url.QueryEscape(redirectURI), url.QueryEscape(state), challenge)
+	form := url.Values{}
+	form.Set("client_id", clientID)
+	form.Set("scope", xaiOAuthScope)
 
-	return authURL, state, nil
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, disc.DeviceAuthorizationEndpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create device code request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("device code request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read device code response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("device code request returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var dc struct {
+		DeviceCode              string `json:"device_code"`
+		UserCode                string `json:"user_code"`
+		VerificationURI         string `json:"verification_uri"`
+		VerificationURIComplete string `json:"verification_uri_complete"`
+		ExpiresIn               int    `json:"expires_in"`
+		Interval                int    `json:"interval"`
+	}
+	if err := json.Unmarshal(respBody, &dc); err != nil {
+		return nil, fmt.Errorf("failed to parse device code response: %w", err)
+	}
+	if dc.DeviceCode == "" {
+		return nil, errors.InternalServerError("", "device code response missing device_code")
+	}
+
+	openURL := dc.VerificationURIComplete
+	if openURL == "" {
+		openURL = dc.VerificationURI
+	}
+
+	state := generateStateKey()
+
+	// Poll the token endpoint in the background; the result lands in oauthResultCache
+	// keyed by state, where PollOAuthStatus picks it up.
+	go p.pollDeviceToken(clientID, disc.TokenEndpoint, dc.DeviceCode, state, dc.Interval, dc.ExpiresIn)
+
+	return &OAuthStartResult{
+		URL:      openURL,
+		UserCode: dc.UserCode,
+		State:    state,
+	}, nil
+}
+
+// pollDeviceToken exchanges the device code for tokens once the user authorizes,
+// then stores the result keyed by state. It runs detached from the request context.
+func (p *Provider) pollDeviceToken(clientID, tokenEndpoint, deviceCode, state string, interval, expiresIn int) {
+	ctx := context.Background()
+
+	if interval <= 0 {
+		interval = 5
+	}
+	if expiresIn <= 0 {
+		expiresIn = 600
+	}
+	deadline := time.Now().Add(time.Duration(expiresIn) * time.Second)
+	wait := time.Duration(interval) * time.Second
+
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	for time.Now().Before(deadline) {
+		time.Sleep(wait)
+
+		form := url.Values{}
+		form.Set("grant_type", xaiDeviceCodeGrant)
+		form.Set("device_code", deviceCode)
+		form.Set("client_id", clientID)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, strings.NewReader(form.Encode()))
+		if err != nil {
+			return
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Accept", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		var payload struct {
+			Error        string `json:"error"`
+			AccessToken  string `json:"access_token"`
+			RefreshToken string `json:"refresh_token"`
+			ExpiresIn    int    `json:"expires_in"`
+		}
+		if err := json.Unmarshal(body, &payload); err != nil {
+			continue
+		}
+
+		if payload.Error != "" {
+			switch payload.Error {
+			case "authorization_pending":
+				continue
+			case "slow_down":
+				wait += 5 * time.Second
+				continue
+			default:
+				// expired_token, access_denied, or any other terminal error
+				return
+			}
+		}
+
+		if payload.AccessToken != "" {
+			oauthResultCache.Set(state, &OAuthTokenResult{
+				AccessToken:   payload.AccessToken,
+				RefreshToken:  payload.RefreshToken,
+				ExpiresIn:     payload.ExpiresIn,
+				TokenEndpoint: tokenEndpoint,
+				BaseURL:       xaiDefaultBaseURL,
+			}, cache.DefaultExpiration)
+			return
+		}
+	}
 }
 
 func (p *Provider) PollOAuthStatus(ctx context.Context, state string) (*OAuthTokenResult, error) {
@@ -330,100 +541,41 @@ func (p *Provider) PollOAuthStatus(ctx context.Context, state string) (*OAuthTok
 	return result, nil
 }
 
-func (p *Provider) HandleOAuthCallback(ctx context.Context, code, state string) (string, error) {
-	if code == "" || state == "" {
-		return "", errors.BadRequest("", "code or state is empty")
-	}
-
-	// 1. Decrypt state and retrieve code_verifier
-	verifier, err := DecryptState(state, 5*time.Minute)
+// discoverXAIEndpoints resolves xAI's OAuth endpoints via OIDC discovery.
+func discoverXAIEndpoints(ctx context.Context) (*xaiDiscovery, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, xaiDiscoveryURL, nil)
 	if err != nil {
-		return "", errors.BadRequest("", "Invalid or expired state: %v", err)
+		return nil, err
 	}
+	req.Header.Set("Accept", "application/json")
 
-	clientID := getEnvWithDefault("OAUTH_XAI_CLIENT_ID", "b1a00492-073a-47ea-816f-4c329264a828")
-	redirectURI := getEnvWithDefault("OAUTH_REDIRECT_URI", "http://localhost:8040/api/v1/providers/oauth/callback")
-
-	// 2. Perform Code Exchange with x.ai
-	tokenURL := "https://api.x.ai/v2/oauth2/token"
-	form := url.Values{}
-	form.Set("grant_type", "authorization_code")
-	form.Set("client_id", clientID)
-	form.Set("code", code)
-	form.Set("redirect_uri", redirectURI)
-	form.Set("code_verifier", verifier)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
-	if err != nil {
-		return "", fmt.Errorf("failed to create exchange request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("oauth token exchange request failed: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read exchange response body: %w", err)
+		return nil, err
 	}
-
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("exchange token returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("discovery returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	var tokenResp struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		ExpiresIn    int    `json:"expires_in"`
+	var disc xaiDiscovery
+	if err := json.Unmarshal(body, &disc); err != nil {
+		return nil, err
 	}
-	if err := json.Unmarshal(respBody, &tokenResp); err != nil {
-		return "", fmt.Errorf("failed to parse token exchange response: %w", err)
+	if disc.DeviceAuthorizationEndpoint == "" || disc.TokenEndpoint == "" {
+		return nil, errors.InternalServerError("", "discovery response missing required endpoints")
 	}
-
-	// 3. Cache token result
-	res := &OAuthTokenResult{
-		AccessToken:  tokenResp.AccessToken,
-		RefreshToken: tokenResp.RefreshToken,
-		ExpiresIn:    tokenResp.ExpiresIn,
-	}
-	oauthResultCache.Set(state, res, cache.DefaultExpiration)
-
-	// Return a user-friendly HTML success landing page
-	htmlResponse := `
-	<!DOCTYPE html>
-	<html>
-	<head>
-		<title>Authentication Successful</title>
-		<style>
-			body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #0f172a; color: #f8fafc; }
-			.card { text-align: center; padding: 2.5rem; background: #1e293b; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); border: 1px solid #334155; }
-			h1 { color: #10b981; margin-top: 0; }
-			p { color: #94a3b8; font-size: 0.95rem; line-height: 1.5; margin-bottom: 0; }
-		</style>
-	</head>
-	<body>
-		<div class="card">
-			<h1>绑定成功</h1>
-			<p>您已成功绑定 OAuth 凭证。</p>
-			<p style="margin-top: 0.5rem;">此窗口现在可以安全关闭。</p>
-		</div>
-	</body>
-	</html>
-	`
-	return htmlResponse, nil
+	return &disc, nil
 }
 
-func generateCodeVerifier() string {
+func generateStateKey() string {
 	token := make([]byte, 32)
 	_, _ = rand.Read(token)
-	return base64.RawURLEncoding.EncodeToString(token)[:43]
-}
-
-func generatePKCEChallenge(verifier string) string {
-	hash := sha256.Sum256([]byte(verifier))
-	return base64.RawURLEncoding.EncodeToString(hash[:])
+	return base64.RawURLEncoding.EncodeToString(token)
 }

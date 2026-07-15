@@ -20,10 +20,11 @@ import (
 
 type TokenRefresher struct {
 	DB         *gorm.DB
+	RedisSync  *ConfigRedisSync
 	InstanceID string
 }
 
-func NewTokenRefresher(db *gorm.DB) *TokenRefresher {
+func NewTokenRefresher(db *gorm.DB, redisSync *ConfigRedisSync) *TokenRefresher {
 	// Generate a unique instance ID for current process (e.g. hostname + pid or env)
 	hostname, _ := os.Hostname()
 	if hostname == "" {
@@ -34,6 +35,7 @@ func NewTokenRefresher(db *gorm.DB) *TokenRefresher {
 
 	return &TokenRefresher{
 		DB:         db,
+		RedisSync:  redisSync,
 		InstanceID: instanceID,
 	}
 }
@@ -61,19 +63,25 @@ func (r *TokenRefresher) StartCronLoop(ctx context.Context) {
 }
 
 func (r *TokenRefresher) scanAndRefresh(ctx context.Context) {
-	// Query providers with oauth_token auth_type that are expiring in 30 minutes, or already expired
+	// Query all oauth_token providers, then filter in memory by the expires_at
+	// stored inside the oauth JSON column.
 	var providers []schema.Provider
 	err := r.DB.Table(new(schema.Provider).TableName()).
 		Where("auth_type = ? AND deleted = '0'", "oauth_token").
-		Where("expires_at IS NULL OR expires_at < ?", time.Now().Add(30*time.Minute)).
 		Find(&providers).Error
 
 	if err != nil {
-		logging.Context(ctx).Error("failed to query expiring providers", zap.Error(err))
+		logging.Context(ctx).Error("failed to query oauth providers", zap.Error(err))
 		return
 	}
 
+	threshold := time.Now().Add(30 * time.Minute)
 	for _, provider := range providers {
+		cred := provider.GetOAuth()
+		// Refresh when there is no known expiry, or it is within the threshold.
+		if cred != nil && cred.ExpiresAt != nil && cred.ExpiresAt.After(threshold) {
+			continue
+		}
 		go r.lockAndRefreshProvider(ctx, provider)
 	}
 }
@@ -124,25 +132,28 @@ func (r *TokenRefresher) lockAndRefreshProvider(ctx context.Context, provider sc
 		}
 		apiKeysJSON, _ := json.Marshal(apiKeyItems)
 
-		// Update provider
+		// Preserve the existing token_endpoint; only refresh_token and expires_at change.
+		expiresAtCopy := expiresAt
+		cred := provider.GetOAuth()
+		tokenEndpoint := ""
+		if cred != nil {
+			tokenEndpoint = cred.TokenEndpoint
+		}
+		oauthJSON, _ := json.Marshal(schema.OAuthCredential{
+			RefreshToken:  newRefreshToken,
+			TokenEndpoint: tokenEndpoint,
+			ExpiresAt:     &expiresAtCopy,
+		})
+
+		// Update provider. access_token is stored provider-level only; endpoints
+		// inherit it at sync time (oauth_token endpoints always read the provider key).
 		if err := tx.Table(tableName).
 			Where("id = ? AND lock_owner = ?", provider.ID, r.InstanceID).
 			Updates(map[string]interface{}{
-				"api_keys":            json.RawMessage(apiKeysJSON),
-				"oauth_refresh_token": newRefreshToken,
-				"expires_at":          expiresAt,
-				"lock_owner":          nil,
-				"locked_until":        nil,
-			}).Error; err != nil {
-			return err
-		}
-
-		// Cascade update endpoints
-		endpointTableName := new(schema.Endpoint).TableName()
-		if err := tx.Table(endpointTableName).
-			Where("provider_id = ? AND deleted = '0'", provider.ID).
-			Updates(map[string]interface{}{
-				"api_key": newAccessToken,
+				"api_keys":     json.RawMessage(apiKeysJSON),
+				"oauth":        json.RawMessage(oauthJSON),
+				"lock_owner":   nil,
+				"locked_until": nil,
 			}).Error; err != nil {
 			return err
 		}
@@ -151,11 +162,27 @@ func (r *TokenRefresher) lockAndRefreshProvider(ctx context.Context, provider sc
 	})
 
 	if err != nil {
-		logging.Context(ctx).Error("failed to save refreshed tokens and cascade update endpoints", zap.String("provider_id", provider.ID), zap.Error(err))
+		logging.Context(ctx).Error("failed to save refreshed OAuth token for provider", zap.String("provider_id", provider.ID), zap.Error(err))
 		return
 	}
 
-	logging.Context(ctx).Info("Successfully refreshed and saved OAuth token for provider and cascade updated endpoints", zap.String("provider_id", provider.ID))
+	logging.Context(ctx).Info("Successfully refreshed and saved OAuth token for provider", zap.String("provider_id", provider.ID))
+
+	// Push the new token to Redis so the gateway picks it up. The gateway only
+	// reacts to per-model version bumps, so every model referencing this provider
+	// must be re-synced (SyncModelByCode also increments the version).
+	if r.RedisSync != nil {
+		modelCodes, mErr := r.RedisSync.GetModelCodesByProvider(ctx, provider.ID)
+		if mErr != nil {
+			logging.Context(ctx).Error("failed to list models for provider after refresh", zap.String("provider_id", provider.ID), zap.Error(mErr))
+			return
+		}
+		for _, modelCode := range modelCodes {
+			if err := r.RedisSync.SyncModelByCode(ctx, modelCode); err != nil {
+				logging.Context(ctx).Error("failed to sync model to Redis after token refresh", zap.String("provider_id", provider.ID), zap.String("model_code", modelCode), zap.Error(err))
+			}
+		}
+	}
 }
 
 type oauthTokenResponse struct {
@@ -165,7 +192,8 @@ type oauthTokenResponse struct {
 }
 
 func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.Provider) (string, string, time.Time, error) {
-	if provider.OAuthRefreshToken == "" {
+	cred := provider.GetOAuth()
+	if cred == nil || cred.RefreshToken == "" {
 		return "", "", time.Time{}, errors.New("refresh_token is empty")
 	}
 
@@ -175,8 +203,16 @@ func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.
 	protocol := strings.ToLower(provider.Protocol)
 	switch protocol {
 	case "xai":
-		clientID = getEnvWithDefault("OAUTH_XAI_CLIENT_ID", "b1a00492-073a-47ea-816f-4c329264a828")
-		tokenURL = getEnvWithDefault("OAUTH_XAI_TOKEN_URL", "https://api.x.ai/v2/oauth2/token")
+		clientID = getEnvWithDefault("OAUTH_XAI_CLIENT_ID", xaiOAuthClientID)
+		// Prefer the token_endpoint captured at bind time; fall back to discovery.
+		tokenURL = getEnvWithDefault("OAUTH_XAI_TOKEN_URL", cred.TokenEndpoint)
+		if tokenURL == "" {
+			disc, err := discoverXAIEndpoints(ctx)
+			if err != nil {
+				return "", "", time.Time{}, fmt.Errorf("xai oauth discovery failed: %w", err)
+			}
+			tokenURL = disc.TokenEndpoint
+		}
 	case "anthropic":
 		clientID = getEnvWithDefault("ANTHROPIC_CLIENT_ID", "claude-cli")
 		tokenURL = getEnvWithDefault("ANTHROPIC_TOKEN_URL", "https://api.anthropic.com/v1/oauth/token")
@@ -191,7 +227,7 @@ func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.
 	form := url.Values{}
 	form.Set("grant_type", "refresh_token")
 	form.Set("client_id", clientID)
-	form.Set("refresh_token", provider.OAuthRefreshToken)
+	form.Set("refresh_token", cred.RefreshToken)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -234,7 +270,7 @@ func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.
 
 	finalRefreshToken := tokenResp.RefreshToken
 	if finalRefreshToken == "" {
-		finalRefreshToken = provider.OAuthRefreshToken
+		finalRefreshToken = cred.RefreshToken
 	}
 
 	return tokenResp.AccessToken, finalRefreshToken, expiresAt, nil

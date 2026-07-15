@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/biz"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
@@ -170,14 +168,15 @@ func (p *Provider) GetOAuthStart(c *gin.Context) {
 	if providerName == "" {
 		providerName = "xai"
 	}
-	url, state, err := p.ProviderBIZ.StartOAuthFlow(ctx, providerName)
+	result, err := p.ProviderBIZ.StartOAuthFlow(ctx, providerName)
 	if err != nil {
 		util.ResError(c, err)
 		return
 	}
 	util.ResSuccess(c, gin.H{
-		"url":   url,
-		"state": state,
+		"url":       result.URL,
+		"user_code": result.UserCode,
+		"state":     result.State,
 	})
 }
 
@@ -200,23 +199,11 @@ func (p *Provider) GetOAuthStatus(c *gin.Context) {
 		return
 	}
 	util.ResSuccess(c, gin.H{
-		"status":        "success",
-		"access_token":  result.AccessToken,
-		"refresh_token": result.RefreshToken,
-		"expires_in":    result.ExpiresIn,
+		"status":         "success",
+		"access_token":   result.AccessToken,
+		"refresh_token":  result.RefreshToken,
+		"expires_in":     result.ExpiresIn,
+		"token_endpoint": result.TokenEndpoint,
+		"base_url":       result.BaseURL,
 	})
-}
-
-func (p *Provider) GetOAuthCallback(c *gin.Context) {
-	ctx := c.Request.Context()
-	code := c.Query("code")
-	state := c.Query("state")
-
-	html, err := p.ProviderBIZ.HandleOAuthCallback(ctx, code, state)
-	if err != nil {
-		c.String(http.StatusBadRequest, "OAuth Callback Error: %v", err)
-		return
-	}
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.String(http.StatusOK, html)
 }

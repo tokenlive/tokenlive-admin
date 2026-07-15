@@ -3,6 +3,9 @@ package biz
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -539,16 +542,26 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 				base = "http://joycode-api-saas.jd.com"
 			}
 			isAnt := strings.Contains(strings.ToLower(realModel), "claude")
-			if isAnt {
-				reqURL = strings.TrimRight(base, "/") + "/api/saas/anthropic/v1/messages"
+			if strings.HasPrefix(base, "https://") {
+				if isAnt {
+					reqURL = signJoyCodeGatewayURL(base, "anthropic_completions")
+				} else {
+					reqURL = signJoyCodeGatewayURL(base, "chat_completions")
+				}
 			} else {
-				reqURL = strings.TrimRight(base, "/") + "/api/saas/openai/v2/chat/completions"
+				if isAnt {
+					reqURL = strings.TrimRight(base, "/") + "/api/saas/anthropic/v1/messages"
+				} else {
+					reqURL = strings.TrimRight(base, "/") + "/api/saas/openai/v2/chat/completions"
+				}
 			}
 			bodyMap := map[string]interface{}{
 				"model":      realModel,
 				"messages":   []map[string]string{{"role": "user", "content": "ping"}},
 				"max_tokens": 1,
 				"stream":     false,
+				"client":     "JoyCodeIDE",
+				"clientVersion": "3.8.61",
 			}
 			reqBody, _ = json.Marshal(bodyMap)
 		} else {
@@ -596,8 +609,11 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			}
 		} else if protocol == "joycode" {
 			req.Header.Set("ptKey", apiKey)
-			req.Header.Set("loginType", "PIN_JD_CLOUD")
+			req.Header.Set("loginType", getLoginTypeForPtKey(apiKey))
 			req.Header.Set("x-ms-client-request-id", uuid.NewString())
+			req.Header.Set("client", "JoyCodeIDE")
+			req.Header.Set("clientVersion", "3.8.61")
+			req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 		} else {
 			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
@@ -922,4 +938,38 @@ func (e *Endpoint) TestByID(ctx context.Context, id string) (*schema.EndpointTes
 	}
 
 	return e.Test(ctx, form)
+}
+
+func signJoyCodeGatewayURL(baseURL, functionID string) string {
+	baseURL = strings.TrimSuffix(strings.TrimSpace(baseURL), "/")
+	t := time.Now().UnixNano() / int64(time.Millisecond)
+	stringToSign := fmt.Sprintf("joycode_ide&%s&%d", functionID, t)
+	key := []byte("0691a3f0b37b4a85aeb63ad0fc7db3ed")
+
+	mac := hmac.New(sha256.New, key)
+	mac.Write([]byte(stringToSign))
+	sign := hex.EncodeToString(mac.Sum(nil))
+
+	return fmt.Sprintf("%s/api?appid=joycode_ide&functionId=%s&t=%d&sign=%s", baseURL, functionID, t, sign)
+}
+
+func getLoginTypeForPtKey(ptKey string) string {
+	if strings.HasPrefix(ptKey, "BJ.") {
+		return "ERP"
+	}
+	return "N_PIN_PC"
+}
+
+func injectJoyCodePayload(rawBody []byte) []byte {
+	var m map[string]interface{}
+	if err := json.Unmarshal(rawBody, &m); err != nil {
+		return rawBody
+	}
+	m["client"] = "JoyCodeIDE"
+	m["clientVersion"] = "3.8.61"
+
+	if out, err := json.Marshal(m); err == nil {
+		return out
+	}
+	return rawBody
 }

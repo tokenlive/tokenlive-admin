@@ -16,11 +16,12 @@ type Provider struct {
 	Name        string          `json:"name" gorm:"type:varchar(128);not null;comment:Provider名称;"`
 	Protocol    string          `json:"protocol" gorm:"type:varchar(64);not null;comment:协议类型，决定使用哪个 ProviderFactory;"`
 	URL         string          `json:"url" gorm:"type:varchar(512);default:null;comment:供应商 API 基础地址;"`
-	ApiKeys           json.RawMessage `json:"api_keys,omitempty" gorm:"type:json;default:null;comment:上游API认证密钥列表;"`
-	AuthType          string          `json:"auth_type" gorm:"type:varchar(64);default:'api_key';comment:认证类型: api_key, oauth_token;"`
-	OAuthRefreshToken string          `json:"oauth_refresh_token,omitempty" gorm:"type:varchar(512);default:null;comment:OAuth 刷新 Token;"`
-	ExpiresAt         *time.Time      `json:"expires_at,omitempty" gorm:"type:datetime;default:null;comment:OAuth Access Token 过期时间;"`
-	Enabled           int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
+	ApiKeys     json.RawMessage `json:"api_keys,omitempty" gorm:"type:json;default:null;comment:上游API认证密钥列表;"`
+	AuthType    string          `json:"auth_type" gorm:"type:varchar(64);default:'api_key';comment:认证类型: api_key, oauth_token;"`
+	OAuth       json.RawMessage `json:"oauth,omitempty" gorm:"type:json;default:null;comment:OAuth 凭证(refresh_token/token_endpoint/expires_at);"`
+	LockOwner   string          `json:"-" gorm:"type:varchar(128);default:null;comment:OAuth 刷新分布式锁持有者实例ID;"`
+	LockedUntil *time.Time      `json:"-" gorm:"type:datetime;default:null;comment:OAuth 刷新分布式锁过期时间;"`
+	Enabled     int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
 	Description string          `json:"description" gorm:"type:varchar(255);default:null;comment:备注描述;"`
 	Creator     string          `json:"creator" gorm:"type:varchar(255);default:null;comment:创建者;"`
 	Modifier    string          `json:"modifier" gorm:"type:varchar(255);default:null;comment:修改者;"`
@@ -61,17 +62,25 @@ type ApiKeyItem struct {
 	Description string `json:"description"`
 }
 
+// OAuthCredential holds the OAuth secrets and refresh metadata for a provider,
+// persisted as a single JSON column. access_token itself lives in ApiKeys; the
+// upstream base URL lives in the Provider.URL column.
+type OAuthCredential struct {
+	RefreshToken  string     `json:"refresh_token,omitempty"`
+	TokenEndpoint string     `json:"token_endpoint,omitempty"`
+	ExpiresAt     *time.Time `json:"expires_at,omitempty"`
+}
+
 // ProviderForm defines the form for creating/updating a Provider.
 type ProviderForm struct {
 	Code        string       `json:"code" binding:"required,max=128"`    // Provider unique code
 	Name        string       `json:"name" binding:"required,max=128"`    // Provider display name
 	Protocol    string       `json:"protocol" binding:"required,max=64"` // Protocol type: openai / anthropic / ...
 	URL         string       `json:"url"`                                // Provider API base URL
-	ApiKeys           []ApiKeyItem `json:"api_keys"`                           // Upstream API key list
-	AuthType          string       `json:"auth_type"`                            // Auth type: api_key, oauth_token
-	OAuthRefreshToken string       `json:"oauth_refresh_token"`                  // OAuth refresh token
-	ExpiresAt         *time.Time   `json:"expires_at"`                           // OAuth expires_at
-	Enabled           int          `json:"enabled"`                            // Enable status: 0-disabled, 1-enabled
+	ApiKeys     []ApiKeyItem `json:"api_keys"`                           // Upstream API key list
+	AuthType    string       `json:"auth_type"`                          // Auth type: api_key, oauth_token
+	OAuth       *OAuthCredential `json:"oauth"`                          // OAuth credential (refresh_token/token_endpoint/expires_at)
+	Enabled     int          `json:"enabled"`                            // Enable status: 0-disabled, 1-enabled
 	Description string       `json:"description"`                        // Description
 }
 
@@ -95,8 +104,12 @@ func (p *ProviderForm) FillTo(provider *Provider) error {
 	} else {
 		provider.AuthType = p.AuthType
 	}
-	provider.OAuthRefreshToken = p.OAuthRefreshToken
-	provider.ExpiresAt = p.ExpiresAt
+	if p.OAuth != nil {
+		b, _ := json.Marshal(p.OAuth)
+		provider.OAuth = json.RawMessage(b)
+	} else {
+		provider.OAuth = nil
+	}
 	provider.Enabled = p.Enabled
 	provider.Description = p.Description
 	return nil
@@ -110,6 +123,18 @@ func (p *Provider) GetApiKeys() []ApiKeyItem {
 	var keys []ApiKeyItem
 	_ = json.Unmarshal(p.ApiKeys, &keys)
 	return keys
+}
+
+// GetOAuth deserializes the JSON oauth field into an OAuthCredential.
+func (p *Provider) GetOAuth() *OAuthCredential {
+	if len(p.OAuth) == 0 {
+		return nil
+	}
+	var cred OAuthCredential
+	if err := json.Unmarshal(p.OAuth, &cred); err != nil {
+		return nil
+	}
+	return &cred
 }
 
 // FetchModelsForm defines the request form for fetching models from upstream provider.

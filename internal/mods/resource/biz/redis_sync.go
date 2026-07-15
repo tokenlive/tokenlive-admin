@@ -106,9 +106,11 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 				continue
 			}
 
-			// Inheritance: API Keys (endpoint > provider)
+			// Inheritance: API Keys
+			// - oauth_token: OAuth 凭证是 provider 级身份，强制读 provider，忽略 endpoint 覆盖。
+			// - api_key: 保留 endpoint > provider 的手动覆盖能力。
 			var apiKeys []string
-			if ep.ApiKey != "" {
+			if ep.AuthType != "oauth_token" && ep.ApiKey != "" {
 				apiKeys = []string{ep.ApiKey}
 			} else {
 				items := ep.Provider.GetApiKeys()

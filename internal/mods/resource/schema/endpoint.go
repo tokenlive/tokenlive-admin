@@ -18,10 +18,8 @@ type Endpoint struct {
 	ModelID            string          `json:"model_id" gorm:"type:char(20);not null;index:idx_endpoint_route,priority:1;index:idx_model_id,priority:1;comment:关联 of model ID;"`
 	ProviderID         string          `json:"provider_id" gorm:"type:char(20);not null;index:idx_endpoint_route,priority:2;index:idx_provider_id,priority:1;comment:关联 of provider ID;"`
 	URL                string          `json:"url" gorm:"type:varchar(512);not null;comment:上游 API 地址;"`
-	ApiKey             string          `json:"api_key,omitempty" gorm:"type:varchar(512);default:null;comment:可选，覆盖 provider 级别的 api_key;"`
+	ApiKey             string          `json:"api_key,omitempty" gorm:"type:varchar(512);default:null;comment:可选，覆盖 provider 级别的 api_key（仅 api_key 类型）;"`
 	AuthType           string          `json:"auth_type" gorm:"type:varchar(64);default:'api_key';comment:认证类型: api_key, oauth_token;"`
-	OAuthRefreshToken  string          `json:"oauth_refresh_token,omitempty" gorm:"type:varchar(512);default:null;comment:OAuth 刷新 Token;"`
-	ExpiresAt          *time.Time      `json:"expires_at,omitempty" gorm:"type:datetime;default:null;comment:OAuth Access Token 过期时间;"`
 	Protocol           string          `json:"protocol,omitempty" gorm:"type:varchar(64);default:null;comment:可选，覆盖 provider 级别的 protocol;"`
 	RealModel          string          `json:"real_model,omitempty" gorm:"type:varchar(128);default:null;comment:可选，覆盖 model 级别的 real_model;"`
 	Priority           int             `json:"priority" gorm:"type:int;not null;default:0;comment:故障转移顺序，数字越小越优先;"`
@@ -81,10 +79,8 @@ type EndpointForm struct {
 	ProviderID         string          `json:"provider_id" binding:"required,max=20"` // Associated provider ID
 	ModelID            string          `json:"model_id" binding:"required,max=20"`    // Associated Model ID
 	URL                string          `json:"url" binding:"required,max=512"`        // Upstream API address
-	ApiKey             string          `json:"api_key"`                               // Optional, overrides provider-level api_key
+	ApiKey             string          `json:"api_key"`                               // Optional, overrides provider-level api_key (api_key type only)
 	AuthType           string          `json:"auth_type"`                             // Auth type: api_key, oauth_token
-	OAuthRefreshToken  string          `json:"oauth_refresh_token"`                   // OAuth refresh token
-	ExpiresAt          *time.Time      `json:"expires_at"`                            // OAuth access token expires_at
 	Protocol           string          `json:"protocol"`                              // Optional, overrides provider-level protocol
 	RealModel          string          `json:"real_model"`                            // Optional, overrides model-level real_model
 	Priority           int             `json:"priority"`                              // Failover priority
@@ -118,8 +114,6 @@ func (e *EndpointForm) FillTo(endpoint *Endpoint) error {
 	} else {
 		endpoint.AuthType = e.AuthType
 	}
-	endpoint.OAuthRefreshToken = e.OAuthRefreshToken
-	endpoint.ExpiresAt = e.ExpiresAt
 	endpoint.Protocol = e.Protocol
 	endpoint.RealModel = e.RealModel
 	endpoint.Priority = e.Priority

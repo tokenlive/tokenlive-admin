@@ -223,16 +223,6 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		TenantEndpointAPI: apiTenantEndpoint,
 		Casbinx:           casbinx,
 	}
-	provider := &dal3.Provider{
-		DB: db,
-	}
-	dataPermission := &dal3.DataPermission{
-		DB: db,
-	}
-	bizDataPermission := &biz3.DataPermission{
-		Trans:             trans,
-		DataPermissionDAL: dataPermission,
-	}
 	endpoint := &dal3.Endpoint{
 		DB: db,
 	}
@@ -247,6 +237,16 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		EndpointDAL:   endpoint,
 		ModelDAL:      model,
 		ModelAliasDAL: modelAlias,
+	}
+	provider := &dal3.Provider{
+		DB: db,
+	}
+	dataPermission := &dal3.DataPermission{
+		DB: db,
+	}
+	bizDataPermission := &biz3.DataPermission{
+		Trans:             trans,
+		DataPermissionDAL: dataPermission,
 	}
 	bizProvider := &biz3.Provider{
 		Trans:             trans,
@@ -376,6 +376,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	}
 	resourceResource := &resource.Resource{
 		DB:                   db,
+		ConfigRedisSync:      configRedisSync,
 		ProviderAPI:          apiProvider,
 		EndpointAPI:          apiEndpoint,
 		ModelAPI:             apiModel,
