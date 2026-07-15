@@ -1,9 +1,12 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/biz"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/errors"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
@@ -159,4 +162,61 @@ func (p *Provider) FetchModels(c *gin.Context) {
 		return
 	}
 	util.ResSuccess(c, result)
+}
+
+func (p *Provider) GetOAuthStart(c *gin.Context) {
+	ctx := c.Request.Context()
+	providerName := c.Query("provider")
+	if providerName == "" {
+		providerName = "xai"
+	}
+	url, state, err := p.ProviderBIZ.StartOAuthFlow(ctx, providerName)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResSuccess(c, gin.H{
+		"url":   url,
+		"state": state,
+	})
+}
+
+func (p *Provider) GetOAuthStatus(c *gin.Context) {
+	ctx := c.Request.Context()
+	state := c.Query("state")
+	if state == "" {
+		util.ResError(c, errors.BadRequest("", "state is required"))
+		return
+	}
+	result, err := p.ProviderBIZ.PollOAuthStatus(ctx, state)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	if result == nil {
+		util.ResSuccess(c, gin.H{
+			"status": "waiting",
+		})
+		return
+	}
+	util.ResSuccess(c, gin.H{
+		"status":        "success",
+		"access_token":  result.AccessToken,
+		"refresh_token": result.RefreshToken,
+		"expires_in":    result.ExpiresIn,
+	})
+}
+
+func (p *Provider) GetOAuthCallback(c *gin.Context) {
+	ctx := c.Request.Context()
+	code := c.Query("code")
+	state := c.Query("state")
+
+	html, err := p.ProviderBIZ.HandleOAuthCallback(ctx, code, state)
+	if err != nil {
+		c.String(http.StatusBadRequest, "OAuth Callback Error: %v", err)
+		return
+	}
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.String(http.StatusOK, html)
 }

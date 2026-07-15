@@ -19,7 +19,7 @@ func setupEndpointDeps(t *testing.T, e *httpexpect.Expect, suffix string) (schem
 		Code:        fmt.Sprintf("test-endpoint-provider-code-%s", suffix),
 		Name:        fmt.Sprintf("test-endpoint-provider-%s", suffix),
 		Protocol:    "openai",
-		ApiKeys:     []string{"sk-test-key"},
+		ApiKeys:     []schema.ApiKeyItem{{Value: "sk-test-key"}},
 		Enabled:     1,
 		Description: "Provider for endpoint tests",
 	}

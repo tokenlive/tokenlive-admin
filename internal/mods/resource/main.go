@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/api"
+	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/biz"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"gorm.io/gorm"
 )
@@ -42,6 +43,11 @@ func (a *Resource) Init(ctx context.Context) error {
 			return err
 		}
 	}
+
+	// Start OAuth token background refresher cron loop
+	refresher := biz.NewTokenRefresher(a.DB)
+	go refresher.StartCronLoop(ctx)
+
 	return nil
 }
 
@@ -49,6 +55,9 @@ func (a *Resource) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) e
 	providers := v1.Group("providers")
 	{
 		providers.GET("", a.ProviderAPI.Query)
+		providers.GET("oauth/start", a.ProviderAPI.GetOAuthStart)
+		providers.GET("oauth/status", a.ProviderAPI.GetOAuthStatus)
+		providers.GET("oauth/callback", a.ProviderAPI.GetOAuthCallback)
 		providers.GET(":id", a.ProviderAPI.Get)
 		providers.POST("", a.ProviderAPI.Create)
 		providers.PUT(":id", a.ProviderAPI.Update)

@@ -71,6 +71,7 @@ type EndpointConfig struct {
 	URL       string            `json:"url"`
 	RealModel string            `json:"real_model"`
 	APIKey    string            `json:"api_key,omitempty"`
+	AuthType  string            `json:"auth_type,omitempty"`
 	Protocol  string            `json:"protocol,omitempty"`
 	Timeout   string            `json:"timeout,omitempty"`
 	Priority  int               `json:"priority"`
@@ -199,6 +200,11 @@ func (s *GatewaySync) GetGatewayConfig(ctx context.Context, modelCode string) (*
 			realModel = mCode
 		}
 
+		authType := ep.AuthType
+		if authType == "" {
+			authType = "api_key"
+		}
+
 		epCfg := EndpointConfig{
 			ID:        ep.ID,
 			Code:      ep.Code,
@@ -206,6 +212,7 @@ func (s *GatewaySync) GetGatewayConfig(ctx context.Context, modelCode string) (*
 			URL:       ep.URL,
 			RealModel: realModel,
 			APIKey:    ep.ApiKey,
+			AuthType:  authType,
 			Protocol:  ep.Protocol,
 			Priority:  ep.Priority,
 			Weight:    ep.Weight,

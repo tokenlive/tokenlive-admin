@@ -73,6 +73,16 @@
             </a-form-item>
 
             <a-form-item
+                label="验证类型"
+                name="auth_type">
+                <a-radio-group v-model:value="formData.auth_type">
+                    <a-radio value="api_key">API Key 密钥</a-radio>
+                    <a-radio value="oauth_token">OAuth 凭证</a-radio>
+                </a-radio-group>
+            </a-form-item>
+
+            <a-form-item
+                v-if="formData.auth_type === 'api_key'"
                 :label="$t('pages.provider.form.api_keys')"
                 name="api_keys">
                 <div
@@ -98,6 +108,27 @@
                     <plus-outlined />
                     {{ $t('pages.provider.form.api_keys.add') }}
                 </a-button>
+            </a-form-item>
+
+            <a-form-item
+                v-if="formData.auth_type === 'oauth_token'"
+                label="OAuth 凭证"
+                name="api_keys">
+                <div style="display: flex; align-items: center; gap: 8px">
+                    <a-input-password
+                        :value="formData.api_keys && formData.api_keys.length > 0 ? formData.api_keys[0].value : ''"
+                        placeholder="未绑定，请点击按钮进行绑定"
+                        disabled
+                        style="flex: 1" />
+                    <a-button
+                        type="primary"
+                        @click="startXaiOAuth"
+                        :loading="oauthLoading">
+                        {{
+                            formData.api_keys && formData.api_keys.length > 0 ? '重新绑定 (x.ai)' : '绑定 OAuth (x.ai)'
+                        }}
+                    </a-button>
+                </div>
             </a-form-item>
 
             <a-form-item
@@ -145,12 +176,83 @@ function removeApiKey(index) {
     formData.value.api_keys.splice(index, 1)
 }
 
+const oauthLoading = ref(false)
+let oauthPollTimer = null
+
+async function startXaiOAuth() {
+    try {
+        oauthLoading.value = true
+        const { data, success } = await apis.provider.startOAuth('xai').catch()
+        if (!success || !data?.url) {
+            message.error('获取授权链接失败')
+            oauthLoading.value = false
+            return
+        }
+
+        const authWindow = window.open(data.url, '_blank')
+        if (!authWindow) {
+            message.warning('弹出窗口被浏览器拦截，请允许弹出窗口后重试')
+        }
+
+        if (oauthPollTimer) {
+            clearInterval(oauthPollTimer)
+        }
+
+        oauthPollTimer = setInterval(async () => {
+            if (authWindow && authWindow.closed) {
+                const statusRes = await apis.provider.pollOAuthStatus(data.state).catch()
+                if (statusRes && statusRes.success && statusRes.data?.status === 'success') {
+                    handleOAuthSuccess(statusRes.data)
+                } else {
+                    message.info('授权窗口已关闭，已终止绑定流程')
+                    stopOAuthPolling()
+                }
+                return
+            }
+
+            const { data: statusData, success: statusSuccess } = await apis.provider.pollOAuthStatus(data.state).catch()
+            if (statusSuccess && statusData?.status === 'success') {
+                handleOAuthSuccess(statusData)
+            }
+        }, 3000)
+    } catch (e) {
+        oauthLoading.value = false
+        message.error('启动授权流程失败')
+    }
+}
+
+function handleOAuthSuccess(authData) {
+    message.success('OAuth 凭证绑定成功！')
+    formData.value.api_keys = [
+        {
+            value: authData.access_token,
+            description: 'OAuth Token (x.ai)',
+        },
+    ]
+    formData.value.oauth_refresh_token = authData.refresh_token
+    if (authData.expires_in > 0) {
+        formData.value.expires_at = new Date(Date.now() + authData.expires_in * 1000).toISOString()
+    } else {
+        formData.value.expires_at = null
+    }
+    stopOAuthPolling()
+}
+
+function stopOAuthPolling() {
+    oauthLoading.value = false
+    if (oauthPollTimer) {
+        clearInterval(oauthPollTimer)
+        oauthPollTimer = null
+    }
+}
+
 function handleCreate() {
     showModal({
         type: 'create',
         title: t('pages.provider.add'),
     })
     formData.value.enabled = 1
+    formData.value.auth_type = 'api_key'
     formData.value.api_keys = []
 }
 
@@ -168,6 +270,9 @@ async function handleEdit(record = {}) {
     }
     formRecord.value = data
     formData.value = cloneDeep(data)
+    if (!formData.value.auth_type) {
+        formData.value.auth_type = 'api_key'
+    }
     if (!Array.isArray(formData.value.api_keys)) {
         formData.value.api_keys = []
     }
@@ -181,6 +286,9 @@ function handleOk() {
                 showLoading()
                 const params = {
                     ...values,
+                    api_keys: formData.value.api_keys,
+                    oauth_refresh_token: formData.value.oauth_refresh_token,
+                    expires_at: formData.value.expires_at,
                 }
                 let result = null
                 switch (modal.value.type) {
@@ -216,6 +324,7 @@ function handleCancel() {
 function onAfterClose() {
     resetForm()
     hideLoading()
+    stopOAuthPolling()
 }
 
 defineExpose({

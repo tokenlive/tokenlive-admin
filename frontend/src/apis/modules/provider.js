@@ -14,3 +14,7 @@ export const updateProvider = (id, params) => request.basic.put(`/api/v1/provide
 export const delProvider = (id) => request.basic.delete(`/api/v1/providers/${id}`)
 // 获取供应商上游模型列表
 export const fetchProviderModels = (id, params) => request.basic.post(`/api/v1/providers/${id}/fetch-models`, params)
+// 获取 OAuth 授权开始链接
+export const startOAuth = (provider) => request.basic.get('/api/v1/providers/oauth/start', { provider })
+// 轮询 OAuth 绑定状态
+export const pollOAuthStatus = (state) => request.basic.get('/api/v1/providers/oauth/status', { state })

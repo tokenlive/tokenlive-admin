@@ -16,8 +16,11 @@ type Provider struct {
 	Name        string          `json:"name" gorm:"type:varchar(128);not null;comment:Provider名称;"`
 	Protocol    string          `json:"protocol" gorm:"type:varchar(64);not null;comment:协议类型，决定使用哪个 ProviderFactory;"`
 	URL         string          `json:"url" gorm:"type:varchar(512);default:null;comment:供应商 API 基础地址;"`
-	ApiKeys     json.RawMessage `json:"api_keys,omitempty" gorm:"type:json;default:null;comment:上游API认证密钥列表;"`
-	Enabled     int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
+	ApiKeys           json.RawMessage `json:"api_keys,omitempty" gorm:"type:json;default:null;comment:上游API认证密钥列表;"`
+	AuthType          string          `json:"auth_type" gorm:"type:varchar(64);default:'api_key';comment:认证类型: api_key, oauth_token;"`
+	OAuthRefreshToken string          `json:"oauth_refresh_token,omitempty" gorm:"type:varchar(512);default:null;comment:OAuth 刷新 Token;"`
+	ExpiresAt         *time.Time      `json:"expires_at,omitempty" gorm:"type:datetime;default:null;comment:OAuth Access Token 过期时间;"`
+	Enabled           int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
 	Description string          `json:"description" gorm:"type:varchar(255);default:null;comment:备注描述;"`
 	Creator     string          `json:"creator" gorm:"type:varchar(255);default:null;comment:创建者;"`
 	Modifier    string          `json:"modifier" gorm:"type:varchar(255);default:null;comment:修改者;"`
@@ -64,8 +67,11 @@ type ProviderForm struct {
 	Name        string       `json:"name" binding:"required,max=128"`    // Provider display name
 	Protocol    string       `json:"protocol" binding:"required,max=64"` // Protocol type: openai / anthropic / ...
 	URL         string       `json:"url"`                                // Provider API base URL
-	ApiKeys     []ApiKeyItem `json:"api_keys"`                           // Upstream API key list
-	Enabled     int          `json:"enabled"`                            // Enable status: 0-disabled, 1-enabled
+	ApiKeys           []ApiKeyItem `json:"api_keys"`                           // Upstream API key list
+	AuthType          string       `json:"auth_type"`                            // Auth type: api_key, oauth_token
+	OAuthRefreshToken string       `json:"oauth_refresh_token"`                  // OAuth refresh token
+	ExpiresAt         *time.Time   `json:"expires_at"`                           // OAuth expires_at
+	Enabled           int          `json:"enabled"`                            // Enable status: 0-disabled, 1-enabled
 	Description string       `json:"description"`                        // Description
 }
 
@@ -84,6 +90,13 @@ func (p *ProviderForm) FillTo(provider *Provider) error {
 	} else {
 		provider.ApiKeys = nil
 	}
+	if p.AuthType == "" {
+		provider.AuthType = "api_key"
+	} else {
+		provider.AuthType = p.AuthType
+	}
+	provider.OAuthRefreshToken = p.OAuthRefreshToken
+	provider.ExpiresAt = p.ExpiresAt
 	provider.Enabled = p.Enabled
 	provider.Description = p.Description
 	return nil
