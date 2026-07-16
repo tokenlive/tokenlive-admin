@@ -116,7 +116,8 @@ func (r *TokenRefresher) lockAndRefreshProvider(ctx context.Context, provider sc
 		logging.Context(ctx).Error("failed to refresh OAuth token for provider", zap.String("provider_id", provider.ID), zap.Error(err))
 		// Release lock immediately on failure
 		r.DB.Table(tableName).Where("id = ? AND lock_owner = ?", provider.ID, r.InstanceID).Updates(map[string]interface{}{
-			"locked_until": nil,
+			"lock_owner":   gorm.Expr("NULL"),
+			"locked_until": gorm.Expr("NULL"),
 		})
 		return
 	}
@@ -150,10 +151,10 @@ func (r *TokenRefresher) lockAndRefreshProvider(ctx context.Context, provider sc
 		if err := tx.Table(tableName).
 			Where("id = ? AND lock_owner = ?", provider.ID, r.InstanceID).
 			Updates(map[string]interface{}{
-				"api_keys":     json.RawMessage(apiKeysJSON),
-				"oauth":        json.RawMessage(oauthJSON),
-				"lock_owner":   nil,
-				"locked_until": nil,
+				"api_keys":     string(apiKeysJSON),
+				"oauth":        string(oauthJSON),
+				"lock_owner":   gorm.Expr("NULL"),
+				"locked_until": gorm.Expr("NULL"),
 			}).Error; err != nil {
 			return err
 		}
