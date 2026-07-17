@@ -484,8 +484,33 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 	}
 
 	// 2. 继承缺省参数
-	apiKey := formItem.ApiKey
-	if apiKey == "" {
+	// 认证类型：端点未指定时回退到 provider 级别
+	authType := formItem.AuthType
+	if authType == "" {
+		authType = provider.AuthType
+	}
+
+	// OAuth 类型：token 即将过期时先同步刷新，与运行时/同步路径保持一致
+	if provider.AuthType == "oauth_token" {
+		cred := provider.GetOAuth()
+		if cred != nil && cred.RefreshToken != "" {
+			now := time.Now()
+			if cred.ExpiresAt == nil || cred.ExpiresAt.Before(now.Add(5*time.Minute)) {
+				refresher := NewTokenRefresher(e.ProviderDAL.DB, e.ConfigRedisSync)
+				refresher.lockAndRefreshProvider(ctx, *provider)
+				if refreshed, err := e.ProviderDAL.Get(ctx, formItem.ProviderID); err == nil && refreshed != nil {
+					provider = refreshed
+				}
+			}
+		}
+	}
+
+	// 认证信息：oauth_token 类型忽略端点自身的旧 api_key 快照，强制使用 provider 级别的最新 token；
+	// 其余类型允许端点 api_key 覆盖 provider 级别。
+	var apiKey string
+	if authType != "oauth_token" && formItem.ApiKey != "" {
+		apiKey = formItem.ApiKey
+	} else {
 		keys := provider.GetApiKeys()
 		if len(keys) > 0 {
 			apiKey = keys[0].Value
@@ -946,6 +971,7 @@ func (e *Endpoint) TestByID(ctx context.Context, id string) (*schema.EndpointTes
 		ModelID:     endpoint.ModelID,
 		URL:         endpoint.URL,
 		ApiKey:      endpoint.ApiKey,
+		AuthType:    endpoint.AuthType,
 		Protocol:    endpoint.Protocol,
 		RealModel:   endpoint.RealModel,
 		Priority:    endpoint.Priority,
