@@ -152,7 +152,7 @@ func (r *TokenRefresher) lockAndRefreshProvider(ctx context.Context, provider sc
 			Where("id = ? AND lock_owner = ?", provider.ID, r.InstanceID).
 			Updates(map[string]interface{}{
 				"api_keys":     string(apiKeysJSON),
-				"oauth":        string(oauthJSON),
+				"o_auth":       string(oauthJSON),
 				"lock_owner":   gorm.Expr("NULL"),
 				"locked_until": gorm.Expr("NULL"),
 			}).Error; err != nil {
@@ -198,31 +198,23 @@ func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.
 		return "", "", time.Time{}, errors.New("refresh_token is empty")
 	}
 
-	var clientID string
-	var tokenURL string
+	if cred.TokenEndpoint == "" {
+		return "", "", time.Time{}, errors.New("token_endpoint is empty")
+	}
 
-	protocol := strings.ToLower(provider.Protocol)
-	switch protocol {
-	case "xai":
+	tokenURL := cred.TokenEndpoint
+	var clientID string
+
+	// 根据 TokenEndpoint 的域名特征选择对应的 Client ID
+	tokenURLLower := strings.ToLower(tokenURL)
+	if strings.Contains(tokenURLLower, "x.ai") {
 		clientID = getEnvWithDefault("OAUTH_XAI_CLIENT_ID", xaiOAuthClientID)
-		// Prefer the token_endpoint captured at bind time; fall back to discovery.
-		tokenURL = getEnvWithDefault("OAUTH_XAI_TOKEN_URL", cred.TokenEndpoint)
-		if tokenURL == "" {
-			disc, err := discoverXAIEndpoints(ctx)
-			if err != nil {
-				return "", "", time.Time{}, fmt.Errorf("xai oauth discovery failed: %w", err)
-			}
-			tokenURL = disc.TokenEndpoint
-		}
-	case "anthropic":
+	} else if strings.Contains(tokenURLLower, "anthropic") {
 		clientID = getEnvWithDefault("ANTHROPIC_CLIENT_ID", "claude-cli")
-		tokenURL = getEnvWithDefault("ANTHROPIC_TOKEN_URL", "https://api.anthropic.com/v1/oauth/token")
-	case "openai", "openai-compatible":
+	} else if strings.Contains(tokenURLLower, "openai") {
 		clientID = getEnvWithDefault("OPENAI_CLIENT_ID", "openai-cli")
-		tokenURL = getEnvWithDefault("OPENAI_TOKEN_URL", "https://api.openai.com/v1/oauth/token")
-	default:
+	} else {
 		clientID = getEnvWithDefault("OAUTH_CLIENT_ID", "client-id")
-		tokenURL = provider.URL // Fallback to provider URL
 	}
 
 	form := url.Values{}
