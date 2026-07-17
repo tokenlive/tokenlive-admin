@@ -109,6 +109,7 @@ async function handleOpen(context) {
         base_url: context.base_url,
         keysToCreate: context.keysToCreate,
         protocol: context.protocol,
+        auth_type: context.auth_type,
     }
     models.value = context.models || []
 
@@ -194,6 +195,7 @@ async function handleOk() {
 
             // 循环密钥为端点创建绑定
             const endpointCodeTs = Math.floor(Date.now() / 1000)
+            const isOAuth = importContext.value.auth_type === 'oauth_token'
             for (const [keyIndex, key] of importContext.value.keysToCreate.entries()) {
                 const keySuffix = importContext.value.keysToCreate.length > 1 ? `-${keyIndex + 1}` : ''
                 const epCode = `ep-${modelCodeForEp}-${importContext.value.providerCode}-${endpointCodeTs}${keySuffix}`
@@ -202,7 +204,8 @@ async function handleOk() {
                     provider_id: importContext.value.providerId,
                     model_id: modelId,
                     url: importContext.value.base_url,
-                    api_key: key,
+                    // OAuth 类型：认证令牌由 provider 级别统一管理，端点不绑定 api_key
+                    api_key: isOAuth ? '' : key,
                     auth_type: importContext.value.auth_type || 'api_key',
                     protocol: '',
                     real_model: selectedModel.id,

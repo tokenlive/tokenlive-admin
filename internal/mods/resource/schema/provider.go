@@ -15,9 +15,9 @@ type Provider struct {
 	Code        string          `json:"code" gorm:"type:varchar(128);not null;uniqueIndex:uniq_provider_code,priority:1;comment:Provider唯一标识;"`
 	Name        string          `json:"name" gorm:"type:varchar(128);not null;comment:Provider名称;"`
 	Protocol    string          `json:"protocol" gorm:"type:varchar(64);not null;comment:协议类型，决定使用哪个 ProviderFactory;"`
-	URL         string          `json:"url" gorm:"type:varchar(512);default:null;comment:供应商 API 基础地址;"`
-	ApiKeys     json.RawMessage `json:"api_keys,omitempty" gorm:"type:json;default:null;comment:上游API认证密钥列表;"`
+	URL         string          `json:"url" gorm:"type:varchar(1024);default:null;comment:供应商 API 基础地址;"`
 	AuthType    string          `json:"auth_type" gorm:"type:varchar(64);default:'api_key';comment:认证类型: api_key, oauth_token;"`
+	ApiKeys     json.RawMessage `json:"api_keys,omitempty" gorm:"type:json;default:null;comment:上游API认证密钥列表;"`
 	OAuth       json.RawMessage `json:"oauth,omitempty" gorm:"type:json;default:null;comment:OAuth 凭证(refresh_token/token_endpoint/expires_at);"`
 	LockOwner   string          `json:"-" gorm:"type:varchar(128);default:null;comment:OAuth 刷新分布式锁持有者实例ID;"`
 	LockedUntil *time.Time      `json:"-" gorm:"type:datetime;default:null;comment:OAuth 刷新分布式锁过期时间;"`

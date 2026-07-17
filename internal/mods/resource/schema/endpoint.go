@@ -17,9 +17,9 @@ type Endpoint struct {
 	Code               string          `json:"code" gorm:"type:varchar(128);not null;uniqueIndex:uniq_endpoint_code_deleted,priority:1;comment:端点唯一编码;"`
 	ModelID            string          `json:"model_id" gorm:"type:char(20);not null;index:idx_endpoint_route,priority:1;index:idx_model_id,priority:1;comment:关联 of model ID;"`
 	ProviderID         string          `json:"provider_id" gorm:"type:char(20);not null;index:idx_endpoint_route,priority:2;index:idx_provider_id,priority:1;comment:关联 of provider ID;"`
-	URL                string          `json:"url" gorm:"type:varchar(512);not null;comment:上游 API 地址;"`
-	ApiKey             string          `json:"api_key,omitempty" gorm:"type:text;default:null;comment:可选，覆盖 provider 级别的 api_key（仅 api_key 类型）;"`
+	URL                string          `json:"url" gorm:"type:varchar(1024);not null;comment:上游 API 地址;"`
 	AuthType           string          `json:"auth_type" gorm:"type:varchar(64);default:'api_key';comment:认证类型: api_key, oauth_token;"`
+	ApiKey             string          `json:"api_key,omitempty" gorm:"type:text;default:null;comment:可选，覆盖 provider 级别的 api_key（仅 api_key 类型）;"`
 	Protocol           string          `json:"protocol,omitempty" gorm:"type:varchar(64);default:null;comment:可选，覆盖 provider 级别的 protocol;"`
 	RealModel          string          `json:"real_model,omitempty" gorm:"type:varchar(128);default:null;comment:可选，覆盖 model 级别的 real_model;"`
 	Priority           int             `json:"priority" gorm:"type:int;not null;default:0;comment:故障转移顺序，数字越小越优先;"`

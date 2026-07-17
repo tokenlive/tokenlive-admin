@@ -294,10 +294,15 @@ async function onFetchModelsConfirm({ providerId, space_code, base_url, api_key,
 
     const provider = listData.value.find((p) => p.id === providerId)
     const protocol = provider?.protocol || ''
+    const authType = provider?.auth_type || 'api_key'
 
     let keysToCreate = []
 
-    if (Array.isArray(api_keys) && api_keys.length > 1) {
+    if (authType === 'oauth_token') {
+        // OAuth 供应商认证令牌由 provider 级别统一管理，端点无需绑定 api_key，
+        // 每个模型只创建一个端点即可。
+        keysToCreate = ['']
+    } else if (Array.isArray(api_keys) && api_keys.length > 1) {
         const importMode = ref('all')
         try {
             await new Promise((resolve, reject) => {
@@ -378,6 +383,7 @@ async function onFetchModelsConfirm({ providerId, space_code, base_url, api_key,
         base_url,
         keysToCreate,
         protocol,
+        auth_type: authType,
         models,
     })
 }
