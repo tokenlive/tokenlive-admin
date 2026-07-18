@@ -27,6 +27,12 @@ func (a *Space) Init(ctx context.Context) error {
 			return err
 		}
 	}
+	// First install / empty DB: seed a default space so operators need not create one manually.
+	if a.SpaceAPI != nil && a.SpaceAPI.SpaceBIZ != nil {
+		if err := a.SpaceAPI.SpaceBIZ.EnsureDefault(ctx); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

@@ -31,7 +31,9 @@
                             </template>
                         </a-input>
                     </a-form-item>
-                    <a-form-item name="captcha_code">
+                    <a-form-item
+                        v-if="!captchaDisabled"
+                        name="captcha_code">
                         <a-space class="login-panel__captcha">
                             <a-input
                                 v-model:value="formData.captcha_code"
@@ -123,6 +125,7 @@ const oauthLoading = ref(false)
 const oauthProviders = ref([])
 const captcha_img = ref('')
 const captcha_id = ref('')
+const captchaDisabled = ref(false)
 const httpApi = import.meta.env.BASE_URL + `api/v1/captcha/image`
 const redirect = computed(() => decodeURIComponent(route.query?.redirect ?? ''))
 const oauthTicket = computed(() => route.query?.oauth_ticket ?? '')
@@ -184,12 +187,21 @@ function handleOAuthLogin(provider) {
 }
 
 /**
- * 获取验证码
+ * 获取验证码（服务端 Disable 时隐藏表单项）
  */
 async function getCaptcha() {
-    const { data } = await apis.common.getCaptcha().catch(() => {})
+    const { data } = await apis.common.getCaptcha().catch(() => ({}))
+    if (data?.disabled) {
+        captchaDisabled.value = true
+        captcha_id.value = ''
+        captcha_img.value = ''
+        delete formRules.value.captcha_code
+        return
+    }
+    captchaDisabled.value = false
     captcha_id.value = data?.captcha_id
     captcha_img.value = httpApi + `?id=${data?.captcha_id}`
+    formRules.value.captcha_code = { required: true, message: t('pages.login.captcha.placeholder') }
 }
 /**
  * 登录
@@ -197,7 +209,12 @@ async function getCaptcha() {
  */
 async function handleLogin() {
     formRef.value.validate().then(async (values) => {
-        values.captcha_id = captcha_id.value
+        if (!captchaDisabled.value) {
+            values.captcha_id = captcha_id.value
+        } else {
+            delete values.captcha_id
+            delete values.captcha_code
+        }
         // 添加 remember_me 字段
         values.remember_me = formData.value.rememberMe
         if (values.password === 'admin') values.password = md5(values.password)
@@ -209,7 +226,9 @@ async function handleLogin() {
             })
             .catch(() => {
                 loading.value = false
-                getCaptcha()
+                if (!captchaDisabled.value) {
+                    getCaptcha()
+                }
             })
         loading.value = false
         if (config('http.code.success') === success) {

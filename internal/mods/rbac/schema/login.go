@@ -3,15 +3,16 @@ package schema
 import "strings"
 
 type Captcha struct {
-	CaptchaID string `json:"captcha_id"` // Captcha ID
+	CaptchaID string `json:"captcha_id"`          // Captcha ID (empty when disabled)
+	Disabled  bool   `json:"disabled,omitempty"` // true when captcha is turned off
 }
 
 type LoginForm struct {
-	Username    string `json:"username" binding:"required"`     // Login name
-	Password    string `json:"password" binding:"required"`     // Login password (md5 hash)
-	CaptchaID   string `json:"captcha_id" binding:"required"`   // Captcha verify id
-	CaptchaCode string `json:"captcha_code" binding:"required"` // Captcha verify code
-	RememberMe  bool   `json:"remember_me"`                     // Remember login state (30 days)
+	Username    string `json:"username" binding:"required"` // Login name
+	Password    string `json:"password" binding:"required"` // Login password (md5 hash)
+	CaptchaID   string `json:"captcha_id"`                  // Captcha verify id (optional when captcha disabled)
+	CaptchaCode string `json:"captcha_code"`                // Captcha verify code (optional when captcha disabled)
+	RememberMe  bool   `json:"remember_me"`                 // Remember login state (30 days)
 }
 
 func (a *LoginForm) Trim() *LoginForm {

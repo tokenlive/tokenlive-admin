@@ -105,6 +105,9 @@ func (a *Login) ParseUserID(c *gin.Context) (string, error) {
 // This function generates a new captcha ID and returns it as a `schema.Captcha` struct. The length of
 // the captcha is determined by the `config.C.Util.Captcha.Length` configuration value.
 func (a *Login) GetCaptcha(ctx context.Context) (*schema.Captcha, error) {
+	if config.C.Util.Captcha.Disable {
+		return &schema.Captcha{Disabled: true}, nil
+	}
 	return &schema.Captcha{
 		CaptchaID: captcha.NewLen(config.C.Util.Captcha.Length),
 	}, nil
@@ -181,9 +184,14 @@ func (a *Login) genLoginResponse(ctx context.Context, userID string, tenant stri
 }
 
 func (a *Login) Login(ctx context.Context, formItem *schema.LoginForm) (*schema.LoginToken, error) {
-	// verify captcha
-	if !captcha.VerifyString(formItem.CaptchaID, formItem.CaptchaCode) {
-		return nil, errors.BadRequest(config.ErrInvalidCaptchaID, "Incorrect captcha")
+	// verify captcha (skippable for single-host / all-in-one)
+	if !config.C.Util.Captcha.Disable {
+		if formItem.CaptchaID == "" || formItem.CaptchaCode == "" {
+			return nil, errors.BadRequest(config.ErrInvalidCaptchaID, "Captcha is required")
+		}
+		if !captcha.VerifyString(formItem.CaptchaID, formItem.CaptchaCode) {
+			return nil, errors.BadRequest(config.ErrInvalidCaptchaID, "Incorrect captcha")
+		}
 	}
 
 	ctx = logging.NewTag(ctx, logging.TagKeyLogin)

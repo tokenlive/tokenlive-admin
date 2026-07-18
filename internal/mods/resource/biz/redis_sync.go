@@ -306,6 +306,7 @@ func (s *ConfigRedisSync) SyncAlias(ctx context.Context, alias string, modelCode
 	err := s.RedisClient.SAdd(ctx, reverseKey, alias).Err()
 	if err == nil {
 		ClearGatewayConfigCache()
+		util.NotifyConfigChanged(ctx, util.ConfigChangeEndpoints, modelCode)
 	}
 	return err
 }
@@ -329,6 +330,11 @@ func (s *ConfigRedisSync) DeleteAlias(ctx context.Context, alias string) error {
 	err = s.RedisClient.Del(ctx, key).Err()
 	if err == nil {
 		ClearGatewayConfigCache()
+		if modelCode != "" {
+			util.NotifyConfigChanged(ctx, util.ConfigChangeEndpoints, modelCode)
+		} else {
+			util.NotifyConfigChanged(ctx, util.ConfigChangeEndpoints)
+		}
 	}
 	return err
 }
@@ -422,11 +428,14 @@ func (s *ConfigRedisSync) GetModelCodesByProvider(ctx context.Context, providerI
 
 func (s *ConfigRedisSync) incrementVersion(ctx context.Context, modelCode string) error {
 	if s.RedisClient == nil {
+		// Still notify in-process hosts (all-in-one) even without Redis.
+		util.NotifyConfigChanged(ctx, util.ConfigChangeEndpoints, modelCode)
 		return nil
 	}
 	err := s.RedisClient.HIncrBy(ctx, RedisKeyConfigModelVersions, modelCode, 1).Err()
 	if err == nil {
 		ClearGatewayConfigCache()
+		util.NotifyConfigChanged(ctx, util.ConfigChangeEndpoints, modelCode)
 	}
 	return err
 }
@@ -895,6 +904,7 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 	}
 
 	ClearGatewayConfigCache()
+	util.NotifyConfigChanged(ctx, util.ConfigChangeAll)
 	return nil
 }
 

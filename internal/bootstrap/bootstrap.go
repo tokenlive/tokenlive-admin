@@ -23,14 +23,18 @@ type RunConfig struct {
 	StaticDir string // Static files directory
 }
 
-// The Run function initializes and starts a service with configuration and logging, and handles
-// cleanup upon exit.
-func Run(ctx context.Context, runCfg RunConfig) error {
-	defer func() {
-		_ = zap.L().Sync()
-	}()
+// Runtime holds an initialized admin stack without listening.
+// Used by adminapp embed facade and by Run (CLI).
+type Runtime struct {
+	Injector       *wirex.Injector
+	CleanInjector  func()
+	CleanLogger    func()
+	Ctx            context.Context
+}
 
-	// Load configuration.
+// Init loads config, logger, wire injector, mods Init, and prometheus.
+// It does not start HTTP. Caller must invoke Release.
+func Init(ctx context.Context, runCfg RunConfig) (*Runtime, error) {
 	workDir := runCfg.WorkDir
 	staticDir := runCfg.StaticDir
 	config.MustLoad(workDir, strings.Split(runCfg.Configs, ",")...)
@@ -40,10 +44,9 @@ func Run(ctx context.Context, runCfg RunConfig) error {
 	config.C.PreLoad()
 	initCaptcha()
 
-	// Initialize logger.
 	cleanLoggerFn, err := logging.InitWithConfig(ctx, &config.C.Logger, initLoggerHook)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ctx = logging.NewTag(ctx, logging.TagKeyMain)
 
@@ -66,39 +69,75 @@ func Run(ctx context.Context, runCfg RunConfig) error {
 		}()
 	}
 
-	// Build injector.
 	injector, cleanInjectorFn, err := wirex.BuildInjector(ctx)
+	if err != nil {
+		if cleanLoggerFn != nil {
+			cleanLoggerFn()
+		}
+		return nil, err
+	}
+
+	if err := injector.M.Init(ctx); err != nil {
+		if cleanInjectorFn != nil {
+			cleanInjectorFn()
+		}
+		if cleanLoggerFn != nil {
+			cleanLoggerFn()
+		}
+		return nil, err
+	}
+
+	prom.Init()
+
+	return &Runtime{
+		Injector:      injector,
+		CleanInjector: cleanInjectorFn,
+		CleanLogger:   cleanLoggerFn,
+		Ctx:           ctx,
+	}, nil
+}
+
+// Release stops mods and cleans injector/logger.
+func (rt *Runtime) Release(ctx context.Context) {
+	if rt == nil {
+		return
+	}
+	if rt.Injector != nil {
+		if err := rt.Injector.M.Release(ctx); err != nil {
+			logging.Context(ctx).Error("failed to release injector", zap.Error(err))
+		}
+	}
+	if rt.CleanInjector != nil {
+		rt.CleanInjector()
+	}
+	if rt.CleanLogger != nil {
+		rt.CleanLogger()
+	}
+}
+
+// The Run function initializes and starts a service with configuration and logging, and handles
+// cleanup upon exit. CLI path uses util.Run which may os.Exit.
+func Run(ctx context.Context, runCfg RunConfig) error {
+	defer func() {
+		_ = zap.L().Sync()
+	}()
+
+	rt, err := Init(ctx, runCfg)
 	if err != nil {
 		return err
 	}
 
-	if err := injector.M.Init(ctx); err != nil {
-		return err
-	}
-
-	// Initialize global prometheus metrics.
-	prom.Init()
-
-	return util.Run(ctx, func(ctx context.Context) (func(), error) {
-		cleanHTTPServerFn, err := startHTTPServer(ctx, injector)
+	return util.Run(rt.Ctx, func(ctx context.Context) (func(), error) {
+		cleanHTTPServerFn, err := startHTTPServer(ctx, rt.Injector)
 		if err != nil {
-			return cleanInjectorFn, err
+			return func() { rt.Release(ctx) }, err
 		}
 
 		return func() {
-			if err := injector.M.Release(ctx); err != nil {
-				logging.Context(ctx).Error("failed to release injector", zap.Error(err))
-			}
-
 			if cleanHTTPServerFn != nil {
 				cleanHTTPServerFn()
 			}
-			if cleanInjectorFn != nil {
-				cleanInjectorFn()
-			}
-			if cleanLoggerFn != nil {
-				cleanLoggerFn()
-			}
+			rt.Release(ctx)
 		}, nil
 	})
 }

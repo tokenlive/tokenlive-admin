@@ -223,6 +223,7 @@ func (a *UserAPIKey) Delete(ctx context.Context, id string) error {
 		_ = a.RedisClient.Del(ctx, apiKeyRuntimeRedisKeys(apiKey.APIKey)...).Err()
 		_ = a.RedisClient.Publish(ctx, "aigw:channel:apikey_update", "purge").Err()
 	}
+	util.NotifyConfigChanged(ctx, util.ConfigChangeAPIKeys)
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeAPIKey, apiKey.ID, apiKey.Name, apiKey, nil)
 	return nil
 }
@@ -250,6 +251,7 @@ func (a *UserAPIKey) generateRandomAPIKey(ctx context.Context) (string, error) {
 // syncToRedis 同步 API Key 数据到 Redis
 func (a *UserAPIKey) syncToRedis(ctx context.Context, apiKey *schema.UserAPIKey) error {
 	if a.RedisClient == nil {
+		util.NotifyConfigChanged(ctx, util.ConfigChangeAPIKeys)
 		return nil
 	}
 
@@ -261,6 +263,7 @@ func (a *UserAPIKey) syncToRedis(ctx context.Context, apiKey *schema.UserAPIKey)
 		err := a.RedisClient.Del(ctx, apiKeyRuntimeRedisKeys(apiKey.APIKey)...).Err()
 		if err == nil {
 			_ = a.RedisClient.Publish(ctx, "aigw:channel:apikey_update", "purge").Err()
+			util.NotifyConfigChanged(ctx, util.ConfigChangeAPIKeys)
 		}
 		return err
 	}
@@ -291,6 +294,7 @@ func (a *UserAPIKey) syncToRedis(ctx context.Context, apiKey *schema.UserAPIKey)
 	}
 	util.ClearGatewayConfigCache()
 	_ = a.RedisClient.Publish(ctx, "aigw:channel:apikey_update", "purge").Err()
+	util.NotifyConfigChanged(ctx, util.ConfigChangeAPIKeys)
 	return nil
 }
 

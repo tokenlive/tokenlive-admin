@@ -16,6 +16,37 @@ type Space struct {
 	SpaceDAL *dal.Space
 }
 
+const (
+	defaultSpaceCode = "default"
+	defaultSpaceName = "Default"
+)
+
+// EnsureDefault creates the built-in "default" space if it does not exist.
+// Safe to call on every startup (idempotent).
+func (a *Space) EnsureDefault(ctx context.Context) error {
+	exists, err := a.SpaceDAL.ExistsCode(ctx, defaultSpaceCode)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	space := &schema.Space{
+		ID:          util.NewXID(),
+		Code:        defaultSpaceCode,
+		Name:        defaultSpaceName,
+		Description: "Default space (created on install)",
+		Creator:     "system",
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+		Deleted:     "0",
+	}
+	return a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.SpaceDAL.Create(ctx, space)
+	})
+}
+
 // Query spaces from the data access object based on the provided parameters.
 func (a *Space) Query(ctx context.Context, params schema.SpaceQueryParam) (*schema.SpaceQueryResult, error) {
 	params.Pagination = true

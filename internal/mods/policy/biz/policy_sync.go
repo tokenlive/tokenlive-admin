@@ -53,6 +53,8 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 
 	if s.RedisClient == nil {
 		action = "skip_nil_redis_client"
+		// In-process hosts (all-in-one) still need a change signal without Redis.
+		util.NotifyConfigChanged(ctx, util.ConfigChangePolicies, modelCode)
 		return nil
 	}
 	if !config.C.Sync.Policies {
@@ -92,6 +94,7 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 			}
 			util.ClearGatewayConfigCache()
 			_ = s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err()
+			util.NotifyConfigChanged(ctx, util.ConfigChangePolicies)
 		}
 		action = "skip_template_cleanup"
 		return nil
@@ -212,6 +215,7 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 			if pubErr := s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err(); pubErr != nil {
 				policyRedisSyncLogger(ctx).Warn("Failed to publish policy update notification to redis channel", zap.Error(pubErr))
 			}
+			util.NotifyConfigChanged(ctx, util.ConfigChangePolicies, modelCode)
 		}
 		return err
 	}
@@ -229,6 +233,7 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		if pubErr := s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err(); pubErr != nil {
 			policyRedisSyncLogger(ctx).Warn("Failed to publish policy update notification to redis channel", zap.Error(pubErr))
 		}
+		util.NotifyConfigChanged(ctx, util.ConfigChangePolicies, modelCode)
 	}
 	return err
 }
@@ -257,6 +262,8 @@ func (s *PolicyRedisSync) SyncPolicyChange(ctx context.Context, scopeType, scope
 
 	if s.RedisClient == nil {
 		action = "skip_nil_redis_client"
+		// In-process hosts (all-in-one) still need a change signal without Redis.
+		util.NotifyConfigChanged(ctx, util.ConfigChangePolicies, modelCode)
 		return nil
 	}
 	if !config.C.Sync.Policies {

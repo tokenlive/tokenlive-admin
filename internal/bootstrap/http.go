@@ -22,7 +22,20 @@ import (
 	"go.uber.org/zap"
 )
 
-func startHTTPServer(ctx context.Context, injector *wirex.Injector) (func(), error) {
+// EngineOptions controls optional HTTP surfaces when building/registering the admin engine.
+type EngineOptions struct {
+	// DisableHealth skips GET /health (host may register its own).
+	DisableHealth bool
+	// DisableSwagger skips openapi/swagger routes.
+	DisableSwagger bool
+	// DisableStatic skips SPA static middleware even if Static.Dir is set.
+	DisableStatic bool
+	// DisableNoRoute skips NoMethod/NoRoute handlers (useful when sharing a host gin.Engine).
+	DisableNoRoute bool
+}
+
+// BuildEngine creates a new Gin engine with admin middlewares, routes, optional swagger/SPA.
+func BuildEngine(ctx context.Context, injector *wirex.Injector, opts *EngineOptions) (*gin.Engine, error) {
 	if config.C.IsDebug() {
 		gin.SetMode(gin.DebugMode)
 	} else {
@@ -30,49 +43,83 @@ func startHTTPServer(ctx context.Context, injector *wirex.Injector) (func(), err
 	}
 
 	e := gin.New()
-	e.GET("/health", func(c *gin.Context) {
-		util.ResOK(c)
-	})
+	if err := RegisterTo(ctx, e, injector, opts); err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+// RegisterTo mounts admin middlewares and /api/v1 routes onto an existing gin.Engine.
+// Safe for embed hosts that already own the engine (e.g. tokenlive-standalone).
+func RegisterTo(ctx context.Context, e *gin.Engine, injector *wirex.Injector, opts *EngineOptions) error {
+	if e == nil {
+		return fmt.Errorf("bootstrap: gin engine is nil")
+	}
+	if injector == nil {
+		return fmt.Errorf("bootstrap: injector is nil")
+	}
+	if opts == nil {
+		opts = &EngineOptions{}
+	}
+
+	if !opts.DisableHealth {
+		e.GET("/health", func(c *gin.Context) {
+			util.ResOK(c)
+		})
+	}
+
 	e.Use(middleware.RecoveryWithConfig(middleware.RecoveryConfig{
 		Skip: config.C.Middleware.Recovery.Skip,
 	}))
-	e.NoMethod(func(c *gin.Context) {
-		util.ResError(c, errors.MethodNotAllowed("", "Method Not Allowed"))
-	})
-	e.NoRoute(func(c *gin.Context) {
-		util.ResError(c, errors.NotFound("", "Not Found"))
-	})
+
+	if !opts.DisableNoRoute {
+		e.NoMethod(func(c *gin.Context) {
+			util.ResError(c, errors.MethodNotAllowed("", "Method Not Allowed"))
+		})
+		e.NoRoute(func(c *gin.Context) {
+			util.ResError(c, errors.NotFound("", "Not Found"))
+		})
+	}
 
 	allowedPrefixes := injector.M.RouterPrefixes()
 
-	// Register middlewares
 	if err := useHTTPMiddlewares(ctx, e, injector, allowedPrefixes); err != nil {
-		return nil, err
+		return err
 	}
 
-	// Register routers
 	if err := injector.M.RegisterRouters(ctx, e); err != nil {
-		return nil, err
+		return err
 	}
 
-	// Register swagger
-	if !config.C.General.DisableSwagger {
+	if !opts.DisableSwagger && !config.C.General.DisableSwagger {
 		e.StaticFile("/openapi.json", filepath.Join(config.C.General.WorkDir, "openapi.json"))
 		e.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
-	if dir := config.C.Middleware.Static.Dir; dir != "" {
-		e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
-			Root:                dir,
-			SkippedPathPrefixes: allowedPrefixes,
-		}))
+	if !opts.DisableStatic {
+		if dir := config.C.Middleware.Static.Dir; dir != "" {
+			e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
+				Root:                dir,
+				SkippedPathPrefixes: allowedPrefixes,
+			}))
+		}
+	}
+
+	return nil
+}
+
+// ListenAndServe starts HTTP on config.C.General.HTTP.Addr using the given handler.
+// Returns a shutdown function.
+func ListenAndServe(ctx context.Context, handler http.Handler) (func(), error) {
+	if handler == nil {
+		return nil, fmt.Errorf("bootstrap: handler is nil")
 	}
 
 	addr := config.C.General.HTTP.Addr
 	logging.Context(ctx).Info(fmt.Sprintf("HTTP server is listening on %s", addr))
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      e,
+		Handler:      handler,
 		ReadTimeout:  time.Second * time.Duration(config.C.General.HTTP.ReadTimeout),
 		WriteTimeout: time.Second * time.Duration(config.C.General.HTTP.WriteTimeout),
 		IdleTimeout:  time.Second * time.Duration(config.C.General.HTTP.IdleTimeout),
@@ -101,6 +148,14 @@ func startHTTPServer(ctx context.Context, injector *wirex.Injector) (func(), err
 			logging.Context(ctx).Error("Failed to shutdown http server", zap.Error(err))
 		}
 	}, nil
+}
+
+func startHTTPServer(ctx context.Context, injector *wirex.Injector) (func(), error) {
+	e, err := BuildEngine(ctx, injector, nil)
+	if err != nil {
+		return nil, err
+	}
+	return ListenAndServe(ctx, e)
 }
 
 func useHTTPMiddlewares(_ context.Context, e *gin.Engine, injector *wirex.Injector, allowedPrefixes []string) error {

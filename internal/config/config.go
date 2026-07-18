@@ -132,6 +132,8 @@ type Storage struct {
 
 type Util struct {
 	Captcha struct {
+		// Disable skips captcha generation and login verification (e.g. single-host all-in-one).
+		Disable   bool
 		Length    int    `default:"4"`
 		Width     int    `default:"400"`
 		Height    int    `default:"160"`
