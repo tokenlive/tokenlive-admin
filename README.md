@@ -163,6 +163,19 @@ See [DEPLOY.md](DEPLOY.md) (or [DEPLOY-zh.md](DEPLOY-zh.md) for Chinese) for det
 
 For production environments, it is highly recommended to use the unified orchestration repository [tokenlive-deploy](https://github.com/tokenlive/tokenlive-deploy). It provides a production-ready, one-click Docker Compose deployment configuration containing Admin Console, Gateway, Caddy reverse proxy, Redis, and Prometheus. For full setup instructions, see the [tokenlive-deploy orchestrated guide in DEPLOY.md](DEPLOY.md#3-orchestrated-deployment-with-tokenlive-deploy-recommended) (or [Chinese version](DEPLOY-zh.md#三使用-tokenlive-deploy-统一编排部署推荐)).
 
+### Homebrew (macOS Single-Host)
+
+For macOS single-host deployment with Admin + Gateway in one process:
+
+```bash
+brew tap tokenlive/tokenlive
+brew install tokenlive
+brew services start tokenlive
+# http://127.0.0.1:2525  admin / admin
+```
+
+See [tokenlive-standalone](https://github.com/tokenlive/tokenlive-standalone) for details.
+
 ## Build Commands
 
 ```bash
