@@ -10,6 +10,24 @@ import (
 	"gorm.io/gorm"
 )
 
+func isSQLite(db *gorm.DB) bool {
+	return db.Dialector.Name() == "sqlite"
+}
+
+func dateFormatHour(db *gorm.DB, col string) string {
+	if isSQLite(db) {
+		return "strftime('%Y-%m-%d %H:00:00', " + col + ")"
+	}
+	return "DATE_FORMAT(" + col + ", '%Y-%m-%d %H:00:00')"
+}
+
+func dateFormatDay(db *gorm.DB, col string) string {
+	if isSQLite(db) {
+		return "strftime('%Y-%m-%d', " + col + ")"
+	}
+	return "DATE_FORMAT(" + col + ", '%Y-%m-%d')"
+}
+
 // GetEventLogDB returns the base DB query for event_log records.
 func GetEventLogDB(ctx context.Context, defDB *gorm.DB) *gorm.DB {
 	return util.GetDB(ctx, defDB).Model(new(schema.EventLog))
@@ -124,9 +142,11 @@ func (a *EventLog) CountTotal(ctx context.Context, startTime, endTime time.Time)
 
 // TrendByHour returns hourly event counts for the given time range.
 func (a *EventLog) TrendByHour(ctx context.Context, startTime, endTime time.Time) ([]schema.TrendPoint, error) {
+	db := GetEventLogDB(ctx, a.DB)
+	hourExpr := dateFormatHour(db, "event_time")
 	var points []schema.TrendPoint
-	err := GetEventLogDB(ctx, a.DB).
-		Select(`DATE_FORMAT(event_time, '%Y-%m-%d %H:00:00') as time,
+	err := db.
+		Select(hourExpr+` as time,
 			SUM(CASE WHEN event_type = 'circuit_break' THEN 1 ELSE 0 END) as circuit_break,
 			SUM(CASE WHEN event_type = 'rate_limit' THEN 1 ELSE 0 END) as rate_limit,
 			SUM(CASE WHEN event_type = 'invocation_fail' THEN 1 ELSE 0 END) as invocation_fail,
@@ -143,9 +163,11 @@ func (a *EventLog) TrendByHour(ctx context.Context, startTime, endTime time.Time
 
 // TrendByDay returns daily event counts for the given time range.
 func (a *EventLog) TrendByDay(ctx context.Context, startTime, endTime time.Time) ([]schema.TrendPoint, error) {
+	db := GetEventLogDB(ctx, a.DB)
+	dayExpr := dateFormatDay(db, "event_time")
 	var points []schema.TrendPoint
-	err := GetEventLogDB(ctx, a.DB).
-		Select(`DATE_FORMAT(event_time, '%Y-%m-%d') as time,
+	err := db.
+		Select(dayExpr+` as time,
 			SUM(CASE WHEN event_type = 'circuit_break' THEN 1 ELSE 0 END) as circuit_break,
 			SUM(CASE WHEN event_type = 'rate_limit' THEN 1 ELSE 0 END) as rate_limit,
 			SUM(CASE WHEN event_type = 'invocation_fail' THEN 1 ELSE 0 END) as invocation_fail,
