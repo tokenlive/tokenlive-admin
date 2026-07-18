@@ -772,6 +772,7 @@ function handleCreate(options = {}) {
     formData.value.scope_type = 'global'
     formData.value.scope_code = ''
     formData.value.priority = 0
+    formData.value.wait_duration_in_open_state = 10
     showModal({
         type: 'create',
         title: options.title || t('pages.circuitBreak.add'),
@@ -914,6 +915,9 @@ function populateFormData(cloned) {
     if (!cloned.scope_code) {
         cloned.scope_code = ''
     }
+    if (cloned.wait_duration_in_open_state !== undefined) {
+        cloned.wait_duration_in_open_state = cloned.wait_duration_in_open_state / 1000
+    }
     formData.value = cloned
 }
 
@@ -1010,7 +1014,7 @@ function handleOk() {
                     slow_call_rate_threshold: slowCallRateThreshold,
                     slow_call_duration_threshold: slowCallDurationThreshold,
                     slow_call_metric: slowCallMetric,
-                    wait_duration_in_open_state: formData.value.wait_duration_in_open_state,
+                    wait_duration_in_open_state: (formData.value.wait_duration_in_open_state || 0) * 1000,
                     allowed_calls_in_half_open_state: formData.value.allowed_calls_in_half_open_state,
                     force_open: formData.value.force_open || 0,
                     outlier_max_percent:
