@@ -120,6 +120,17 @@
                     v-model:value="formData.url" />
             </a-form-item>
             <a-form-item
+                :label="$t('pages.endpoint.form.auth_type')"
+                name="auth_type">
+                <a-radio-group
+                    v-model:value="formData.auth_type"
+                    @change="handleAuthTypeChange">
+                    <a-radio value="api_key">{{ $t('pages.endpoint.form.auth_type.api_key') }}</a-radio>
+                    <a-radio value="oauth_token">{{ $t('pages.endpoint.form.auth_type.oauth_token') }}</a-radio>
+                </a-radio-group>
+            </a-form-item>
+            <a-form-item
+                v-if="formData.auth_type !== 'oauth_token'"
                 :label="$t('pages.endpoint.form.api_key')"
                 name="api_key">
                 <a-input-password
@@ -127,6 +138,12 @@
                     v-model:value="formData.api_key"
                     allow-clear />
             </a-form-item>
+            <a-alert
+                v-else
+                type="info"
+                show-icon
+                style="margin-bottom: 24px"
+                :message="$t('pages.endpoint.form.auth_type.oauth_hint')" />
             <a-form-item
                 :label="$t('pages.endpoint.form.protocol')"
                 name="protocol">
@@ -342,6 +359,19 @@ formRules.value = {
     url: { required: true, message: t('pages.endpoint.form.url.required') },
 }
 
+function handleAuthTypeChange() {
+    if (formData.value.auth_type === 'oauth_token') {
+        formData.value.api_key = ''
+    }
+}
+
+function normalizeAuthType(record = {}) {
+    if (!record.auth_type) {
+        record.auth_type = 'api_key'
+    }
+    return record
+}
+
 function handleCreate() {
     showModal({
         type: 'create',
@@ -352,6 +382,7 @@ function handleCreate() {
         enabled: 0,
         priority: 0,
         protocol: '',
+        auth_type: 'api_key',
         model_id: props.modelId || undefined,
         provider_id: props.providerId || undefined,
         input_price: undefined,
@@ -369,7 +400,7 @@ async function handleEdit(record = {}) {
         title: t('pages.endpoint.edit'),
     })
     formRecord.value = record
-    formData.value = cloneDeep(record)
+    formData.value = normalizeAuthType(cloneDeep(record))
     metadataList.value = jsonToMetadata(record.metadata)
     headersList.value = jsonToHeaders(record.headers)
 }
@@ -379,7 +410,7 @@ async function handleCopy(record = {}) {
         type: 'create',
         title: t('pages.endpoint.copy'),
     })
-    const copiedData = cloneDeep(record)
+    const copiedData = normalizeAuthType(cloneDeep(record))
     delete copiedData.id
     delete copiedData.created_at
     delete copiedData.updated_at
@@ -398,8 +429,12 @@ function handleOk() {
                 showLoading()
                 const params = {
                     ...values,
+                    auth_type: values.auth_type || formData.value.auth_type || 'api_key',
                     metadata: metadataToJSON(metadataList.value),
                     headers: headersToJSON(headersList.value),
+                }
+                if (params.auth_type === 'oauth_token') {
+                    params.api_key = ''
                 }
                 let result = null
                 switch (modal.value.type) {
@@ -448,8 +483,12 @@ function handleTest() {
                 testing.value = true
                 const params = {
                     ...values,
+                    auth_type: values.auth_type || formData.value.auth_type || 'api_key',
                     metadata: metadataToJSON(metadataList.value),
                     headers: headersToJSON(headersList.value),
+                }
+                if (params.auth_type === 'oauth_token') {
+                    params.api_key = ''
                 }
                 const { data, success, message: errMessage } = await apis.endpoint.testEndpointDraft(params)
                 if (success && data && data.success) {

@@ -108,11 +108,16 @@ func (e *EndpointForm) FillTo(endpoint *Endpoint) error {
 	endpoint.ProviderID = e.ProviderID
 	endpoint.ModelID = e.ModelID
 	endpoint.URL = e.URL
-	endpoint.ApiKey = e.ApiKey
 	if e.AuthType == "" {
 		endpoint.AuthType = "api_key"
 	} else {
 		endpoint.AuthType = e.AuthType
+	}
+	// OAuth endpoints inherit provider tokens; do not store endpoint-level api_key.
+	if endpoint.AuthType == "oauth_token" {
+		endpoint.ApiKey = ""
+	} else {
+		endpoint.ApiKey = e.ApiKey
 	}
 	endpoint.Protocol = e.Protocol
 	endpoint.RealModel = e.RealModel

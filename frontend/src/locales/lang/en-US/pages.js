@@ -395,6 +395,11 @@ export default {
     'pages.endpoint.form.url.required': 'URL is required!',
     'pages.endpoint.form.api_key': 'API Key',
     'pages.endpoint.form.api_key.placeholder': 'Leave empty to use the provider-level key',
+    'pages.endpoint.form.auth_type': 'Auth Type',
+    'pages.endpoint.form.auth_type.api_key': 'API Key',
+    'pages.endpoint.form.auth_type.oauth_token': 'OAuth',
+    'pages.endpoint.form.auth_type.oauth_hint':
+        'This endpoint will use the provider-level OAuth credentials (access/refresh tokens managed on the provider). No endpoint API key is required.',
     'pages.endpoint.form.protocol': 'Protocol',
     'pages.endpoint.form.protocol.placeholder': 'Please select the protocol',
     'pages.endpoint.form.protocol.inherit': 'Inherit Default (from Provider)',

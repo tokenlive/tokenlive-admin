@@ -386,6 +386,11 @@ export default {
     'pages.endpoint.form.url.required': '地址是必填项！',
     'pages.endpoint.form.api_key': 'API Key',
     'pages.endpoint.form.api_key.placeholder': '留空则使用 Provider 级别的 Key',
+    'pages.endpoint.form.auth_type': '认证类型',
+    'pages.endpoint.form.auth_type.api_key': 'API Key',
+    'pages.endpoint.form.auth_type.oauth_token': 'OAuth',
+    'pages.endpoint.form.auth_type.oauth_hint':
+        '将使用对应 Provider 的 OAuth 认证（access token / refresh token 由 Provider 统一管理），无需填写端点级 API Key。',
     'pages.endpoint.form.protocol': '协议类型',
     'pages.endpoint.form.protocol.placeholder': '请选择协议类型',
     'pages.endpoint.form.protocol.inherit': '上级继承',
