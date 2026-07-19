@@ -88,6 +88,7 @@ export default {
     'pages.dashboard.trends.success_rate': 'Success Rate',
     'pages.dashboard.tokens.distribution': "Today's Token Consumption Distribution",
     'pages.dashboard.tokens.input': 'Input (Prompt) Tokens',
+    'pages.dashboard.tokens.input_non_cache': 'Regular Input Tokens',
     'pages.dashboard.tokens.output': 'Output (Completion) Tokens',
     'pages.dashboard.tokens.cached': 'Cached Tokens',
     'pages.dashboard.tokens.cache_creation': 'Cache Creation Tokens',

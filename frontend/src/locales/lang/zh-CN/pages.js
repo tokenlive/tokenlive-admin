@@ -85,6 +85,7 @@ export default {
     'pages.dashboard.trends.success_rate': '请求成功率',
     'pages.dashboard.tokens.distribution': '今日 Token 消耗分布',
     'pages.dashboard.tokens.input': '输入 Tokens',
+    'pages.dashboard.tokens.input_non_cache': '普通输入 Tokens',
     'pages.dashboard.tokens.output': '输出 Tokens',
     'pages.dashboard.tokens.cached': '缓存读取 Tokens',
     'pages.dashboard.tokens.cache_creation': '缓存创建 Tokens',

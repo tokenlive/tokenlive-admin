@@ -222,7 +222,11 @@ func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem 
 	if provider.Protocol == "joycode" {
 		var reqURL string
 		if strings.HasPrefix(baseURL, "https://") {
-			reqURL = signJoyCodeGatewayURL(baseURL, "joycode_modelList")
+			var err error
+			reqURL, err = signJoyCodeGatewayURL(baseURL, "joycode_modelList")
+			if err != nil {
+				return nil, errors.BadRequest("", "JoyCode 签名失败: %v", err)
+			}
 		} else {
 			reqURL = baseURL + "/api/saas/models/v2/modelList"
 		}

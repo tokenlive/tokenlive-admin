@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -587,10 +588,14 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			}
 			isAnt := strings.Contains(strings.ToLower(realModel), "claude")
 			if strings.HasPrefix(base, "https://") {
+				var err error
 				if isAnt {
-					reqURL = signJoyCodeGatewayURL(base, "anthropic_completions")
+					reqURL, err = signJoyCodeGatewayURL(base, "anthropic_completions")
 				} else {
-					reqURL = signJoyCodeGatewayURL(base, "chat_completions")
+					reqURL, err = signJoyCodeGatewayURL(base, "chat_completions")
+				}
+				if err != nil {
+					return nil, err
 				}
 			} else {
 				if isAnt {
@@ -985,17 +990,28 @@ func (e *Endpoint) TestByID(ctx context.Context, id string) (*schema.EndpointTes
 	return e.Test(ctx, form)
 }
 
-func signJoyCodeGatewayURL(baseURL, functionID string) string {
+func signJoyCodeGatewayURL(baseURL, functionID string) (string, error) {
 	baseURL = strings.TrimSuffix(strings.TrimSpace(baseURL), "/")
 	t := time.Now().UnixNano() / int64(time.Millisecond)
-	stringToSign := fmt.Sprintf("joycode_ide&%s&%d", functionID, t)
-	key := []byte("0691a3f0b37b4a85aeb63ad0fc7db3ed")
+
+	appID := os.Getenv("JOYCODE_APPID")
+	if appID == "" {
+		return "", fmt.Errorf("JOYCODE_APPID environment variable is missing")
+	}
+
+	signKey := os.Getenv("JOYCODE_SIGN_KEY")
+	if signKey == "" {
+		return "", fmt.Errorf("JOYCODE_SIGN_KEY environment variable is missing")
+	}
+
+	stringToSign := fmt.Sprintf("%s&%s&%d", appID, functionID, t)
+	key := []byte(signKey)
 
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(stringToSign))
 	sign := hex.EncodeToString(mac.Sum(nil))
 
-	return fmt.Sprintf("%s/api?appid=joycode_ide&functionId=%s&t=%d&sign=%s", baseURL, functionID, t, sign)
+	return fmt.Sprintf("%s/api?appid=%s&functionId=%s&t=%d&sign=%s", baseURL, appID, functionID, t, sign), nil
 }
 
 func getLoginTypeForPtKey(ptKey string) string {

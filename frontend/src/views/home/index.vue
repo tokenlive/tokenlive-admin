@@ -1495,13 +1495,50 @@ const tokenChartOptions = computed(() => {
             left: '6%',
             bottom: '25',
             textStyle: { color: chartTextColor },
+            data: [
+                t('pages.dashboard.tokens.input_non_cache'),
+                t('pages.dashboard.tokens.cached'),
+                t('pages.dashboard.tokens.cache_creation'),
+                t('pages.dashboard.tokens.output'),
+            ],
         },
         series: [
             {
+                name: 'Token Category',
                 type: 'pie',
-                radius: ['52%', '72%'],
+                radius: ['38%', '52%'],
                 center: ['50%', '46%'],
                 avoidLabelOverlap: false,
+                itemStyle: {
+                    borderRadius: 4,
+                    borderColor: isDark ? '#111827' : '#fff',
+                    borderWidth: 2,
+                },
+                label: {
+                    show: false,
+                },
+                labelLine: {
+                    show: false,
+                },
+                data: [
+                    {
+                        value: inputNonCache + cached + cacheCreation,
+                        name: t('pages.dashboard.tokens.input'),
+                        itemStyle: { color: '#2f8cff' },
+                    },
+                    {
+                        value: output,
+                        name: t('pages.dashboard.tokens.output'),
+                        itemStyle: { color: '#8b5cf6' },
+                    },
+                ],
+            },
+            {
+                name: 'Token Detail',
+                type: 'pie',
+                radius: ['58%', '72%'],
+                center: ['50%', '46%'],
+                avoidLabelOverlap: true,
                 itemStyle: {
                     borderRadius: 6,
                     borderColor: isDark ? '#111827' : '#fff',
@@ -1514,21 +1551,25 @@ const tokenChartOptions = computed(() => {
                     color: chartTextColor,
                 },
                 data: [
-                    { value: inputNonCache, name: t('pages.dashboard.tokens.input'), itemStyle: { color: '#2f8cff' } },
                     {
-                        value: output,
-                        name: t('pages.dashboard.tokens.output'),
-                        itemStyle: { color: '#8b5cf6' },
+                        value: inputNonCache,
+                        name: t('pages.dashboard.tokens.input_non_cache'),
+                        itemStyle: { color: '#60a5fa' },
                     },
                     {
                         value: cached,
                         name: t('pages.dashboard.tokens.cached'),
-                        itemStyle: { color: '#58d68d' },
+                        itemStyle: { color: '#34d399' },
                     },
                     {
                         value: cacheCreation,
                         name: t('pages.dashboard.tokens.cache_creation'),
-                        itemStyle: { color: '#6ee7d8' },
+                        itemStyle: { color: '#2dd4bf' },
+                    },
+                    {
+                        value: output,
+                        name: t('pages.dashboard.tokens.output'),
+                        itemStyle: { color: '#a78bfa' },
                     },
                 ],
             },
