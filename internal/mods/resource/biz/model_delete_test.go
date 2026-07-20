@@ -114,6 +114,23 @@ func TestModelDeleteRemovesDataPermissionWhenNoAssociations(t *testing.T) {
 	var permissions int64
 	require.NoError(t, db.Model(&schema.DataPermission{}).Where("type = ? AND data_id = ?", schema.DataPermissionTypeModel, "model-1").Count(&permissions).Error)
 	require.Zero(t, permissions)
+
+	// Verify that the soft-deleted permission record has its 'deleted' field updated to its 'id' instead of remaining '0'.
+	var softDeletedPerm schema.DataPermission
+	require.NoError(t, db.Unscoped().First(&softDeletedPerm, "id = ?", "permission-1").Error)
+	require.Equal(t, "permission-1", softDeletedPerm.Deleted)
+
+	// Attempt to re-create a new active permission record with identical metadata to prove it doesn't trigger unique constraint violation.
+	require.NoError(t, db.Create(&schema.DataPermission{
+		ID:         "permission-2",
+		Type:       schema.DataPermissionTypeModel,
+		DataId:     "model-1",
+		User:       "alice",
+		Tenant:     "tenant-a",
+		Role:       "owner",
+		Permission: 7,
+		Deleted:    "0",
+	}).Error)
 }
 
 func newModelDeleteTestDB(t *testing.T) *gorm.DB {

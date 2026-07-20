@@ -2,7 +2,9 @@ package dal
 
 import (
 	"context"
+	"time"
 
+	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
@@ -11,7 +13,8 @@ import (
 
 // Get data permission storage instance
 func GetDataPermissionDB(ctx context.Context, defDB *gorm.DB) *gorm.DB {
-	return util.GetDB(ctx, defDB).Model(new(schema.DataPermission))
+	tableName := config.C.FormatTableName("data_permission")
+	return util.GetDB(ctx, defDB).Model(new(schema.DataPermission)).Where(tableName + ".deleted = '0'")
 }
 
 // Data permission management
@@ -88,13 +91,18 @@ func (a *DataPermission) Update(ctx context.Context, item *schema.DataPermission
 
 // Delete the specified data permission from the database.
 func (a *DataPermission) Delete(ctx context.Context, id string) error {
-	result := GetDataPermissionDB(ctx, a.DB).Where("id=?", id).Delete(new(schema.DataPermission))
-	return errors.WithStack(result.Error)
+	return errors.WithStack(util.SoftDelete(ctx, GetDataPermissionDB(ctx, a.DB), id))
 }
 
 // DeleteByTypeAndDataId deletes data permissions by type and data ID.
 func (a *DataPermission) DeleteByTypeAndDataId(ctx context.Context, dataType, dataId string) error {
-	result := GetDataPermissionDB(ctx, a.DB).Where("type=? AND data_id=?", dataType, dataId).Delete(new(schema.DataPermission))
+	now := time.Now()
+	result := GetDataPermissionDB(ctx, a.DB).
+		Where("type=? AND data_id=?", dataType, dataId).
+		UpdateColumns(map[string]interface{}{
+			"deleted":    gorm.Expr("id"),
+			"deleted_at": &now,
+		})
 	return errors.WithStack(result.Error)
 }
 
