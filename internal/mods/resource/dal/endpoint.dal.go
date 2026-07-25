@@ -184,3 +184,12 @@ func (e *Endpoint) QueryEndpointsByModelCode(ctx context.Context, modelCode stri
 	}
 	return list, nil
 }
+
+// UpdateApiKeyByProviderAndOldKey updates the api_key of non-deleted endpoints associated with a provider if their api_key matches oldKey.
+func (e *Endpoint) UpdateApiKeyByProviderAndOldKey(ctx context.Context, providerID, oldKey, newKey string) error {
+	result := GetEndpointDB(ctx, e.DB).
+		Where("provider_id = ? AND api_key = ?", providerID, oldKey).
+		Update("api_key", newKey)
+	return errors.WithStack(result.Error)
+}
+

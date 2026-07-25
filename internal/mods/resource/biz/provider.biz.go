@@ -27,6 +27,7 @@ import (
 type Provider struct {
 	Trans             *util.Trans
 	ProviderDAL       *dal.Provider
+	EndpointDAL       *dal.Endpoint
 	DataPermissionBIZ *DataPermission
 	ConfigRedisSync   *ConfigRedisSync
 	AuditLogBIZ       *opsBiz.AuditLog
@@ -116,6 +117,24 @@ func (p *Provider) Update(ctx context.Context, id string, formItem *schema.Provi
 
 	beforeProvider := *provider
 
+	// Calculate APIKey changes (index-aligned)
+	oldKeys := beforeProvider.GetApiKeys()
+	newKeys := formItem.ApiKeys
+	changeMap := make(map[string]string)
+
+	minLen := len(oldKeys)
+	if len(newKeys) < minLen {
+		minLen = len(newKeys)
+	}
+
+	for i := 0; i < minLen; i++ {
+		oldVal := strings.TrimSpace(oldKeys[i].Value)
+		newVal := strings.TrimSpace(newKeys[i].Value)
+		if oldVal != "" && newVal != "" && oldVal != newVal {
+			changeMap[oldVal] = newVal
+		}
+	}
+
 	if err := formItem.FillTo(provider); err != nil {
 		return err
 	}
@@ -123,7 +142,17 @@ func (p *Provider) Update(ctx context.Context, id string, formItem *schema.Provi
 	provider.UpdatedAt = time.Now()
 
 	err = p.Trans.Exec(ctx, func(ctx context.Context) error {
-		return p.ProviderDAL.Update(ctx, provider)
+		if err := p.ProviderDAL.Update(ctx, provider); err != nil {
+			return err
+		}
+		if p.EndpointDAL != nil && len(changeMap) > 0 {
+			for oldKey, newKey := range changeMap {
+				if err := p.EndpointDAL.UpdateApiKeyByProviderAndOldKey(ctx, provider.ID, oldKey, newKey); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	})
 	if err == nil {
 		_ = p.ConfigRedisSync.SyncProviderID(ctx, provider.ID)
