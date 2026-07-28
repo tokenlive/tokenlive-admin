@@ -16,5 +16,7 @@ export const delProvider = (id) => request.basic.delete(`/api/v1/providers/${id}
 export const fetchProviderModels = (id, params) => request.basic.post(`/api/v1/providers/${id}/fetch-models`, params)
 // 获取 OAuth 授权开始链接
 export const startOAuth = (provider) => request.basic.get('/api/v1/providers/oauth/start', { provider })
-// 轮询 OAuth 绑定状态
+// 轮询 OAuth 绑定状态（device-code，如 x.ai）
 export const pollOAuthStatus = (state) => request.basic.get('/api/v1/providers/oauth/status', { state })
+// 提交 OAuth 回调 URL 完成授权（authorization-code，如 Codex）
+export const completeOAuth = (params) => request.basic.post('/api/v1/providers/oauth/complete', params)

@@ -41,7 +41,11 @@
                 :rules="formRules.base_url">
                 <a-input
                     v-model:value="formData.base_url"
-                    :placeholder="$t('pages.provider.fetchModels.base_url.placeholder')" />
+                    :placeholder="
+                        isCodexProvider
+                            ? 'https://chatgpt.com/backend-api/codex'
+                            : $t('pages.provider.fetchModels.base_url.placeholder')
+                    " />
             </a-form-item>
 
             <a-form-item
@@ -75,6 +79,13 @@
                     </a-col>
                 </a-row>
             </a-form-item>
+
+            <a-alert
+                v-if="isCodexProvider"
+                type="info"
+                show-icon
+                style="margin-bottom: 8px"
+                message="Codex OAuth 将请求 ChatGPT backend /models，并自动携带 Bearer Token 与 Chatgpt-Account-Id。" />
         </a-form>
 
         <a-divider />
@@ -133,10 +144,13 @@ import { useI18n } from 'vue-i18n'
 
 const emit = defineEmits(['confirm'])
 
+const CODEX_DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api/codex'
+
 const { t } = useI18n()
 const visible = ref(false)
 const fetching = ref(false)
 const fetched = ref(false)
+const isCodexProvider = ref(false)
 const formRef = ref(null)
 const providerId = ref('')
 const providerApiKeys = ref([])
@@ -273,10 +287,24 @@ function handleConfirm() {
     handleClose()
 }
 
+function detectCodexProvider(record = {}) {
+    const url = (record.url || '').toLowerCase()
+    if (url.includes('chatgpt.com/backend-api/codex')) {
+        return true
+    }
+    const endpoint = (record.oauth?.token_endpoint || '').toLowerCase()
+    if (endpoint.includes('auth.openai.com') || endpoint.includes('openai.com')) {
+        return true
+    }
+    const desc = (record.api_keys?.[0]?.description || '').toLowerCase()
+    return desc.includes('codex')
+}
+
 function handleOpen(record) {
     providerId.value = record.id
     providerApiKeys.value = Array.isArray(record.api_keys) ? cloneDeep(record.api_keys) : []
-    const defaultBaseUrl = record.url || ''
+    isCodexProvider.value = detectCodexProvider(record)
+    const defaultBaseUrl = record.url || (isCodexProvider.value ? CODEX_DEFAULT_BASE_URL : '')
     const defaultApiKey = providerApiKeys.value.length > 0 ? providerApiKeys.value[0].value : undefined
     formData.value = {
         space_code: undefined,

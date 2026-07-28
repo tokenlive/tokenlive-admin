@@ -58,6 +58,7 @@ func (a *Resource) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) e
 		providers.GET("", a.ProviderAPI.Query)
 		providers.GET("oauth/start", a.ProviderAPI.GetOAuthStart)
 		providers.GET("oauth/status", a.ProviderAPI.GetOAuthStatus)
+		providers.POST("oauth/complete", a.ProviderAPI.PostOAuthComplete)
 		providers.GET(":id", a.ProviderAPI.Get)
 		providers.POST("", a.ProviderAPI.Create)
 		providers.PUT(":id", a.ProviderAPI.Update)

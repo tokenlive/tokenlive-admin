@@ -539,15 +539,27 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 		_ = json.Unmarshal([]byte(model.RequestTypes), &apis)
 	}
 
+	isCodex := isCodexEndpoint(provider, url, apis)
+	isResponses := false
 	isEmbedding := false
 	for _, cap := range apis {
-		if cap == "embedding" {
+		switch cap {
+		case "embedding":
 			isEmbedding = true
+		case "responses":
+			isResponses = true
+			isEmbedding = false
+		case "chat_completion":
+			// Prefer chat_completion over embedding when both exist, unless Codex/responses.
+			if !isCodex && !isResponses {
+				isEmbedding = false
+			}
 		}
-		if cap == "chat_completion" {
-			isEmbedding = false // 如果同时拥有，优先采用 chat_completion 进行通用测试
-			break
-		}
+	}
+	// Codex ChatGPT backend only supports the Responses API.
+	if isCodex {
+		isResponses = true
+		isEmbedding = false
 	}
 
 	// 4. 构造 HTTP 请求
@@ -564,6 +576,36 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 		bodyMap := map[string]interface{}{
 			"model": realModel,
 			"input": "ping",
+		}
+		reqBody, _ = json.Marshal(bodyMap)
+	} else if isResponses || isCodex {
+		// OpenAI Responses / Codex backend 探测
+		if strings.Contains(url, "/responses") {
+			reqURL = url
+		} else {
+			reqURL = strings.TrimRight(url, "/") + "/responses"
+		}
+		// Minimal Responses payload. Codex backend requires:
+		// 1) input as a list (not a plain string)
+		// 2) stream=true ("Stream must be set to true")
+		// 3) store=false ("Store must be set to false")
+		// and rejects some OpenAI Responses params such as max_output_tokens.
+		bodyMap := map[string]interface{}{
+			"model": realModel,
+			"input": []map[string]interface{}{
+				{
+					"role": "user",
+					"content": []map[string]string{
+						{"type": "input_text", "text": "ping"},
+					},
+				},
+			},
+			"stream": isCodex, // Codex backend rejects non-stream probes
+			"store":  false,
+		}
+		if !isCodex {
+			// Keep a tighter non-Codex Responses probe when supported.
+			bodyMap["max_output_tokens"] = 16
 		}
 		reqBody, _ = json.Marshal(bodyMap)
 	} else {
@@ -605,11 +647,11 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 				}
 			}
 			bodyMap := map[string]interface{}{
-				"model":      realModel,
-				"messages":   []map[string]string{{"role": "user", "content": "ping"}},
-				"max_tokens": 1,
-				"stream":     false,
-				"client":     "JoyCodeIDE",
+				"model":         realModel,
+				"messages":      []map[string]string{{"role": "user", "content": "ping"}},
+				"max_tokens":    1,
+				"stream":        false,
+				"client":        "JoyCodeIDE",
 				"clientVersion": "3.8.61",
 			}
 			reqBody, _ = json.Marshal(bodyMap)
@@ -642,47 +684,58 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 		}, nil
 	}
 
-	// 5. 设置 Header 头部信息
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
+// 5. 设置 Header 头部信息
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
 
-	// 处理不同协议的 API Key Auth 头部
-	if apiKey != "" {
-		if protocol == "anthropic" {
-			req.Header.Set("x-api-key", apiKey)
-			req.Header.Set("anthropic-version", "2023-06-01")
-			// 如果是非官方 Anthropic 域名且 apiKey 不为空，则自动补充 Authorization: Bearer <key>
-			// 以兼容类似于商汤(Sensenova)等使用 Anthropic 协议但采用 OpenAI 鉴权机制的第三方提供商
-			if !strings.Contains(url, "anthropic.com") {
+		// 处理不同协议的 API Key Auth 头部
+		if apiKey != "" {
+			if protocol == "anthropic" && !isCodex {
+				req.Header.Set("x-api-key", apiKey)
+				req.Header.Set("anthropic-version", "2023-06-01")
+				// 如果是非官方 Anthropic 域名且 apiKey 不为空，则自动补充 Authorization: Bearer <key>
+				// 以兼容类似于商汤(Sensenova)等使用 Anthropic 协议但采用 OpenAI 鉴权机制的第三方提供商
+				if !strings.Contains(url, "anthropic.com") {
+					req.Header.Set("Authorization", "Bearer "+apiKey)
+				}
+			} else if protocol == "joycode" && !isCodex {
+				req.Header.Set("ptKey", apiKey)
+				req.Header.Set("loginType", getLoginTypeForPtKey(apiKey))
+				req.Header.Set("x-ms-client-request-id", uuid.NewString())
+				req.Header.Set("client", "JoyCodeIDE")
+				req.Header.Set("clientVersion", "3.8.61")
+				req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+			} else {
 				req.Header.Set("Authorization", "Bearer "+apiKey)
 			}
-		} else if protocol == "joycode" {
-			req.Header.Set("ptKey", apiKey)
-			req.Header.Set("loginType", getLoginTypeForPtKey(apiKey))
-			req.Header.Set("x-ms-client-request-id", uuid.NewString())
-			req.Header.Set("client", "JoyCodeIDE")
-			req.Header.Set("clientVersion", "3.8.61")
-			req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-		} else {
-			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
-	}
 
-	// 解析自定义 Header 并注入
-	if len(formItem.Headers) > 0 && string(formItem.Headers) != "null" {
-		var customHeaders map[string]string
-		if err := json.Unmarshal(formItem.Headers, &customHeaders); err == nil {
-			for k, v := range customHeaders {
-				req.Header.Set(k, v)
-			}
+		// Codex backend expects CLI-like headers in addition to Bearer + account id.
+		if isCodex {
+			req.Header.Set("User-Agent", codexModelsUserAgent)
+			req.Header.Set("Originator", codexModelsOriginator)
+			req.Header.Set("Session_id", uuid.NewString())
+			req.Header.Set("Connection", "Keep-Alive")
+			// Stream probes return SSE.
+			req.Header.Set("Accept", "text/event-stream")
 		}
-	}
 
-	// 6. 执行请求并测量耗时
-	client := &http.Client{}
-	startTime := time.Now()
-	resp, err := client.Do(req)
-	latency := time.Since(startTime).Milliseconds()
+		// 解析自定义 Header 并注入
+		customHeaders := map[string]string{}
+		if len(formItem.Headers) > 0 && string(formItem.Headers) != "null" {
+			_ = json.Unmarshal(formItem.Headers, &customHeaders)
+		}
+		// Codex OAuth: inject Chatgpt-Account-Id from provider.oauth when testing.
+		customHeaders = MergeOAuthAccountHeader(customHeaders, provider, authType)
+		for k, v := range customHeaders {
+			req.Header.Set(k, v)
+		}
+
+		// 6. 执行请求并测量耗时
+		client := &http.Client{}
+		startTime := time.Now()
+		resp, err := client.Do(req)
+		latency := time.Since(startTime).Milliseconds()
 
 	if err != nil {
 		errMsg := err.Error()
@@ -756,17 +809,20 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			Detail:    "Embedding 向量获取成功",
 		}, nil
 
-	} else if protocol == "anthropic" {
-		// 校验 Anthropic Chat
-		var antResp struct {
-			Content []struct {
-				Text string `json:"text"`
-			} `json:"content"`
-			Error *struct {
-				Type    string `json:"type"`
-				Message string `json:"message"`
-			} `json:"error"`
-		}
+} else if isResponses || isCodex {
+			return evaluateResponsesTestResult(resp.StatusCode, latency, bodyBytes, rawDetail, isCodex)
+
+		} else if protocol == "anthropic" {
+			// 校验 Anthropic Chat
+			var antResp struct {
+				Content []struct {
+					Text string `json:"text"`
+				} `json:"content"`
+				Error *struct {
+					Type    string `json:"type"`
+					Message string `json:"message"`
+				} `json:"error"`
+			}
 
 		_ = json.Unmarshal(bodyBytes, &antResp)
 
@@ -1033,4 +1089,250 @@ func injectJoyCodePayload(rawBody []byte) []byte {
 		return out
 	}
 	return rawBody
+}
+
+// isCodexEndpoint reports whether endpoint connectivity should use the Codex
+// ChatGPT backend Responses API instead of OpenAI chat.completions.
+func isCodexEndpoint(provider *schema.Provider, endpointURL string, requestTypes []string) bool {
+	if isCodexModelsBaseURL(endpointURL) {
+		return true
+	}
+	if isCodexOAuthProvider(provider) {
+		return true
+	}
+	for _, rt := range requestTypes {
+		if rt == "responses" && strings.Contains(strings.ToLower(endpointURL), "chatgpt.com") {
+			return true
+		}
+	}
+	return false
+}
+
+type responsesAPIProbe struct {
+	Type     string `json:"type"`
+	Status   string `json:"status"`
+	Response *struct {
+		Status string `json:"status"`
+		Output []struct {
+			Type    string `json:"type"`
+			Content []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"output"`
+	} `json:"response"`
+	Output []struct {
+		Type    string `json:"type"`
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+	} `json:"output"`
+	Error *struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+		Code    string `json:"code"`
+	} `json:"error"`
+}
+
+func evaluateResponsesTestResult(statusCode int, latency int64, bodyBytes []byte, rawDetail string, isCodex bool) (*schema.EndpointTestResult, error) {
+	// Non-SSE JSON error/success first.
+	var respAPI responsesAPIProbe
+	_ = json.Unmarshal(bodyBytes, &respAPI)
+
+	if statusCode != http.StatusOK {
+		errMsg := fmt.Sprintf("上游返回错误状态码: %d", statusCode)
+		if msg := firstResponsesErrorMessage(bodyBytes, &respAPI); msg != "" {
+			errMsg = fmt.Sprintf("上游返回错误状态码: %d (%s)", statusCode, msg)
+		}
+		return &schema.EndpointTestResult{
+			Success:   false,
+			LatencyMs: latency,
+			Message:   errMsg,
+			Detail:    rawDetail,
+		}, nil
+	}
+
+	// Codex stream=true returns text/event-stream.
+	if isCodex || looksLikeSSE(bodyBytes) {
+		if errMsg := extractResponsesSSEError(bodyBytes); errMsg != "" {
+			return &schema.EndpointTestResult{
+				Success:   false,
+				LatencyMs: latency,
+				Message:   fmt.Sprintf("Responses 上游返回业务报错: %s", errMsg),
+				Detail:    rawDetail,
+			}, nil
+		}
+		detail := extractResponsesSSEDetail(bodyBytes)
+		if detail == "" {
+			detail = "连接成功 (Responses SSE)"
+		}
+		return &schema.EndpointTestResult{
+			Success:   true,
+			LatencyMs: latency,
+			Message:   "测试连接成功",
+			Detail:    detail,
+		}, nil
+	}
+
+	if respAPI.Error != nil && strings.TrimSpace(respAPI.Error.Message) != "" {
+		return &schema.EndpointTestResult{
+			Success:   false,
+			LatencyMs: latency,
+			Message:   fmt.Sprintf("Responses 上游返回业务报错: %s", respAPI.Error.Message),
+			Detail:    rawDetail,
+		}, nil
+	}
+
+	detailText := "连接成功"
+	if respAPI.Status != "" {
+		detailText = "status=" + respAPI.Status
+	}
+	if respAPI.Response != nil && respAPI.Response.Status != "" {
+		detailText = "status=" + respAPI.Response.Status
+	}
+	if text := firstResponsesText(&respAPI); text != "" {
+		detailText = text
+	} else if len(respAPI.Output) == 0 && respAPI.Status == "" && (respAPI.Response == nil || respAPI.Response.Status == "") {
+		detailText = "连接成功 (Responses HTTP 200)"
+	}
+
+	return &schema.EndpointTestResult{
+		Success:   true,
+		LatencyMs: latency,
+		Message:   "测试连接成功",
+		Detail:    detailText,
+	}, nil
+}
+
+func looksLikeSSE(body []byte) bool {
+	s := strings.TrimSpace(string(body))
+	return strings.HasPrefix(s, "data:") || strings.Contains(s, "\ndata:")
+}
+
+func firstResponsesErrorMessage(body []byte, fallback *responsesAPIProbe) string {
+	if fallback != nil && fallback.Error != nil && strings.TrimSpace(fallback.Error.Message) != "" {
+		return strings.TrimSpace(fallback.Error.Message)
+	}
+	if msg := extractResponsesSSEError(body); msg != "" {
+		return msg
+	}
+	return ""
+}
+
+func firstResponsesText(respAPI *responsesAPIProbe) string {
+	if respAPI == nil {
+		return ""
+	}
+	scan := func(items []struct {
+		Type    string `json:"type"`
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+	}) string {
+		for _, item := range items {
+			for _, c := range item.Content {
+				if strings.TrimSpace(c.Text) != "" {
+					return strings.TrimSpace(c.Text)
+				}
+			}
+		}
+		return ""
+	}
+	if text := scan(respAPI.Output); text != "" {
+		return text
+	}
+	if respAPI.Response != nil {
+		return scan(respAPI.Response.Output)
+	}
+	return ""
+}
+
+func extractResponsesSSEError(body []byte) string {
+	for _, data := range iterSSEDataPayloads(body) {
+		var evt responsesAPIProbe
+		if err := json.Unmarshal(data, &evt); err != nil {
+			continue
+		}
+		if evt.Error != nil && strings.TrimSpace(evt.Error.Message) != "" {
+			return strings.TrimSpace(evt.Error.Message)
+		}
+		// Some streams put error under top-level message fields.
+		if strings.EqualFold(evt.Type, "error") || strings.Contains(strings.ToLower(evt.Type), "failed") {
+			if evt.Error != nil && strings.TrimSpace(evt.Error.Message) != "" {
+				return strings.TrimSpace(evt.Error.Message)
+			}
+		}
+	}
+	return ""
+}
+
+func extractResponsesSSEDetail(body []byte) string {
+	var lastStatus string
+	var lastText string
+	sawEvent := false
+	for _, data := range iterSSEDataPayloads(body) {
+		sawEvent = true
+		var evt responsesAPIProbe
+		if err := json.Unmarshal(data, &evt); err != nil {
+			continue
+		}
+		if evt.Status != "" {
+			lastStatus = evt.Status
+		}
+		if evt.Response != nil && evt.Response.Status != "" {
+			lastStatus = evt.Response.Status
+		}
+		if text := firstResponsesText(&evt); text != "" {
+			lastText = text
+		}
+		// Prefer completed event markers.
+		if strings.Contains(strings.ToLower(evt.Type), "completed") && lastStatus == "" {
+			lastStatus = "completed"
+		}
+	}
+	if lastText != "" {
+		return lastText
+	}
+	if lastStatus != "" {
+		return "status=" + lastStatus
+	}
+	if sawEvent {
+		return "连接成功 (收到 Responses 事件流)"
+	}
+	return ""
+}
+
+func iterSSEDataPayloads(body []byte) [][]byte {
+	lines := strings.Split(string(body), "\n")
+	out := make([][]byte, 0, 8)
+	var dataBuf strings.Builder
+	flush := func() {
+		if dataBuf.Len() == 0 {
+			return
+		}
+		payload := strings.TrimSpace(dataBuf.String())
+		dataBuf.Reset()
+		if payload == "" || payload == "[DONE]" {
+			return
+		}
+		out = append(out, []byte(payload))
+	}
+	for _, line := range lines {
+		line = strings.TrimRight(line, "\r")
+		if strings.HasPrefix(line, "data:") {
+			chunk := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if dataBuf.Len() > 0 {
+				dataBuf.WriteByte('\n')
+			}
+			dataBuf.WriteString(chunk)
+			continue
+		}
+		if strings.TrimSpace(line) == "" {
+			flush()
+		}
+	}
+	flush()
+	return out
 }

@@ -111,7 +111,7 @@ func (r *TokenRefresher) lockAndRefreshProvider(ctx context.Context, provider sc
 	logging.Context(ctx).Info("Locked provider row for OAuth token refresh", zap.String("provider_id", provider.ID), zap.String("instance_id", r.InstanceID))
 
 	// 2. Perform refresh
-	newAccessToken, newRefreshToken, expiresAt, err := r.refreshOAuthToken(ctx, provider)
+	newAccessToken, newRefreshToken, expiresAt, meta, err := r.refreshOAuthToken(ctx, provider)
 	if err != nil {
 		logging.Context(ctx).Error("failed to refresh OAuth token for provider", zap.String("provider_id", provider.ID), zap.Error(err))
 		// Release lock immediately on failure
@@ -124,26 +124,39 @@ func (r *TokenRefresher) lockAndRefreshProvider(ctx context.Context, provider sc
 
 	// 3. Update Provider credentials, save final token list to ApiKeys, and release lock in a transaction
 	err = r.DB.Transaction(func(tx *gorm.DB) error {
+		cred := provider.GetOAuth()
+		tokenEndpoint := ""
+		accountID := ""
+		email := ""
+		if cred != nil {
+			tokenEndpoint = cred.TokenEndpoint
+			accountID = cred.AccountID
+			email = cred.Email
+		}
+		if meta.AccountID != "" {
+			accountID = meta.AccountID
+		}
+		if meta.Email != "" {
+			email = meta.Email
+		}
+
 		// Prepare ApiKeys json containing the new access token
 		apiKeyItems := []schema.ApiKeyItem{
 			{
 				Value:       newAccessToken,
-				Description: "OAuth Token (x.ai)",
+				Description: oauthTokenDescription(tokenEndpoint, accountID),
 			},
 		}
 		apiKeysJSON, _ := json.Marshal(apiKeyItems)
 
-		// Preserve the existing token_endpoint; only refresh_token and expires_at change.
+		// Preserve token_endpoint and non-secret identity fields; refresh token/expiry.
 		expiresAtCopy := expiresAt
-		cred := provider.GetOAuth()
-		tokenEndpoint := ""
-		if cred != nil {
-			tokenEndpoint = cred.TokenEndpoint
-		}
 		oauthJSON, _ := json.Marshal(schema.OAuthCredential{
 			RefreshToken:  newRefreshToken,
 			TokenEndpoint: tokenEndpoint,
 			ExpiresAt:     &expiresAtCopy,
+			AccountID:     accountID,
+			Email:         email,
 		})
 
 		// Update provider. access_token is stored provider-level only; endpoints
@@ -189,21 +202,29 @@ func (r *TokenRefresher) lockAndRefreshProvider(ctx context.Context, provider sc
 type oauthTokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
+	IDToken      string `json:"id_token"`
 	ExpiresIn    int    `json:"expires_in"`
 }
 
-func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.Provider) (string, string, time.Time, error) {
+type oauthRefreshMeta struct {
+	AccountID string
+	Email     string
+}
+
+func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.Provider) (string, string, time.Time, oauthRefreshMeta, error) {
+	var meta oauthRefreshMeta
 	cred := provider.GetOAuth()
 	if cred == nil || cred.RefreshToken == "" {
-		return "", "", time.Time{}, errors.New("refresh_token is empty")
+		return "", "", time.Time{}, meta, errors.New("refresh_token is empty")
 	}
 
 	if cred.TokenEndpoint == "" {
-		return "", "", time.Time{}, errors.New("token_endpoint is empty")
+		return "", "", time.Time{}, meta, errors.New("token_endpoint is empty")
 	}
 
 	tokenURL := cred.TokenEndpoint
 	var clientID string
+	isCodex := false
 
 	// 根据 TokenEndpoint 的域名特征选择对应的 Client ID
 	tokenURLLower := strings.ToLower(tokenURL)
@@ -211,8 +232,10 @@ func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.
 		clientID = getEnvWithDefault("OAUTH_XAI_CLIENT_ID", xaiOAuthClientID)
 	} else if strings.Contains(tokenURLLower, "anthropic") {
 		clientID = getEnvWithDefault("ANTHROPIC_CLIENT_ID", "claude-cli")
-	} else if strings.Contains(tokenURLLower, "openai") {
-		clientID = getEnvWithDefault("OPENAI_CLIENT_ID", "openai-cli")
+	} else if strings.Contains(tokenURLLower, "auth.openai.com") || strings.Contains(tokenURLLower, "openai.com") {
+		// Codex / ChatGPT CLI public client
+		clientID = getEnvWithDefault("OAUTH_CODEX_CLIENT_ID", codexOAuthClientID)
+		isCodex = true
 	} else {
 		clientID = getEnvWithDefault("OAUTH_CLIENT_ID", "client-id")
 	}
@@ -221,10 +244,14 @@ func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.
 	form.Set("grant_type", "refresh_token")
 	form.Set("client_id", clientID)
 	form.Set("refresh_token", cred.RefreshToken)
+	if isCodex {
+		// Match CLIProxyAPI Codex refresh scope.
+		form.Set("scope", "openid profile email")
+	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return "", "", time.Time{}, err
+		return "", "", time.Time{}, meta, err
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -233,26 +260,26 @@ func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", "", time.Time{}, fmt.Errorf("http request failed: %w", err)
+		return "", "", time.Time{}, meta, fmt.Errorf("http request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", "", time.Time{}, err
+		return "", "", time.Time{}, meta, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", "", time.Time{}, fmt.Errorf("oauth token refresh returned status %d: %s", resp.StatusCode, string(respBody))
+		return "", "", time.Time{}, meta, fmt.Errorf("oauth token refresh returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	var tokenResp oauthTokenResponse
 	if err = json.Unmarshal(respBody, &tokenResp); err != nil {
-		return "", "", time.Time{}, fmt.Errorf("failed to parse token response: %w", err)
+		return "", "", time.Time{}, meta, fmt.Errorf("failed to parse token response: %w", err)
 	}
 
 	if tokenResp.AccessToken == "" {
-		return "", "", time.Time{}, errors.New("access_token is empty in response")
+		return "", "", time.Time{}, meta, errors.New("access_token is empty in response")
 	}
 
 	expiresIn := tokenResp.ExpiresIn
@@ -266,7 +293,23 @@ func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.
 		finalRefreshToken = cred.RefreshToken
 	}
 
-	return tokenResp.AccessToken, finalRefreshToken, expiresAt, nil
+	if isCodex {
+		meta.AccountID, meta.Email = parseCodexIDTokenClaims(tokenResp.IDToken)
+	}
+
+	return tokenResp.AccessToken, finalRefreshToken, expiresAt, meta, nil
+}
+
+func oauthTokenDescription(tokenEndpoint, _ string) string {
+	endpoint := strings.ToLower(tokenEndpoint)
+	switch {
+	case strings.Contains(endpoint, "x.ai"):
+		return "OAuth Token (x.ai)"
+	case strings.Contains(endpoint, "auth.openai.com"), strings.Contains(endpoint, "openai.com"):
+		return "OAuth Token (codex)"
+	default:
+		return "OAuth Token"
+	}
 }
 
 func getEnvWithDefault(key, def string) string {

@@ -63,13 +63,29 @@ type ApiKeyItem struct {
 }
 
 // OAuthCredential holds the OAuth secrets and refresh metadata for a provider,
-// persisted as a single JSON column. access_token itself lives in ApiKeys; the
-// upstream base URL lives in the Provider.URL column.
-type OAuthCredential struct {
-	RefreshToken  string     `json:"refresh_token,omitempty"`
-	TokenEndpoint string     `json:"token_endpoint,omitempty"`
-	ExpiresAt     *time.Time `json:"expires_at,omitempty"`
-}
+	// persisted as a single JSON column. access_token itself lives in ApiKeys; the
+	// upstream base URL lives in the Provider.URL column.
+	type OAuthCredential struct {
+		RefreshToken  string     `json:"refresh_token,omitempty"`
+		TokenEndpoint string     `json:"token_endpoint,omitempty"`
+		ExpiresAt     *time.Time `json:"expires_at,omitempty"`
+		// AccountID is Codex/ChatGPT account id used as Chatgpt-Account-Id header.
+		AccountID string `json:"account_id,omitempty"`
+		// Email is the upstream account email snapshot (non-secret).
+		Email string `json:"email,omitempty"`
+	}
+
+	// OAuthCompleteForm is the request body for finishing authorization-code OAuth
+	// flows (e.g. Codex) by submitting the browser callback URL.
+	type OAuthCompleteForm struct {
+		Provider    string `json:"provider" binding:"required"`
+		State       string `json:"state" binding:"required"`
+		CallbackURL string `json:"callback_url" binding:"required"`
+	}
+
+	func (f *OAuthCompleteForm) Validate() error {
+		return nil
+	}
 
 // ProviderForm defines the form for creating/updating a Provider.
 type ProviderForm struct {

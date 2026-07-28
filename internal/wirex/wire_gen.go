@@ -250,6 +250,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	}
 	bizProvider := &biz3.Provider{
 		Trans:             trans,
+		Cache:             cacher,
 		ProviderDAL:       provider,
 		DataPermissionBIZ: bizDataPermission,
 		ConfigRedisSync:   configRedisSync,

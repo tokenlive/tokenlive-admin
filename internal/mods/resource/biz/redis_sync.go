@@ -168,22 +168,24 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 				realModel = ep.Model.ModelCode
 			}
 
-			var headersMap map[string]string
-			if len(ep.Headers) > 0 {
-				_ = json.Unmarshal(ep.Headers, &headersMap)
-			}
+var headersMap map[string]string
+				if len(ep.Headers) > 0 {
+					_ = json.Unmarshal(ep.Headers, &headersMap)
+				}
+				// Codex OAuth: inject Chatgpt-Account-Id from provider.oauth.account_id at sync time.
+				headersMap = MergeOAuthAccountHeader(headersMap, ep.Provider, ep.AuthType)
 
-			var apis []string
-			if ep.Model != nil && ep.Model.RequestTypes != "" {
-				_ = json.Unmarshal([]byte(ep.Model.RequestTypes), &apis)
-			}
-			if len(apis) == 0 {
-				return fmt.Errorf("model %s has no request_types configured", modelCode)
-			}
-			apis = normalizeRequestTypesForProtocol(protocol, apis)
-			if len(apis) == 0 {
-				return fmt.Errorf("model %s has no request_types compatible with protocol %s", modelCode, protocol)
-			}
+				var apis []string
+				if ep.Model != nil && ep.Model.RequestTypes != "" {
+					_ = json.Unmarshal([]byte(ep.Model.RequestTypes), &apis)
+				}
+				if len(apis) == 0 {
+					return fmt.Errorf("model %s has no request_types configured", modelCode)
+				}
+				apis = normalizeRequestTypesForProtocol(protocol, apis)
+				if len(apis) == 0 {
+					return fmt.Errorf("model %s has no request_types compatible with protocol %s", modelCode, protocol)
+				}
 
 			// 价格继承前置 (Admin 写入 Redis 缓存时完成继承)
 			var (

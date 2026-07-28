@@ -158,12 +158,16 @@ async function handleOk() {
 
             if (modelId === '__NEW__') {
                 // 如果选择新建模型，则调用接口生成
+                const isCodexImport =
+                    (importContext.value.base_url || '').toLowerCase().includes('chatgpt.com/backend-api/codex') ||
+                    ((importContext.value.auth_type || '') === 'oauth_token' &&
+                        (importContext.value.base_url || '').toLowerCase().includes('chatgpt.com'))
                 const request_types =
                     importContext.value.protocol === 'gemini'
                         ? JSON.stringify(['gemini_generate_content'])
                         : selectedModel.id.toLowerCase().includes('embed')
                           ? JSON.stringify(['embedding'])
-                          : selectedModel.id.toLowerCase().includes('responses')
+                          : isCodexImport || selectedModel.id.toLowerCase().includes('responses')
                             ? JSON.stringify(['responses'])
                             : JSON.stringify(['chat_completion'])
 

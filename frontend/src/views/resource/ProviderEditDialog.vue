@@ -114,20 +114,102 @@
                 v-if="formData.auth_type === 'oauth_token'"
                 label="OAuth 凭证"
                 name="api_keys">
-                <div style="display: flex; align-items: center; gap: 8px">
-                    <a-input-password
-                        :value="formData.api_keys && formData.api_keys.length > 0 ? formData.api_keys[0].value : ''"
-                        placeholder="未绑定，请点击按钮进行绑定"
-                        disabled
-                        style="flex: 1" />
-                    <a-button
-                        type="primary"
-                        @click="startXaiOAuth"
-                        :loading="oauthLoading">
-                        {{
-                            formData.api_keys && formData.api_keys.length > 0 ? '重新绑定 (x.ai)' : '绑定 OAuth (x.ai)'
-                        }}
-                    </a-button>
+                <div style="display: flex; flex-direction: column; gap: 12px">
+                    <div style="display: flex; align-items: center; gap: 8px">
+                        <a-select
+                            v-model:value="oauthProvider"
+                            style="width: 140px"
+                            :options="oauthProviderOptions" />
+                        <a-input-password
+                            :value="formData.api_keys && formData.api_keys.length > 0 ? formData.api_keys[0].value : ''"
+                            placeholder="未绑定，请选择提供方后点击绑定"
+                            disabled
+                            style="flex: 1" />
+                        <a-button
+                            type="primary"
+                            @click="startOAuthBind"
+                            :loading="oauthLoading">
+                            {{ oauthBindButtonText }}
+                        </a-button>
+                    </div>
+
+                    <div
+                        v-if="oauthProvider === 'codex' && oauthCodexState"
+                        style="display: flex; flex-direction: column; gap: 8px">
+                        <a-alert
+                            type="info"
+                            show-icon
+                            message="请在打开的页面完成 OpenAI/Codex 登录。浏览器会跳转到 localhost:1455 回调地址（可能无法打开页面），请复制地址栏完整 URL 粘贴到下方提交。" />
+                        <a-textarea
+                            v-model:value="oauthCallbackUrl"
+                            :rows="3"
+                            placeholder="粘贴回调 URL，例如 http://localhost:1455/auth/callback?code=...&state=..." />
+                        <div style="display: flex; justify-content: flex-end; gap: 8px">
+                            <a-button @click="cancelCodexOAuth">取消</a-button>
+                            <a-button
+                                type="primary"
+                                :loading="oauthCompleteLoading"
+                                @click="submitCodexCallback">
+                                提交回调 URL
+                            </a-button>
+                        </div>
+                    </div>
+
+                    <div
+                        v-if="formData.oauth && (formData.oauth.account_id || formData.oauth.email)"
+                        class="oauth-account-card">
+                        <div class="oauth-account-card__header">
+                            <span class="oauth-account-card__title">已绑定账号</span>
+                            <a-tag
+                                v-if="oauthProvider"
+                                color="processing"
+                                class="oauth-account-card__provider">
+                                {{
+                                    oauthProvider === 'codex'
+                                        ? 'Codex'
+                                        : oauthProvider === 'xai'
+                                          ? 'x.ai'
+                                          : oauthProvider
+                                }}
+                            </a-tag>
+                        </div>
+                        <div class="oauth-account-card__body">
+                            <div
+                                v-if="formData.oauth.email"
+                                class="oauth-account-card__row">
+                                <span class="oauth-account-card__label">账号邮箱</span>
+                                <span
+                                    class="oauth-account-card__value"
+                                    :title="formData.oauth.email">
+                                    {{ formData.oauth.email }}
+                                </span>
+                                <a-button
+                                    type="link"
+                                    size="small"
+                                    class="oauth-account-card__copy"
+                                    @click="copyText(formData.oauth.email, '邮箱')">
+                                    复制
+                                </a-button>
+                            </div>
+                            <div
+                                v-if="formData.oauth.account_id"
+                                class="oauth-account-card__row">
+                                <span class="oauth-account-card__label">Account ID</span>
+                                <span
+                                    class="oauth-account-card__value oauth-account-card__value--mono"
+                                    :title="formData.oauth.account_id">
+                                    {{ formData.oauth.account_id }}
+                                </span>
+                                <a-button
+                                    type="link"
+                                    size="small"
+                                    class="oauth-account-card__copy"
+                                    @click="copyText(formData.oauth.account_id, 'Account ID')">
+                                    复制
+                                </a-button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </a-form-item>
 
@@ -146,7 +228,7 @@
 <script setup>
 import { cloneDeep } from 'lodash-es'
 import { message } from 'ant-design-vue'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons-vue'
 import { config } from '@/config'
 import apis from '@/apis'
@@ -177,13 +259,36 @@ function removeApiKey(index) {
 }
 
 const oauthLoading = ref(false)
+const oauthCompleteLoading = ref(false)
+const oauthProvider = ref('xai')
+const oauthProviderOptions = [
+    { label: 'x.ai', value: 'xai' },
+    { label: 'Codex', value: 'codex' },
+]
+const oauthCodexState = ref('')
+const oauthCallbackUrl = ref('')
 let oauthPollTimer = null
 let oauthPollDeadline = 0
 
+const oauthBindButtonText = computed(() => {
+    const bound = formData.value.api_keys && formData.value.api_keys.length > 0
+    const name = oauthProvider.value === 'codex' ? 'Codex' : 'x.ai'
+    return bound ? `重新绑定 (${name})` : `绑定 OAuth (${name})`
+})
+
+async function startOAuthBind() {
+    if (oauthProvider.value === 'codex') {
+        await startCodexOAuth()
+        return
+    }
+    await startXaiOAuth()
+}
+
 async function startXaiOAuth() {
     try {
+        cancelCodexOAuth()
         oauthLoading.value = true
-        const { data, success } = await apis.provider.startOAuth('xai').catch()
+        const { data, success } = await apis.provider.startOAuth('xai').catch(() => ({}))
         if (!success || !data?.url) {
             message.error('获取授权链接失败')
             oauthLoading.value = false
@@ -210,9 +315,11 @@ async function startXaiOAuth() {
                 stopOAuthPolling()
                 return
             }
-            const { data: statusData, success: statusSuccess } = await apis.provider.pollOAuthStatus(data.state).catch()
+            const { data: statusData, success: statusSuccess } = await apis.provider
+                .pollOAuthStatus(data.state)
+                .catch(() => ({}))
             if (statusSuccess && statusData?.status === 'success') {
-                handleOAuthSuccess(statusData)
+                handleOAuthSuccess(statusData, 'xai')
             }
         }, 3000)
     } catch (e) {
@@ -221,19 +328,109 @@ async function startXaiOAuth() {
     }
 }
 
-function handleOAuthSuccess(authData) {
+async function startCodexOAuth() {
+    try {
+        stopOAuthPolling()
+        oauthLoading.value = true
+        oauthCallbackUrl.value = ''
+        oauthCodexState.value = ''
+        const { data, success } = await apis.provider.startOAuth('codex').catch(() => ({}))
+        if (!success || !data?.url || !data?.state) {
+            message.error('获取授权链接失败')
+            oauthLoading.value = false
+            return
+        }
+
+        oauthCodexState.value = data.state
+        const authWindow = window.open(data.url, '_blank')
+        if (!authWindow) {
+            message.warning('弹出窗口被浏览器拦截，请允许弹出窗口后重试，或手动打开授权链接')
+        }
+        message.info('请完成登录后，将回调 URL 粘贴到下方', 6)
+        oauthLoading.value = false
+    } catch (e) {
+        oauthLoading.value = false
+        message.error('启动授权流程失败')
+    }
+}
+
+async function submitCodexCallback() {
+    const callbackUrl = (oauthCallbackUrl.value || '').trim()
+    if (!oauthCodexState.value) {
+        message.warning('请先点击绑定按钮启动 Codex 授权')
+        return
+    }
+    if (!callbackUrl) {
+        message.warning('请粘贴回调 URL')
+        return
+    }
+    try {
+        oauthCompleteLoading.value = true
+        const { data, success } = await apis.provider
+            .completeOAuth({
+                provider: 'codex',
+                state: oauthCodexState.value,
+                callback_url: callbackUrl,
+            })
+            .catch(() => ({}))
+        oauthCompleteLoading.value = false
+        if (!success || !data?.access_token) {
+            message.error('提交回调失败，请确认 URL 完整且未过期后重试')
+            return
+        }
+        handleOAuthSuccess(data, 'codex')
+    } catch (e) {
+        oauthCompleteLoading.value = false
+        message.error('提交回调失败')
+    }
+}
+
+function cancelCodexOAuth() {
+    oauthCodexState.value = ''
+    oauthCallbackUrl.value = ''
+    oauthCompleteLoading.value = false
+}
+
+async function copyText(text, label = '内容') {
+    const value = (text || '').trim()
+    if (!value) {
+        return
+    }
+    try {
+        if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(value)
+        } else {
+            const textarea = document.createElement('textarea')
+            textarea.value = value
+            textarea.setAttribute('readonly', 'readonly')
+            textarea.style.position = 'fixed'
+            textarea.style.left = '-9999px'
+            document.body.appendChild(textarea)
+            textarea.select()
+            document.execCommand('copy')
+            document.body.removeChild(textarea)
+        }
+        message.success(`${label}已复制`)
+    } catch (e) {
+        message.error(`${label}复制失败`)
+    }
+}
+
+function handleOAuthSuccess(authData, providerKey) {
+    const key = providerKey || authData.provider || oauthProvider.value || 'xai'
+    const label = key === 'codex' ? 'codex' : key === 'xai' ? 'x.ai' : key
     message.success('OAuth 凭证绑定成功！')
     formData.value.api_keys = [
         {
             value: authData.access_token,
-            description: 'OAuth Token (x.ai)',
+            description: `OAuth Token (${label})`,
         },
     ]
     // base_url is what the model call uses -> store it into the provider url column.
     if (authData.base_url) {
         formData.value.url = authData.base_url
     }
-    // refresh_token + token_endpoint + expires_at are consolidated into the oauth JSON column.
+    // refresh_token + token_endpoint + expires_at (+ codex metadata) go into oauth JSON.
     const oauth = {
         refresh_token: authData.refresh_token,
         token_endpoint: authData.token_endpoint,
@@ -241,7 +438,15 @@ function handleOAuthSuccess(authData) {
     if (authData.expires_in > 0) {
         oauth.expires_at = new Date(Date.now() + authData.expires_in * 1000).toISOString()
     }
+    if (authData.account_id) {
+        oauth.account_id = authData.account_id
+    }
+    if (authData.email) {
+        oauth.email = authData.email
+    }
     formData.value.oauth = oauth
+    oauthProvider.value = key === 'codex' ? 'codex' : 'xai'
+    cancelCodexOAuth()
     stopOAuthPolling()
 }
 
@@ -253,6 +458,21 @@ function stopOAuthPolling() {
     }
 }
 
+function inferOAuthProvider(record = {}) {
+    const endpoint = record?.oauth?.token_endpoint || ''
+    if (typeof endpoint === 'string' && endpoint.includes('openai.com')) {
+        return 'codex'
+    }
+    if (typeof endpoint === 'string' && endpoint.includes('x.ai')) {
+        return 'xai'
+    }
+    const desc = record?.api_keys?.[0]?.description || ''
+    if (typeof desc === 'string' && desc.toLowerCase().includes('codex')) {
+        return 'codex'
+    }
+    return 'xai'
+}
+
 function handleCreate() {
     showModal({
         type: 'create',
@@ -261,6 +481,8 @@ function handleCreate() {
     formData.value.enabled = 1
     formData.value.auth_type = 'api_key'
     formData.value.api_keys = []
+    oauthProvider.value = 'xai'
+    cancelCodexOAuth()
 }
 
 async function handleEdit(record = {}) {
@@ -269,7 +491,7 @@ async function handleEdit(record = {}) {
         title: t('pages.provider.edit'),
     })
 
-    const { data, success } = await apis.provider.getProvider(record.id).catch()
+    const { data, success } = await apis.provider.getProvider(record.id).catch(() => ({}))
     if (!success) {
         message.error(t('component.message.error.save'))
         hideModal()
@@ -283,6 +505,8 @@ async function handleEdit(record = {}) {
     if (!Array.isArray(formData.value.api_keys)) {
         formData.value.api_keys = []
     }
+    oauthProvider.value = inferOAuthProvider(formData.value)
+    cancelCodexOAuth()
 }
 
 function handleOk() {
@@ -331,6 +555,8 @@ function onAfterClose() {
     resetForm()
     hideLoading()
     stopOAuthPolling()
+    cancelCodexOAuth()
+    oauthProvider.value = 'xai'
 }
 
 defineExpose({
@@ -339,4 +565,69 @@ defineExpose({
 })
 </script>
 
-<style lang="less" scoped></style>
+<style lang="less" scoped>
+.oauth-account-card {
+    border: 1px solid var(--color-border-secondary);
+    background: var(--color-bg-hover);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+}
+
+.oauth-account-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.oauth-account-card__title {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.oauth-account-card__provider {
+    margin-inline-end: 0;
+}
+
+.oauth-account-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.oauth-account-card__row {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 8px;
+    min-height: 28px;
+}
+
+.oauth-account-card__label {
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-xs);
+    line-height: 1.4;
+}
+
+.oauth-account-card__value {
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.oauth-account-card__value--mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    font-size: 12px;
+}
+
+.oauth-account-card__copy {
+    padding-inline: 4px;
+    height: 24px;
+}
+</style>

@@ -215,6 +215,9 @@ func (s *GatewaySync) GetGatewayConfig(ctx context.Context, modelCode string) (*
 			}
 		}
 
+		// Codex OAuth: inject Chatgpt-Account-Id from provider.oauth.account_id at sync time.
+		headersMap = MergeOAuthAccountHeader(headersMap, ep.Provider, authType)
+
 		epCfg := EndpointConfig{
 			ID:        ep.ID,
 			Code:      ep.Code,

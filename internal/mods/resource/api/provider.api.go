@@ -177,6 +177,7 @@ func (p *Provider) GetOAuthStart(c *gin.Context) {
 		"url":       result.URL,
 		"user_code": result.UserCode,
 		"state":     result.State,
+		"flow":      result.Flow,
 	})
 }
 
@@ -205,5 +206,36 @@ func (p *Provider) GetOAuthStatus(c *gin.Context) {
 		"expires_in":     result.ExpiresIn,
 		"token_endpoint": result.TokenEndpoint,
 		"base_url":       result.BaseURL,
+		"account_id":     result.AccountID,
+		"email":          result.Email,
+		"provider":       result.Provider,
+	})
+}
+
+func (p *Provider) PostOAuthComplete(c *gin.Context) {
+	ctx := c.Request.Context()
+	item := new(schema.OAuthCompleteForm)
+	if err := util.ParseJSON(c, item); err != nil {
+		util.ResError(c, err)
+		return
+	} else if err := item.Validate(); err != nil {
+		util.ResError(c, err)
+		return
+	}
+	result, err := p.ProviderBIZ.CompleteOAuthFlow(ctx, item)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResSuccess(c, gin.H{
+		"status":         "success",
+		"access_token":   result.AccessToken,
+		"refresh_token":  result.RefreshToken,
+		"expires_in":     result.ExpiresIn,
+		"token_endpoint": result.TokenEndpoint,
+		"base_url":       result.BaseURL,
+		"account_id":     result.AccountID,
+		"email":          result.Email,
+		"provider":       result.Provider,
 	})
 }
