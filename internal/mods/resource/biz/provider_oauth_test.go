@@ -169,3 +169,22 @@ func TestCompleteOAuthFlowRejectsForeignUser(t *testing.T) {
 		t.Fatalf("expected session retained for owner, got %#v", session)
 	}
 }
+
+func TestParseCodexTokenClaimsSubscriptionUntil(t *testing.T) {
+	payload := map[string]any{
+		"email": "u@example.com",
+		"https://api.openai.com/auth": map[string]any{
+			"chatgpt_account_id": "acct-1",
+			"chatgpt_subscription_active_until": 1787856068,
+		},
+	}
+	raw, _ := json.Marshal(payload)
+	token := "hdr." + base64.RawURLEncoding.EncodeToString(raw) + ".sig"
+	accountID, email, until := parseCodexTokenClaims(token)
+	if accountID != "acct-1" || email != "u@example.com" {
+		t.Fatalf("claims=%s %s", accountID, email)
+	}
+	if until == "" || until == "1787856068" {
+		t.Fatalf("until=%q", until)
+	}
+}

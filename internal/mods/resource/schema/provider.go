@@ -73,6 +73,9 @@ type ApiKeyItem struct {
 		AccountID string `json:"account_id,omitempty"`
 		// Email is the upstream account email snapshot (non-secret).
 		Email string `json:"email,omitempty"`
+		// SubscriptionActiveUntil is Codex plan renewal time display/snapshot
+		// (e.g. "2026/8/28 01:21:08"), extracted from id_token claims.
+		SubscriptionActiveUntil string `json:"subscription_active_until,omitempty"`
 	}
 
 	// OAuthCompleteForm is the request body for finishing authorization-code OAuth

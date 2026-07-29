@@ -74,6 +74,96 @@
             </a-card-grid>
         </a-card>
 
+        <!-- OAuth 用量 -->
+        <a-card
+            v-if="showQuotaCard"
+            class="info-card quota-card"
+            :bordered="false">
+            <template #title>
+                <span>{{ $t('pages.provider.detail.quota.title') }}</span>
+                <a-tag
+                    v-if="quotaData?.provider"
+                    color="processing"
+                    style="margin-left: 8px">
+                    {{ quotaProviderLabel }}
+                </a-tag>
+            </template>
+            <template #extra>
+                <a-button
+                    size="small"
+                    :loading="quotaLoading"
+                    @click="loadProviderQuota">
+                    <template #icon><reload-outlined /></template>
+                    {{ $t('pages.provider.detail.quota.refresh') }}
+                </a-button>
+            </template>
+
+            <a-spin :spinning="quotaLoading">
+                <div
+                    v-if="quotaError"
+                    class="quota-error">
+                    {{ quotaError }}
+                </div>
+                <template v-else-if="quotaData">
+                    <div
+                        v-if="quotaPlanText || quotaRenewalText || quotaExtrasText"
+                        class="quota-meta">
+                        <div v-if="quotaPlanText">
+                            <span class="quota-meta-label">{{ $t('pages.provider.detail.quota.plan') }}</span>
+                            <span class="quota-meta-value">{{ quotaPlanText }}</span>
+                        </div>
+                        <div v-if="quotaRenewalText">
+                            <span class="quota-meta-label">{{ $t('pages.provider.detail.quota.renewal') }}</span>
+                            <span class="quota-meta-value">{{ quotaRenewalText }}</span>
+                        </div>
+                        <div v-if="quotaExtrasText">
+                            <span class="quota-meta-label">{{ $t('pages.provider.detail.quota.extra') }}</span>
+                            <span class="quota-meta-value">{{ quotaExtrasText }}</span>
+                        </div>
+                    </div>
+
+                    <div
+                        v-if="!(quotaData.windows && quotaData.windows.length)"
+                        class="quota-empty">
+                        {{ $t('pages.provider.detail.quota.empty') }}
+                    </div>
+                    <div
+                        v-for="win in quotaData.windows || []"
+                        :key="win.id"
+                        class="quota-row">
+                        <div class="quota-row-header">
+                            <span class="quota-row-label">{{ win.label }}</span>
+                            <div class="quota-row-meta">
+                                <span v-if="win.remaining_percent != null">
+                                    {{ Math.round(win.remaining_percent) }}%
+                                </span>
+                                <span
+                                    v-if="win.amount_label"
+                                    class="quota-amount">
+                                    {{ win.amount_label }}
+                                </span>
+                                <span
+                                    v-if="win.reset_label"
+                                    class="quota-reset">
+                                    {{ win.reset_label }}
+                                </span>
+                            </div>
+                        </div>
+                        <a-progress
+                            :percent="quotaBarPercent(win)"
+                            :show-info="false"
+                            size="small"
+                            :stroke-color="quotaBarColor(win)" />
+                    </div>
+                </template>
+                <div
+                    v-else
+                    class="quota-empty">
+                    {{ $t('pages.provider.detail.quota.placeholder') }}
+                </div>
+            </a-spin>
+        </a-card>
+
         <!-- Tab 区域 -->
         <a-card
             class="detail-card"
@@ -320,7 +410,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive, h, watch } from 'vue'
+import { ref, onMounted, reactive, h, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { message, Modal, Radio } from 'ant-design-vue'
 import {
@@ -353,6 +443,9 @@ const { t } = useI18n()
 const providerId = ref(route.params.id)
 const providerData = ref({})
 const activeTab = ref('endpoint')
+const quotaLoading = ref(false)
+const quotaError = ref('')
+const quotaData = ref(null)
 const providerEditRef = ref(null)
 const memberEditRef = ref(null)
 const fetchModelsDrawerRef = ref(null)
@@ -624,11 +717,115 @@ async function onImportEndpointsOk() {
     await loadModelOptions()
 }
 
+const showQuotaCard = computed(() => {
+    const p = providerData.value || {}
+    if (p.auth_type !== 'oauth_token') return false
+    const url = (p.url || '').toLowerCase()
+    const endpoint = (p.oauth?.token_endpoint || '').toLowerCase()
+    const desc = (p.api_keys?.[0]?.description || '').toLowerCase()
+    return (
+        url.includes('chatgpt.com') ||
+        url.includes('x.ai') ||
+        url.includes('grok.com') ||
+        endpoint.includes('openai.com') ||
+        endpoint.includes('x.ai') ||
+        desc.includes('codex') ||
+        desc.includes('x.ai')
+    )
+})
+
+const quotaProviderLabel = computed(() => {
+    const key = quotaData.value?.provider
+    if (key === 'codex') return 'Codex'
+    if (key === 'xai') return 'xAI'
+    return key || ''
+})
+
+const quotaPlanText = computed(() => {
+    const plan = (quotaData.value?.plan || '').toLowerCase()
+    if (!plan) return ''
+    const map = {
+        pro: t('pages.provider.detail.quota.plan.pro'),
+        plus: t('pages.provider.detail.quota.plan.plus'),
+        free: t('pages.provider.detail.quota.plan.free'),
+        team: t('pages.provider.detail.quota.plan.team'),
+        supergrok: t('pages.provider.detail.quota.plan.supergrok'),
+        supergrok_heavy: t('pages.provider.detail.quota.plan.supergrok_heavy'),
+        paid: t('pages.provider.detail.quota.plan.paid'),
+    }
+    return map[plan] || plan
+})
+
+const quotaRenewalText = computed(() => {
+    const fromQuota = (quotaData.value?.subscription_active_until || '').trim()
+    if (fromQuota) return fromQuota
+    return (providerData.value?.oauth?.subscription_active_until || '').trim()
+})
+
+const quotaExtrasText = computed(() => {
+    const extras = quotaData.value?.extras || {}
+    if (extras.mode === 'paid-health') {
+        return t('pages.provider.detail.quota.paid_health')
+    }
+    if (extras.rate_limit_reset_credits_available != null) {
+        return t('pages.provider.detail.quota.reset_credits', {
+            count: extras.rate_limit_reset_credits_available,
+        })
+    }
+    return ''
+})
+
+function quotaBarPercent(win) {
+    if (win?.remaining_percent == null) return 0
+    return Math.max(0, Math.min(100, Number(win.remaining_percent)))
+}
+
+function quotaBarColor(win) {
+    const p = quotaBarPercent(win)
+    if (p >= 70) return 'var(--color-success)'
+    if (p >= 30) return 'var(--color-warning)'
+    return 'var(--color-error)'
+}
+
+async function loadProviderQuota() {
+    if (!showQuotaCard.value || !providerId.value) return
+    quotaLoading.value = true
+    quotaError.value = ''
+    try {
+        const res = await apis.provider.getProviderQuota(providerId.value).catch((e) => e?.response?.data || e)
+        const success = res?.success === true || res?.success === config('http.code.success')
+        if (success) {
+            quotaData.value = res.data || null
+            quotaError.value = ''
+        } else {
+            quotaData.value = null
+            quotaError.value =
+                res?.error?.detail ||
+                res?.error?.message ||
+                res?.msg ||
+                res?.message ||
+                t('pages.provider.detail.quota.load_failed')
+        }
+    } catch (e) {
+        quotaData.value = null
+        quotaError.value =
+            e?.response?.data?.error?.detail || e?.message || t('pages.provider.detail.quota.load_failed')
+    } finally {
+        quotaLoading.value = false
+    }
+}
+
 async function loadProviderDetail() {
     try {
         const { data, success } = await apis.provider.getProvider(providerId.value)
         if (success) {
             providerData.value = data || {}
+            if (showQuotaCard.value) {
+                loadProviderQuota()
+            } else {
+                quotaData.value = null
+                quotaError.value = ''
+            }
         }
     } catch (error) {
         message.error(t('pages.provider.detail.load.failed'))
@@ -880,6 +1077,73 @@ function handleRemoveMember({ id }) {
             font-size: 14px;
             font-weight: 500;
         }
+    }
+}
+
+.quota-card {
+    .quota-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px 24px;
+        margin-bottom: 12px;
+        color: var(--color-text-secondary);
+        font-size: 13px;
+    }
+
+    .quota-meta-label {
+        color: var(--color-text-tertiary);
+        margin-right: 6px;
+    }
+
+    .quota-meta-value {
+        color: var(--color-text-primary);
+        font-weight: 500;
+    }
+
+    .quota-row {
+        margin-bottom: 12px;
+    }
+
+    .quota-row-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 4px;
+    }
+
+    .quota-row-label {
+        color: var(--color-text-primary);
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    .quota-row-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--color-text-secondary);
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .quota-amount {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .quota-reset {
+        color: var(--color-text-tertiary);
+    }
+
+    .quota-empty,
+    .quota-error {
+        color: var(--color-text-tertiary);
+        font-size: 13px;
+        padding: 8px 0;
+    }
+
+    .quota-error {
+        color: var(--color-error);
     }
 }
 

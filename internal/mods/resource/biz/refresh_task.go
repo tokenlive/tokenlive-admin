@@ -128,16 +128,21 @@ func (r *TokenRefresher) lockAndRefreshProvider(ctx context.Context, provider sc
 		tokenEndpoint := ""
 		accountID := ""
 		email := ""
+		subscriptionUntil := ""
 		if cred != nil {
 			tokenEndpoint = cred.TokenEndpoint
 			accountID = cred.AccountID
 			email = cred.Email
+			subscriptionUntil = cred.SubscriptionActiveUntil
 		}
 		if meta.AccountID != "" {
 			accountID = meta.AccountID
 		}
 		if meta.Email != "" {
 			email = meta.Email
+		}
+		if meta.SubscriptionActiveUntil != "" {
+			subscriptionUntil = meta.SubscriptionActiveUntil
 		}
 
 		// Prepare ApiKeys json containing the new access token
@@ -152,11 +157,12 @@ func (r *TokenRefresher) lockAndRefreshProvider(ctx context.Context, provider sc
 		// Preserve token_endpoint and non-secret identity fields; refresh token/expiry.
 		expiresAtCopy := expiresAt
 		oauthJSON, _ := json.Marshal(schema.OAuthCredential{
-			RefreshToken:  newRefreshToken,
-			TokenEndpoint: tokenEndpoint,
-			ExpiresAt:     &expiresAtCopy,
-			AccountID:     accountID,
-			Email:         email,
+			RefreshToken:            newRefreshToken,
+			TokenEndpoint:           tokenEndpoint,
+			ExpiresAt:               &expiresAtCopy,
+			AccountID:               accountID,
+			Email:                   email,
+			SubscriptionActiveUntil: subscriptionUntil,
 		})
 
 		// Update provider. access_token is stored provider-level only; endpoints
@@ -207,8 +213,9 @@ type oauthTokenResponse struct {
 }
 
 type oauthRefreshMeta struct {
-	AccountID string
-	Email     string
+	AccountID               string
+	Email                   string
+	SubscriptionActiveUntil string
 }
 
 func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.Provider) (string, string, time.Time, oauthRefreshMeta, error) {
@@ -294,7 +301,22 @@ func (r *TokenRefresher) refreshOAuthToken(ctx context.Context, provider schema.
 	}
 
 	if isCodex {
-		meta.AccountID, meta.Email = parseCodexIDTokenClaims(tokenResp.IDToken)
+		accountID, email, until := parseCodexTokenClaims(tokenResp.IDToken)
+		if until == "" {
+			_, _, until = parseCodexTokenClaims(tokenResp.AccessToken)
+		}
+		if accountID == "" || email == "" {
+			a2, e2, _ := parseCodexTokenClaims(tokenResp.AccessToken)
+			if accountID == "" {
+				accountID = a2
+			}
+			if email == "" {
+				email = e2
+			}
+		}
+		meta.AccountID = accountID
+		meta.Email = email
+		meta.SubscriptionActiveUntil = until
 	}
 
 	return tokenResp.AccessToken, finalRefreshToken, expiresAt, meta, nil
@@ -304,7 +326,7 @@ func oauthTokenDescription(tokenEndpoint, _ string) string {
 	endpoint := strings.ToLower(tokenEndpoint)
 	switch {
 	case strings.Contains(endpoint, "x.ai"):
-		return "OAuth Token (x.ai)"
+		return "OAuth Token (xAI)"
 	case strings.Contains(endpoint, "auth.openai.com"), strings.Contains(endpoint, "openai.com"):
 		return "OAuth Token (codex)"
 	default:

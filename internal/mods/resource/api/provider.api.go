@@ -200,15 +200,16 @@ func (p *Provider) GetOAuthStatus(c *gin.Context) {
 		return
 	}
 	util.ResSuccess(c, gin.H{
-		"status":         "success",
-		"access_token":   result.AccessToken,
-		"refresh_token":  result.RefreshToken,
-		"expires_in":     result.ExpiresIn,
-		"token_endpoint": result.TokenEndpoint,
-		"base_url":       result.BaseURL,
-		"account_id":     result.AccountID,
-		"email":          result.Email,
-		"provider":       result.Provider,
+		"status":                    "success",
+		"access_token":              result.AccessToken,
+		"refresh_token":             result.RefreshToken,
+		"expires_in":                result.ExpiresIn,
+		"token_endpoint":            result.TokenEndpoint,
+		"base_url":                  result.BaseURL,
+		"account_id":                result.AccountID,
+		"email":                     result.Email,
+		"subscription_active_until": result.SubscriptionActiveUntil,
+		"provider":                  result.Provider,
 	})
 }
 
@@ -228,14 +229,26 @@ func (p *Provider) PostOAuthComplete(c *gin.Context) {
 		return
 	}
 	util.ResSuccess(c, gin.H{
-		"status":         "success",
-		"access_token":   result.AccessToken,
-		"refresh_token":  result.RefreshToken,
-		"expires_in":     result.ExpiresIn,
-		"token_endpoint": result.TokenEndpoint,
-		"base_url":       result.BaseURL,
-		"account_id":     result.AccountID,
-		"email":          result.Email,
-		"provider":       result.Provider,
+		"status":                    "success",
+		"access_token":              result.AccessToken,
+		"refresh_token":             result.RefreshToken,
+		"expires_in":                result.ExpiresIn,
+		"token_endpoint":            result.TokenEndpoint,
+		"base_url":                  result.BaseURL,
+		"account_id":                result.AccountID,
+		"email":                     result.Email,
+		"subscription_active_until": result.SubscriptionActiveUntil,
+		"provider":                  result.Provider,
 	})
+}
+
+// GetQuota fetches live upstream usage/quota for an OAuth provider (xAI / Codex).
+func (p *Provider) GetQuota(c *gin.Context) {
+	ctx := c.Request.Context()
+	result, err := p.ProviderBIZ.GetQuota(ctx, c.Param("id"))
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResSuccess(c, result)
 }

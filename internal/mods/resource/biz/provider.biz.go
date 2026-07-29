@@ -597,14 +597,15 @@ const (
 )
 
 type OAuthTokenResult struct {
-	AccessToken   string `json:"access_token"`
-	RefreshToken  string `json:"refresh_token"`
-	ExpiresIn     int    `json:"expires_in"`
-	TokenEndpoint string `json:"token_endpoint"`
-	BaseURL       string `json:"base_url"`
-	AccountID     string `json:"account_id,omitempty"`
-	Email         string `json:"email,omitempty"`
-	Provider      string `json:"provider,omitempty"`
+	AccessToken             string `json:"access_token"`
+	RefreshToken            string `json:"refresh_token"`
+	ExpiresIn               int    `json:"expires_in"`
+	TokenEndpoint           string `json:"token_endpoint"`
+	BaseURL                 string `json:"base_url"`
+	AccountID               string `json:"account_id,omitempty"`
+	Email                   string `json:"email,omitempty"`
+	SubscriptionActiveUntil string `json:"subscription_active_until,omitempty"`
+	Provider                string `json:"provider,omitempty"`
 }
 
 // OAuthStartResult carries the details returned to the frontend so it can open
@@ -994,16 +995,32 @@ func (p *Provider) exchangeCodexCode(ctx context.Context, code, codeVerifier str
 		return nil, errors.InternalServerError("", "token exchange returned empty access_token")
 	}
 
-	accountID, email := parseCodexIDTokenClaims(tokenResp.IDToken)
+	accountID, email, until := parseCodexTokenClaims(tokenResp.IDToken)
+	// Some deployments only put subscription claims on access_token.
+	if until == "" {
+		if _, _, u2 := parseCodexTokenClaims(tokenResp.AccessToken); u2 != "" {
+			until = u2
+		}
+	}
+	if accountID == "" || email == "" {
+		a2, e2, _ := parseCodexTokenClaims(tokenResp.AccessToken)
+		if accountID == "" {
+			accountID = a2
+		}
+		if email == "" {
+			email = e2
+		}
+	}
 	return &OAuthTokenResult{
-		AccessToken:   tokenResp.AccessToken,
-		RefreshToken:  tokenResp.RefreshToken,
-		ExpiresIn:     tokenResp.ExpiresIn,
-		TokenEndpoint: codexOAuthTokenURL,
-		BaseURL:       codexDefaultBaseURL,
-		AccountID:     accountID,
-		Email:         email,
-		Provider:      oauthProviderCodex,
+		AccessToken:             tokenResp.AccessToken,
+		RefreshToken:            tokenResp.RefreshToken,
+		ExpiresIn:               tokenResp.ExpiresIn,
+		TokenEndpoint:           codexOAuthTokenURL,
+		BaseURL:                 codexDefaultBaseURL,
+		AccountID:               accountID,
+		Email:                   email,
+		SubscriptionActiveUntil: until,
+		Provider:                oauthProviderCodex,
 	}, nil
 }
 
@@ -1026,32 +1043,96 @@ func parseOAuthCallbackURL(raw string) (code, state, errParam string, err error)
 }
 
 func parseCodexIDTokenClaims(idToken string) (accountID, email string) {
-	idToken = strings.TrimSpace(idToken)
-	if idToken == "" {
-		return "", ""
+	accountID, email, _ = parseCodexTokenClaims(idToken)
+	return accountID, email
+}
+
+// parseCodexTokenClaims extracts account/email/subscription expiry from a Codex JWT
+// (id_token or access_token). subscriptionActiveUntil is normalized to RFC3339 when possible.
+func parseCodexTokenClaims(token string) (accountID, email, subscriptionActiveUntil string) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return "", "", ""
 	}
-	parts := strings.Split(idToken, ".")
+	parts := strings.Split(token, ".")
 	if len(parts) < 2 {
-		return "", ""
+		return "", "", ""
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
 		// Some tokens may include standard base64 padding.
 		payload, err = base64.URLEncoding.DecodeString(parts[1])
 		if err != nil {
-			return "", ""
+			return "", "", ""
 		}
 	}
 	var claims struct {
 		Email string `json:"email"`
 		Auth  struct {
-			ChatgptAccountID string `json:"chatgpt_account_id"`
+			ChatgptAccountID               string          `json:"chatgpt_account_id"`
+			ChatgptSubscriptionActiveUntil json.RawMessage `json:"chatgpt_subscription_active_until"`
 		} `json:"https://api.openai.com/auth"`
 	}
 	if err := json.Unmarshal(payload, &claims); err != nil {
-		return "", ""
+		return "", "", ""
 	}
-	return strings.TrimSpace(claims.Auth.ChatgptAccountID), strings.TrimSpace(claims.Email)
+	return strings.TrimSpace(claims.Auth.ChatgptAccountID),
+		strings.TrimSpace(claims.Email),
+		normalizeCodexTimeValue(claims.Auth.ChatgptSubscriptionActiveUntil)
+}
+
+func normalizeCodexTimeValue(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	// string RFC3339 / date
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return ""
+		}
+		if t, err := time.Parse(time.RFC3339, s); err == nil {
+			return t.Local().Format("2006/1/2 15:04:05")
+		}
+		// unix seconds as string
+		if isAllDigitsLocal(s) {
+			var sec int64
+			if _, err := fmt.Sscanf(s, "%d", &sec); err == nil {
+				if sec > 1_000_000_000_000 {
+					return time.UnixMilli(sec).Local().Format("2006/1/2 15:04:05")
+				}
+				if sec > 1_000_000_000 {
+					return time.Unix(sec, 0).Local().Format("2006/1/2 15:04:05")
+				}
+			}
+		}
+		return s
+	}
+	// numeric unix seconds/millis
+	var f float64
+	if err := json.Unmarshal(raw, &f); err == nil {
+		n := int64(f)
+		if n > 1_000_000_000_000 {
+			return time.UnixMilli(n).Local().Format("2006/1/2 15:04:05")
+		}
+		if n > 1_000_000_000 {
+			return time.Unix(n, 0).Local().Format("2006/1/2 15:04:05")
+		}
+	}
+	return ""
+}
+
+func isAllDigitsLocal(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 type pkceCodes struct {

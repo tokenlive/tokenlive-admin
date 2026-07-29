@@ -64,6 +64,7 @@ func (a *Resource) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) e
 		providers.PUT(":id", a.ProviderAPI.Update)
 		providers.DELETE(":id", a.ProviderAPI.Delete)
 		providers.POST(":id/fetch-models", a.ProviderAPI.FetchModels)
+		providers.GET(":id/quota", a.ProviderAPI.GetQuota)
 		providers.GET(":id/endpoints", a.EndpointAPI.QueryEndpointsByProviderID)
 	}
 

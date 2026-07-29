@@ -168,7 +168,7 @@
                                     oauthProvider === 'codex'
                                         ? 'Codex'
                                         : oauthProvider === 'xai'
-                                          ? 'x.ai'
+                                          ? 'xAI'
                                           : oauthProvider
                                 }}
                             </a-tag>
@@ -262,7 +262,7 @@ const oauthLoading = ref(false)
 const oauthCompleteLoading = ref(false)
 const oauthProvider = ref('xai')
 const oauthProviderOptions = [
-    { label: 'x.ai', value: 'xai' },
+    { label: 'xAI', value: 'xai' },
     { label: 'Codex', value: 'codex' },
 ]
 const oauthCodexState = ref('')
@@ -272,7 +272,7 @@ let oauthPollDeadline = 0
 
 const oauthBindButtonText = computed(() => {
     const bound = formData.value.api_keys && formData.value.api_keys.length > 0
-    const name = oauthProvider.value === 'codex' ? 'Codex' : 'x.ai'
+    const name = oauthProvider.value === 'codex' ? 'Codex' : 'xAI'
     return bound ? `重新绑定 (${name})` : `绑定 OAuth (${name})`
 })
 
@@ -418,7 +418,7 @@ async function copyText(text, label = '内容') {
 
 function handleOAuthSuccess(authData, providerKey) {
     const key = providerKey || authData.provider || oauthProvider.value || 'xai'
-    const label = key === 'codex' ? 'codex' : key === 'xai' ? 'x.ai' : key
+    const label = key === 'codex' ? 'Codex' : key === 'xai' ? 'xAI' : key
     message.success('OAuth 凭证绑定成功！')
     formData.value.api_keys = [
         {
@@ -443,6 +443,9 @@ function handleOAuthSuccess(authData, providerKey) {
     }
     if (authData.email) {
         oauth.email = authData.email
+    }
+    if (authData.subscription_active_until) {
+        oauth.subscription_active_until = authData.subscription_active_until
     }
     formData.value.oauth = oauth
     oauthProvider.value = key === 'codex' ? 'codex' : 'xai'
