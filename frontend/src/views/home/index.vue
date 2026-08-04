@@ -506,51 +506,26 @@
                     :bordered="false"
                     hoverable>
                     <template #extra>
-                        <a-space :size="8">
-                            <a-select
-                                v-model:value="rankingTimeRange"
-                                style="width: 120px"
-                                @change="handleRankingSortChange">
-                                <a-select-option value="1h">{{
-                                    $t('pages.dashboard.modelRanking.range.1h')
-                                }}</a-select-option>
-                                <a-select-option value="6h">{{
-                                    $t('pages.dashboard.modelRanking.range.6h')
-                                }}</a-select-option>
-                                <a-select-option value="24h">{{
-                                    $t('pages.dashboard.modelRanking.range.24h')
-                                }}</a-select-option>
-                                <a-select-option value="7d">{{
-                                    $t('pages.dashboard.modelRanking.range.7d')
-                                }}</a-select-option>
-                                <a-select-option value="today">{{
-                                    $t('pages.dashboard.modelRanking.range.today')
-                                }}</a-select-option>
-                            </a-select>
-                            <a-select
-                                v-model:value="rankingSortBy"
-                                style="width: 120px"
-                                @change="handleRankingSortChange">
-                                <a-select-option value="request_count">{{
-                                    $t('pages.dashboard.modelRanking.sort.request_count')
-                                }}</a-select-option>
-                                <a-select-option value="avg_latency">{{
-                                    $t('pages.dashboard.modelRanking.sort.avg_latency')
-                                }}</a-select-option>
-                                <a-select-option value="avg_ttft">{{
-                                    $t('pages.dashboard.modelRanking.sort.avg_ttft')
-                                }}</a-select-option>
-                                <a-select-option value="tokens">{{
-                                    $t('pages.dashboard.modelRanking.sort.tokens')
-                                }}</a-select-option>
-                                <a-select-option value="cost">{{
-                                    $t('pages.dashboard.modelRanking.sort.cost')
-                                }}</a-select-option>
-                                <a-select-option value="success_rate">{{
-                                    $t('pages.dashboard.modelRanking.sort.success_rate')
-                                }}</a-select-option>
-                            </a-select>
-                        </a-space>
+                        <a-select
+                            v-model:value="rankingTimeRange"
+                            style="width: 120px"
+                            @change="handleRankingSortChange">
+                            <a-select-option value="1h">{{
+                                $t('pages.dashboard.modelRanking.range.1h')
+                            }}</a-select-option>
+                            <a-select-option value="6h">{{
+                                $t('pages.dashboard.modelRanking.range.6h')
+                            }}</a-select-option>
+                            <a-select-option value="24h">{{
+                                $t('pages.dashboard.modelRanking.range.24h')
+                            }}</a-select-option>
+                            <a-select-option value="7d">{{
+                                $t('pages.dashboard.modelRanking.range.7d')
+                            }}</a-select-option>
+                            <a-select-option value="today">{{
+                                $t('pages.dashboard.modelRanking.range.today')
+                            }}</a-select-option>
+                        </a-select>
                     </template>
                     <transition
                         name="fade-chart"
@@ -935,8 +910,8 @@ const isUsingFallback = ref(false)
 const trendsGroupBy = ref('')
 const trendsTimeRange = ref('1h')
 
-// 模型排行榜排序选择
-const rankingSortBy = ref('request_count')
+// 模型排行榜：固定按请求数排序，表格列可本地二次排序
+const rankingSortBy = 'request_count'
 const rankingTimeRange = ref('today')
 
 const counts = reactive({
@@ -984,7 +959,7 @@ function sendWsConfig() {
                 data: {
                     trends_time_range: trendsTimeRange.value,
                     trends_group_by: trendsGroupBy.value || '',
-                    model_ranking_sort_by: rankingSortBy.value,
+                    model_ranking_sort_by: rankingSortBy,
                     model_ranking_time_range: rankingTimeRange.value,
                 },
             })
@@ -1020,7 +995,7 @@ async function handleRankingSortChange() {
         try {
             const rankingRes = await apis.dashboard
                 .getModelRanking({
-                    sort_by: rankingSortBy.value,
+                    sort_by: rankingSortBy,
                     time_range: rankingTimeRange.value,
                     limit: 10,
                 })

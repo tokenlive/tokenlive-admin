@@ -108,6 +108,7 @@ import { config } from '@/config'
 import { useForm } from '@/hooks'
 import { useAppStore, useRouterStore, useUserStore } from '@/store'
 import apis from '@/apis'
+import storage from '@/utils/storage'
 import { md5 } from 'js-md5'
 import { useI18n } from 'vue-i18n'
 defineOptions({
@@ -136,12 +137,13 @@ formRules.value = {
     captcha_code: { required: true, message: t('pages.login.captcha.placeholder') },
 }
 
-// 初始化表单数据，记住我默认不勾选
-formData.value.rememberMe = false
+// 默认勾选「记住我」，支持 30 天免登录 / 多设备
+formData.value.rememberMe = true
 
 onMounted(() => {
-    // 清理登录信息
-    userStore.logout()
+    // 进入登录页仅清理本地态，不调用后端 logout，避免误伤其他设备会话
+    userStore.clearTokens()
+    storage.local.removeItem(config('storage.userInfo'))
     loadOAuthProviders()
     if (oauthTicket.value) {
         handleOAuthExchange()

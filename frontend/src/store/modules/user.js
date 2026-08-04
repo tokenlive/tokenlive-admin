@@ -87,7 +87,7 @@ const useUserStore = defineStore('user', {
             }
 
             try {
-                const result = await apis.user.refreshToken({ refreshToken: this.refreshToken })
+                const result = await apis.user.refreshToken({ refresh_token: this.refreshToken })
                 const { success, data } = result || {}
                 if (config('http.code.success') === success) {
                     const { access_token, refresh_token, expires_at } = data
@@ -129,22 +129,33 @@ const useUserStore = defineStore('user', {
             this.clearRefreshToken()
         },
         /**
-         * 退出登录
+         * 退出登录（仅撤销当前设备 token，不影响其他设备）
          */
         logout() {
             return new Promise((resolve) => {
-                const appStore = useAppStore()
-                const multiTab = useMultiTab()
-                const router = useRouter()
+                ;(async () => {
+                    const appStore = useAppStore()
+                    const multiTab = useMultiTab()
+                    const router = useRouter()
+                    const accessToken = this.token
+                    const refreshToken = this.refreshToken
 
-                // 清除所有 token
-                this.clearTokens()
-                storage.local.removeItem(config('storage.userInfo'))
-                this.$reset()
-                appStore.$reset()
-                multiTab.$reset()
-                router.$reset()
-                resolve()
+                    if (accessToken) {
+                        try {
+                            await apis.user.logout({ refresh_token: refreshToken || undefined })
+                        } catch (e) {
+                            // ignore network errors on logout
+                        }
+                    }
+
+                    this.clearTokens()
+                    storage.local.removeItem(config('storage.userInfo'))
+                    this.$reset()
+                    appStore.$reset()
+                    multiTab.$reset()
+                    router.$reset()
+                    resolve()
+                })()
             })
         },
         /**

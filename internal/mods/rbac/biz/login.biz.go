@@ -306,16 +306,14 @@ func (a *Login) RefreshTokenWithRefreshToken(ctx context.Context, refreshToken s
 		userTenant = user.Tenant
 	}
 
-	// Revoke the old refresh token (sliding expiration)
-	if err := a.Auth.DestroyRefreshToken(ctx, refreshToken); err != nil {
-		logging.Context(ctx).Warn("Failed to revoke old refresh token", zap.String("jti", jti), zap.Error(err))
-	}
+		// Keep the existing refresh token valid so multi-device / multi-tab sessions
+		// are not kicked offline when any one of them refreshes.
+		ctx = logging.NewUserID(ctx, userID)
+		logging.Context(ctx).Info("Refresh token success", zap.String("jti", jti))
 
-	ctx = logging.NewUserID(ctx, userID)
-	logging.Context(ctx).Info("Refresh token success", zap.String("jti", jti))
-
-	// Generate new tokens (sliding expiration: new refresh token with new 30 days)
-	return a.genLoginResponse(ctx, userID, userTenant, true)
+		// Issue a new access token and a new refresh token (sliding window).
+		// Old refresh tokens remain valid until natural expiry or explicit logout.
+		return a.genLoginResponse(ctx, userID, userTenant, true)
 }
 
 // LogoutWithRefreshToken logs out and revokes both access token and refresh token

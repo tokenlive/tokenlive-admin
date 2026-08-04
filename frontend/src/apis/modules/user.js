@@ -8,6 +8,8 @@ export const oauthProviders = () => request.basic.get('/api/v1/oauth/providers')
 export const oauthExchange = (params) => request.basic.post('/api/v1/oauth/exchange', params)
 // 用 refresh token 刷新 access token
 export const refreshToken = (params) => request.basic.post('/api/v1/refresh-token', params)
+// 退出登录（可附带 refresh_token 做单设备撤销）
+export const logout = (params) => request.basic.post('/api/v1/current/logout', params)
 // 获取用户详情
 export const getUserDetail = () => request.basic.get('/api/v1/current/user')
 // 更新用户信息
