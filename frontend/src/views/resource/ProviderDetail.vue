@@ -210,7 +210,9 @@
                     @change="onEndpointTableChange">
                     <template #bodyCell="{ column, record }">
                         <template v-if="'model_id' === column.key">
-                            {{ getModelName(record.model_id) }}
+                            <a @click="goToModelDetail(record.model_id)">
+                                {{ getModelName(record.model_id) }}
+                            </a>
                         </template>
                         <template v-if="'url' === column.key">
                             <a-tooltip :title="record.url">
@@ -411,7 +413,7 @@
 
 <script setup>
 import { ref, onMounted, reactive, h, watch, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { message, Modal, Radio } from 'ant-design-vue'
 import {
     ReloadOutlined,
@@ -439,6 +441,7 @@ defineOptions({
 })
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const providerId = ref(route.params.id)
 const providerData = ref({})
@@ -860,6 +863,11 @@ function getModelName(id) {
     return m ? m.model_name : id
 }
 
+function goToModelDetail(id) {
+    if (!id) return
+    router.push({ name: 'modelDetail', params: { id } })
+}
+
 async function loadEndpointList() {
     try {
         endpointLoading.value = true
@@ -1177,5 +1185,15 @@ function handleRemoveMember({ id }) {
     text-overflow: ellipsis;
     white-space: nowrap;
     vertical-align: middle;
+}
+
+:deep(.ant-table-tbody) {
+    a {
+        color: @color-primary;
+        transition: color 0.2s ease;
+        &:hover {
+            color: #0958d9;
+        }
+    }
 }
 </style>
