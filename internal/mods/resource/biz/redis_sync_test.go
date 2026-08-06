@@ -16,25 +16,13 @@ func TestNormalizeRequestTypesForProtocol(t *testing.T) {
 		want     []string
 	}{
 		{
-			name:     "anthropic chat model is exported as messages capability",
+			name:     "anthropic preserves declared request types",
 			protocol: "anthropic",
-			in:       []string{"chat_completion"},
-			want:     []string{"messages"},
+			in:       []string{"chat_completion", "messages"},
+			want:     []string{"chat_completion", "messages"},
 		},
 		{
-			name:     "anthropic keeps explicit messages and drops unsupported embedding",
-			protocol: "anthropic",
-			in:       []string{"messages", "embedding"},
-			want:     []string{"messages"},
-		},
-		{
-			name:     "openai preserves declared supported request types",
-			protocol: "openai",
-			in:       []string{"chat_completion", "messages", "responses", "embedding"},
-			want:     []string{"chat_completion", "messages", "responses", "embedding"},
-		},
-		{
-			name:     "unknown protocol preserves unique declared request types",
+			name:     "deduplicates unique declared request types",
 			protocol: "custom",
 			in:       []string{"chat_completion", "chat_completion"},
 			want:     []string{"chat_completion"},

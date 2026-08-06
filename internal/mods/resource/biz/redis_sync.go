@@ -253,39 +253,16 @@ var headersMap map[string]string
 }
 
 func normalizeRequestTypesForProtocol(protocol string, requestTypes []string) []string {
-	protocol = strings.ToLower(strings.TrimSpace(protocol))
 	var result []string
 	seen := make(map[string]bool, len(requestTypes))
 
-	add := func(rt string) {
+	for _, rt := range requestTypes {
 		rt = strings.TrimSpace(rt)
 		if rt == "" || seen[rt] {
-			return
+			continue
 		}
 		seen[rt] = true
 		result = append(result, rt)
-	}
-
-	for _, rt := range requestTypes {
-		switch protocol {
-		case "anthropic":
-			switch rt {
-			case "messages", "chat_completion":
-				add("messages")
-			}
-		case "openai":
-			switch rt {
-			case "chat_completion", "embedding", "responses", "messages":
-				add(rt)
-			}
-		case "joycode":
-			switch rt {
-			case "chat_completion", "responses", "messages":
-				add(rt)
-			}
-		default:
-			add(rt)
-		}
 	}
 
 	return result

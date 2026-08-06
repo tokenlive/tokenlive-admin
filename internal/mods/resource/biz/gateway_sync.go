@@ -239,6 +239,8 @@ func (s *GatewaySync) GetGatewayConfig(ctx context.Context, modelCode string) (*
 				RequestTypes: apis,
 				Endpoints:    []EndpointConfig{},
 			}
+		} else {
+			mCfg.RequestTypes = normalizeRequestTypesForProtocol("", append(mCfg.RequestTypes, apis...))
 		}
 		mCfg.Endpoints = append(mCfg.Endpoints, epCfg)
 		modelsMap[mCode] = mCfg
