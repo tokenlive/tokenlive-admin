@@ -117,8 +117,6 @@ export default {
     'pages.dashboard.trends.group.global': '全局',
     'pages.dashboard.trends.group.model': '按模型',
     'pages.dashboard.trends.group.provider': '按供应商',
-    'pages.dashboard.trends.group.tenant': '按租户',
-    'pages.dashboard.trends.group.endpoint': '按端点',
     'pages.dashboard.trends.range.1h': '最近 1 小时',
     'pages.dashboard.trends.range.6h': '最近 6 小时',
     'pages.dashboard.trends.range.24h': '最近 24 小时',

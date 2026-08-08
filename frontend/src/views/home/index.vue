@@ -231,12 +231,6 @@
                                 <a-select-option value="provider">{{
                                     $t('pages.dashboard.trends.group.provider')
                                 }}</a-select-option>
-                                <a-select-option value="tenant">{{
-                                    $t('pages.dashboard.trends.group.tenant')
-                                }}</a-select-option>
-                                <a-select-option value="endpoint">{{
-                                    $t('pages.dashboard.trends.group.endpoint')
-                                }}</a-select-option>
                             </a-select>
                         </a-space>
                     </template>

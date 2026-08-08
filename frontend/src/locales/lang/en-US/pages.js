@@ -120,8 +120,6 @@ export default {
     'pages.dashboard.trends.group.global': 'Global',
     'pages.dashboard.trends.group.model': 'By Model',
     'pages.dashboard.trends.group.provider': 'By Provider',
-    'pages.dashboard.trends.group.tenant': 'By Tenant',
-    'pages.dashboard.trends.group.endpoint': 'By Endpoint',
     'pages.dashboard.trends.range.1h': 'Last 1 Hour',
     'pages.dashboard.trends.range.6h': 'Last 6 Hours',
     'pages.dashboard.trends.range.24h': 'Last 24 Hours',
