@@ -7,35 +7,6 @@ import { useUserStore } from '@/store'
 
 const MSG_ERROR_KEY = Symbol('GLOBAL_ERROR')
 
-// 刷新 token 状态锁
-let isRefreshing = false
-// 请求队列
-let requestQueue = []
-
-/**
- * 将请求加入队列
- * @param {Function} callback
- */
-const addRequestToQueue = (callback) => {
-    requestQueue.push(callback)
-}
-
-/**
- * 执行队列中所有请求
- * @param {string} newToken
- */
-const processQueue = (newToken) => {
-    requestQueue.forEach((callback) => callback(newToken))
-    requestQueue = []
-}
-
-/**
- * 清空队列
- */
-const clearQueue = () => {
-    requestQueue = []
-}
-
 const options = {
     enableAbortController: true,
     interceptorRequest: (request) => {
@@ -68,47 +39,25 @@ const options = {
 
             // 如果是 refresh-token 接口自己返回 401，说明 refresh token 失效了
             if (originalRequest.url.includes('/api/v1/refresh-token')) {
-                userStore.logout()
                 return Promise.reject(err)
             }
 
-            // 如果没有 refresh token，直接登出
+            // 没有 refresh token 时只清理本地态，避免用失效 access token 递归调用 logout
             if (!userStore.hasRefreshToken) {
-                userStore.logout()
+                userStore.invalidateLocalSession()
                 return Promise.reject(err)
             }
-
-            // 如果正在刷新 token，将请求加入队列
-            if (isRefreshing) {
-                return new Promise((resolve) => {
-                    addRequestToQueue((newToken) => {
-                        originalRequest.headers['Authorization'] = newToken
-                        resolve(new XYHttp(options).request(originalRequest))
-                    })
-                })
-            }
-
-            // 开始刷新 token
-            isRefreshing = true
 
             try {
+                // user store 内部共享同一个 refresh Promise，并发 401 只会发起一次刷新
                 const refreshSuccess = await userStore.refreshAccessToken()
                 if (refreshSuccess) {
-                    const newToken = userStore.token
-                    originalRequest.headers['Authorization'] = newToken
-                    processQueue(newToken)
+                    originalRequest.headers['Authorization'] = userStore.token
                     return new XYHttp(options).request(originalRequest)
-                } else {
-                    clearQueue()
-                    userStore.logout()
-                    return Promise.reject(err)
                 }
+                return Promise.reject(err)
             } catch (refreshError) {
-                clearQueue()
-                userStore.logout()
                 return Promise.reject(refreshError)
-            } finally {
-                isRefreshing = false
             }
         }
 

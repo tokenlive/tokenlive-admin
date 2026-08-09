@@ -108,7 +108,6 @@ import { config } from '@/config'
 import { useForm } from '@/hooks'
 import { useAppStore, useRouterStore, useUserStore } from '@/store'
 import apis from '@/apis'
-import storage from '@/utils/storage'
 import { md5 } from 'js-md5'
 import { useI18n } from 'vue-i18n'
 defineOptions({
@@ -141,9 +140,6 @@ formRules.value = {
 formData.value.rememberMe = true
 
 onMounted(() => {
-    // 进入登录页仅清理本地态，不调用后端 logout，避免误伤其他设备会话
-    userStore.clearTokens()
-    storage.local.removeItem(config('storage.userInfo'))
     loadOAuthProviders()
     if (oauthTicket.value) {
         handleOAuthExchange()

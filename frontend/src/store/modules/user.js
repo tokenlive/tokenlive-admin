@@ -2,17 +2,19 @@ import { defineStore } from 'pinia'
 import { config } from '@/config'
 import storage from '@/utils/storage'
 import apis from '@/apis'
+import { createRefreshCoordinator, getRefreshFailureAction } from '@/utils/session'
 
 import useAppStore from './app'
 import useMultiTab from './multiTab'
 import useRouter from './router'
+
+const refreshCoordinator = createRefreshCoordinator()
 
 const useUserStore = defineStore('user', {
     state: () => ({
         userInfo: storage.local.getItem(config('storage.userInfo'), null),
         token: storage.local.getItem(config('storage.token'), ''),
         refreshToken: storage.local.getItem(config('storage.refreshToken'), ''),
-        refreshExpiresAt: storage.local.getItem(config('storage.refreshExpiresAt'), null),
         permission: storage.local.getItem(config('storage.permission'), []),
     }),
     getters: {
@@ -26,15 +28,13 @@ const useUserStore = defineStore('user', {
          * @returns {Promise<unknown>}
          */
         async applyLoginToken(data) {
-            const { access_token, refresh_token, expires_at } = data
+            const { access_token, refresh_token } = data
             this.token = access_token
             storage.local.setItem(config('storage.token'), access_token)
 
             if (refresh_token) {
                 this.refreshToken = refresh_token
-                this.refreshExpiresAt = expires_at
                 storage.local.setItem(config('storage.refreshToken'), refresh_token)
-                storage.local.setItem(config('storage.refreshExpiresAt'), expires_at)
             } else {
                 this.clearRefreshToken()
             }
@@ -87,28 +87,30 @@ const useUserStore = defineStore('user', {
             }
 
             try {
-                const result = await apis.user.refreshToken({ refresh_token: this.refreshToken })
+                const result = await refreshCoordinator.run(() =>
+                    apis.user.refreshToken({ refresh_token: this.refreshToken })
+                )
                 const { success, data } = result || {}
                 if (config('http.code.success') === success) {
-                    const { access_token, refresh_token, expires_at } = data
+                    const { access_token, refresh_token } = data
                     this.token = access_token
                     storage.local.setItem(config('storage.token'), access_token)
 
                     // 滑动过期：更新 refresh token
                     if (refresh_token) {
                         this.refreshToken = refresh_token
-                        this.refreshExpiresAt = expires_at
                         storage.local.setItem(config('storage.refreshToken'), refresh_token)
-                        storage.local.setItem(config('storage.refreshExpiresAt'), expires_at)
                     }
 
                     return true
                 }
                 return false
             } catch (error) {
-                // refresh token 失效，清除所有 token
-                this.clearTokens()
-                return false
+                if (getRefreshFailureAction(error) === 'invalidate') {
+                    this.invalidateLocalSession()
+                    return false
+                }
+                throw error
             }
         },
         /**
@@ -116,9 +118,7 @@ const useUserStore = defineStore('user', {
          */
         clearRefreshToken() {
             this.refreshToken = ''
-            this.refreshExpiresAt = null
             storage.local.removeItem(config('storage.refreshToken'))
-            storage.local.removeItem(config('storage.refreshExpiresAt'))
         },
         /**
          * 清除所有 token
@@ -129,34 +129,36 @@ const useUserStore = defineStore('user', {
             this.clearRefreshToken()
         },
         /**
+         * 仅使本地会话失效，不调用后端接口
+         */
+        invalidateLocalSession() {
+            const appStore = useAppStore()
+            const multiTab = useMultiTab()
+            const router = useRouter()
+
+            this.clearTokens()
+            storage.local.removeItem(config('storage.userInfo'))
+            this.$reset()
+            appStore.$reset()
+            multiTab.$reset()
+            router.$reset()
+        },
+        /**
          * 退出登录（仅撤销当前设备 token，不影响其他设备）
          */
-        logout() {
-            return new Promise((resolve) => {
-                ;(async () => {
-                    const appStore = useAppStore()
-                    const multiTab = useMultiTab()
-                    const router = useRouter()
-                    const accessToken = this.token
-                    const refreshToken = this.refreshToken
+        async logout() {
+            const accessToken = this.token
+            const refreshToken = this.refreshToken
 
-                    if (accessToken) {
-                        try {
-                            await apis.user.logout({ refresh_token: refreshToken || undefined })
-                        } catch (e) {
-                            // ignore network errors on logout
-                        }
-                    }
-
-                    this.clearTokens()
-                    storage.local.removeItem(config('storage.userInfo'))
-                    this.$reset()
-                    appStore.$reset()
-                    multiTab.$reset()
-                    router.$reset()
-                    resolve()
-                })()
-            })
+            try {
+                if (accessToken) {
+                    await apis.user.logout({ refresh_token: refreshToken || undefined })
+                }
+            } catch (e) {
+                // 主动退出时忽略撤销接口错误，本地会话仍必须清理
+            } finally {
+                this.invalidateLocalSession()
+            }
         },
         /**
          * 获取用户详情
