@@ -98,9 +98,11 @@ func RegisterTo(ctx context.Context, e *gin.Engine, injector *wirex.Injector, op
 
 	if !opts.DisableStatic {
 		if dir := config.C.Middleware.Static.Dir; dir != "" {
+			staticSkipped := append([]string{}, allowedPrefixes...)
+			staticSkipped = append(staticSkipped, "/v1", "/v1beta")
 			e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
 				Root:                dir,
-				SkippedPathPrefixes: allowedPrefixes,
+				SkippedPathPrefixes: staticSkipped,
 			}))
 		}
 	}
