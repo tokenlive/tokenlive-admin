@@ -104,3 +104,10 @@ func TestAggregateRedisTrendValues(t *testing.T) {
 	assert.Equal(t, []int64{2, 10, 18}, series.Failure)
 	assert.Equal(t, []int64{3, 18, 34}, series.Total)
 }
+
+func TestBuildModelTokensQueryCountsInputAndOutputOnly(t *testing.T) {
+	query := buildModelTokensQuery("24h")
+
+	expected := `sum by (model) (increase(` + mTokensTotal + `{type=~"input|output"}[24h]))`
+	assert.Equal(t, expected, query)
+}

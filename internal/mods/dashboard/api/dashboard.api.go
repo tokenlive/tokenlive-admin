@@ -958,6 +958,14 @@ type ModelRankingItem struct {
 	TotalCost    float64 `json:"total_cost"`
 }
 
+func buildModelTokensQuery(promRange string) string {
+	return fmt.Sprintf(
+		`sum by (model) (increase(%s{type=~"input|output"}[%s]))`,
+		mTokensTotal,
+		promRange,
+	)
+}
+
 // @Tags DashboardAPI
 // @Security ApiKeyAuth
 // @Summary Query model usage ranking with detailed metrics
@@ -1017,7 +1025,7 @@ func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange strin
 		p99TTFTMap := a.queryPrometheusMultiValues(fmt.Sprintf(`histogram_quantile(0.99, sum by (model, le) (rate(%s[%s])))`, mTtftBucket, promRange), "model")
 
 		// 查询 Token 和费用
-		tokensMap := a.queryPrometheusMultiValues(fmt.Sprintf(`sum by (model) (increase(%s[%s]))`, mTokensTotal, promRange), "model")
+		tokensMap := a.queryPrometheusMultiValues(buildModelTokensQuery(promRange), "model")
 		costMap := a.queryPrometheusMultiValues(fmt.Sprintf(`sum by (model) (increase(%s[%s]))`, mCostTotal, promRange), "model")
 
 		// 填充数据
