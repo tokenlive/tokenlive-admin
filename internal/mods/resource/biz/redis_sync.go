@@ -52,7 +52,12 @@ type ConfigRedisSync struct {
 }
 
 func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string) error {
-	if s.RedisClient == nil || modelCode == "" {
+	if modelCode == "" {
+		return nil
+	}
+	if s.RedisClient == nil {
+		ClearGatewayConfigCache()
+		util.NotifyConfigChanged(ctx, util.ConfigChangeAll, modelCode)
 		return nil
 	}
 
@@ -96,6 +101,8 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 		if len(endpoints) == 0 {
 			_ = s.RedisClient.Del(ctx, redisKey).Err()
 			_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, modelCode).Err()
+			ClearGatewayConfigCache()
+			util.NotifyConfigChanged(ctx, util.ConfigChangeAll, modelCode)
 			return nil
 		}
 
@@ -271,7 +278,12 @@ func normalizeRequestTypesForProtocol(protocol string, requestTypes []string) []
 // SyncAlias synchronizes a single alias mapping to Redis: aigw:config:alias:{alias} → modelCode.
 // It also maintains the reverse index: aigw:config:model_aliases:{modelCode} → Set[aliases].
 func (s *ConfigRedisSync) SyncAlias(ctx context.Context, alias string, modelCode string) error {
-	if s.RedisClient == nil || alias == "" || modelCode == "" {
+	if alias == "" || modelCode == "" {
+		return nil
+	}
+	if s.RedisClient == nil {
+		ClearGatewayConfigCache()
+		util.NotifyConfigChanged(ctx, util.ConfigChangeEndpoints, modelCode)
 		return nil
 	}
 	// 1. 正向映射：alias → modelCode
@@ -292,7 +304,12 @@ func (s *ConfigRedisSync) SyncAlias(ctx context.Context, alias string, modelCode
 
 // DeleteAlias removes a single alias mapping from Redis and updates the reverse index.
 func (s *ConfigRedisSync) DeleteAlias(ctx context.Context, alias string) error {
-	if s.RedisClient == nil || alias == "" {
+	if alias == "" {
+		return nil
+	}
+	if s.RedisClient == nil {
+		ClearGatewayConfigCache()
+		util.NotifyConfigChanged(ctx, util.ConfigChangeEndpoints)
 		return nil
 	}
 
@@ -373,7 +390,12 @@ func (s *ConfigRedisSync) deleteAliasesByModelId(ctx context.Context, modelId st
 
 // SyncProviderID synchronizes all models affected by the provider ID.
 func (s *ConfigRedisSync) SyncProviderID(ctx context.Context, providerID string) error {
-	if s.RedisClient == nil || providerID == "" {
+	if providerID == "" {
+		return nil
+	}
+	if s.RedisClient == nil {
+		ClearGatewayConfigCache()
+		util.NotifyConfigChanged(ctx, util.ConfigChangeAll)
 		return nil
 	}
 
@@ -406,6 +428,7 @@ func (s *ConfigRedisSync) GetModelCodesByProvider(ctx context.Context, providerI
 }
 
 func (s *ConfigRedisSync) incrementVersion(ctx context.Context, modelCode string) error {
+	ClearGatewayConfigCache()
 	if s.RedisClient == nil {
 		// Still notify in-process hosts (all-in-one) even without Redis.
 		util.NotifyConfigChanged(ctx, util.ConfigChangeEndpoints, modelCode)
@@ -413,7 +436,6 @@ func (s *ConfigRedisSync) incrementVersion(ctx context.Context, modelCode string
 	}
 	err := s.RedisClient.HIncrBy(ctx, RedisKeyConfigModelVersions, modelCode, 1).Err()
 	if err == nil {
-		ClearGatewayConfigCache()
 		util.NotifyConfigChanged(ctx, util.ConfigChangeEndpoints, modelCode)
 	}
 	return err
@@ -448,7 +470,12 @@ func (s *ConfigRedisSync) queryResolvedEndpointsByCode(ctx context.Context, mode
 
 // SyncModelCodeChange handles updating tenant-related cache keys in Redis when a model's code changes.
 func (s *ConfigRedisSync) SyncModelCodeChange(ctx context.Context, modelID, oldModelCode, newModelCode string) error {
-	if s.RedisClient == nil || modelID == "" || oldModelCode == "" || newModelCode == "" || oldModelCode == newModelCode {
+	if modelID == "" || oldModelCode == "" || newModelCode == "" || oldModelCode == newModelCode {
+		return nil
+	}
+	if s.RedisClient == nil {
+		ClearGatewayConfigCache()
+		util.NotifyConfigChanged(ctx, util.ConfigChangeAll)
 		return nil
 	}
 
@@ -508,12 +535,19 @@ func (s *ConfigRedisSync) SyncModelCodeChange(ctx context.Context, modelID, oldM
 	_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, oldModelCode).Err()
 	_ = s.RedisClient.Del(ctx, RedisKeyConfigModelAliasesPrefix+oldModelCode).Err()
 
+	ClearGatewayConfigCache()
+	util.NotifyConfigChanged(ctx, util.ConfigChangeAll)
 	return nil
 }
 
 // SyncModelDisable handles removing model code from associated tenants' allowed model sets and deleting provider whitelist caches.
 func (s *ConfigRedisSync) SyncModelDisable(ctx context.Context, modelID, modelCode string, tenantCodes ...string) error {
-	if s.RedisClient == nil || modelID == "" || modelCode == "" {
+	if modelID == "" || modelCode == "" {
+		return nil
+	}
+	if s.RedisClient == nil {
+		ClearGatewayConfigCache()
+		util.NotifyConfigChanged(ctx, util.ConfigChangeAll, modelCode)
 		return nil
 	}
 
@@ -552,12 +586,19 @@ func (s *ConfigRedisSync) SyncModelDisable(ctx context.Context, modelID, modelCo
 		_ = s.RedisClient.Del(ctx, "aigw:policies:model:"+modelCode).Err()
 	}
 
+	ClearGatewayConfigCache()
+	util.NotifyConfigChanged(ctx, util.ConfigChangeAll, modelCode)
 	return nil
 }
 
 // SyncModelEnable handles adding model code back to associated tenants' allowed model sets and rebuilding endpoint whitelist caches.
 func (s *ConfigRedisSync) SyncModelEnable(ctx context.Context, modelID, modelCode string) error {
-	if s.RedisClient == nil || modelID == "" || modelCode == "" {
+	if modelID == "" || modelCode == "" {
+		return nil
+	}
+	if s.RedisClient == nil {
+		ClearGatewayConfigCache()
+		util.NotifyConfigChanged(ctx, util.ConfigChangeAll, modelCode)
 		return nil
 	}
 
@@ -607,12 +648,16 @@ func (s *ConfigRedisSync) SyncModelEnable(ctx context.Context, modelID, modelCod
 	// 5. 重新同步该模型所有别名的 Redis key
 	_ = s.SyncAliasesByModelId(ctx, modelID, modelCode, 1)
 
+	ClearGatewayConfigCache()
+	util.NotifyConfigChanged(ctx, util.ConfigChangeAll, modelCode)
 	return nil
 }
 
 // SyncAllToRedis synchronizes all active endpoints, model versions, and tenant bindings to Redis.
 func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 	if s.RedisClient == nil {
+		ClearGatewayConfigCache()
+		util.NotifyConfigChanged(ctx, util.ConfigChangeAll)
 		return nil
 	}
 
