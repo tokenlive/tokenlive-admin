@@ -38,6 +38,8 @@ type ResolvedEndpoint struct {
 	Headers            map[string]string `json:"headers,omitempty"`
 	Metadata           map[string]string `json:"metadata,omitempty"`
 	RequestTypes       []string          `json:"request_types,omitempty"`
+	ContextLength      int64             `json:"context_length,omitempty"`
+	MaxOutputTokens    int64             `json:"max_output_tokens,omitempty"`
 	InputPrice         *float64          `json:"input_price,omitempty"`
 	OutputPrice        *float64          `json:"output_price,omitempty"`
 	CachedPrice        *float64          `json:"cached_price,omitempty"`
@@ -147,6 +149,13 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 				_ = json.Unmarshal(ep.Metadata, &stringMetadataMap)
 			}
 
+			var contextLength int64
+			var maxOutputTokens int64
+			if ep.Model != nil {
+				contextLength = int64(ep.Model.ContextLength)
+				maxOutputTokens = int64(ep.Model.MaxOutputTokens)
+			}
+
 			if metadataMap != nil {
 				if v, ok := metadataMap["timeout"]; ok {
 					switch val := v.(type) {
@@ -168,6 +177,26 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 						}
 					}
 				}
+				if v, ok := metadataMap["context_length"]; ok {
+					switch val := v.(type) {
+					case float64:
+						contextLength = int64(val)
+					case string:
+						if parsed, err := strconv.ParseInt(val, 10, 64); err == nil {
+							contextLength = parsed
+						}
+					}
+				}
+				if v, ok := metadataMap["max_output_tokens"]; ok {
+					switch val := v.(type) {
+					case float64:
+						maxOutputTokens = int64(val)
+					case string:
+						if parsed, err := strconv.ParseInt(val, 10, 64); err == nil {
+							maxOutputTokens = parsed
+						}
+					}
+				}
 			}
 
 			realModel := ep.RealModel
@@ -175,24 +204,24 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 				realModel = ep.Model.ModelCode
 			}
 
-var headersMap map[string]string
-				if len(ep.Headers) > 0 {
-					_ = json.Unmarshal(ep.Headers, &headersMap)
-				}
-				// Codex OAuth: inject Chatgpt-Account-Id from provider.oauth.account_id at sync time.
-				headersMap = MergeOAuthAccountHeader(headersMap, ep.Provider, ep.AuthType)
+			var headersMap map[string]string
+			if len(ep.Headers) > 0 {
+				_ = json.Unmarshal(ep.Headers, &headersMap)
+			}
+			// Codex OAuth: inject Chatgpt-Account-Id from provider.oauth.account_id at sync time.
+			headersMap = MergeOAuthAccountHeader(headersMap, ep.Provider, ep.AuthType)
 
-				var apis []string
-				if ep.Model != nil && ep.Model.RequestTypes != "" {
-					_ = json.Unmarshal([]byte(ep.Model.RequestTypes), &apis)
-				}
-				if len(apis) == 0 {
-					return fmt.Errorf("model %s has no request_types configured", modelCode)
-				}
-				apis = normalizeRequestTypesForProtocol(protocol, apis)
-				if len(apis) == 0 {
-					return fmt.Errorf("model %s has no request_types compatible with protocol %s", modelCode, protocol)
-				}
+			var apis []string
+			if ep.Model != nil && ep.Model.RequestTypes != "" {
+				_ = json.Unmarshal([]byte(ep.Model.RequestTypes), &apis)
+			}
+			if len(apis) == 0 {
+				return fmt.Errorf("model %s has no request_types configured", modelCode)
+			}
+			apis = normalizeRequestTypesForProtocol(protocol, apis)
+			if len(apis) == 0 {
+				return fmt.Errorf("model %s has no request_types compatible with protocol %s", modelCode, protocol)
+			}
 
 			// 价格继承前置 (Admin 写入 Redis 缓存时完成继承)
 			var (
@@ -236,6 +265,8 @@ var headersMap map[string]string
 					Headers:            headersMap,
 					Metadata:           stringMetadataMap,
 					RequestTypes:       apis,
+					ContextLength:      contextLength,
+					MaxOutputTokens:    maxOutputTokens,
 					InputPrice:         &inputPriceVal,
 					OutputPrice:        &outputPriceVal,
 					CachedPrice:        &cachedPriceVal,
