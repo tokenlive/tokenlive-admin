@@ -38,7 +38,8 @@ jobs:
 
       - name: Compile Go Binary
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-w -s -X main.VERSION=v1.0.0" -o ./bin/tokenlive-admin_linux_amd64
+          GIT_SHA="$(git rev-parse --short HEAD)"
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-w -s -X main.VERSION=git-${GIT_SHA}" -o ./bin/tokenlive-admin_linux_amd64
 
       - name: Customize Systemd Service
         run: |
