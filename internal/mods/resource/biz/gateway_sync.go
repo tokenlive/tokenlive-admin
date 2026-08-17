@@ -50,6 +50,7 @@ type GatewayConfig struct {
 	Models    map[string]ModelConfig    `json:"models"`
 	Providers map[string]ProviderConfig `json:"providers"`
 	Fallbacks map[string][]string       `json:"fallbacks"`
+	Aliases   map[string]string         `json:"aliases,omitempty"`
 }
 
 type ModelConfig struct {
@@ -246,11 +247,33 @@ func (s *GatewaySync) GetGatewayConfig(ctx context.Context, modelCode string) (*
 		modelsMap[mCode] = mCfg
 	}
 
+	var dbAliases []schema.ModelAlias
+	aliasTable := config.C.FormatTableName("model_alias")
+	aliasQuery := db.Table(aliasTable).
+		Preload("Model").
+		Joins("JOIN " + modelTable + " ON " + aliasTable + ".model_id = " + modelTable + ".id").
+		Where(aliasTable + ".deleted = '0'").
+		Where(modelTable + ".deleted = '0'").
+		Where(modelTable + ".enabled = 1")
+
+	if modelCode != "" {
+		aliasQuery = aliasQuery.Where(modelTable+".model_code = ?", modelCode)
+	}
+	_ = aliasQuery.Find(&dbAliases)
+
+	aliasesMap := make(map[string]string)
+	for _, a := range dbAliases {
+		if a.Model != nil && a.Model.ModelCode != "" && a.Alias != "" {
+			aliasesMap[a.Alias] = a.Model.ModelCode
+		}
+	}
+
 	fallbacks := make(map[string][]string)
 	result := &GatewayConfig{
 		Models:    modelsMap,
 		Providers: providersMap,
 		Fallbacks: fallbacks,
+		Aliases:   aliasesMap,
 	}
 
 	c.Set(cacheKey, result, cache.DefaultExpiration)
