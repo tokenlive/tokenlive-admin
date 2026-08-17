@@ -328,3 +328,19 @@ export const myTrim = (str, char, type = 'right') => {
     }
     return str.replace(/^\s+|\s+$/g, '')
 }
+
+/**
+ * 格式化 Token 数（单位：千Token，整数不留小数，有小数最多留3位且不显示末尾的0）
+ * @param {number|string} val
+ * @returns {string}
+ */
+export const formatTokens = (val) => {
+    if (val === null || val === undefined || val === '') return '-'
+    const num = Number(val)
+    if (isNaN(num)) return '-'
+    const kVal = num / 1000
+    return kVal.toLocaleString('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 3,
+    })
+}

@@ -121,12 +121,12 @@
                     hoverable>
                     <div class="telemetry-title">{{ $t('pages.dashboard.metrics.tokens') }}</div>
                     <div class="telemetry-value">
-                        {{ (metrics.dailyPromptTokens + metrics.dailyCompletionTokens).toLocaleString() }}
-                        <span class="telemetry-unit">Tks</span>
+                        {{ formatTokens(metrics.dailyPromptTokens + metrics.dailyCompletionTokens) }}
+                        <span class="telemetry-unit">{{ $t('pages.dashboard.units.tokens') }}</span>
                     </div>
                     <div class="telemetry-footer">
-                        Input: {{ metrics.dailyPromptTokens.toLocaleString() }} | Output:
-                        {{ metrics.dailyCompletionTokens.toLocaleString() }}
+                        Input: {{ formatTokens(metrics.dailyPromptTokens) }} | Output:
+                        {{ formatTokens(metrics.dailyCompletionTokens) }}
                     </div>
                 </a-card>
             </a-col>
@@ -644,7 +644,7 @@
                                         </a-tooltip>
                                     </template>
                                     <template v-else-if="column.key === 'total_tokens'">
-                                        <span>{{ record.total_tokens?.toLocaleString() || '-' }}</span>
+                                        <span>{{ formatTokens(record.total_tokens) }}</span>
                                     </template>
                                     <template v-else-if="column.key === 'total_cost'">
                                         <span>{{ record.total_cost ? '¥' + record.total_cost.toFixed(4) : '-' }}</span>
@@ -879,6 +879,7 @@ import {
     AlertOutlined,
 } from '@ant-design/icons-vue'
 import apis from '@/apis'
+import { formatTokens } from '@/utils/util'
 
 defineOptions({
     name: 'home',
@@ -1444,8 +1445,8 @@ const tokenChartOptions = computed(() => {
 
     return {
         title: {
-            text: total.toLocaleString(),
-            subtext: t('pages.dashboard.metrics.tokens'),
+            text: formatTokens(total),
+            subtext: `${t('pages.dashboard.metrics.tokens')} (k)`,
             left: 'center',
             top: '38%',
             textStyle: {
@@ -1458,7 +1459,16 @@ const tokenChartOptions = computed(() => {
                 color: chartTextColor,
             },
         },
-        tooltip: { ...chartTooltip, trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+        tooltip: {
+            ...chartTooltip,
+            trigger: 'item',
+            formatter: (params) => {
+                const marker = params.marker || ''
+                const val = formatTokens(params.value)
+                const percent = params.percent !== undefined ? params.percent : 0
+                return `${marker} ${params.name}: <b>${val} k</b> (${percent}%)`
+            },
+        },
         legend: {
             orient: 'vertical',
             left: '6%',
@@ -1515,7 +1525,9 @@ const tokenChartOptions = computed(() => {
                 },
                 label: {
                     show: true,
-                    formatter: '{b}: {c} ({d}%)',
+                    formatter: (params) => {
+                        return `${params.name}: ${formatTokens(params.value)} k (${params.percent}%)`
+                    },
                     fontSize: 11,
                     color: chartTextColor,
                 },
