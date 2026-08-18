@@ -7,6 +7,7 @@ DisableSwagger = true
 DisablePrintConfig = true
 DefaultLoginPwd = "c27435962ded9355cccc4017152c18f0" # MD5("2026@Beijing")
 MenuFile = "menu.json" # Or use "menu_cn.json"
+PolicySeedFile = "policy_seed.json" # Initial policy templates, created only when absent; empty to disable
 DenyOperateMenu = false
 
 [General.HTTP]

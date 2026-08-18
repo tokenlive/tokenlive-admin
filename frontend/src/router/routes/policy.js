@@ -87,7 +87,7 @@ export default [
                 component: 'policy/circuitBreak.vue',
                 meta: {
                     icon: ThunderboltOutlined,
-                    title: '熔断降级策略',
+                    title: '熔断隔离策略',
                     isMenu: true,
                     keepAlive: true,
                     permission: '*',

@@ -63,9 +63,10 @@ type General struct {
 	DisableSwagger     bool
 	DisablePrintConfig bool
 	DefaultLoginPwd    string `default:"21232f297a57a5a743894a0e4a801fc3"` // MD5(admin)
-	WorkDir            string // From command arguments
-	MenuFile           string // From schema.Menus (JSON/YAML)
-	DenyOperateMenu    bool
+	WorkDir        string // From command arguments
+	MenuFile       string // From schema.Menus (JSON/YAML)
+	PolicySeedFile string // Initial policy templates (JSON), created only when absent
+	DenyOperateMenu bool
 	HTTP               struct {
 		Addr            string `default:":8040"`
 		ShutdownTimeout int    `default:"10"` // seconds

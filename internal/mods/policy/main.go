@@ -2,12 +2,15 @@ package policy
 
 import (
 	"context"
+	"path/filepath"
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/api"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/logging"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -32,6 +35,14 @@ func (a *Policy) Init(ctx context.Context) error {
 			return err
 		}
 	}
+
+	if name := config.C.General.PolicySeedFile; name != "" {
+		fullPath := filepath.Join(config.C.General.WorkDir, name)
+		if err := initPolicySeedsFromFile(ctx, a.DB, fullPath); err != nil {
+			logging.Context(ctx).Error("failed to init policy seeds", zap.Error(err), zap.String("file", fullPath))
+		}
+	}
+
 	return nil
 }
 

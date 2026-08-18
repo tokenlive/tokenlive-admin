@@ -24,7 +24,7 @@ export default {
     routeList: '标签路由',
     limitList: '模型限流',
     invocationList: '容错降级',
-    circuitBreakList: '熔断降级',
+    circuitBreakList: '熔断隔离',
     taggingList: '流量染色',
     'menu.account.settings': '个人设置',
     add: '添加',

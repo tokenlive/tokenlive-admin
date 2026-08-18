@@ -507,7 +507,7 @@
             },
             {
                 "code": "circuitBreakList",
-                "name": "熔断降级",
+                "name": "熔断隔离",
                 "sequence": 40,
                 "type": "page",
                 "path": "/policy/circuit-break",
