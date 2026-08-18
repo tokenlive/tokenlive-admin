@@ -7,7 +7,7 @@
         @ok="handleOk"
         @cancel="handleCancel">
         <div style="margin-bottom: 12px; opacity: 0.65">
-            请选择每个发现的模型应该在当前系统中关联的模型。如果选择已存在的模型，将不会在系统中重复创建该模型。
+            {{ $t('pages.provider.fetchModels.mapping.hint') }}
         </div>
         <a-table
             :columns="columns"
@@ -41,21 +41,41 @@
                     <a-input
                         v-if="mapping[record.id] === '__NEW__'"
                         v-model:value="newModelCodes[record.id]"
-                        placeholder="输入新模型编码"
+                        :placeholder="$t('pages.provider.fetchModels.table.new_code.placeholder')"
                         style="width: 100%" />
                     <span
                         v-else
                         style="opacity: 0.25"
-                        >- (使用已有)</span
+                        >{{ $t('pages.provider.fetchModels.table.new_code.existing') }}</span
                     >
                 </template>
             </template>
         </a-table>
+        <div class="recommended-policies">
+            <div class="recommended-policies-title">{{ $t('pages.model.form.recommended_policies') }}</div>
+            <div class="recommended-policies-hint">
+                {{
+                    newModelCount > 0
+                        ? $t('pages.provider.fetchModels.recommended_policies.hint')
+                        : $t('pages.provider.fetchModels.recommended_policies.disabled')
+                }}
+            </div>
+            <a-checkbox
+                v-model:checked="applyInvocationSeed"
+                :disabled="newModelCount === 0">
+                {{ $t('pages.model.form.apply_invocation_seed') }}
+            </a-checkbox>
+            <a-checkbox
+                v-model:checked="applyCircuitBreakSeed"
+                :disabled="newModelCount === 0">
+                {{ $t('pages.model.form.apply_circuit_break_seed') }}
+            </a-checkbox>
+        </div>
     </a-modal>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import apis from '@/apis'
 import { config } from '@/config'
@@ -71,6 +91,9 @@ const models = ref([])
 const mapping = ref({})
 const newModelCodes = ref({})
 const existingModels = ref([])
+const applyInvocationSeed = ref(true)
+const applyCircuitBreakSeed = ref(true)
+const newModelCount = computed(() => Object.values(mapping.value).filter((value) => value === '__NEW__').length)
 
 const importContext = ref({
     providerId: '',
@@ -88,8 +111,8 @@ const columns = [
         key: 'id',
         width: 220,
     },
-    { title: t('pages.provider.fetchModels.table.mapping', '系统关联模型 (下拉搜索)'), key: 'mapping', width: 240 },
-    { title: '新模型编码', key: 'new_code' },
+    { title: t('pages.provider.fetchModels.table.mapping'), key: 'mapping', width: 240 },
+    { title: t('pages.provider.fetchModels.table.new_code'), key: 'new_code' },
 ]
 
 function filterModelOption(input, option) {
@@ -116,6 +139,8 @@ async function handleOpen(context) {
     // 初始化映射，默认都为新建
     mapping.value = {}
     newModelCodes.value = {}
+    applyInvocationSeed.value = true
+    applyCircuitBreakSeed.value = true
     for (const m of models.value) {
         mapping.value[m.id] = '__NEW__'
         newModelCodes.value[m.id] = m.id
@@ -142,6 +167,8 @@ async function handleOk() {
     try {
         let successModelCount = 0
         let successEndpointCount = 0
+        let appliedBothCount = 0
+        let skippedPolicyCount = 0
 
         for (const selectedModel of models.value) {
             let modelId = mapping.value[selectedModel.id]
@@ -182,6 +209,8 @@ async function handleOk() {
                     owner: selectedModel.owned_by || 'system',
                     enabled: 1,
                     description: 'Imported from provider model fetch',
+                    apply_invocation_seed: applyInvocationSeed.value,
+                    apply_circuit_break_seed: applyCircuitBreakSeed.value,
                 }
 
                 const { success: createSuccess, data: createData } = await apis.model
@@ -191,6 +220,13 @@ async function handleOk() {
                 if (config('http.code.success') === createSuccess && createData?.id) {
                     modelId = createData.id
                     successModelCount++
+                    const skipped = createData.skipped_seeds || []
+                    const applied = createData.applied_seeds || []
+                    if (skipped.length > 0) {
+                        skippedPolicyCount++
+                    } else if (applied.includes('policy_invocation') && applied.includes('policy_circuit_break')) {
+                        appliedBothCount++
+                    }
                 } else {
                     message.error(`模型 ${selectedModel.id} 创建失败，跳过其端点创建`)
                     continue
@@ -231,7 +267,12 @@ async function handleOk() {
             }
         }
 
-        message.success(`导入完成：新建 ${successModelCount} 个模型，关联并成功创建 ${successEndpointCount} 个端点。`)
+        showImportResultMessage({
+            successModelCount,
+            successEndpointCount,
+            appliedBothCount,
+            skippedPolicyCount,
+        })
         visible.value = false
         emit('ok')
     } catch (e) {
@@ -243,6 +284,37 @@ async function handleOk() {
     }
 }
 
+function showImportResultMessage({ successModelCount, successEndpointCount, appliedBothCount, skippedPolicyCount }) {
+    if (successModelCount === 0) {
+        message.success(t('pages.provider.fetchModels.import.success_endpoints', { count: successEndpointCount }))
+        return
+    }
+    if (skippedPolicyCount > 0) {
+        message.warning(
+            t('pages.provider.fetchModels.import.partial_policies', {
+                models: successModelCount,
+                endpoints: successEndpointCount,
+            })
+        )
+        return
+    }
+    if (appliedBothCount === successModelCount) {
+        message.success(
+            t('pages.provider.fetchModels.import.with_policies', {
+                models: successModelCount,
+                endpoints: successEndpointCount,
+            })
+        )
+        return
+    }
+    message.success(
+        t('pages.provider.fetchModels.import.success', {
+            models: successModelCount,
+            endpoints: successEndpointCount,
+        })
+    )
+}
+
 function handleCancel() {
     visible.value = false
 }
@@ -251,3 +323,21 @@ defineExpose({
     handleOpen,
 })
 </script>
+
+<style lang="less" scoped>
+.recommended-policies {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.recommended-policies-title {
+    font-weight: 500;
+}
+
+.recommended-policies-hint {
+    opacity: 0.65;
+    line-height: 1.5;
+}
+</style>

@@ -62,7 +62,7 @@ func (m *Model) Get(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Summary Create model record
 // @Param body body schema.ModelForm true "Request body"
-// @Success 200 {object} util.ResponseResult{data=schema.Model}
+// @Success 200 {object} util.ResponseResult{data=schema.ModelCreateResult}
 // @Failure 400 {object} util.ResponseResult
 // @Failure 401 {object} util.ResponseResult
 // @Failure 500 {object} util.ResponseResult

@@ -65,21 +65,31 @@ type Models []*Model
 
 // ModelForm defines the form for creating/updating a Model.
 type ModelForm struct {
-	ModelName          string  `json:"model_name" binding:"required,max=128"` // Client-facing model name
-	ModelCode          string  `json:"model_code" binding:"required,max=64"`  // Internal model code
-	SpaceCode          string  `json:"space_code" binding:"required,max=255"` // Space code
-	RequestTypes       string  `json:"request_types" binding:"required"`      // Model RequestTypes JSON
-	ContextLength      int     `json:"context_length"`                        // Max context window
-	MaxOutputTokens    int     `json:"max_output_tokens"`                     // Max output tokens
-	Abilities          string  `json:"abilities"`                             // Model Abilities JSON
-	Owner              string  `json:"owner"`                                 // Model owner
-	Enabled            int     `json:"enabled"`                               // Enable status
-	InputPrice         float64 `json:"input_price"`                           // Input price (CNY/M Tokens)
-	OutputPrice        float64 `json:"output_price"`                          // Output price (CNY/M Tokens)
-	CachedPrice        float64 `json:"cached_price"`                          // Cached price (CNY/M Tokens)
-	CacheCreationPrice float64 `json:"cache_creation_price"`                  // Cache creation price (CNY/M Tokens)
-	Extra              *string `json:"extra"`                                 // Extra info
-	Description        string  `json:"description"`                           // Description
+	ModelName             string  `json:"model_name" binding:"required,max=128"` // Client-facing model name
+	ModelCode             string  `json:"model_code" binding:"required,max=64"`  // Internal model code
+	SpaceCode             string  `json:"space_code" binding:"required,max=255"` // Space code
+	RequestTypes          string  `json:"request_types" binding:"required"`      // Model RequestTypes JSON
+	ContextLength         int     `json:"context_length"`                        // Max context window
+	MaxOutputTokens       int     `json:"max_output_tokens"`                     // Max output tokens
+	Abilities             string  `json:"abilities"`                             // Model Abilities JSON
+	Owner                 string  `json:"owner"`                                 // Model owner
+	Enabled               int     `json:"enabled"`                               // Enable status
+	InputPrice            float64 `json:"input_price"`                           // Input price (CNY/M Tokens)
+	OutputPrice           float64 `json:"output_price"`                          // Output price (CNY/M Tokens)
+	CachedPrice           float64 `json:"cached_price"`                          // Cached price (CNY/M Tokens)
+	CacheCreationPrice    float64 `json:"cache_creation_price"`                  // Cache creation price (CNY/M Tokens)
+	Extra                 *string `json:"extra"`                                 // Extra info
+	Description           string  `json:"description"`                           // Description
+	ApplyInvocationSeed   bool    `json:"apply_invocation_seed"`                 // Copy the recommended invocation seed on create
+	ApplyCircuitBreakSeed bool    `json:"apply_circuit_break_seed"`              // Copy the recommended circuit-break seed on create
+}
+
+// ModelCreateResult is returned by model create so the client can tell
+// which recommended policies were actually applied.
+type ModelCreateResult struct {
+	*Model
+	AppliedSeeds []string `json:"applied_seeds,omitempty"`
+	SkippedSeeds []string `json:"skipped_seeds,omitempty"`
 }
 
 func (m *ModelForm) Validate() error {

@@ -273,6 +273,22 @@ export default {
     'pages.provider.fetchModels.success': '{count} models selected',
     'pages.provider.fetchModels.table.model': 'Model',
     'pages.provider.fetchModels.table.owned_by': 'Sub Provider',
+    'pages.provider.fetchModels.mapping.title': 'Map imported models to system models',
+    'pages.provider.fetchModels.mapping.hint':
+        'Choose how each discovered model should be linked. Existing models will not be created again.',
+    'pages.provider.fetchModels.table.mapping': 'System model',
+    'pages.provider.fetchModels.table.new_code': 'New model code',
+    'pages.provider.fetchModels.table.new_code.placeholder': 'Enter a new model code',
+    'pages.provider.fetchModels.table.new_code.existing': '- (use existing)',
+    'pages.provider.fetchModels.recommended_policies.hint':
+        'Recommended. These will be applied to every newly created model. You can turn them off later in the model detail page.',
+    'pages.provider.fetchModels.recommended_policies.disabled': 'Only applies to newly created models',
+    'pages.provider.fetchModels.import.success': 'Import finished: created {models} models and {endpoints} endpoints.',
+    'pages.provider.fetchModels.import.with_policies':
+        'Import finished: created {models} models with failover retry and instance circuit break enabled, and {endpoints} endpoints.',
+    'pages.provider.fetchModels.import.partial_policies':
+        'Import finished: created {models} models and {endpoints} endpoints. Some recommended policies were not applied.',
+    'pages.provider.fetchModels.import.success_endpoints': 'Import finished: created {count} endpoints.',
     // model
     'pages.model.recent_status': 'Recent Usage Status',
     'pages.model.add': 'Add Model',
@@ -316,6 +332,13 @@ export default {
     'pages.model.form.description': 'Description',
     'pages.model.form.description.placeholder': 'Please enter the description',
     'pages.model.form.created_at': 'Created At',
+    'pages.model.form.recommended_policies': 'Recommended policies',
+    'pages.model.form.recommended_policies.hint': 'Recommended. You can turn them off later in the model detail page.',
+    'pages.model.form.apply_invocation_seed': 'Failover retry (3 attempts + timeout protection)',
+    'pages.model.form.apply_circuit_break_seed': 'Instance circuit break (4xx/5xx)',
+    'pages.model.create.success': 'Model created',
+    'pages.model.create.with_policies': 'Model created. Failover retry and instance circuit break are enabled.',
+    'pages.model.create.partial_policies': 'Model created. Some recommended policies were not applied.',
     // model detail
     modelDetail: 'Model Detail',
     tenantDetail: 'Tenant Detail',

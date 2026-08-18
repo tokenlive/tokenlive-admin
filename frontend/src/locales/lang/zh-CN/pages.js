@@ -274,6 +274,22 @@ export default {
     'pages.provider.fetchModels.success': '已选择 {count} 个模型',
     'pages.provider.fetchModels.table.model': '模型',
     'pages.provider.fetchModels.table.owned_by': '子供应商',
+    'pages.provider.fetchModels.mapping.title': '确认导入模型与系统模型映射',
+    'pages.provider.fetchModels.mapping.hint':
+        '请选择每个发现的模型应该在当前系统中关联的模型。如果选择已存在的模型，将不会在系统中重复创建该模型。',
+    'pages.provider.fetchModels.table.mapping': '系统关联模型',
+    'pages.provider.fetchModels.table.new_code': '新模型编码',
+    'pages.provider.fetchModels.table.new_code.placeholder': '输入新模型编码',
+    'pages.provider.fetchModels.table.new_code.existing': '- (使用已有)',
+    'pages.provider.fetchModels.recommended_policies.hint':
+        '建议开启，将套用到本次新建的每个模型，可随时在模型详情关闭',
+    'pages.provider.fetchModels.recommended_policies.disabled': '仅对新建模型生效',
+    'pages.provider.fetchModels.import.success': '导入完成：新建 {models} 个模型，关联并成功创建 {endpoints} 个端点。',
+    'pages.provider.fetchModels.import.with_policies':
+        '导入完成：新建 {models} 个模型并已开启容错重试和实例熔断，关联并成功创建 {endpoints} 个端点。',
+    'pages.provider.fetchModels.import.partial_policies':
+        '导入完成：新建 {models} 个模型，关联并成功创建 {endpoints} 个端点。部分新建模型的推荐策略未套用。',
+    'pages.provider.fetchModels.import.success_endpoints': '导入完成：关联并成功创建 {count} 个端点。',
     // model (模型)
     'pages.model.recent_status': '最近使用状态',
     'pages.model.add': '添加模型',
@@ -315,6 +331,13 @@ export default {
     'pages.model.form.description': '备注',
     'pages.model.form.description.placeholder': '请输入备注',
     'pages.model.form.created_at': '创建时间',
+    'pages.model.form.recommended_policies': '推荐策略',
+    'pages.model.form.recommended_policies.hint': '建议开启，可随时在模型详情关闭',
+    'pages.model.form.apply_invocation_seed': '容错重试（3次+超时保护）',
+    'pages.model.form.apply_circuit_break_seed': '实例熔断（4xx/5xx）',
+    'pages.model.create.success': '模型已创建',
+    'pages.model.create.with_policies': '模型已创建，已开启容错重试和实例熔断',
+    'pages.model.create.partial_policies': '模型已创建，部分推荐策略未套用',
     // model detail
     modelDetail: '模型详情',
     tenantDetail: '租户详情',

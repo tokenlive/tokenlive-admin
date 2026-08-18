@@ -300,14 +300,32 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		PolicyTaggingDAL:      policyTagging,
 		ModelDAL:              model,
 	}
+	bizPolicyCircuitBreak := &biz4.PolicyCircuitBreak{
+		Trans:                 trans,
+		PolicyCircuitBreakDAL: policyCircuitBreak,
+		PolicyRedisSync:       policyRedisSync,
+		ModelDAL:              model,
+		DataPermissionDAL:     dataPermission,
+		AuditLogBIZ:           bizAuditLog,
+	}
+	bizPolicyInvocation := &biz4.PolicyInvocation{
+		Trans:               trans,
+		PolicyInvocationDAL: policyInvocation,
+		PolicyRedisSync:     policyRedisSync,
+		ModelDAL:            model,
+		DataPermissionDAL:   dataPermission,
+		AuditLogBIZ:         bizAuditLog,
+	}
 	bizModel := &biz3.Model{
-		Trans:             trans,
-		ModelDAL:          model,
-		DataPermissionBIZ: bizDataPermission,
-		ConfigRedisSync:   configRedisSync,
-		PolicyRedisSync:   policyRedisSync,
-		RedisClient:       redisClient,
-		AuditLogBIZ:       bizAuditLog,
+		Trans:                 trans,
+		ModelDAL:              model,
+		DataPermissionBIZ:     bizDataPermission,
+		ConfigRedisSync:       configRedisSync,
+		PolicyRedisSync:       policyRedisSync,
+		PolicyInvocationBIZ:   bizPolicyInvocation,
+		PolicyCircuitBreakBIZ: bizPolicyCircuitBreak,
+		RedisClient:           redisClient,
+		AuditLogBIZ:           bizAuditLog,
 	}
 	apiModel := &api2.Model{
 		ModelBIZ: bizModel,
@@ -447,24 +465,8 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	apiPolicyLimit := &api4.PolicyLimit{
 		PolicyLimitBIZ: bizPolicyLimit,
 	}
-	bizPolicyCircuitBreak := &biz4.PolicyCircuitBreak{
-		Trans:                 trans,
-		PolicyCircuitBreakDAL: policyCircuitBreak,
-		PolicyRedisSync:       policyRedisSync,
-		ModelDAL:              model,
-		DataPermissionDAL:     dataPermission,
-		AuditLogBIZ:           bizAuditLog,
-	}
 	apiPolicyCircuitBreak := &api4.PolicyCircuitBreak{
 		PolicyCircuitBreakBIZ: bizPolicyCircuitBreak,
-	}
-	bizPolicyInvocation := &biz4.PolicyInvocation{
-		Trans:               trans,
-		PolicyInvocationDAL: policyInvocation,
-		PolicyRedisSync:     policyRedisSync,
-		ModelDAL:            model,
-		DataPermissionDAL:   dataPermission,
-		AuditLogBIZ:         bizAuditLog,
 	}
 	apiPolicyInvocation := &api4.PolicyInvocation{
 		PolicyInvocationBIZ: bizPolicyInvocation,

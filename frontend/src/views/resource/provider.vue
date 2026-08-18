@@ -65,6 +65,11 @@
                             {{ record.name }}
                         </a>
                     </template>
+                    <template v-if="'code' === column.key">
+                        <a @click="goToDetail(record)">
+                            {{ record.code }}
+                        </a>
+                    </template>
                     <template v-if="'enabled' === column.key">
                         <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
                             {{
@@ -161,6 +166,7 @@ const columns = [
     {
         title: t('pages.provider.form.code'),
         dataIndex: 'code',
+        key: 'code',
         minWidth: 180,
         ellipsis: {
             showTitle: true,

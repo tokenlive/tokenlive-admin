@@ -11,6 +11,7 @@ import (
 	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
 	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	policyBiz "github.com/tokenlive/tokenlive-admin/internal/mods/policy/biz"
+	policySchema "github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -22,13 +23,15 @@ import (
 
 // Model business logic layer
 type Model struct {
-	Trans             *util.Trans
-	ModelDAL          *dal.Model
-	DataPermissionBIZ *DataPermission
-	ConfigRedisSync   *ConfigRedisSync
-	PolicyRedisSync   *policyBiz.PolicyRedisSync
-	RedisClient       *redis.Client
-	AuditLogBIZ       *opsBiz.AuditLog
+	Trans                 *util.Trans
+	ModelDAL              *dal.Model
+	DataPermissionBIZ     *DataPermission
+	ConfigRedisSync       *ConfigRedisSync
+	PolicyRedisSync       *policyBiz.PolicyRedisSync
+	PolicyInvocationBIZ   *policyBiz.PolicyInvocation
+	PolicyCircuitBreakBIZ *policyBiz.PolicyCircuitBreak
+	RedisClient           *redis.Client
+	AuditLogBIZ           *opsBiz.AuditLog
 }
 
 // Query models.
@@ -75,7 +78,7 @@ func (m *Model) Get(ctx context.Context, id string) (*schema.Model, error) {
 }
 
 // Create a new model.
-func (m *Model) Create(ctx context.Context, formItem *schema.ModelForm) (*schema.Model, error) {
+func (m *Model) Create(ctx context.Context, formItem *schema.ModelForm) (*schema.ModelCreateResult, error) {
 	if exists, err := m.ModelDAL.ExistsByModelCode(ctx, formItem.ModelCode); err != nil {
 		return nil, err
 	} else if exists {
@@ -108,7 +111,79 @@ func (m *Model) Create(ctx context.Context, formItem *schema.ModelForm) (*schema
 	}
 	_ = m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
 	m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, nil, model)
-	return model, nil
+
+	result := &schema.ModelCreateResult{Model: model}
+	m.applyRecommendedPolicySeeds(ctx, result, formItem)
+	return result, nil
+}
+
+func (m *Model) applyRecommendedPolicySeeds(ctx context.Context, result *schema.ModelCreateResult, formItem *schema.ModelForm) {
+	if formItem.ApplyInvocationSeed {
+		m.applyOnePolicySeed(ctx, result, policyBiz.PolicySeedTableInvocation, m.copyInvocationSeed)
+	}
+	if formItem.ApplyCircuitBreakSeed {
+		m.applyOnePolicySeed(ctx, result, policyBiz.PolicySeedTableCircuitBreak, m.copyCircuitBreakSeed)
+	}
+}
+
+func (m *Model) applyOnePolicySeed(ctx context.Context, result *schema.ModelCreateResult, table string, copyFn func(context.Context, string, string) error) {
+	templateID, err := policyBiz.FirstPolicySeedID(ctx, table)
+	if err != nil {
+		logging.Context(ctx).Warn("Failed to resolve policy seed, skip applying on model create",
+			zap.String("table", table),
+			zap.String("model_id", result.ID),
+			zap.Error(err),
+		)
+		result.SkippedSeeds = append(result.SkippedSeeds, table)
+		return
+	}
+	if templateID == "" {
+		logging.Context(ctx).Warn("Policy seed not found, skip applying on model create",
+			zap.String("table", table),
+			zap.String("model_id", result.ID),
+		)
+		result.SkippedSeeds = append(result.SkippedSeeds, table)
+		return
+	}
+	if err := copyFn(ctx, templateID, result.ID); err != nil {
+		logging.Context(ctx).Warn("Failed to copy policy seed to model, skip",
+			zap.String("table", table),
+			zap.String("template_id", templateID),
+			zap.String("model_id", result.ID),
+			zap.Error(err),
+		)
+		result.SkippedSeeds = append(result.SkippedSeeds, table)
+		return
+	}
+	result.AppliedSeeds = append(result.AppliedSeeds, table)
+}
+
+func (m *Model) copyInvocationSeed(ctx context.Context, templateID, modelID string) error {
+	if m.PolicyInvocationBIZ == nil {
+		return errors.Errorf("policy invocation biz is not configured")
+	}
+	scopeType := "global"
+	scopeCode := ""
+	_, err := m.PolicyInvocationBIZ.CopyTemplateToModel(ctx, templateID, &policySchema.PolicyCopyToModelForm{
+		ModelID:   modelID,
+		ScopeType: &scopeType,
+		ScopeCode: &scopeCode,
+	})
+	return err
+}
+
+func (m *Model) copyCircuitBreakSeed(ctx context.Context, templateID, modelID string) error {
+	if m.PolicyCircuitBreakBIZ == nil {
+		return errors.Errorf("policy circuit break biz is not configured")
+	}
+	scopeType := "global"
+	scopeCode := ""
+	_, err := m.PolicyCircuitBreakBIZ.CopyTemplateToModel(ctx, templateID, &policySchema.PolicyCopyToModelForm{
+		ModelID:   modelID,
+		ScopeType: &scopeType,
+		ScopeCode: &scopeCode,
+	})
+	return err
 }
 
 // Update the specified model.

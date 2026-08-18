@@ -155,6 +155,21 @@
                 name="description">
                 <a-textarea v-model:value="formData.description"></a-textarea>
             </a-form-item>
+
+            <template v-if="modal.type === 'create'">
+                <a-form-item
+                    :label="$t('pages.model.form.recommended_policies')"
+                    :extra="$t('pages.model.form.recommended_policies.hint')">
+                    <div class="recommended-policies">
+                        <a-checkbox v-model:checked="formData.apply_invocation_seed">
+                            {{ $t('pages.model.form.apply_invocation_seed') }}
+                        </a-checkbox>
+                        <a-checkbox v-model:checked="formData.apply_circuit_break_seed">
+                            {{ $t('pages.model.form.apply_circuit_break_seed') }}
+                        </a-checkbox>
+                    </div>
+                </a-form-item>
+            </template>
         </a-form>
         <template #footer>
             <div style="display: flex; justify-content: flex-end; gap: 8px">
@@ -257,6 +272,8 @@ function handleCreate() {
     formData.value.output_price = 10.0
     formData.value.cached_price = 1.0
     formData.value.cache_creation_price = 3.0
+    formData.value.apply_invocation_seed = true
+    formData.value.apply_circuit_break_seed = true
 }
 
 async function handleEdit(record = {}) {
@@ -300,13 +317,18 @@ function handleOk() {
             try {
                 showLoading()
                 // Convert request_types and abilities arrays to JSON string
+                const submitType = modal.value.type
                 const params = {
                     ...values,
                     request_types: JSON.stringify(values.request_types || []),
                     abilities: JSON.stringify(values.abilities || []),
                 }
+                if (submitType === 'create') {
+                    params.apply_invocation_seed = !!formData.value.apply_invocation_seed
+                    params.apply_circuit_break_seed = !!formData.value.apply_circuit_break_seed
+                }
                 let result = null
-                switch (modal.value.type) {
+                switch (submitType) {
                     case 'create':
                         result = await apis.model.createModel(params).catch(() => {
                             throw new Error()
@@ -321,7 +343,11 @@ function handleOk() {
                 hideLoading()
                 if (config('http.code.success') === result?.success) {
                     hideModal()
-                    message.success(t('component.message.success.save'))
+                    if (submitType === 'create') {
+                        showCreateResultMessage(result?.data)
+                    } else {
+                        message.success(t('component.message.success.save'))
+                    }
                     emit('ok')
                 } else {
                     message.error(t('component.message.error.save'))
@@ -334,6 +360,21 @@ function handleOk() {
         .catch(() => {
             hideLoading()
         })
+}
+
+function showCreateResultMessage(data) {
+    const skipped = data?.skipped_seeds || []
+    if (skipped.length > 0) {
+        message.warning(t('pages.model.create.partial_policies'))
+        return
+    }
+    const applied = data?.applied_seeds || []
+    const appliedBoth = applied.includes('policy_invocation') && applied.includes('policy_circuit_break')
+    if (appliedBoth) {
+        message.success(t('pages.model.create.with_policies'))
+        return
+    }
+    message.success(t('pages.model.create.success'))
 }
 
 function handleCancel() {
@@ -357,4 +398,10 @@ defineExpose({
 })
 </script>
 
-<style lang="less" scoped></style>
+<style lang="less" scoped>
+.recommended-policies {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+</style>
