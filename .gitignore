@@ -47,3 +47,8 @@ gen/
 scratch/
 pkg/cachex/tmp/
 .superpowers/
+.agent/
+.agents/
+.opencode/
+.zcode/
+openspec/
