@@ -53,3 +53,43 @@
         }
     }
 }
+
+// 列表页表格高度自适应骨架（opt-in）：
+// 页面根元素绑定 appStore.mainHeight，卡片加 .app-card--fill，
+// 表格区域用 .table-fill-region 包裹并配合 useTableAutoScrollY hook 使用。
+.app-card--fill {
+    &.ant-card {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    > .ant-card-body {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding-bottom: 8px;
+    }
+
+    // 填充模式下收紧搜索栏与表格之间的间距（默认上下各 16px 过大）
+    .mb-8-2 {
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+    }
+}
+
+.table-fill-region {
+    flex: 1;
+    min-height: 0;
+
+    .ant-table-body {
+        min-height: var(--auto-table-body-min-height, 0);
+    }
+
+    // 提高优先级以覆盖 antd 运行时注入的 .ant-table-wrapper .ant-pagination 边距
+    .ant-table-wrapper .ant-pagination {
+        margin-bottom: 0;
+    }
+}

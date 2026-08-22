@@ -1,8 +1,10 @@
 <template>
-    <div class="app-page">
+    <div
+        class="app-page"
+        :style="{ height: appStore.mainHeight }">
         <a-card
             type="flex"
-            class="app-card">
+            class="app-card app-card--fill">
             <a-row
                 :gutter="16"
                 align="middle"
@@ -65,83 +67,88 @@
                     </a-form>
                 </a-col>
             </a-row>
-            <a-table
-                :columns="columns"
-                :data-source="listData"
-                :loading="loading"
-                :pagination="paginationState"
-                :scroll="{ x: 'max-content' }"
-                @change="onTableChange">
-                <template #bodyCell="{ column, record }">
-                    <template v-if="'model_id' === column.key">
-                        <a @click="goToDetail(record)">{{ record.model_id }}</a>
+            <div
+                ref="tableContainerRef"
+                class="table-fill-region"
+                :style="tableContainerStyle">
+                <a-table
+                    :columns="columns"
+                    :data-source="listData"
+                    :loading="loading"
+                    :pagination="paginationState"
+                    :scroll="{ x: 'max-content', y: tableScrollY || undefined }"
+                    @change="onTableChange">
+                    <template #bodyCell="{ column, record }">
+                        <template v-if="'model_id' === column.key">
+                            <a @click="goToDetail(record)">{{ record.model_id }}</a>
+                        </template>
+                        <template v-if="'slug' === column.key">
+                            <a-tag color="blue">{{ record.slug }}</a-tag>
+                        </template>
+                        <template v-if="'status' === column.key">
+                            <a-tag :color="record.status === 'available' ? 'green' : 'default'">
+                                {{ record.status === 'available' ? '可用' : '暂停' }}
+                            </a-tag>
+                        </template>
+                        <template v-if="'visibility' === column.key">
+                            <a-tag :color="record.visibility === 'public' ? 'cyan' : 'orange'">
+                                {{ record.visibility === 'public' ? '公开' : '私有' }}
+                            </a-tag>
+                        </template>
+                        <template v-if="'featured' === column.key">
+                            <a-tag
+                                v-if="record.featured"
+                                color="gold"
+                                >精选</a-tag
+                            >
+                            <span
+                                v-else
+                                style="color: #999"
+                                >-</span
+                            >
+                        </template>
+                        <template v-if="'context_length' === column.key">
+                            {{ record.context_length ? record.context_length.toLocaleString() : '-' }}
+                        </template>
+                        <template v-if="'published_at' === column.key">
+                            {{ record.published_at ? dayjs(record.published_at).format('YYYY-MM-DD HH:mm') : '-' }}
+                        </template>
+                        <template v-if="'action' === column.key">
+                            <a-space>
+                                <a-tooltip title="编辑">
+                                    <a-button
+                                        v-action="'edit'"
+                                        type="link"
+                                        size="small"
+                                        @click="$refs.editDialogRef.handleEdit(record)">
+                                        <edit-outlined />
+                                    </a-button>
+                                </a-tooltip>
+                                <a-tooltip title="发布">
+                                    <a-button
+                                        v-action="'edit'"
+                                        type="link"
+                                        size="small"
+                                        @click="handlePublish(record)">
+                                        <rocket-outlined />
+                                    </a-button>
+                                </a-tooltip>
+                                <a-popconfirm
+                                    title="确认删除？"
+                                    @confirm="handleDelete(record)">
+                                    <a-button
+                                        v-action="'delete'"
+                                        type="link"
+                                        size="small"
+                                        danger>
+                                        <delete-outlined />
+                                    </a-button>
+                                </a-popconfirm>
+                            </a-space>
+                        </template>
                     </template>
-                    <template v-if="'slug' === column.key">
-                        <a-tag color="blue">{{ record.slug }}</a-tag>
-                    </template>
-                    <template v-if="'status' === column.key">
-                        <a-tag :color="record.status === 'available' ? 'green' : 'default'">
-                            {{ record.status === 'available' ? '可用' : '暂停' }}
-                        </a-tag>
-                    </template>
-                    <template v-if="'visibility' === column.key">
-                        <a-tag :color="record.visibility === 'public' ? 'cyan' : 'orange'">
-                            {{ record.visibility === 'public' ? '公开' : '私有' }}
-                        </a-tag>
-                    </template>
-                    <template v-if="'featured' === column.key">
-                        <a-tag
-                            v-if="record.featured"
-                            color="gold"
-                            >精选</a-tag
-                        >
-                        <span
-                            v-else
-                            style="color: #999"
-                            >-</span
-                        >
-                    </template>
-                    <template v-if="'context_length' === column.key">
-                        {{ record.context_length ? record.context_length.toLocaleString() : '-' }}
-                    </template>
-                    <template v-if="'published_at' === column.key">
-                        {{ record.published_at ? dayjs(record.published_at).format('YYYY-MM-DD HH:mm') : '-' }}
-                    </template>
-                    <template v-if="'action' === column.key">
-                        <a-space>
-                            <a-tooltip title="编辑">
-                                <a-button
-                                    v-action="'edit'"
-                                    type="link"
-                                    size="small"
-                                    @click="$refs.editDialogRef.handleEdit(record)">
-                                    <edit-outlined />
-                                </a-button>
-                            </a-tooltip>
-                            <a-tooltip title="发布">
-                                <a-button
-                                    v-action="'edit'"
-                                    type="link"
-                                    size="small"
-                                    @click="handlePublish(record)">
-                                    <rocket-outlined />
-                                </a-button>
-                            </a-tooltip>
-                            <a-popconfirm
-                                title="确认删除？"
-                                @confirm="handleDelete(record)">
-                                <a-button
-                                    v-action="'delete'"
-                                    type="link"
-                                    size="small"
-                                    danger>
-                                    <delete-outlined />
-                                </a-button>
-                            </a-popconfirm>
-                        </a-space>
-                    </template>
-                </template>
-            </a-table>
+                </a-table>
+            </div>
         </a-card>
         <ModelCatalogEditDialog
             ref="editDialogRef"
@@ -154,7 +161,8 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Modal, message } from 'ant-design-vue'
 import dayjs from 'dayjs'
-import { usePagination } from '@/hooks'
+import { usePagination, useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import { config } from '@/config'
 import apis from '@/apis'
 import ModelCatalogEditDialog from './ModelCatalogEditDialog.vue'
@@ -163,6 +171,12 @@ import { PlusOutlined, EditOutlined, RocketOutlined, DeleteOutlined } from '@ant
 const router = useRouter()
 const { listData, loading, showLoading, hideLoading, paginationState, searchFormData, resetPagination } =
     usePagination()
+const appStore = useAppStore()
+const {
+    scrollY: tableScrollY,
+    containerRef: tableContainerRef,
+    containerStyle: tableContainerStyle,
+} = useTableAutoScrollY()
 searchFormData.value = { slug: '', status: undefined, visibility: undefined }
 
 const columns = [

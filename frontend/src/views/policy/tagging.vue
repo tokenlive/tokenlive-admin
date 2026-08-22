@@ -1,8 +1,10 @@
 <template>
-    <div class="app-page">
+    <div
+        class="app-page"
+        :style="{ height: appStore.mainHeight }">
         <a-card
             type="flex"
-            class="app-card">
+            class="app-card app-card--fill">
             <!-- 工具栏 -->
             <a-row
                 :gutter="16"
@@ -45,54 +47,59 @@
             </a-row>
 
             <!-- 数据表格 -->
-            <a-table
-                :columns="columns"
-                :data-source="listData"
-                :loading="loading"
-                :pagination="paginationState"
-                :scroll="{ x: 'max-content' }"
-                @change="onTableChange">
-                <template #bodyCell="{ column, record }">
-                    <template v-if="'relation' === column.key">
-                        <a-tag color="blue">{{ record.relation || 'AND' }}</a-tag>
-                    </template>
-                    <template v-if="'enabled' === column.key">
-                        <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
-                            {{
-                                record.enabled === 1
-                                    ? $t('pages.tagging.form.enabled.active')
-                                    : $t('pages.tagging.form.enabled.inactive')
-                            }}
-                        </a-tag>
-                    </template>
+            <div
+                ref="tableContainerRef"
+                class="table-fill-region"
+                :style="tableContainerStyle">
+                <a-table
+                    :columns="columns"
+                    :data-source="listData"
+                    :loading="loading"
+                    :pagination="paginationState"
+                    :scroll="{ x: 'max-content', y: tableScrollY || undefined }"
+                    @change="onTableChange">
+                    <template #bodyCell="{ column, record }">
+                        <template v-if="'relation' === column.key">
+                            <a-tag color="blue">{{ record.relation || 'AND' }}</a-tag>
+                        </template>
+                        <template v-if="'enabled' === column.key">
+                            <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
+                                {{
+                                    record.enabled === 1
+                                        ? $t('pages.tagging.form.enabled.active')
+                                        : $t('pages.tagging.form.enabled.inactive')
+                                }}
+                            </a-tag>
+                        </template>
 
-                    <template v-if="'created_at' === column.key">
-                        {{ formatUtcDateTime(record.created_at) }}
-                    </template>
+                        <template v-if="'created_at' === column.key">
+                            {{ formatUtcDateTime(record.created_at) }}
+                        </template>
 
-                    <template v-if="'action' === column.key">
-                        <x-action-button @click="$refs.editDialogRef.handleEdit(record)">
-                            <a-tooltip>
-                                <template #title> {{ $t('pages.tagging.edit') }}</template>
-                                <edit-outlined />
-                            </a-tooltip>
-                        </x-action-button>
-                        <x-action-button @click="$refs.editDialogRef.handleCopy(record)">
-                            <a-tooltip>
-                                <template #title> {{ $t('pages.policy.copy') }}</template>
-                                <copy-outlined style="color: #52c41a" />
-                            </a-tooltip>
-                        </x-action-button>
+                        <template v-if="'action' === column.key">
+                            <x-action-button @click="$refs.editDialogRef.handleEdit(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('pages.tagging.edit') }}</template>
+                                    <edit-outlined />
+                                </a-tooltip>
+                            </x-action-button>
+                            <x-action-button @click="$refs.editDialogRef.handleCopy(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('pages.policy.copy') }}</template>
+                                    <copy-outlined style="color: #52c41a" />
+                                </a-tooltip>
+                            </x-action-button>
 
-                        <x-action-button @click="handleRemove(record)">
-                            <a-tooltip>
-                                <template #title> {{ $t('pages.system.delete') }}</template>
-                                <delete-outlined style="color: #ff4d4f" />
-                            </a-tooltip>
-                        </x-action-button>
+                            <x-action-button @click="handleRemove(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('pages.system.delete') }}</template>
+                                    <delete-outlined style="color: #ff4d4f" />
+                                </a-tooltip>
+                            </x-action-button>
+                        </template>
                     </template>
-                </template>
-            </a-table>
+                </a-table>
+            </div>
         </a-card>
 
         <!-- 配置表单对话框 -->
@@ -109,7 +116,8 @@ import { useRoute, useRouter } from 'vue-router'
 import apis from '@/apis'
 import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
-import { usePagination } from '@/hooks'
+import { usePagination, useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import EditDialog from './TaggingEditDialog.vue'
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
@@ -159,6 +167,12 @@ const columns = [
 
 const { listData, loading, showLoading, hideLoading, paginationState, searchFormData, resetPagination } =
     usePagination()
+const appStore = useAppStore()
+const {
+    scrollY: tableScrollY,
+    containerRef: tableContainerRef,
+    containerStyle: tableContainerStyle,
+} = useTableAutoScrollY()
 const editDialogRef = ref()
 
 onMounted(() => {

@@ -2,9 +2,12 @@
     <!-- 数据表格卡片 -->
     <a-row
         :gutter="8"
-        :wrap="false">
+        :wrap="false"
+        :style="{ height: appStore.mainHeight }">
         <a-col flex="auto">
-            <a-card type="flex">
+            <a-card
+                type="flex"
+                class="app-card--fill">
                 <!-- 头部：操作按钮 + 搜索栏 -->
                 <a-row
                     :gutter="16"
@@ -61,42 +64,48 @@
                 </a-row>
 
                 <!-- 表格 -->
-                <a-table
-                    row-key="id"
-                    :columns="columns"
-                    :data-source="listData"
-                    :loading="loading"
-                    :pagination="paginationState"
-                    :size="size"
-                    @change="onTableChange">
-                    <template #expandedRowRender="{ record }">
-                        <a-row :gutter="[16, 24]">
-                            <a-col
-                                v-for="(item, index) in record.children"
-                                :key="index"
-                                class="gutter-row"
-                                :span="6">
-                                <div class="gutter-box">{{ index }}：{{ item }}</div>
-                            </a-col>
-                        </a-row>
-                    </template>
-                    <template #bodyCell="{ column, record }">
-                        <!-- 日志级别 -->
-                        <template v-if="'levels' === column.key">
-                            <a-tag :color="colors[record.level]">{{ record.level }}</a-tag>
+                <div
+                    ref="tableContainerRef"
+                    class="table-fill-region"
+                    :style="tableContainerStyle">
+                    <a-table
+                        row-key="id"
+                        :columns="columns"
+                        :data-source="listData"
+                        :loading="loading"
+                        :pagination="paginationState"
+                        :scroll="{ y: tableScrollY || undefined }"
+                        :size="size"
+                        @change="onTableChange">
+                        <template #expandedRowRender="{ record }">
+                            <a-row :gutter="[16, 24]">
+                                <a-col
+                                    v-for="(item, index) in record.children"
+                                    :key="index"
+                                    class="gutter-row"
+                                    :span="6">
+                                    <div class="gutter-box">{{ index }}：{{ item }}</div>
+                                </a-col>
+                            </a-row>
                         </template>
+                        <template #bodyCell="{ column, record }">
+                            <!-- 日志级别 -->
+                            <template v-if="'levels' === column.key">
+                                <a-tag :color="colors[record.level]">{{ record.level }}</a-tag>
+                            </template>
 
-                        <!-- 日志标签 -->
-                        <template v-if="'tags' === column.key">
-                            <a-tag color="processing">{{ record.tag }}</a-tag>
-                        </template>
+                            <!-- 日志标签 -->
+                            <template v-if="'tags' === column.key">
+                                <a-tag color="processing">{{ record.tag }}</a-tag>
+                            </template>
 
-                        <!-- 创建时间 -->
-                        <template v-if="'created_at' === column.key">
-                            {{ formatUtcDateTime(record.created_at) }}
+                            <!-- 创建时间 -->
+                            <template v-if="'created_at' === column.key">
+                                {{ formatUtcDateTime(record.created_at) }}
+                            </template>
                         </template>
-                    </template>
-                </a-table>
+                    </a-table>
+                </div>
             </a-card>
         </a-col>
     </a-row>
@@ -107,7 +116,8 @@ import { ref } from 'vue'
 import { ReloadOutlined } from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { config } from '@/config'
-import { usePagination } from '@/hooks'
+import { usePagination, useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import { formatUtcDateTime } from '@/utils/util'
 import { useI18n } from 'vue-i18n'
 
@@ -134,6 +144,12 @@ const columns = [
 
 const { listData, paginationState, loading, showLoading, hideLoading, resetPagination, searchFormData } =
     usePagination()
+const appStore = useAppStore()
+const {
+    scrollY: tableScrollY,
+    containerRef: tableContainerRef,
+    containerStyle: tableContainerStyle,
+} = useTableAutoScrollY()
 
 const size = ref('default')
 const startTime = ref('')

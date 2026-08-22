@@ -2,9 +2,12 @@
     <!-- 数据表格卡片 -->
     <a-row
         :gutter="8"
-        :wrap="false">
+        :wrap="false"
+        :style="{ height: appStore.mainHeight }">
         <a-col flex="auto">
-            <a-card type="flex">
+            <a-card
+                type="flex"
+                class="app-card--fill">
                 <!-- 头部：操作按钮 + 搜索栏 -->
                 <a-row
                     :gutter="16"
@@ -59,69 +62,74 @@
                 </a-row>
 
                 <!-- 表格 -->
-                <a-table
-                    row-key="id"
-                    :columns="columns"
-                    :data-source="listData"
-                    :loading="loading"
-                    :pagination="true"
-                    :scroll="{ x: 1000 }">
-                    <template #bodyCell="{ column, record }">
-                        <!-- 菜单类型 -->
-                        <template v-if="'menuType' === column.key">
-                            <a-tag
-                                v-if="menuTypeEnum.is('page', record.type)"
-                                color="processing">
-                                {{ menuTypeEnum.getDesc(record.type) }}
-                            </a-tag>
-                            <a-tag
-                                v-if="menuTypeEnum.is('button', record.type)"
-                                color="success">
-                                {{ menuTypeEnum.getDesc(record.type) }}
-                            </a-tag>
+                <div
+                    ref="tableContainerRef"
+                    class="table-fill-region"
+                    :style="tableContainerStyle">
+                    <a-table
+                        row-key="id"
+                        :columns="columns"
+                        :data-source="listData"
+                        :loading="loading"
+                        :pagination="true"
+                        :scroll="{ x: 1000, y: tableScrollY || undefined }">
+                        <template #bodyCell="{ column, record }">
+                            <!-- 菜单类型 -->
+                            <template v-if="'menuType' === column.key">
+                                <a-tag
+                                    v-if="menuTypeEnum.is('page', record.type)"
+                                    color="processing">
+                                    {{ menuTypeEnum.getDesc(record.type) }}
+                                </a-tag>
+                                <a-tag
+                                    v-if="menuTypeEnum.is('button', record.type)"
+                                    color="success">
+                                    {{ menuTypeEnum.getDesc(record.type) }}
+                                </a-tag>
+                            </template>
+
+                            <!-- 状态 -->
+                            <template v-if="'statusType' === column.key">
+                                <a-tag
+                                    v-if="statusTypeEnum.is('enabled', record.status)"
+                                    color="success">
+                                    {{ statusTypeEnum.getDesc(record.status) }}
+                                </a-tag>
+                                <a-tag
+                                    v-else
+                                    color="error">
+                                    {{ statusTypeEnum.getDesc(record.status) }}
+                                </a-tag>
+                            </template>
+
+                            <!-- 创建时间 -->
+                            <template v-if="'created_at' === column.key">
+                                {{ formatUtcDateTime(record.created_at) }}
+                            </template>
+
+                            <!-- 操作 -->
+                            <template v-if="'action' === column.key">
+                                <x-action-button @click="editDialogRef.handleEdit(record)">
+                                    <a-tooltip :title="$t('pages.system.menu.edit')">
+                                        <edit-outlined />
+                                    </a-tooltip>
+                                </x-action-button>
+
+                                <x-action-button @click="editDialogRef.handleCreateChild(record)">
+                                    <a-tooltip :title="$t('pages.system.menu.button.addChild')">
+                                        <plus-circle-outlined />
+                                    </a-tooltip>
+                                </x-action-button>
+
+                                <x-action-button @click="handleDelete(record)">
+                                    <a-tooltip :title="$t('pages.system.delete')">
+                                        <delete-outlined style="color: #ff4d4f" />
+                                    </a-tooltip>
+                                </x-action-button>
+                            </template>
                         </template>
-
-                        <!-- 状态 -->
-                        <template v-if="'statusType' === column.key">
-                            <a-tag
-                                v-if="statusTypeEnum.is('enabled', record.status)"
-                                color="success">
-                                {{ statusTypeEnum.getDesc(record.status) }}
-                            </a-tag>
-                            <a-tag
-                                v-else
-                                color="error">
-                                {{ statusTypeEnum.getDesc(record.status) }}
-                            </a-tag>
-                        </template>
-
-                        <!-- 创建时间 -->
-                        <template v-if="'created_at' === column.key">
-                            {{ formatUtcDateTime(record.created_at) }}
-                        </template>
-
-                        <!-- 操作 -->
-                        <template v-if="'action' === column.key">
-                            <x-action-button @click="editDialogRef.handleEdit(record)">
-                                <a-tooltip :title="$t('pages.system.menu.edit')">
-                                    <edit-outlined />
-                                </a-tooltip>
-                            </x-action-button>
-
-                            <x-action-button @click="editDialogRef.handleCreateChild(record)">
-                                <a-tooltip :title="$t('pages.system.menu.button.addChild')">
-                                    <plus-circle-outlined />
-                                </a-tooltip>
-                            </x-action-button>
-
-                            <x-action-button @click="handleDelete(record)">
-                                <a-tooltip :title="$t('pages.system.delete')">
-                                    <delete-outlined style="color: #ff4d4f" />
-                                </a-tooltip>
-                            </x-action-button>
-                        </template>
-                    </template>
-                </a-table>
+                    </a-table>
+                </div>
             </a-card>
         </a-col>
     </a-row>
@@ -138,7 +146,8 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, PlusCircleOutlined } from '
 import apis from '@/apis'
 import { config } from '@/config'
 import { menuTypeEnum, statusTypeEnum } from '@/enums/system'
-import { usePagination } from '@/hooks'
+import { usePagination, useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import { formatUtcDateTime } from '@/utils/util'
 import EditDialog from './components/EditDialog.vue'
 import { useI18n } from 'vue-i18n'
@@ -159,6 +168,12 @@ const columns = ref([
 ])
 
 const { listData, loading, showLoading, hideLoading, searchFormData, resetPagination } = usePagination()
+const appStore = useAppStore()
+const {
+    scrollY: tableScrollY,
+    containerRef: tableContainerRef,
+    containerStyle: tableContainerStyle,
+} = useTableAutoScrollY()
 
 const editDialogRef = ref()
 

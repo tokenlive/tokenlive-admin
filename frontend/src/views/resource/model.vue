@@ -1,8 +1,10 @@
 <template>
-    <div class="app-page">
+    <div
+        class="app-page"
+        :style="{ height: appStore.mainHeight }">
         <a-card
             type="flex"
-            class="app-card">
+            class="app-card app-card--fill">
             <a-row
                 :gutter="16"
                 align="middle"
@@ -61,73 +63,80 @@
                     </a-form>
                 </a-col>
             </a-row>
-            <a-table
-                :columns="columns"
-                :data-source="listData"
-                :loading="loading"
-                :pagination="paginationState"
-                :scroll="{ x: 'max-content' }"
-                @change="onTableChange">
-                <template #bodyCell="{ column, record }">
-                    <template v-if="'model_name' === column.key">
-                        <a @click="goToDetail(record)">
-                            {{ record.model_name }}
-                        </a>
-                    </template>
-                    <template v-if="'model_code' === column.key">
-                        {{ record.model_code }}
-                        <a-tooltip :title="$t('button.copy')">
-                            <copy-outlined
-                                style="margin-left: 6px; color: #999; cursor: pointer; font-size: 12px"
-                                @click="handleCopy(record.model_code)" />
-                        </a-tooltip>
-                    </template>
-                    <template v-if="'enabled' === column.key">
-                        <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
-                            {{
-                                record.enabled === 1
-                                    ? $t('pages.model.form.enabled.active')
-                                    : $t('pages.model.form.enabled.inactive')
-                            }}
-                        </a-tag>
-                    </template>
-                    <template v-if="'recent_status' === column.key">
-                        <EndpointStatusStrip :points="record.status_points || []" />
-                    </template>
-                    <template v-if="'created_at' === column.key">
-                        {{ formatUtcDateTime(record.created_at) }}
-                    </template>
+            <div
+                ref="tableContainerRef"
+                class="table-fill-region"
+                :style="tableContainerStyle">
+                <a-table
+                    :columns="columns"
+                    :data-source="listData"
+                    :loading="loading"
+                    :pagination="paginationState"
+                    :scroll="{ x: 'max-content', y: tableScrollY || undefined }"
+                    @change="onTableChange">
+                    <template #bodyCell="{ column, record }">
+                        <template v-if="'model_name' === column.key">
+                            <a @click="goToDetail(record)">
+                                {{ record.model_name }}
+                            </a>
+                        </template>
+                        <template v-if="'model_code' === column.key">
+                            {{ record.model_code }}
+                            <a-tooltip :title="$t('button.copy')">
+                                <copy-outlined
+                                    style="margin-left: 6px; color: #999; cursor: pointer; font-size: 12px"
+                                    @click="handleCopy(record.model_code)" />
+                            </a-tooltip>
+                        </template>
+                        <template v-if="'enabled' === column.key">
+                            <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
+                                {{
+                                    record.enabled === 1
+                                        ? $t('pages.model.form.enabled.active')
+                                        : $t('pages.model.form.enabled.inactive')
+                                }}
+                            </a-tag>
+                        </template>
+                        <template v-if="'recent_status' === column.key">
+                            <EndpointStatusStrip :points="record.status_points || []" />
+                        </template>
+                        <template v-if="'created_at' === column.key">
+                            {{ formatUtcDateTime(record.created_at) }}
+                        </template>
 
-                    <template v-if="'action' === column.key">
-                        <x-action-button @click="$refs.editDialogRef.handleEdit(record)">
-                            <a-tooltip>
-                                <template #title> {{ $t('pages.model.edit') }}</template>
-                                <edit-outlined />
-                            </a-tooltip>
-                        </x-action-button>
-                        <x-action-button @click="handleToggleEnabled(record)">
-                            <a-tooltip>
-                                <template #title>{{
-                                    record.enabled === 1 ? $t('pages.endpoint.disable') : $t('pages.endpoint.enable')
-                                }}</template>
-                                <poweroff-outlined :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }"
-                            /></a-tooltip>
-                        </x-action-button>
-                        <x-action-button @click="handleSync(record)">
-                            <a-tooltip>
-                                <template #title> {{ $t('pages.model.sync') }}</template>
-                                <sync-outlined style="color: #1890ff" />
-                            </a-tooltip>
-                        </x-action-button>
-                        <x-action-button @click="handleRemove(record)">
-                            <a-tooltip>
-                                <template #title> {{ $t('button.delete') }}</template>
-                                <delete-outlined style="color: #ff4d4f" />
-                            </a-tooltip>
-                        </x-action-button>
+                        <template v-if="'action' === column.key">
+                            <x-action-button @click="$refs.editDialogRef.handleEdit(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('pages.model.edit') }}</template>
+                                    <edit-outlined />
+                                </a-tooltip>
+                            </x-action-button>
+                            <x-action-button @click="handleToggleEnabled(record)">
+                                <a-tooltip>
+                                    <template #title>{{
+                                        record.enabled === 1
+                                            ? $t('pages.endpoint.disable')
+                                            : $t('pages.endpoint.enable')
+                                    }}</template>
+                                    <poweroff-outlined :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }"
+                                /></a-tooltip>
+                            </x-action-button>
+                            <x-action-button @click="handleSync(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('pages.model.sync') }}</template>
+                                    <sync-outlined style="color: #1890ff" />
+                                </a-tooltip>
+                            </x-action-button>
+                            <x-action-button @click="handleRemove(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('button.delete') }}</template>
+                                    <delete-outlined style="color: #ff4d4f" />
+                                </a-tooltip>
+                            </x-action-button>
+                        </template>
                     </template>
-                </template>
-            </a-table>
+                </a-table>
+            </div>
         </a-card>
 
         <edit-dialog
@@ -143,7 +152,8 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import apis from '@/apis'
 import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
-import { usePagination } from '@/hooks'
+import { usePagination, useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import EditDialog from './ModelEditDialog.vue'
 import EndpointStatusStrip from '@/components/EndpointStatusStrip.vue'
 import {
@@ -173,6 +183,7 @@ const columns = [
             showTitle: true,
         },
         sorter: (a, b) => (a.model_name || '').localeCompare(b.model_name || ''),
+        fixed: 'left',
     },
     {
         title: t('pages.model.form.model_code'),
@@ -192,7 +203,6 @@ const columns = [
     {
         title: t('pages.model.form.created_at'),
         key: 'created_at',
-        fixed: 'right',
         width: 180,
         sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     },
@@ -201,6 +211,12 @@ const columns = [
 
 const { listData, loading, showLoading, hideLoading, paginationState, searchFormData, resetPagination } =
     usePagination()
+const appStore = useAppStore()
+const {
+    scrollY: tableScrollY,
+    containerRef: tableContainerRef,
+    containerStyle: tableContainerStyle,
+} = useTableAutoScrollY()
 const editDialogRef = ref()
 const spaceOptions = ref([])
 

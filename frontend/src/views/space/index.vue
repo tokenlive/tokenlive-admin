@@ -1,9 +1,12 @@
 <template>
     <a-row
         :gutter="8"
-        :wrap="false">
+        :wrap="false"
+        :style="{ height: appStore.mainHeight }">
         <a-col flex="auto">
-            <a-card type="flex">
+            <a-card
+                type="flex"
+                class="app-card--fill">
                 <a-row
                     :gutter="16"
                     align="middle"
@@ -53,34 +56,39 @@
                         </a-form>
                     </a-col>
                 </a-row>
-                <a-table
-                    :columns="columns"
-                    :data-source="listData"
-                    :loading="loading"
-                    :pagination="paginationState"
-                    :scroll="{ x: 1000 }"
-                    @change="onTableChange">
-                    <template #bodyCell="{ column, record }">
-                        <template v-if="'created_at' === column.key">
-                            {{ formatUtcDateTime(record.created_at) }}
-                        </template>
+                <div
+                    ref="tableContainerRef"
+                    class="table-fill-region"
+                    :style="tableContainerStyle">
+                    <a-table
+                        :columns="columns"
+                        :data-source="listData"
+                        :loading="loading"
+                        :pagination="paginationState"
+                        :scroll="{ x: 1000, y: tableScrollY || undefined }"
+                        @change="onTableChange">
+                        <template #bodyCell="{ column, record }">
+                            <template v-if="'created_at' === column.key">
+                                {{ formatUtcDateTime(record.created_at) }}
+                            </template>
 
-                        <template v-if="'action' === column.key">
-                            <x-action-button @click="$refs.editDialogRef.handleEdit(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('pages.space.edit') }}</template>
-                                    <edit-outlined />
-                                </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleRemove(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('pages.system.delete') }}</template>
-                                    <delete-outlined style="color: #ff4d4f" />
-                                </a-tooltip>
-                            </x-action-button>
+                            <template v-if="'action' === column.key">
+                                <x-action-button @click="$refs.editDialogRef.handleEdit(record)">
+                                    <a-tooltip>
+                                        <template #title> {{ $t('pages.space.edit') }}</template>
+                                        <edit-outlined />
+                                    </a-tooltip>
+                                </x-action-button>
+                                <x-action-button @click="handleRemove(record)">
+                                    <a-tooltip>
+                                        <template #title> {{ $t('pages.system.delete') }}</template>
+                                        <delete-outlined style="color: #ff4d4f" />
+                                    </a-tooltip>
+                                </x-action-button>
+                            </template>
                         </template>
-                    </template>
-                </a-table>
+                    </a-table>
+                </div>
             </a-card>
         </a-col>
     </a-row>
@@ -96,7 +104,8 @@ import { ref } from 'vue'
 import apis from '@/apis'
 import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
-import { usePagination } from '@/hooks'
+import { usePagination, useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import EditDialog from './components/EditDialog.vue'
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
@@ -117,6 +126,12 @@ const columns = [
 
 const { listData, loading, showLoading, hideLoading, paginationState, searchFormData, resetPagination } =
     usePagination()
+const appStore = useAppStore()
+const {
+    scrollY: tableScrollY,
+    containerRef: tableContainerRef,
+    containerStyle: tableContainerStyle,
+} = useTableAutoScrollY()
 const editDialogRef = ref()
 
 getPageList()

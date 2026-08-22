@@ -2,9 +2,12 @@
     <!-- 数据表格卡片 -->
     <a-row
         :gutter="8"
-        :wrap="false">
+        :wrap="false"
+        :style="{ height: appStore.mainHeight }">
         <a-col flex="auto">
-            <a-card type="flex">
+            <a-card
+                type="flex"
+                class="app-card--fill">
                 <!-- 头部：操作按钮 + 搜索栏 -->
                 <a-row
                     :gutter="16"
@@ -67,102 +70,107 @@
                 </a-row>
 
                 <!-- 表格 -->
-                <a-table
-                    row-key="id"
-                    :columns="columns"
-                    :data-source="listData"
-                    :loading="loading"
-                    :pagination="paginationState"
-                    :scroll="{ x: 1100 }"
-                    @change="onTableChange">
-                    <template #bodyCell="{ column, record }">
-                        <!-- 关联用户 -->
-                        <template v-if="'user' === column.key">
-                            <span class="user-badge">
-                                {{ userMap[String(record.user_id)]?.label || record.user_id }}
-                            </span>
-                        </template>
+                <div
+                    ref="tableContainerRef"
+                    class="table-fill-region"
+                    :style="tableContainerStyle">
+                    <a-table
+                        row-key="id"
+                        :columns="columns"
+                        :data-source="listData"
+                        :loading="loading"
+                        :pagination="paginationState"
+                        :scroll="{ x: 1100, y: tableScrollY || undefined }"
+                        @change="onTableChange">
+                        <template #bodyCell="{ column, record }">
+                            <!-- 关联用户 -->
+                            <template v-if="'user' === column.key">
+                                <span class="user-badge">
+                                    {{ userMap[String(record.user_id)]?.label || record.user_id }}
+                                </span>
+                            </template>
 
-                        <!-- API Key -->
-                        <template v-if="'api_key' === column.key">
-                            <span class="api-key-container">
-                                <span class="api-key-code">{{ record.api_key }}</span>
-                                <a-tooltip :title="$t('pages.user-api-key.copy')">
-                                    <copy-outlined
-                                        class="copy-btn-icon"
-                                        @click="handleCopyKey(record.id)" />
-                                </a-tooltip>
-                            </span>
-                        </template>
+                            <!-- API Key -->
+                            <template v-if="'api_key' === column.key">
+                                <span class="api-key-container">
+                                    <span class="api-key-code">{{ record.api_key }}</span>
+                                    <a-tooltip :title="$t('pages.user-api-key.copy')">
+                                        <copy-outlined
+                                            class="copy-btn-icon"
+                                            @click="handleCopyKey(record.id)" />
+                                    </a-tooltip>
+                                </span>
+                            </template>
 
-                        <!-- 状态 -->
-                        <template v-if="'status' === column.key">
-                            <a-tag
-                                v-if="record.status === 1"
-                                color="success"
-                                >{{ $t('pages.user-api-key.form.status.enabled') }}</a-tag
-                            >
-                            <a-tag
-                                v-else
-                                color="error"
-                                >{{ $t('pages.user-api-key.form.status.disabled') }}</a-tag
-                            >
-                        </template>
+                            <!-- 状态 -->
+                            <template v-if="'status' === column.key">
+                                <a-tag
+                                    v-if="record.status === 1"
+                                    color="success"
+                                    >{{ $t('pages.user-api-key.form.status.enabled') }}</a-tag
+                                >
+                                <a-tag
+                                    v-else
+                                    color="error"
+                                    >{{ $t('pages.user-api-key.form.status.disabled') }}</a-tag
+                                >
+                            </template>
 
-                        <!-- 额度 -->
-                        <template v-if="'credits' === column.key">
-                            <a-tag
-                                v-if="record.credits === -1"
-                                color="blue"
-                                >{{ $t('pages.user-api-key.form.credits.unlimited') }}</a-tag
-                            >
-                            <span
-                                v-else
-                                class="quota-value"
-                                >{{
-                                    (record.credits / 1000000).toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 4,
-                                    })
-                                }}
-                                元</span
-                            >
-                        </template>
+                            <!-- 额度 -->
+                            <template v-if="'credits' === column.key">
+                                <a-tag
+                                    v-if="record.credits === -1"
+                                    color="blue"
+                                    >{{ $t('pages.user-api-key.form.credits.unlimited') }}</a-tag
+                                >
+                                <span
+                                    v-else
+                                    class="quota-value"
+                                    >{{
+                                        (record.credits / 1000000).toLocaleString(undefined, {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 4,
+                                        })
+                                    }}
+                                    元</span
+                                >
+                            </template>
 
-                        <!-- 过期时间 -->
-                        <template v-if="'expires_at' === column.key">
-                            <a-tag
-                                v-if="!record.expires_at"
-                                color="cyan"
-                                >{{ $t('pages.user-api-key.form.expires_at.never') }}</a-tag
-                            >
-                            <span
-                                v-else
-                                :class="{ expired: isExpired(record.expires_at) }">
-                                {{ formatUtcDateTime(record.expires_at) }}
-                            </span>
-                        </template>
+                            <!-- 过期时间 -->
+                            <template v-if="'expires_at' === column.key">
+                                <a-tag
+                                    v-if="!record.expires_at"
+                                    color="cyan"
+                                    >{{ $t('pages.user-api-key.form.expires_at.never') }}</a-tag
+                                >
+                                <span
+                                    v-else
+                                    :class="{ expired: isExpired(record.expires_at) }">
+                                    {{ formatUtcDateTime(record.expires_at) }}
+                                </span>
+                            </template>
 
-                        <!-- 创建时间 -->
-                        <template v-if="'created_at' === column.key">
-                            {{ formatUtcDateTime(record.created_at) }}
-                        </template>
+                            <!-- 创建时间 -->
+                            <template v-if="'created_at' === column.key">
+                                {{ formatUtcDateTime(record.created_at) }}
+                            </template>
 
-                        <!-- 操作 -->
-                        <template v-if="'action' === column.key">
-                            <x-action-button @click="editDialogRef.handleEdit(record)">
-                                <a-tooltip :title="$t('pages.user-api-key.edit')">
-                                    <edit-outlined />
-                                </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleDelete(record)">
-                                <a-tooltip :title="$t('pages.user-api-key.delete')">
-                                    <delete-outlined style="color: #ff4d4f" />
-                                </a-tooltip>
-                            </x-action-button>
+                            <!-- 操作 -->
+                            <template v-if="'action' === column.key">
+                                <x-action-button @click="editDialogRef.handleEdit(record)">
+                                    <a-tooltip :title="$t('pages.user-api-key.edit')">
+                                        <edit-outlined />
+                                    </a-tooltip>
+                                </x-action-button>
+                                <x-action-button @click="handleDelete(record)">
+                                    <a-tooltip :title="$t('pages.user-api-key.delete')">
+                                        <delete-outlined style="color: #ff4d4f" />
+                                    </a-tooltip>
+                                </x-action-button>
+                            </template>
                         </template>
-                    </template>
-                </a-table>
+                    </a-table>
+                </div>
             </a-card>
         </a-col>
     </a-row>
@@ -180,7 +188,8 @@ import { useI18n } from 'vue-i18n'
 import apis from '@/apis'
 import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
-import { usePagination } from '@/hooks'
+import { usePagination, useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import EditDialog from './components/EditDialog.vue'
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
@@ -205,6 +214,12 @@ const columns = computed(() => [
 
 const { listData, loading, showLoading, hideLoading, paginationState, resetPagination, searchFormData } =
     usePagination()
+const appStore = useAppStore()
+const {
+    scrollY: tableScrollY,
+    containerRef: tableContainerRef,
+    containerStyle: tableContainerStyle,
+} = useTableAutoScrollY()
 
 const editDialogRef = ref()
 const userOptions = ref([])

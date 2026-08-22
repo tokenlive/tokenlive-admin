@@ -1,8 +1,10 @@
 <template>
-    <div class="app-page">
+    <div
+        class="app-page"
+        :style="{ height: appStore.mainHeight }">
         <a-card
             type="flex"
-            class="app-card">
+            class="app-card app-card--fill">
             <a-row
                 :gutter="16"
                 align="middle"
@@ -94,66 +96,71 @@
                     </a-form>
                 </a-col>
             </a-row>
-            <a-table
-                :columns="columns"
-                :data-source="listData"
-                :loading="loading"
-                :pagination="paginationState"
-                :scroll="{ x: 'max-content' }"
-                @change="onTableChange">
-                <template #bodyCell="{ column, record }">
-                    <template v-if="'action' === column.key">
-                        <a-tag :color="actionColor(record.action)">{{ record.action.toUpperCase() }}</a-tag>
-                    </template>
-                    <template v-if="'resource_type' === column.key">
-                        <a-tag>{{ record.resource_type.toUpperCase() }}</a-tag>
-                    </template>
-                    <template v-if="'resource_name' === column.key">
-                        {{ record.resource_name || record.resource_id }}
-                    </template>
-                    <template v-if="'before_data' === column.key">
-                        <a-tooltip v-if="record.before_data">
-                            <template #title>
-                                <pre style="max-width: 400px; max-height: 300px; overflow: auto; font-size: 11px">{{
-                                    formatJson(record.before_data)
-                                }}</pre>
-                            </template>
-                            <a-button
-                                type="link"
-                                size="small"
-                                >{{ $t('button.view') }}</a-button
+            <div
+                ref="tableContainerRef"
+                class="table-fill-region"
+                :style="tableContainerStyle">
+                <a-table
+                    :columns="columns"
+                    :data-source="listData"
+                    :loading="loading"
+                    :pagination="paginationState"
+                    :scroll="{ x: 'max-content', y: tableScrollY || undefined }"
+                    @change="onTableChange">
+                    <template #bodyCell="{ column, record }">
+                        <template v-if="'action' === column.key">
+                            <a-tag :color="actionColor(record.action)">{{ record.action.toUpperCase() }}</a-tag>
+                        </template>
+                        <template v-if="'resource_type' === column.key">
+                            <a-tag>{{ record.resource_type.toUpperCase() }}</a-tag>
+                        </template>
+                        <template v-if="'resource_name' === column.key">
+                            {{ record.resource_name || record.resource_id }}
+                        </template>
+                        <template v-if="'before_data' === column.key">
+                            <a-tooltip v-if="record.before_data">
+                                <template #title>
+                                    <pre style="max-width: 400px; max-height: 300px; overflow: auto; font-size: 11px">{{
+                                        formatJson(record.before_data)
+                                    }}</pre>
+                                </template>
+                                <a-button
+                                    type="link"
+                                    size="small"
+                                    >{{ $t('button.view') }}</a-button
+                                >
+                            </a-tooltip>
+                            <span
+                                v-else
+                                style="color: #999"
+                                >-</span
                             >
-                        </a-tooltip>
-                        <span
-                            v-else
-                            style="color: #999"
-                            >-</span
-                        >
-                    </template>
-                    <template v-if="'after_data' === column.key">
-                        <a-tooltip v-if="record.after_data">
-                            <template #title>
-                                <pre style="max-width: 400px; max-height: 300px; overflow: auto; font-size: 11px">{{
-                                    formatJson(record.after_data)
-                                }}</pre>
-                            </template>
-                            <a-button
-                                type="link"
-                                size="small"
-                                >{{ $t('button.view') }}</a-button
+                        </template>
+                        <template v-if="'after_data' === column.key">
+                            <a-tooltip v-if="record.after_data">
+                                <template #title>
+                                    <pre style="max-width: 400px; max-height: 300px; overflow: auto; font-size: 11px">{{
+                                        formatJson(record.after_data)
+                                    }}</pre>
+                                </template>
+                                <a-button
+                                    type="link"
+                                    size="small"
+                                    >{{ $t('button.view') }}</a-button
+                                >
+                            </a-tooltip>
+                            <span
+                                v-else
+                                style="color: #999"
+                                >-</span
                             >
-                        </a-tooltip>
-                        <span
-                            v-else
-                            style="color: #999"
-                            >-</span
-                        >
+                        </template>
+                        <template v-if="'created_at' === column.key">
+                            {{ record.created_at ? dayjs(record.created_at).format('YYYY-MM-DD HH:mm:ss') : '-' }}
+                        </template>
                     </template>
-                    <template v-if="'created_at' === column.key">
-                        {{ record.created_at ? dayjs(record.created_at).format('YYYY-MM-DD HH:mm:ss') : '-' }}
-                    </template>
-                </template>
-            </a-table>
+                </a-table>
+            </div>
         </a-card>
     </div>
 </template>
@@ -162,13 +169,20 @@
 import { onMounted } from 'vue'
 import dayjs from 'dayjs'
 import { useI18n } from 'vue-i18n'
-import { usePagination } from '@/hooks'
+import { usePagination, useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import { config } from '@/config'
 import apis from '@/apis'
 
 const { t } = useI18n()
 const { listData, loading, showLoading, hideLoading, paginationState, searchFormData, resetPagination } =
     usePagination()
+const appStore = useAppStore()
+const {
+    scrollY: tableScrollY,
+    containerRef: tableContainerRef,
+    containerStyle: tableContainerStyle,
+} = useTableAutoScrollY()
 searchFormData.value = { action: undefined, resource_type: undefined, tenant_code: '' }
 
 const columns = [

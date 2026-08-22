@@ -1,8 +1,10 @@
 <template>
-    <div class="app-page">
+    <div
+        class="app-page"
+        :style="{ height: appStore.mainHeight }">
         <a-card
             type="flex"
-            class="app-card">
+            class="app-card app-card--fill">
             <a-row
                 :gutter="16"
                 align="middle"
@@ -52,67 +54,72 @@
                     </a-form>
                 </a-col>
             </a-row>
-            <a-table
-                :columns="columns"
-                :data-source="listData"
-                :loading="loading"
-                :pagination="paginationState"
-                :scroll="{ x: 'max-content' }"
-                @change="onTableChange">
-                <template #bodyCell="{ column, record }">
-                    <template v-if="'name' === column.key">
-                        <a @click="goToDetail(record)">
-                            {{ record.name }}
-                        </a>
-                    </template>
-                    <template v-if="'code' === column.key">
-                        <a @click="goToDetail(record)">
-                            {{ record.code }}
-                        </a>
-                    </template>
-                    <template v-if="'enabled' === column.key">
-                        <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
-                            {{
-                                record.enabled === 1
-                                    ? $t('pages.provider.form.enabled.active')
-                                    : $t('pages.provider.form.enabled.inactive')
-                            }}
-                        </a-tag>
-                    </template>
-                    <template v-if="'protocol' === column.key">
-                        <a-tag
-                            v-if="record.protocol"
-                            color="blue"
-                            >{{ record.protocol }}</a-tag
-                        >
-                        <span v-else>--</span>
-                    </template>
-                    <template v-if="'created_at' === column.key">
-                        {{ formatUtcDateTime(record.created_at) }}
-                    </template>
+            <div
+                ref="tableContainerRef"
+                class="table-fill-region"
+                :style="tableContainerStyle">
+                <a-table
+                    :columns="columns"
+                    :data-source="listData"
+                    :loading="loading"
+                    :pagination="paginationState"
+                    :scroll="{ x: 'max-content', y: tableScrollY || undefined }"
+                    @change="onTableChange">
+                    <template #bodyCell="{ column, record }">
+                        <template v-if="'name' === column.key">
+                            <a @click="goToDetail(record)">
+                                {{ record.name }}
+                            </a>
+                        </template>
+                        <template v-if="'code' === column.key">
+                            <a @click="goToDetail(record)">
+                                {{ record.code }}
+                            </a>
+                        </template>
+                        <template v-if="'enabled' === column.key">
+                            <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
+                                {{
+                                    record.enabled === 1
+                                        ? $t('pages.provider.form.enabled.active')
+                                        : $t('pages.provider.form.enabled.inactive')
+                                }}
+                            </a-tag>
+                        </template>
+                        <template v-if="'protocol' === column.key">
+                            <a-tag
+                                v-if="record.protocol"
+                                color="blue"
+                                >{{ record.protocol }}</a-tag
+                            >
+                            <span v-else>--</span>
+                        </template>
+                        <template v-if="'created_at' === column.key">
+                            {{ formatUtcDateTime(record.created_at) }}
+                        </template>
 
-                    <template v-if="'action' === column.key">
-                        <x-action-button @click="$refs.editDialogRef.handleEdit(record)">
-                            <a-tooltip>
-                                <template #title> {{ $t('pages.provider.edit') }}</template>
-                                <edit-outlined />
-                            </a-tooltip>
-                        </x-action-button>
-                        <x-action-button @click="handleRemove(record)">
-                            <a-tooltip>
-                                <template #title> {{ $t('button.delete') }}</template>
-                                <delete-outlined style="color: #ff4d4f" />
-                            </a-tooltip>
-                        </x-action-button>
-                        <x-action-button @click="handleFetchModels(record)">
-                            <a-tooltip>
-                                <template #title> {{ $t('pages.provider.fetchModels.btn') }}</template>
-                                <import-outlined style="color: #1890ff" />
-                            </a-tooltip>
-                        </x-action-button>
+                        <template v-if="'action' === column.key">
+                            <x-action-button @click="$refs.editDialogRef.handleEdit(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('pages.provider.edit') }}</template>
+                                    <edit-outlined />
+                                </a-tooltip>
+                            </x-action-button>
+                            <x-action-button @click="handleRemove(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('button.delete') }}</template>
+                                    <delete-outlined style="color: #ff4d4f" />
+                                </a-tooltip>
+                            </x-action-button>
+                            <x-action-button @click="handleFetchModels(record)">
+                                <a-tooltip>
+                                    <template #title> {{ $t('pages.provider.fetchModels.btn') }}</template>
+                                    <import-outlined style="color: #1890ff" />
+                                </a-tooltip>
+                            </x-action-button>
+                        </template>
                     </template>
-                </template>
-            </a-table>
+                </a-table>
+            </div>
         </a-card>
 
         <edit-dialog
@@ -135,7 +142,8 @@ import { ref, h } from 'vue'
 import apis from '@/apis'
 import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
-import { usePagination } from '@/hooks'
+import { usePagination, useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import EditDialog from './ProviderEditDialog.vue'
 import FetchModelsDrawer from './ProviderFetchModelsDrawer.vue'
 import ImportMappingDialog from './ProviderImportMappingDialog.vue'
@@ -162,6 +170,7 @@ const columns = [
             showTitle: true,
         },
         sorter: (a, b) => (a.name || '').localeCompare(b.name || ''),
+        fixed: 'left',
     },
     {
         title: t('pages.provider.form.code'),
@@ -188,7 +197,6 @@ const columns = [
     {
         title: t('pages.provider.form.created_at'),
         key: 'created_at',
-        fixed: 'right',
         width: 180,
         sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     },
@@ -197,6 +205,12 @@ const columns = [
 
 const { listData, loading, showLoading, hideLoading, paginationState, searchFormData, resetPagination } =
     usePagination()
+const appStore = useAppStore()
+const {
+    scrollY: tableScrollY,
+    containerRef: tableContainerRef,
+    containerStyle: tableContainerStyle,
+} = useTableAutoScrollY()
 const editDialogRef = ref()
 const fetchModelsDrawerRef = ref()
 const importMappingDialogRef = ref()

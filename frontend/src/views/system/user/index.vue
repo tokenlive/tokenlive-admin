@@ -2,9 +2,12 @@
     <!-- 数据表格卡片 -->
     <a-row
         :gutter="8"
-        :wrap="false">
+        :wrap="false"
+        :style="{ height: appStore.mainHeight }">
         <a-col flex="auto">
-            <a-card type="flex">
+            <a-card
+                type="flex"
+                class="app-card--fill">
                 <!-- 头部：操作按钮 + 搜索栏 -->
                 <a-row
                     :gutter="16"
@@ -58,56 +61,61 @@
                 </a-row>
 
                 <!-- 表格 -->
-                <a-table
-                    row-key="id"
-                    :columns="columns"
-                    :data-source="listData"
-                    :loading="loading"
-                    :pagination="paginationState"
-                    :scroll="{ x: 1000 }"
-                    @change="onTableChange">
-                    <template #bodyCell="{ column, record }">
-                        <!-- 所属租户 -->
-                        <template v-if="'tenant' === column.key">
-                            <span class="tenant-badge">
-                                {{ tenantMap[record.tenant]?.name || record.tenant || '-' }}
-                            </span>
-                        </template>
+                <div
+                    ref="tableContainerRef"
+                    class="table-fill-region"
+                    :style="tableContainerStyle">
+                    <a-table
+                        row-key="id"
+                        :columns="columns"
+                        :data-source="listData"
+                        :loading="loading"
+                        :pagination="paginationState"
+                        :scroll="{ x: 1000, y: tableScrollY || undefined }"
+                        @change="onTableChange">
+                        <template #bodyCell="{ column, record }">
+                            <!-- 所属租户 -->
+                            <template v-if="'tenant' === column.key">
+                                <span class="tenant-badge">
+                                    {{ tenantMap[record.tenant]?.name || record.tenant || '-' }}
+                                </span>
+                            </template>
 
-                        <!-- 状态 -->
-                        <template v-if="'statusType' === column.key">
-                            <a-tag
-                                v-if="statusUserTypeEnum.is('activated', record.status)"
-                                color="success">
-                                {{ statusUserTypeEnum.getDesc(record.status) }}
-                            </a-tag>
-                            <a-tag
-                                v-if="statusUserTypeEnum.is('freezed', record.status)"
-                                color="error">
-                                {{ statusUserTypeEnum.getDesc(record.status) }}
-                            </a-tag>
-                        </template>
+                            <!-- 状态 -->
+                            <template v-if="'statusType' === column.key">
+                                <a-tag
+                                    v-if="statusUserTypeEnum.is('activated', record.status)"
+                                    color="success">
+                                    {{ statusUserTypeEnum.getDesc(record.status) }}
+                                </a-tag>
+                                <a-tag
+                                    v-if="statusUserTypeEnum.is('freezed', record.status)"
+                                    color="error">
+                                    {{ statusUserTypeEnum.getDesc(record.status) }}
+                                </a-tag>
+                            </template>
 
-                        <!-- 创建时间 -->
-                        <template v-if="'created_at' === column.key">
-                            {{ formatUtcDateTime(record.created_at) }}
-                        </template>
+                            <!-- 创建时间 -->
+                            <template v-if="'created_at' === column.key">
+                                {{ formatUtcDateTime(record.created_at) }}
+                            </template>
 
-                        <!-- 操作 -->
-                        <template v-if="'action' === column.key">
-                            <x-action-button @click="editDialogRef.handleEdit(record)">
-                                <a-tooltip :title="$t('pages.system.user.edit')">
-                                    <edit-outlined />
-                                </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleDelete(record)">
-                                <a-tooltip :title="$t('pages.system.delete')">
-                                    <delete-outlined style="color: #ff4d4f" />
-                                </a-tooltip>
-                            </x-action-button>
+                            <!-- 操作 -->
+                            <template v-if="'action' === column.key">
+                                <x-action-button @click="editDialogRef.handleEdit(record)">
+                                    <a-tooltip :title="$t('pages.system.user.edit')">
+                                        <edit-outlined />
+                                    </a-tooltip>
+                                </x-action-button>
+                                <x-action-button @click="handleDelete(record)">
+                                    <a-tooltip :title="$t('pages.system.delete')">
+                                        <delete-outlined style="color: #ff4d4f" />
+                                    </a-tooltip>
+                                </x-action-button>
+                            </template>
                         </template>
-                    </template>
-                </a-table>
+                    </a-table>
+                </div>
             </a-card>
         </a-col>
     </a-row>
@@ -124,7 +132,8 @@ import apis from '@/apis'
 import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
 import { statusUserTypeEnum } from '@/enums/system'
-import { usePagination } from '@/hooks'
+import { usePagination, useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 
 import EditDialog from './components/EditDialog.vue'
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
@@ -148,6 +157,12 @@ const columns = computed(() => [
 
 const { listData, loading, showLoading, hideLoading, paginationState, resetPagination, searchFormData } =
     usePagination()
+const appStore = useAppStore()
+const {
+    scrollY: tableScrollY,
+    containerRef: tableContainerRef,
+    containerStyle: tableContainerStyle,
+} = useTableAutoScrollY()
 
 const editDialogRef = ref()
 const tenantMap = ref({})

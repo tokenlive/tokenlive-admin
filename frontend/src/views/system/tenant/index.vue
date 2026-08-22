@@ -2,9 +2,12 @@
     <!-- 数据表格卡片 -->
     <a-row
         :gutter="8"
-        :wrap="false">
+        :wrap="false"
+        :style="{ height: appStore.mainHeight }">
         <a-col flex="auto">
-            <a-card type="flex">
+            <a-card
+                type="flex"
+                class="app-card--fill">
                 <!-- 头部：操作按钮 + 搜索栏 -->
                 <a-row
                     :gutter="16"
@@ -58,70 +61,75 @@
                 </a-row>
 
                 <!-- 表格 -->
-                <a-table
-                    row-key="id"
-                    :columns="columns"
-                    :data-source="listData"
-                    :loading="loading"
-                    :pagination="paginationState"
-                    :scroll="{ x: 1000 }"
-                    @change="onTableChange">
-                    <template #bodyCell="{ column, record }">
-                        <!-- 租户名称 -->
-                        <template v-if="'name' === column.key">
-                            <router-link
-                                :to="{ name: 'tenantDetail', params: { id: record.id } }"
-                                class="tenant-name-link">
-                                {{ record.name }}
-                            </router-link>
-                        </template>
+                <div
+                    ref="tableContainerRef"
+                    class="table-fill-region"
+                    :style="tableContainerStyle">
+                    <a-table
+                        row-key="id"
+                        :columns="columns"
+                        :data-source="listData"
+                        :loading="loading"
+                        :pagination="paginationState"
+                        :scroll="{ x: 1000, y: tableScrollY || undefined }"
+                        @change="onTableChange">
+                        <template #bodyCell="{ column, record }">
+                            <!-- 租户名称 -->
+                            <template v-if="'name' === column.key">
+                                <router-link
+                                    :to="{ name: 'tenantDetail', params: { id: record.id } }"
+                                    class="tenant-name-link">
+                                    {{ record.name }}
+                                </router-link>
+                            </template>
 
-                        <!-- 租户编码 -->
-                        <template v-if="'code' === column.key">
-                            <span class="tenant-code-container">
-                                <span class="tenant-code">{{ record.code }}</span>
-                                <a-tooltip :title="$t('pages.tenant.copy.code')">
-                                    <copy-outlined
-                                        class="copy-btn-icon"
-                                        @click="handleCopyCode(record.code)" />
-                                </a-tooltip>
-                            </span>
-                        </template>
+                            <!-- 租户编码 -->
+                            <template v-if="'code' === column.key">
+                                <span class="tenant-code-container">
+                                    <span class="tenant-code">{{ record.code }}</span>
+                                    <a-tooltip :title="$t('pages.tenant.copy.code')">
+                                        <copy-outlined
+                                            class="copy-btn-icon"
+                                            @click="handleCopyCode(record.code)" />
+                                    </a-tooltip>
+                                </span>
+                            </template>
 
-                        <!-- 状态 -->
-                        <template v-if="'status' === column.key">
-                            <a-tag
-                                v-if="record.status === 'activated'"
-                                color="success"
-                                >{{ $t('pages.tenant.form.status.activated') }}</a-tag
-                            >
-                            <a-tag
-                                v-else
-                                color="error"
-                                >{{ $t('pages.tenant.form.status.freezed') }}</a-tag
-                            >
-                        </template>
+                            <!-- 状态 -->
+                            <template v-if="'status' === column.key">
+                                <a-tag
+                                    v-if="record.status === 'activated'"
+                                    color="success"
+                                    >{{ $t('pages.tenant.form.status.activated') }}</a-tag
+                                >
+                                <a-tag
+                                    v-else
+                                    color="error"
+                                    >{{ $t('pages.tenant.form.status.freezed') }}</a-tag
+                                >
+                            </template>
 
-                        <!-- 创建时间 -->
-                        <template v-if="'created_at' === column.key">
-                            {{ formatUtcDateTime(record.created_at) }}
-                        </template>
+                            <!-- 创建时间 -->
+                            <template v-if="'created_at' === column.key">
+                                {{ formatUtcDateTime(record.created_at) }}
+                            </template>
 
-                        <!-- 操作 -->
-                        <template v-if="'action' === column.key">
-                            <x-action-button @click="editDialogRef.handleEdit(record)">
-                                <a-tooltip :title="$t('pages.tenant.edit')">
-                                    <edit-outlined />
-                                </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleDelete(record)">
-                                <a-tooltip :title="$t('pages.tenant.delete')">
-                                    <delete-outlined style="color: #ff4d4f" />
-                                </a-tooltip>
-                            </x-action-button>
+                            <!-- 操作 -->
+                            <template v-if="'action' === column.key">
+                                <x-action-button @click="editDialogRef.handleEdit(record)">
+                                    <a-tooltip :title="$t('pages.tenant.edit')">
+                                        <edit-outlined />
+                                    </a-tooltip>
+                                </x-action-button>
+                                <x-action-button @click="handleDelete(record)">
+                                    <a-tooltip :title="$t('pages.tenant.delete')">
+                                        <delete-outlined style="color: #ff4d4f" />
+                                    </a-tooltip>
+                                </x-action-button>
+                            </template>
                         </template>
-                    </template>
-                </a-table>
+                    </a-table>
+                </div>
             </a-card>
         </a-col>
     </a-row>
@@ -139,7 +147,8 @@ import { useI18n } from 'vue-i18n'
 import apis from '@/apis'
 import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
-import { usePagination } from '@/hooks'
+import { usePagination, useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import EditDialog from './components/EditDialog.vue'
 import { PlusOutlined, EditOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons-vue'
 
@@ -161,6 +170,12 @@ const columns = computed(() => [
 
 const { listData, loading, showLoading, hideLoading, paginationState, resetPagination, searchFormData } =
     usePagination()
+const appStore = useAppStore()
+const {
+    scrollY: tableScrollY,
+    containerRef: tableContainerRef,
+    containerStyle: tableContainerStyle,
+} = useTableAutoScrollY()
 
 const editDialogRef = ref()
 

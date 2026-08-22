@@ -1,14 +1,17 @@
 <template>
     <a-row
         :gutter="8"
-        :wrap="false">
+        :wrap="false"
+        :style="{ height: appStore.mainHeight }">
         <a-col flex="0 0 280px">
             <dict
                 v-model:value="searchFormData.role"
                 @change="onDictChange"></dict>
         </a-col>
         <a-col flex="auto">
-            <a-card type="flex">
+            <a-card
+                type="flex"
+                class="app-card--fill">
                 <template #title>
                     <span>{{ selectedDict?.title }}</span>
                     <span class="fs-14 fw-400 ml-8-2">{{ selectedDict?.key }}</span>
@@ -47,19 +50,25 @@
                         </x-search-bar>
                     </template>
                 </x-action-bar>
-                <a-table
-                    :columns="columns"
-                    :data-source="listData"
-                    :loading="loading"
-                    :pagination="paginationState"
-                    @change="onTableChange">
-                    <template #bodyCell="{ column, record }">
-                        <template v-if="'action' === column.key">
-                            <x-action-button @click="$refs.editDialogRef.handleEdit(record)">编辑</x-action-button>
-                            <x-action-button @click="handleDelete(record)">删除</x-action-button>
+                <div
+                    ref="tableContainerRef"
+                    class="table-fill-region"
+                    :style="tableContainerStyle">
+                    <a-table
+                        :columns="columns"
+                        :data-source="listData"
+                        :loading="loading"
+                        :pagination="paginationState"
+                        :scroll="{ y: tableScrollY || undefined }"
+                        @change="onTableChange">
+                        <template #bodyCell="{ column, record }">
+                            <template v-if="'action' === column.key">
+                                <x-action-button @click="$refs.editDialogRef.handleEdit(record)">编辑</x-action-button>
+                                <x-action-button @click="handleDelete(record)">删除</x-action-button>
+                            </template>
                         </template>
-                    </template>
-                </a-table>
+                    </a-table>
+                </div>
             </a-card>
         </a-col>
     </a-row>
@@ -75,7 +84,8 @@ import { ref } from 'vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { config } from '@/config'
-import { usePagination } from '@/hooks'
+import { usePagination, useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import EditDialog from './components/EditDialog.vue'
 import Dict from './components/Dict.vue'
 
@@ -92,6 +102,12 @@ const columns = [
 
 const { listData, loading, showLoading, hideLoading, paginationState, resetPagination, searchFormData } =
     usePagination()
+const appStore = useAppStore()
+const {
+    scrollY: tableScrollY,
+    containerRef: tableContainerRef,
+    containerStyle: tableContainerStyle,
+} = useTableAutoScrollY()
 
 const editDialogRef = ref()
 const selectedDict = ref(null)
