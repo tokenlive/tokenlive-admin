@@ -136,8 +136,45 @@ func (m *ModelEnabledForm) Validate() error {
 
 // StatusPoint 最近状态时间点的成功失败数
 type StatusPoint struct {
-	SuccessCount int64  `json:"success_count"`
-	FailCount    int64  `json:"fail_count"`
-	StartTime    string `json:"start_time"`
-	EndTime      string `json:"end_time"`
+	SuccessCount int64   `json:"success_count"`
+	FailCount    int64   `json:"fail_count"`
+	StartTime    string  `json:"start_time"`
+	EndTime      string  `json:"end_time"`
+	AvgTTFTMs    float64 `json:"avg_ttft_ms"`
+	Otps         float64 `json:"otps"`
+}
+
+type EndpointMinutePerf struct {
+	Success    int64
+	Fail       int64
+	TTFTSum    int64
+	TTFTCount  int64
+	Output     int64
+	DurationMs int64
+}
+
+func AggregateEndpointStatusPoint(minutes []EndpointMinutePerf, startTime, endTime string) StatusPoint {
+	var successSum, failSum, ttftSum, ttftCnt, outSum, durSum int64
+	for _, minute := range minutes {
+		successSum += minute.Success
+		failSum += minute.Fail
+		ttftSum += minute.TTFTSum
+		ttftCnt += minute.TTFTCount
+		outSum += minute.Output
+		durSum += minute.DurationMs
+	}
+
+	point := StatusPoint{
+		SuccessCount: successSum,
+		FailCount:    failSum,
+		StartTime:    startTime,
+		EndTime:      endTime,
+	}
+	if ttftCnt > 0 {
+		point.AvgTTFTMs = float64(ttftSum) / float64(ttftCnt)
+	}
+	if durSum > 0 && outSum > 0 {
+		point.Otps = float64(outSum) / (float64(durSum) / 1000.0)
+	}
+	return point
 }

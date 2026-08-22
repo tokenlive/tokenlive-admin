@@ -643,6 +643,9 @@
                                             </span>
                                         </a-tooltip>
                                     </template>
+                                    <template v-else-if="column.key === 'otps'">
+                                        <span>{{ formatOtps(record.otps) }}</span>
+                                    </template>
                                     <template v-else-if="column.key === 'total_tokens'">
                                         <span>{{ formatTokens(record.total_tokens) }}</span>
                                     </template>
@@ -1006,6 +1009,17 @@ async function handleRankingSortChange() {
 function formatLatency(ms) {
     if (!ms || ms === 0) return 'N/A'
     return (ms / 1000).toFixed(2) + 's'
+}
+
+function formatOtps(val) {
+    const num = Number(val)
+    if (!Number.isFinite(num) || num === 0) return '-'
+    return (
+        num.toLocaleString('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+        }) + ' t/s'
+    )
 }
 
 const POLICY_META = [
@@ -1632,6 +1646,12 @@ const columns = computed(() => [
         dataIndex: 'avg_ttft_ms',
         key: 'avg_ttft',
         sorter: (a, b) => (a.avg_ttft_ms || 0) - (b.avg_ttft_ms || 0),
+    },
+    {
+        title: t('pages.dashboard.modelRanking.columns.otps'),
+        dataIndex: 'otps',
+        key: 'otps',
+        sorter: (a, b) => (a.otps || 0) - (b.otps || 0),
     },
     {
         title: t('pages.dashboard.modelRanking.columns.tokens'),

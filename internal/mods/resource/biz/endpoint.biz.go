@@ -72,7 +72,8 @@ func (e *Endpoint) fillEndpointsStatusPoints(ctx context.Context, endpoints []*s
 	currentMin := time.Now().Unix() / 60
 	numEndpoints := len(endpoints)
 	numMinutes := 100
-	numKeys := numEndpoints * numMinutes * 2
+	keysPerMinute := 6
+	numKeys := numEndpoints * numMinutes * keysPerMinute
 	keys := make([]string, numKeys)
 
 	idx := 0
@@ -81,7 +82,11 @@ func (e *Endpoint) fillEndpointsStatusPoints(ctx context.Context, endpoints []*s
 			minute := currentMin - int64(numMinutes-1-i)
 			keys[idx] = fmt.Sprintf("aigw:status:endpoint:%s:%d:s", ep.ID, minute)
 			keys[idx+1] = fmt.Sprintf("aigw:status:endpoint:%s:%d:f", ep.ID, minute)
-			idx += 2
+			keys[idx+2] = fmt.Sprintf("aigw:status:endpoint:%s:%d:ttft_sum", ep.ID, minute)
+			keys[idx+3] = fmt.Sprintf("aigw:status:endpoint:%s:%d:ttft_cnt", ep.ID, minute)
+			keys[idx+4] = fmt.Sprintf("aigw:status:endpoint:%s:%d:out", ep.ID, minute)
+			keys[idx+5] = fmt.Sprintf("aigw:status:endpoint:%s:%d:dur_ms", ep.ID, minute)
+			idx += keysPerMinute
 		}
 	}
 
@@ -123,73 +128,80 @@ func (e *Endpoint) fillEndpointsStatusPoints(ctx context.Context, endpoints []*s
 		for _, ep := range endpoints {
 			for i := 0; i < numMinutes; i++ {
 				minute := currentMin - int64(numMinutes-1-i)
-				succ, fail := metrics.GlobalStore.GetEndpointStatus(ep.ID, minute)
-				if succ > 0 {
-					values[idx] = strconv.FormatInt(succ, 10)
+				perf := metrics.GlobalStore.GetEndpointMinutePerf(ep.ID, minute)
+				if perf.Success > 0 {
+					values[idx] = strconv.FormatInt(perf.Success, 10)
 				}
-				if fail > 0 {
-					values[idx+1] = strconv.FormatInt(fail, 10)
+				if perf.Fail > 0 {
+					values[idx+1] = strconv.FormatInt(perf.Fail, 10)
 				}
-				idx += 2
+				if perf.TTFTSum > 0 {
+					values[idx+2] = strconv.FormatInt(perf.TTFTSum, 10)
+				}
+				if perf.TTFTCount > 0 {
+					values[idx+3] = strconv.FormatInt(perf.TTFTCount, 10)
+				}
+				if perf.Output > 0 {
+					values[idx+4] = strconv.FormatInt(perf.Output, 10)
+				}
+				if perf.DurationMs > 0 {
+					values[idx+5] = strconv.FormatInt(perf.DurationMs, 10)
+				}
+				idx += keysPerMinute
 			}
 		}
 	}
 
 	idx = 0
 	for _, ep := range endpoints {
-		minSuccess := make([]int64, numMinutes)
-		minFail := make([]int64, numMinutes)
+		perMinute := make([]schema.EndpointMinutePerf, numMinutes)
 
 		if err == nil && len(values) == numKeys {
 			for i := 0; i < numMinutes; i++ {
-				sVal := values[idx]
-				fVal := values[idx+1]
-				idx += 2
-
-				if sVal != nil {
-					if sStr, ok := sVal.(string); ok {
-						if val, parseErr := strconv.ParseInt(sStr, 10, 64); parseErr == nil {
-							minSuccess[i] = val
-						}
-					}
+				perMinute[i] = schema.EndpointMinutePerf{
+					Success:    parseRedisInt(values[idx]),
+					Fail:       parseRedisInt(values[idx+1]),
+					TTFTSum:    parseRedisInt(values[idx+2]),
+					TTFTCount:  parseRedisInt(values[idx+3]),
+					Output:     parseRedisInt(values[idx+4]),
+					DurationMs: parseRedisInt(values[idx+5]),
 				}
-				if fVal != nil {
-					if fStr, ok := fVal.(string); ok {
-						if val, parseErr := strconv.ParseInt(fStr, 10, 64); parseErr == nil {
-							minFail[i] = val
-						}
-					}
-				}
+				idx += keysPerMinute
 			}
 		}
 
 		points := make([]schema.StatusPoint, 10)
 		for pIdx := 0; pIdx < 10; pIdx++ {
-			var successSum int64
-			var failSum int64
-			if err == nil {
-				for mOffset := 0; mOffset < 10; mOffset++ {
-					mIdx := pIdx*10 + mOffset
-					if mIdx < len(minSuccess) {
-						successSum += minSuccess[mIdx]
-						failSum += minFail[mIdx]
-					}
-				}
+			start := pIdx * 10
+			end := start + 10
+			if end > len(perMinute) {
+				end = len(perMinute)
 			}
 			startSec := (currentMin - int64(numMinutes-1-pIdx*10)) * 60
 			endSec := (currentMin - int64(numMinutes-1-(pIdx*10+9)) + 1) * 60
-			startTimeStr := time.Unix(startSec, 0).Format("15:04")
-			endTimeStr := time.Unix(endSec, 0).Format("15:04")
-
-			points[pIdx] = schema.StatusPoint{
-				SuccessCount: successSum,
-				FailCount:    failSum,
-				StartTime:    startTimeStr,
-				EndTime:      endTimeStr,
-			}
+			points[pIdx] = schema.AggregateEndpointStatusPoint(
+				perMinute[start:end],
+				time.Unix(startSec, 0).Format("15:04"),
+				time.Unix(endSec, 0).Format("15:04"),
+			)
 		}
 		ep.StatusPoints = points
 	}
+}
+
+func parseRedisInt(val interface{}) int64 {
+	if val == nil {
+		return 0
+	}
+	s, ok := val.(string)
+	if !ok {
+		return 0
+	}
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 // Get the specified endpoint.
@@ -684,58 +696,58 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 		}, nil
 	}
 
-// 5. 设置 Header 头部信息
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json")
+	// 5. 设置 Header 头部信息
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 
-		// 处理不同协议的 API Key Auth 头部
-		if apiKey != "" {
-			if protocol == "anthropic" && !isCodex {
-				req.Header.Set("x-api-key", apiKey)
-				req.Header.Set("anthropic-version", "2023-06-01")
-				// 如果是非官方 Anthropic 域名且 apiKey 不为空，则自动补充 Authorization: Bearer <key>
-				// 以兼容类似于商汤(Sensenova)等使用 Anthropic 协议但采用 OpenAI 鉴权机制的第三方提供商
-				if !strings.Contains(url, "anthropic.com") {
-					req.Header.Set("Authorization", "Bearer "+apiKey)
-				}
-			} else if protocol == "joycode" && !isCodex {
-				req.Header.Set("ptKey", apiKey)
-				req.Header.Set("loginType", getLoginTypeForPtKey(apiKey))
-				req.Header.Set("x-ms-client-request-id", uuid.NewString())
-				req.Header.Set("client", "JoyCodeIDE")
-				req.Header.Set("clientVersion", "3.8.61")
-				req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-			} else {
+	// 处理不同协议的 API Key Auth 头部
+	if apiKey != "" {
+		if protocol == "anthropic" && !isCodex {
+			req.Header.Set("x-api-key", apiKey)
+			req.Header.Set("anthropic-version", "2023-06-01")
+			// 如果是非官方 Anthropic 域名且 apiKey 不为空，则自动补充 Authorization: Bearer <key>
+			// 以兼容类似于商汤(Sensenova)等使用 Anthropic 协议但采用 OpenAI 鉴权机制的第三方提供商
+			if !strings.Contains(url, "anthropic.com") {
 				req.Header.Set("Authorization", "Bearer "+apiKey)
 			}
+		} else if protocol == "joycode" && !isCodex {
+			req.Header.Set("ptKey", apiKey)
+			req.Header.Set("loginType", getLoginTypeForPtKey(apiKey))
+			req.Header.Set("x-ms-client-request-id", uuid.NewString())
+			req.Header.Set("client", "JoyCodeIDE")
+			req.Header.Set("clientVersion", "3.8.61")
+			req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+		} else {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
+	}
 
-		// Codex backend expects CLI-like headers in addition to Bearer + account id.
-		if isCodex {
-			req.Header.Set("User-Agent", codexModelsUserAgent)
-			req.Header.Set("Originator", codexModelsOriginator)
-			req.Header.Set("Session_id", uuid.NewString())
-			req.Header.Set("Connection", "Keep-Alive")
-			// Stream probes return SSE.
-			req.Header.Set("Accept", "text/event-stream")
-		}
+	// Codex backend expects CLI-like headers in addition to Bearer + account id.
+	if isCodex {
+		req.Header.Set("User-Agent", codexModelsUserAgent)
+		req.Header.Set("Originator", codexModelsOriginator)
+		req.Header.Set("Session_id", uuid.NewString())
+		req.Header.Set("Connection", "Keep-Alive")
+		// Stream probes return SSE.
+		req.Header.Set("Accept", "text/event-stream")
+	}
 
-		// 解析自定义 Header 并注入
-		customHeaders := map[string]string{}
-		if len(formItem.Headers) > 0 && string(formItem.Headers) != "null" {
-			_ = json.Unmarshal(formItem.Headers, &customHeaders)
-		}
-		// Codex OAuth: inject Chatgpt-Account-Id from provider.oauth when testing.
-		customHeaders = MergeOAuthAccountHeader(customHeaders, provider, authType)
-		for k, v := range customHeaders {
-			req.Header.Set(k, v)
-		}
+	// 解析自定义 Header 并注入
+	customHeaders := map[string]string{}
+	if len(formItem.Headers) > 0 && string(formItem.Headers) != "null" {
+		_ = json.Unmarshal(formItem.Headers, &customHeaders)
+	}
+	// Codex OAuth: inject Chatgpt-Account-Id from provider.oauth when testing.
+	customHeaders = MergeOAuthAccountHeader(customHeaders, provider, authType)
+	for k, v := range customHeaders {
+		req.Header.Set(k, v)
+	}
 
-		// 6. 执行请求并测量耗时
-		client := &http.Client{}
-		startTime := time.Now()
-		resp, err := client.Do(req)
-		latency := time.Since(startTime).Milliseconds()
+	// 6. 执行请求并测量耗时
+	client := &http.Client{}
+	startTime := time.Now()
+	resp, err := client.Do(req)
+	latency := time.Since(startTime).Milliseconds()
 
 	if err != nil {
 		errMsg := err.Error()
@@ -809,20 +821,20 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			Detail:    "Embedding 向量获取成功",
 		}, nil
 
-} else if isResponses || isCodex {
-			return evaluateResponsesTestResult(resp.StatusCode, latency, bodyBytes, rawDetail, isCodex)
+	} else if isResponses || isCodex {
+		return evaluateResponsesTestResult(resp.StatusCode, latency, bodyBytes, rawDetail, isCodex)
 
-		} else if protocol == "anthropic" {
-			// 校验 Anthropic Chat
-			var antResp struct {
-				Content []struct {
-					Text string `json:"text"`
-				} `json:"content"`
-				Error *struct {
-					Type    string `json:"type"`
-					Message string `json:"message"`
-				} `json:"error"`
-			}
+	} else if protocol == "anthropic" {
+		// 校验 Anthropic Chat
+		var antResp struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+			Error *struct {
+				Type    string `json:"type"`
+				Message string `json:"message"`
+			} `json:"error"`
+		}
 
 		_ = json.Unmarshal(bodyBytes, &antResp)
 

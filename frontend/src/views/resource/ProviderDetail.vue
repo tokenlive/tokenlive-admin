@@ -253,17 +253,7 @@
                             </a-tag>
                         </template>
                         <template v-if="'recent_status' === column.key">
-                            <div style="display: flex; gap: 2px; align-items: center">
-                                <a-tooltip
-                                    v-for="(point, index) in record.status_points || []"
-                                    :key="index">
-                                    <template #title>
-                                        {{ point.start_time }} ~ {{ point.end_time }}<br />
-                                        成功: {{ point.success_count }} | 失败: {{ point.fail_count }}
-                                    </template>
-                                    <div :style="getPointStyle(point)"></div>
-                                </a-tooltip>
-                            </div>
+                            <EndpointStatusStrip :points="record.status_points || []" />
                         </template>
                         <template v-if="'created_at' === column.key">
                             {{ formatUtcDateTime(record.created_at) }}
@@ -431,6 +421,7 @@ import { config } from '@/config'
 import { formatUtcDateTime } from '@/utils/util'
 import { useI18n } from 'vue-i18n'
 import EndpointEditDialog from './EndpointEditDialog.vue'
+import EndpointStatusStrip from '@/components/EndpointStatusStrip.vue'
 import ProviderEditDialog from './ProviderEditDialog.vue'
 import ProviderMemberEditDialog from './ProviderMemberEditDialog.vue'
 import FetchModelsDrawer from './ProviderFetchModelsDrawer.vue'
@@ -965,34 +956,6 @@ function handleRemoveEndpoint({ id }) {
             })
         },
     })
-}
-
-function getPointStyle(point) {
-    let color = '#f5f5f5'
-    let border = '1px solid #d9d9d9'
-    if (point.success_count > 0 && point.fail_count === 0) {
-        color = '#52c41a'
-        border = '1px solid #52c41a'
-    } else if (point.success_count === 0 && point.fail_count > 0) {
-        color = '#f5222d'
-        border = '1px solid #f5222d'
-    } else if (point.success_count > 0 && point.fail_count > 0) {
-        if (point.success_count > point.fail_count) {
-            color = '#fadb14'
-            border = '1px solid #fadb14'
-        } else {
-            color = '#fa8c16'
-            border = '1px solid #fa8c16'
-        }
-    }
-    return {
-        width: '12px',
-        height: '12px',
-        backgroundColor: color,
-        border: border,
-        borderRadius: '2px',
-        cursor: 'pointer',
-    }
 }
 
 async function loadMemberList() {

@@ -14,10 +14,22 @@ type RequestMetric struct {
 	CachedTokens        int64   `json:"cached_tokens"`
 	CacheCreationTokens int64   `json:"cache_creation_tokens"`
 	Cost                float64 `json:"cost"`
+	EndpointID          string  `json:"endpoint_id,omitempty"`
+	TTFTMs              int64   `json:"ttft_ms,omitempty"`
+	DurationMs          int64   `json:"duration_ms,omitempty"`
 	Attempts            []struct {
 		EndpointID string `json:"endpoint_id"`
 		Success    bool   `json:"success"`
 	} `json:"attempts"`
+}
+
+type EndpointMinutePerf struct {
+	Success    int64
+	Fail       int64
+	TTFTSum    int64
+	TTFTCount  int64
+	Output     int64
+	DurationMs int64
 }
 
 type DailyStats struct {
@@ -39,10 +51,18 @@ type MemoryStore struct {
 	// model_code -> minute -> success/failure
 	modelSuccess map[string]map[int64]int64
 	modelFailure map[string]map[int64]int64
+	modelTTFTSum map[string]map[int64]int64
+	modelTTFTCnt map[string]map[int64]int64
+	modelOutput  map[string]map[int64]int64
+	modelDurMs   map[string]map[int64]int64
 
 	// endpoint_id -> minute -> success/failure
 	endpointSuccess map[string]map[int64]int64
 	endpointFailure map[string]map[int64]int64
+	endpointTTFTSum map[string]map[int64]int64
+	endpointTTFTCnt map[string]map[int64]int64
+	endpointOutput  map[string]map[int64]int64
+	endpointDurMs   map[string]map[int64]int64
 
 	// date -> stats
 	dailyStats map[string]*DailyStats
@@ -60,8 +80,16 @@ func NewMemoryStore() *MemoryStore {
 		globalFailure:   make(map[int64]int64),
 		modelSuccess:    make(map[string]map[int64]int64),
 		modelFailure:    make(map[string]map[int64]int64),
+		modelTTFTSum:    make(map[string]map[int64]int64),
+		modelTTFTCnt:    make(map[string]map[int64]int64),
+		modelOutput:     make(map[string]map[int64]int64),
+		modelDurMs:      make(map[string]map[int64]int64),
 		endpointSuccess: make(map[string]map[int64]int64),
 		endpointFailure: make(map[string]map[int64]int64),
+		endpointTTFTSum: make(map[string]map[int64]int64),
+		endpointTTFTCnt: make(map[string]map[int64]int64),
+		endpointOutput:  make(map[string]map[int64]int64),
+		endpointDurMs:   make(map[string]map[int64]int64),
 		dailyStats:      make(map[string]*DailyStats),
 		openEndpoints:   make(map[string]bool),
 		openServices:    make(map[string]bool),
@@ -94,6 +122,22 @@ func (s *MemoryStore) Record(m RequestMetric) {
 		} else {
 			s.modelFailure[m.Model][minute]++
 		}
+		if m.TTFTMs > 0 {
+			if _, ok := s.modelTTFTSum[m.Model]; !ok {
+				s.modelTTFTSum[m.Model] = make(map[int64]int64)
+				s.modelTTFTCnt[m.Model] = make(map[int64]int64)
+			}
+			s.modelTTFTSum[m.Model][minute] += m.TTFTMs
+			s.modelTTFTCnt[m.Model][minute]++
+		}
+		if m.Success && m.OutputTokens > 0 && m.DurationMs > 0 {
+			if _, ok := s.modelOutput[m.Model]; !ok {
+				s.modelOutput[m.Model] = make(map[int64]int64)
+				s.modelDurMs[m.Model] = make(map[int64]int64)
+			}
+			s.modelOutput[m.Model][minute] += m.OutputTokens
+			s.modelDurMs[m.Model][minute] += m.DurationMs
+		}
 	}
 
 	// 3. Endpoint
@@ -108,6 +152,25 @@ func (s *MemoryStore) Record(m RequestMetric) {
 			} else {
 				s.endpointFailure[att.EndpointID][minute]++
 			}
+		}
+	}
+
+	if m.EndpointID != "" {
+		if m.TTFTMs > 0 {
+			if _, ok := s.endpointTTFTSum[m.EndpointID]; !ok {
+				s.endpointTTFTSum[m.EndpointID] = make(map[int64]int64)
+				s.endpointTTFTCnt[m.EndpointID] = make(map[int64]int64)
+			}
+			s.endpointTTFTSum[m.EndpointID][minute] += m.TTFTMs
+			s.endpointTTFTCnt[m.EndpointID][minute]++
+		}
+		if m.Success && m.OutputTokens > 0 && m.DurationMs > 0 {
+			if _, ok := s.endpointOutput[m.EndpointID]; !ok {
+				s.endpointOutput[m.EndpointID] = make(map[int64]int64)
+				s.endpointDurMs[m.EndpointID] = make(map[int64]int64)
+			}
+			s.endpointOutput[m.EndpointID][minute] += m.OutputTokens
+			s.endpointDurMs[m.EndpointID][minute] += m.DurationMs
 		}
 	}
 
@@ -146,6 +209,34 @@ func (s *MemoryStore) Record(m RequestMetric) {
 			}
 		}
 	}
+	for _, mMin := range s.modelTTFTSum {
+		for min := range mMin {
+			if min < cutoff {
+				delete(mMin, min)
+			}
+		}
+	}
+	for _, mMin := range s.modelTTFTCnt {
+		for min := range mMin {
+			if min < cutoff {
+				delete(mMin, min)
+			}
+		}
+	}
+	for _, mMin := range s.modelOutput {
+		for min := range mMin {
+			if min < cutoff {
+				delete(mMin, min)
+			}
+		}
+	}
+	for _, mMin := range s.modelDurMs {
+		for min := range mMin {
+			if min < cutoff {
+				delete(mMin, min)
+			}
+		}
+	}
 	for _, eMin := range s.endpointSuccess {
 		for min := range eMin {
 			if min < cutoff {
@@ -154,6 +245,34 @@ func (s *MemoryStore) Record(m RequestMetric) {
 		}
 	}
 	for _, eMin := range s.endpointFailure {
+		for min := range eMin {
+			if min < cutoff {
+				delete(eMin, min)
+			}
+		}
+	}
+	for _, eMin := range s.endpointTTFTSum {
+		for min := range eMin {
+			if min < cutoff {
+				delete(eMin, min)
+			}
+		}
+	}
+	for _, eMin := range s.endpointTTFTCnt {
+		for min := range eMin {
+			if min < cutoff {
+				delete(eMin, min)
+			}
+		}
+	}
+	for _, eMin := range s.endpointOutput {
+		for min := range eMin {
+			if min < cutoff {
+				delete(eMin, min)
+			}
+		}
+	}
+	for _, eMin := range s.endpointDurMs {
 		for min := range eMin {
 			if min < cutoff {
 				delete(eMin, min)
@@ -184,31 +303,65 @@ func (s *MemoryStore) GetGlobalStatus(minute int64) (int64, int64) {
 }
 
 func (s *MemoryStore) GetModelStatus(modelCode string, minute int64) (int64, int64) {
+	perf := s.GetModelMinutePerf(modelCode, minute)
+	return perf.Success, perf.Fail
+}
+
+func (s *MemoryStore) GetModelMinutePerf(modelCode string, minute int64) EndpointMinutePerf {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var succ, fail int64
+	var perf EndpointMinutePerf
 	if mMin, ok := s.modelSuccess[modelCode]; ok {
-		succ = mMin[minute]
+		perf.Success = mMin[minute]
 	}
 	if mMin, ok := s.modelFailure[modelCode]; ok {
-		fail = mMin[minute]
+		perf.Fail = mMin[minute]
 	}
-	return succ, fail
+	if mMin, ok := s.modelTTFTSum[modelCode]; ok {
+		perf.TTFTSum = mMin[minute]
+	}
+	if mMin, ok := s.modelTTFTCnt[modelCode]; ok {
+		perf.TTFTCount = mMin[minute]
+	}
+	if mMin, ok := s.modelOutput[modelCode]; ok {
+		perf.Output = mMin[minute]
+	}
+	if mMin, ok := s.modelDurMs[modelCode]; ok {
+		perf.DurationMs = mMin[minute]
+	}
+	return perf
 }
 
 func (s *MemoryStore) GetEndpointStatus(endpointID string, minute int64) (int64, int64) {
+	perf := s.GetEndpointMinutePerf(endpointID, minute)
+	return perf.Success, perf.Fail
+}
+
+func (s *MemoryStore) GetEndpointMinutePerf(endpointID string, minute int64) EndpointMinutePerf {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var succ, fail int64
+	var perf EndpointMinutePerf
 	if eMin, ok := s.endpointSuccess[endpointID]; ok {
-		succ = eMin[minute]
+		perf.Success = eMin[minute]
 	}
 	if eMin, ok := s.endpointFailure[endpointID]; ok {
-		fail = eMin[minute]
+		perf.Fail = eMin[minute]
 	}
-	return succ, fail
+	if eMin, ok := s.endpointTTFTSum[endpointID]; ok {
+		perf.TTFTSum = eMin[minute]
+	}
+	if eMin, ok := s.endpointTTFTCnt[endpointID]; ok {
+		perf.TTFTCount = eMin[minute]
+	}
+	if eMin, ok := s.endpointOutput[endpointID]; ok {
+		perf.Output = eMin[minute]
+	}
+	if eMin, ok := s.endpointDurMs[endpointID]; ok {
+		perf.DurationMs = eMin[minute]
+	}
+	return perf
 }
 
 func (s *MemoryStore) GetDailyStats(dateStr string) DailyStats {

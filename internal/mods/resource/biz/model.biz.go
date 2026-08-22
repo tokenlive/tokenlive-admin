@@ -397,7 +397,8 @@ func (m *Model) fillModelsStatusPoints(ctx context.Context, models []*schema.Mod
 	currentMin := time.Now().Unix() / 60
 	numModels := len(models)
 	numMinutes := 100
-	numKeys := numModels * numMinutes * 2
+	keysPerMinute := 6
+	numKeys := numModels * numMinutes * keysPerMinute
 	keys := make([]string, numKeys)
 
 	idx := 0
@@ -406,7 +407,11 @@ func (m *Model) fillModelsStatusPoints(ctx context.Context, models []*schema.Mod
 			minute := currentMin - int64(numMinutes-1-i)
 			keys[idx] = fmt.Sprintf("aigw:status:model:%s:%d:s", model.ModelCode, minute)
 			keys[idx+1] = fmt.Sprintf("aigw:status:model:%s:%d:f", model.ModelCode, minute)
-			idx += 2
+			keys[idx+2] = fmt.Sprintf("aigw:status:model:%s:%d:ttft_sum", model.ModelCode, minute)
+			keys[idx+3] = fmt.Sprintf("aigw:status:model:%s:%d:ttft_cnt", model.ModelCode, minute)
+			keys[idx+4] = fmt.Sprintf("aigw:status:model:%s:%d:out", model.ModelCode, minute)
+			keys[idx+5] = fmt.Sprintf("aigw:status:model:%s:%d:dur_ms", model.ModelCode, minute)
+			idx += keysPerMinute
 		}
 	}
 
@@ -448,66 +453,62 @@ func (m *Model) fillModelsStatusPoints(ctx context.Context, models []*schema.Mod
 		for _, model := range models {
 			for i := 0; i < numMinutes; i++ {
 				minute := currentMin - int64(numMinutes-1-i)
-				succ, fail := metrics.GlobalStore.GetModelStatus(model.ModelCode, minute)
-				if succ > 0 {
-					values[idx] = strconv.FormatInt(succ, 10)
+				perf := metrics.GlobalStore.GetModelMinutePerf(model.ModelCode, minute)
+				if perf.Success > 0 {
+					values[idx] = strconv.FormatInt(perf.Success, 10)
 				}
-				if fail > 0 {
-					values[idx+1] = strconv.FormatInt(fail, 10)
+				if perf.Fail > 0 {
+					values[idx+1] = strconv.FormatInt(perf.Fail, 10)
 				}
-				idx += 2
+				if perf.TTFTSum > 0 {
+					values[idx+2] = strconv.FormatInt(perf.TTFTSum, 10)
+				}
+				if perf.TTFTCount > 0 {
+					values[idx+3] = strconv.FormatInt(perf.TTFTCount, 10)
+				}
+				if perf.Output > 0 {
+					values[idx+4] = strconv.FormatInt(perf.Output, 10)
+				}
+				if perf.DurationMs > 0 {
+					values[idx+5] = strconv.FormatInt(perf.DurationMs, 10)
+				}
+				idx += keysPerMinute
 			}
 		}
 	}
 
 	idx = 0
 	for _, model := range models {
-		minSuccess := make([]int64, numMinutes)
-		minFail := make([]int64, numMinutes)
+		perMinute := make([]schema.EndpointMinutePerf, numMinutes)
 
 		if err == nil && len(values) == numKeys {
 			for i := 0; i < numMinutes; i++ {
-				sVal := values[idx]
-				fVal := values[idx+1]
-				idx += 2
-
-				if sVal != nil {
-					if sStr, ok := sVal.(string); ok {
-						if val, parseErr := strconv.ParseInt(sStr, 10, 64); parseErr == nil {
-							minSuccess[i] = val
-						}
-					}
+				perMinute[i] = schema.EndpointMinutePerf{
+					Success:    parseRedisInt(values[idx]),
+					Fail:       parseRedisInt(values[idx+1]),
+					TTFTSum:    parseRedisInt(values[idx+2]),
+					TTFTCount:  parseRedisInt(values[idx+3]),
+					Output:     parseRedisInt(values[idx+4]),
+					DurationMs: parseRedisInt(values[idx+5]),
 				}
-				if fVal != nil {
-					if fStr, ok := fVal.(string); ok {
-						if val, parseErr := strconv.ParseInt(fStr, 10, 64); parseErr == nil {
-							minFail[i] = val
-						}
-					}
-				}
+				idx += keysPerMinute
 			}
 		}
 
 		points := make([]schema.StatusPoint, 10)
 		for pIdx := 0; pIdx < 10; pIdx++ {
-			var successSum int64
-			var failSum int64
-			for mOffset := 0; mOffset < 10; mOffset++ {
-				mIdx := pIdx*10 + mOffset
-				successSum += minSuccess[mIdx]
-				failSum += minFail[mIdx]
+			start := pIdx * 10
+			end := start + 10
+			if end > len(perMinute) {
+				end = len(perMinute)
 			}
 			startSec := (currentMin - int64(numMinutes-1-pIdx*10)) * 60
 			endSec := (currentMin - int64(numMinutes-1-(pIdx*10+9)) + 1) * 60
-			startTimeStr := time.Unix(startSec, 0).Format("15:04")
-			endTimeStr := time.Unix(endSec, 0).Format("15:04")
-
-			points[pIdx] = schema.StatusPoint{
-				SuccessCount: successSum,
-				FailCount:    failSum,
-				StartTime:    startTimeStr,
-				EndTime:      endTimeStr,
-			}
+			points[pIdx] = schema.AggregateEndpointStatusPoint(
+				perMinute[start:end],
+				time.Unix(startSec, 0).Format("15:04"),
+				time.Unix(endSec, 0).Format("15:04"),
+			)
 		}
 		model.StatusPoints = points
 	}

@@ -92,21 +92,7 @@
                         </a-tag>
                     </template>
                     <template v-if="'recent_status' === column.key">
-                        <div style="display: flex; gap: 2px; align-items: center">
-                            <a-tooltip
-                                v-for="(point, index) in record.status_points || []"
-                                :key="index">
-                                <template #title>
-                                    <div style="font-size: 12px; margin-bottom: 2px">
-                                        时间: {{ point.start_time }} ~ {{ point.end_time }}
-                                    </div>
-                                    <div style="font-size: 12px">
-                                        成功: {{ point.success_count }} | 失败: {{ point.fail_count }}
-                                    </div>
-                                </template>
-                                <div :style="getPointStyle(point)"></div>
-                            </a-tooltip>
-                        </div>
+                        <EndpointStatusStrip :points="record.status_points || []" />
                     </template>
                     <template v-if="'created_at' === column.key">
                         {{ formatUtcDateTime(record.created_at) }}
@@ -159,6 +145,7 @@ import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
 import { usePagination } from '@/hooks'
 import EditDialog from './ModelEditDialog.vue'
+import EndpointStatusStrip from '@/components/EndpointStatusStrip.vue'
 import {
     PlusOutlined,
     EditOutlined,
@@ -423,34 +410,6 @@ function handleCopy(text) {
         document.execCommand('copy')
         document.body.removeChild(input)
         message.success(t('component.message.success.copy'))
-    }
-}
-
-function getPointStyle(point) {
-    let color = '#f5f5f5'
-    let border = '1px solid #d9d9d9'
-    if (point.success_count > 0 && point.fail_count === 0) {
-        color = '#52c41a'
-        border = '1px solid #52c41a'
-    } else if (point.success_count === 0 && point.fail_count > 0) {
-        color = '#f5222d'
-        border = '1px solid #f5222d'
-    } else if (point.success_count > 0 && point.fail_count > 0) {
-        if (point.success_count > point.fail_count) {
-            color = '#fadb14'
-            border = '1px solid #fadb14'
-        } else {
-            color = '#fa8c16'
-            border = '1px solid #fa8c16'
-        }
-    }
-    return {
-        width: '12px',
-        height: '12px',
-        backgroundColor: color,
-        border: border,
-        borderRadius: '2px',
-        cursor: 'pointer',
     }
 }
 

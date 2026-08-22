@@ -111,3 +111,50 @@ func TestBuildModelTokensQueryCountsInputAndOutputOnly(t *testing.T) {
 	expected := `sum by (model) (increase(` + mTokensTotal + `{type=~"input|output"}[24h]))`
 	assert.Equal(t, expected, query)
 }
+
+func TestBuildModelOtpsQueryUsesOutputOverRequestDuration(t *testing.T) {
+	query := buildModelOtpsQuery("24h")
+
+	expected := `sum by (model) (increase(` + mTokensTotal + `{type="output"}[24h])) / sum by (model) (increase(` + mRequestDurationSum + `[24h]))`
+	assert.Equal(t, expected, query)
+}
+
+func TestModelRankingItemJSONIncludesOtpsWithoutDroppingExistingFields(t *testing.T) {
+	raw, err := json.Marshal(ModelRankingItem{
+		ModelID:      "m1",
+		ModelCode:    "gpt-test",
+		ModelName:    "GPT Test",
+		RequestCount: 10,
+		SuccessCount: 9,
+		FailCount:    1,
+		SuccessRate:  90,
+		AvgLatencyMs: 120,
+		TotalTokens:  4000,
+		TotalCost:    1.25,
+		Otps:         32.5,
+	})
+	assert.NoError(t, err)
+
+	var payload map[string]interface{}
+	assert.NoError(t, json.Unmarshal(raw, &payload))
+	assert.Equal(t, "m1", payload["model_id"])
+	assert.Equal(t, "gpt-test", payload["model_code"])
+	assert.Equal(t, float64(10), payload["request_count"])
+	assert.Equal(t, float64(4000), payload["total_tokens"])
+	assert.Equal(t, 1.25, payload["total_cost"])
+	assert.Equal(t, 32.5, payload["otps"])
+}
+
+func TestSortModelRankingItemsByOtpsDescendingLeavesRequestCountDefault(t *testing.T) {
+	items := []ModelRankingItem{
+		{ModelCode: "slow", RequestCount: 100, Otps: 5},
+		{ModelCode: "fast", RequestCount: 10, Otps: 40},
+		{ModelCode: "mid", RequestCount: 50, Otps: 20},
+	}
+
+	sortModelRankingItems(items, "otps")
+	assert.Equal(t, []string{"fast", "mid", "slow"}, []string{items[0].ModelCode, items[1].ModelCode, items[2].ModelCode})
+
+	sortModelRankingItems(items, "request_count")
+	assert.Equal(t, []string{"slow", "mid", "fast"}, []string{items[0].ModelCode, items[1].ModelCode, items[2].ModelCode})
+}

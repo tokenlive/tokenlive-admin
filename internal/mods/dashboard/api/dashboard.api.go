@@ -956,6 +956,7 @@ type ModelRankingItem struct {
 	P99TTFTMs    float64 `json:"p99_ttft_ms"`
 	TotalTokens  int64   `json:"total_tokens"`
 	TotalCost    float64 `json:"total_cost"`
+	Otps         float64 `json:"otps"`
 }
 
 func buildModelTokensQuery(promRange string) string {
@@ -966,10 +967,20 @@ func buildModelTokensQuery(promRange string) string {
 	)
 }
 
+func buildModelOtpsQuery(promRange string) string {
+	return fmt.Sprintf(
+		`sum by (model) (increase(%s{type="output"}[%s])) / sum by (model) (increase(%s[%s]))`,
+		mTokensTotal,
+		promRange,
+		mRequestDurationSum,
+		promRange,
+	)
+}
+
 // @Tags DashboardAPI
 // @Security ApiKeyAuth
 // @Summary Query model usage ranking with detailed metrics
-// @Param sort_by query string false "Sort by: request_count, avg_latency, avg_ttft, tokens, cost, success_rate (default: request_count)"
+// @Param sort_by query string false "Sort by: request_count, avg_latency, avg_ttft, tokens, cost, success_rate, otps (default: request_count)"
 // @Param limit query int false "Limit results (default: 10)"
 // @Success 200 {object} util.ResponseResult{data=[]ModelRankingItem}
 // @Router /api/v1/dashboard/model-ranking [get]
@@ -1024,8 +1035,9 @@ func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange strin
 		p95TTFTMap := a.queryPrometheusMultiValues(fmt.Sprintf(`histogram_quantile(0.95, sum by (model, le) (rate(%s[%s])))`, mTtftBucket, promRange), "model")
 		p99TTFTMap := a.queryPrometheusMultiValues(fmt.Sprintf(`histogram_quantile(0.99, sum by (model, le) (rate(%s[%s])))`, mTtftBucket, promRange), "model")
 
-		// 查询 Token 和费用
+		// 查询 Token、OTPS 和费用
 		tokensMap := a.queryPrometheusMultiValues(buildModelTokensQuery(promRange), "model")
+		otpsMap := a.queryPrometheusMultiValues(buildModelOtpsQuery(promRange), "model")
 		costMap := a.queryPrometheusMultiValues(fmt.Sprintf(`sum by (model) (increase(%s[%s]))`, mCostTotal, promRange), "model")
 
 		// 填充数据
@@ -1052,6 +1064,7 @@ func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange strin
 			items[i].P99TTFTMs = p99TTFTMap[code] * 1000
 
 			items[i].TotalTokens = int64(tokensMap[code])
+			items[i].Otps = otpsMap[code]
 			items[i].TotalCost = costMap[code]
 		}
 	} else if redisMinutes > 0 {
@@ -1128,32 +1141,7 @@ func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange strin
 	}
 
 	// 5. 排序
-	switch sortBy {
-	case "avg_latency":
-		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].AvgLatencyMs < filtered[j].AvgLatencyMs
-		})
-	case "avg_ttft":
-		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].AvgTTFTMs < filtered[j].AvgTTFTMs
-		})
-	case "tokens":
-		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].TotalTokens > filtered[j].TotalTokens
-		})
-	case "cost":
-		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].TotalCost > filtered[j].TotalCost
-		})
-	case "success_rate":
-		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].SuccessRate > filtered[j].SuccessRate
-		})
-	default: // request_count
-		sort.Slice(filtered, func(i, j int) bool {
-			return filtered[i].RequestCount > filtered[j].RequestCount
-		})
-	}
+	sortModelRankingItems(filtered, sortBy)
 
 	// 6. 限制结果数量
 	if len(filtered) > limit {
@@ -1164,10 +1152,43 @@ func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange strin
 	return filtered, nil
 }
 
+func sortModelRankingItems(items []ModelRankingItem, sortBy string) {
+	switch sortBy {
+	case "avg_latency":
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].AvgLatencyMs < items[j].AvgLatencyMs
+		})
+	case "avg_ttft":
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].AvgTTFTMs < items[j].AvgTTFTMs
+		})
+	case "tokens":
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].TotalTokens > items[j].TotalTokens
+		})
+	case "cost":
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].TotalCost > items[j].TotalCost
+		})
+	case "success_rate":
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].SuccessRate > items[j].SuccessRate
+		})
+	case "otps":
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].Otps > items[j].Otps
+		})
+	default: // request_count
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].RequestCount > items[j].RequestCount
+		})
+	}
+}
+
 // @Tags DashboardAPI
 // @Security ApiKeyAuth
 // @Summary Query model usage ranking with detailed metrics
-// @Param sort_by query string false "Sort by: request_count, avg_latency, avg_ttft, tokens, cost, success_rate (default: request_count)"
+// @Param sort_by query string false "Sort by: request_count, avg_latency, avg_ttft, tokens, cost, success_rate, otps (default: request_count)"
 // @Param limit query int false "Limit results (default: 10)"
 // @Success 200 {object} util.ResponseResult{data=[]ModelRankingItem}
 // @Router /api/v1/dashboard/model-ranking [get]
