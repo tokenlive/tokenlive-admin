@@ -24,7 +24,12 @@
             <a-card-grid style="width: 25%; text-align: center">
                 <div class="info-item">
                     <span class="info-label">{{ $t('pages.model.form.model_code') }}</span>
-                    <span class="info-value">{{ modelData.model_code || '--' }}</span>
+                    <span
+                        class="info-value info-value-code"
+                        :class="{ 'is-copyable': !!modelData.model_code }"
+                        @click="handleCopyModelCode">
+                        {{ modelData.model_code || '--' }}
+                    </span>
                 </div>
             </a-card-grid>
             <a-card-grid style="width: 25%; text-align: center">
@@ -62,7 +67,16 @@
             <a-card-grid style="width: 25%; text-align: center">
                 <div class="info-item">
                     <span class="info-label">{{ $t('pages.model.form.description') }}</span>
-                    <span class="info-value">{{ modelData.description || '--' }}</span>
+                    <a-tooltip
+                        v-if="modelData.description"
+                        :title="modelData.description">
+                        <span class="info-value info-value-ellipsis">{{ modelData.description }}</span>
+                    </a-tooltip>
+                    <span
+                        v-else
+                        class="info-value"
+                        >--</span
+                    >
                 </div>
             </a-card-grid>
             <a-card-grid style="width: 25%; text-align: center">
@@ -74,33 +88,45 @@
             <a-card-grid style="width: 25%; text-align: center">
                 <div class="info-item">
                     <span class="info-label">{{ $t('pages.model.form.input_price') }}</span>
-                    <span class="info-value">{{
-                        modelData.input_price !== undefined ? modelData.input_price + ' 元/M' : '--'
-                    }}</span>
+                    <span class="info-value info-value-price">
+                        <template v-if="modelData.input_price !== undefined">
+                            {{ modelData.input_price }}<span class="info-unit">元/M</span>
+                        </template>
+                        <template v-else>--</template>
+                    </span>
                 </div>
             </a-card-grid>
             <a-card-grid style="width: 25%; text-align: center">
                 <div class="info-item">
                     <span class="info-label">{{ $t('pages.model.form.output_price') }}</span>
-                    <span class="info-value">{{
-                        modelData.output_price !== undefined ? modelData.output_price + ' 元/M' : '--'
-                    }}</span>
+                    <span class="info-value info-value-price">
+                        <template v-if="modelData.output_price !== undefined">
+                            {{ modelData.output_price }}<span class="info-unit">元/M</span>
+                        </template>
+                        <template v-else>--</template>
+                    </span>
                 </div>
             </a-card-grid>
             <a-card-grid style="width: 25%; text-align: center">
                 <div class="info-item">
                     <span class="info-label">{{ $t('pages.model.form.cached_price') }}</span>
-                    <span class="info-value">{{
-                        modelData.cached_price !== undefined ? modelData.cached_price + ' 元/M' : '--'
-                    }}</span>
+                    <span class="info-value info-value-price">
+                        <template v-if="modelData.cached_price !== undefined">
+                            {{ modelData.cached_price }}<span class="info-unit">元/M</span>
+                        </template>
+                        <template v-else>--</template>
+                    </span>
                 </div>
             </a-card-grid>
             <a-card-grid style="width: 25%; text-align: center">
                 <div class="info-item">
                     <span class="info-label">{{ $t('pages.model.form.cache_creation_price') }}</span>
-                    <span class="info-value">{{
-                        modelData.cache_creation_price !== undefined ? modelData.cache_creation_price + ' 元/M' : '--'
-                    }}</span>
+                    <span class="info-value info-value-price">
+                        <template v-if="modelData.cache_creation_price !== undefined">
+                            {{ modelData.cache_creation_price }}<span class="info-unit">元/M</span>
+                        </template>
+                        <template v-else>--</template>
+                    </span>
                 </div>
             </a-card-grid>
         </a-card>
@@ -661,6 +687,17 @@ const hasPermission = (permission, bit) => {
 // 模型编辑
 function handleEditModel() {
     modelEditRef.value.handleEdit(modelData.value)
+}
+
+async function handleCopyModelCode() {
+    const code = modelData.value.model_code
+    if (!code) return
+    try {
+        await navigator.clipboard.writeText(code)
+        message.success(t('component.message.success.copy'))
+    } catch (error) {
+        // ignore
+    }
 }
 
 // 加载空间选项
@@ -1507,23 +1544,81 @@ function handleRemoveMember({ id }) {
     }
 
     :deep(.ant-card-grid) {
-        padding: 8px 16px;
+        padding: 12px 16px;
+        box-shadow:
+            1px 0 0 0 rgba(0, 0, 0, 0.06),
+            0 1px 0 0 rgba(0, 0, 0, 0.06);
+
+        &:hover {
+            box-shadow:
+                1px 0 0 0 rgba(0, 0, 0, 0.06),
+                0 1px 0 0 rgba(0, 0, 0, 0.06);
+        }
     }
 
     .info-item {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 2px;
+        gap: 4px;
+        min-width: 0;
+    }
 
-        .info-label {
-            opacity: 0.6;
-            font-size: 13px;
+    .info-label {
+        opacity: 0.5;
+        font-size: 12px;
+        line-height: 18px;
+    }
+
+    .info-value {
+        max-width: 100%;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 22px;
+    }
+
+    .info-value-code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+
+        &.is-copyable {
+            cursor: pointer;
+
+            &:hover {
+                color: var(--ant-color-primary, #1677ff);
+            }
         }
+    }
 
-        .info-value {
-            font-size: 14px;
-            font-weight: 500;
+    .info-value-ellipsis {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .info-value-price {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .info-unit {
+        margin-left: 4px;
+        font-size: 12px;
+        font-weight: 400;
+        opacity: 0.5;
+    }
+}
+
+[data-theme='dark'] .info-card {
+    :deep(.ant-card-grid) {
+        box-shadow:
+            1px 0 0 0 rgba(255, 255, 255, 0.08),
+            0 1px 0 0 rgba(255, 255, 255, 0.08);
+
+        &:hover {
+            box-shadow:
+                1px 0 0 0 rgba(255, 255, 255, 0.08),
+                0 1px 0 0 rgba(255, 255, 255, 0.08);
         }
     }
 }

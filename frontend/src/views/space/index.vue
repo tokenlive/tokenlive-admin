@@ -248,11 +248,4 @@ async function onOk() {
         font-weight: 600;
     }
 }
-
-// 搜索栏分隔线
-.mb-8-2 {
-    padding-bottom: 16px;
-    /* removed border-bottom for dark mode */
-    margin-bottom: 16px;
-}
 </style>

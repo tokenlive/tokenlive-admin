@@ -282,10 +282,4 @@ async function onOk() {
         font-weight: 600;
     }
 }
-
-// 头部间距
-.mb-8-2 {
-    padding-bottom: 16px;
-    margin-bottom: 16px;
-}
 </style>

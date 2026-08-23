@@ -24,7 +24,12 @@
             <a-card-grid style="width: 25%; text-align: center">
                 <div class="info-item">
                     <span class="info-label">{{ $t('pages.provider.form.code') }}</span>
-                    <span class="info-value">{{ providerData.code || '--' }}</span>
+                    <span
+                        class="info-value info-value-code"
+                        :class="{ 'is-copyable': !!providerData.code }"
+                        @click="handleCopyProviderCode">
+                        {{ providerData.code || '--' }}
+                    </span>
                 </div>
             </a-card-grid>
             <a-card-grid style="width: 25%; text-align: center">
@@ -63,13 +68,31 @@
             <a-card-grid style="width: 50%; text-align: center">
                 <div class="info-item">
                     <span class="info-label">{{ $t('pages.provider.form.url') }}</span>
-                    <span class="info-value">{{ providerData.url || '--' }}</span>
+                    <a-tooltip
+                        v-if="providerData.url"
+                        :title="providerData.url">
+                        <span class="info-value info-value-ellipsis">{{ providerData.url }}</span>
+                    </a-tooltip>
+                    <span
+                        v-else
+                        class="info-value"
+                        >--</span
+                    >
                 </div>
             </a-card-grid>
             <a-card-grid style="width: 25%; text-align: center">
                 <div class="info-item">
                     <span class="info-label">{{ $t('pages.provider.form.description') }}</span>
-                    <span class="info-value">{{ providerData.description || '--' }}</span>
+                    <a-tooltip
+                        v-if="providerData.description"
+                        :title="providerData.description">
+                        <span class="info-value info-value-ellipsis">{{ providerData.description }}</span>
+                    </a-tooltip>
+                    <span
+                        v-else
+                        class="info-value"
+                        >--</span
+                    >
                 </div>
             </a-card-grid>
         </a-card>
@@ -607,6 +630,17 @@ function handleEditProvider() {
     providerEditRef.value.handleEdit(providerData.value)
 }
 
+async function handleCopyProviderCode() {
+    const code = providerData.value.code
+    if (!code) return
+    try {
+        await navigator.clipboard.writeText(code)
+        message.success(t('component.message.success.copy'))
+    } catch (error) {
+        // ignore
+    }
+}
+
 // 导入端点（获取上游模型列表）
 function handleFetchModels() {
     fetchModelsDrawerRef.value.handleOpen(providerData.value)
@@ -1030,23 +1064,70 @@ function handleRemoveMember({ id }) {
     }
 
     :deep(.ant-card-grid) {
-        padding: 8px 16px;
+        padding: 12px 16px;
+        box-shadow:
+            1px 0 0 0 rgba(0, 0, 0, 0.06),
+            0 1px 0 0 rgba(0, 0, 0, 0.06);
+
+        &:hover {
+            box-shadow:
+                1px 0 0 0 rgba(0, 0, 0, 0.06),
+                0 1px 0 0 rgba(0, 0, 0, 0.06);
+        }
     }
 
     .info-item {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 2px;
+        gap: 4px;
+        min-width: 0;
+    }
 
-        .info-label {
-            opacity: 0.6;
-            font-size: 13px;
+    .info-label {
+        opacity: 0.5;
+        font-size: 12px;
+        line-height: 18px;
+    }
+
+    .info-value {
+        max-width: 100%;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 22px;
+    }
+
+    .info-value-code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+
+        &.is-copyable {
+            cursor: pointer;
+
+            &:hover {
+                color: var(--ant-color-primary, #1677ff);
+            }
         }
+    }
 
-        .info-value {
-            font-size: 14px;
-            font-weight: 500;
+    .info-value-ellipsis {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+[data-theme='dark'] .info-card {
+    :deep(.ant-card-grid) {
+        box-shadow:
+            1px 0 0 0 rgba(255, 255, 255, 0.08),
+            0 1px 0 0 rgba(255, 255, 255, 0.08);
+
+        &:hover {
+            box-shadow:
+                1px 0 0 0 rgba(255, 255, 255, 0.08),
+                0 1px 0 0 rgba(255, 255, 255, 0.08);
         }
     }
 }
