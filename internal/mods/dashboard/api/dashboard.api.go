@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -581,12 +582,19 @@ func (a *Dashboard) queryPrometheusSingleValue(query string) float64 {
 }
 
 func (a *Dashboard) queryPrometheusMultiValues(query string, labelKey string) map[string]float64 {
+	return a.queryPrometheusMultiValuesAt(query, labelKey, time.Time{})
+}
+
+func (a *Dashboard) queryPrometheusMultiValuesAt(query string, labelKey string, end time.Time) map[string]float64 {
 	resMap := make(map[string]float64)
 	promAddr := config.C.Util.PrometheusServer.Address
 	if promAddr == "" {
 		return resMap
 	}
 	apiURL := promAddr + "/api/v1/query?query=" + url.QueryEscape(query)
+	if !end.IsZero() {
+		apiURL += "&time=" + strconv.FormatInt(end.Unix(), 10)
+	}
 
 	body, err := a.queryPrometheus(apiURL, 3*time.Second)
 	if err != nil {
@@ -653,13 +661,77 @@ type trendRangeConfig struct {
 // @Param time_range query string false "Time range: 1h, 6h, 24h, 7d, today (default: 1h)"
 // @Success 200 {object} util.ResponseResult{data=TrendsResponse}
 // @Router /api/v1/dashboard/trends [get]
-func (a *Dashboard) getTrends(ctx context.Context, groupBy, timeRange string) (*TrendsResponse, error) {
-	cacheKey := fmt.Sprintf("trends:%s:%s", groupBy, timeRange)
+func escapePromLabelValue(value string) string {
+	value = strings.ReplaceAll(value, `\`, `\\`)
+	value = strings.ReplaceAll(value, `"`, `\"`)
+	value = strings.ReplaceAll(value, "\n", `\n`)
+	return value
+}
+
+func promLabelMatcher(extra ...string) string {
+	parts := make([]string, 0, len(extra))
+	for _, part := range extra {
+		if strings.TrimSpace(part) != "" {
+			parts = append(parts, part)
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, ",")
+}
+
+func buildTrendQueries(groupBy, promRange, modelCode string) (successQuery, errorQuery string) {
+	matchers := []string{}
+	if modelCode != "" {
+		matchers = append(matchers, fmt.Sprintf(`model="%s"`, escapePromLabelValue(modelCode)))
+	}
+
+	successMatchers := append([]string{`status="success"`}, matchers...)
+	errorMatchers := append([]string{`status="error"`}, matchers...)
+	successSelector := promLabelMatcher(successMatchers...)
+	errorSelector := promLabelMatcher(errorMatchers...)
+
+	switch groupBy {
+	case "model":
+		successQuery = fmt.Sprintf(`sum by (model) (increase(%s{%s}[%s]))`, mRequestTotal, successSelector, promRange)
+		errorQuery = fmt.Sprintf(`sum by (model) (increase(%s{%s}[%s]))`, mRequestTotal, errorSelector, promRange)
+	case "provider":
+		successQuery = fmt.Sprintf(`sum by (provider) (increase(%s{%s}[%s]))`, mRequestTotal, successSelector, promRange)
+		errorQuery = fmt.Sprintf(`sum by (provider) (increase(%s{%s}[%s]))`, mRequestTotal, errorSelector, promRange)
+	case "tenant":
+		successQuery = fmt.Sprintf(`sum by (tenant) (increase(%s{%s}[%s]))`, mRequestTotal, successSelector, promRange)
+		errorQuery = fmt.Sprintf(`sum by (tenant) (increase(%s{%s}[%s]))`, mRequestTotal, errorSelector, promRange)
+	case "endpoint":
+		successQuery = fmt.Sprintf(`sum by (endpoint) (increase(%s{%s}[%s]))`, mRequestTotal, successSelector, promRange)
+		errorQuery = fmt.Sprintf(`sum by (endpoint) (increase(%s{%s}[%s]))`, mRequestTotal, errorSelector, promRange)
+	default:
+		successQuery = fmt.Sprintf(`sum(increase(%s{%s}[%s]))`, mRequestTotal, successSelector, promRange)
+		errorQuery = fmt.Sprintf(`sum(increase(%s{%s}[%s]))`, mRequestTotal, errorSelector, promRange)
+	}
+	return successQuery, errorQuery
+}
+
+func emptyTrendSeries(numPoints int, label string) TrendsSeries {
+	return TrendsSeries{
+		Label:   label,
+		Success: make([]int64, numPoints),
+		Failure: make([]int64, numPoints),
+		Total:   make([]int64, numPoints),
+	}
+}
+
+func (a *Dashboard) getTrends(ctx context.Context, groupBy, timeRange, modelCode string) (*TrendsResponse, error) {
+	return a.getTrendsAt(ctx, groupBy, timeRange, modelCode, time.Now().Truncate(time.Minute))
+}
+
+func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode string, end time.Time) (*TrendsResponse, error) {
+	end = end.Truncate(time.Minute)
+	cacheKey := fmt.Sprintf("trends:%s:%s:%s:%d", groupBy, timeRange, modelCode, end.Unix())
 	if cached, ok := a.getCache(cacheKey); ok {
 		return cached.(*TrendsResponse), nil
 	}
 
-	end := time.Now().Truncate(time.Minute)
 	rangeConfig := resolveTrendRange(timeRange, end)
 	end = rangeConfig.end
 	start := end.Add(-time.Duration(rangeConfig.numPoints-1) * time.Duration(rangeConfig.stepSeconds) * time.Second)
@@ -677,25 +749,7 @@ func (a *Dashboard) getTrends(ctx context.Context, groupBy, timeRange string) (*
 
 	// 尝试从 Prometheus 获取数据
 	if a.isPrometheusAvailable() {
-		var successQuery, errorQuery string
-
-		switch groupBy {
-		case "model":
-			successQuery = fmt.Sprintf(`sum by (model) (increase(%s{status="success"}[%s]))`, mRequestTotal, promRange)
-			errorQuery = fmt.Sprintf(`sum by (model) (increase(%s{status="error"}[%s]))`, mRequestTotal, promRange)
-		case "provider":
-			successQuery = fmt.Sprintf(`sum by (provider) (increase(%s{status="success"}[%s]))`, mRequestTotal, promRange)
-			errorQuery = fmt.Sprintf(`sum by (provider) (increase(%s{status="error"}[%s]))`, mRequestTotal, promRange)
-		case "tenant":
-			successQuery = fmt.Sprintf(`sum by (tenant) (increase(%s{status="success"}[%s]))`, mRequestTotal, promRange)
-			errorQuery = fmt.Sprintf(`sum by (tenant) (increase(%s{status="error"}[%s]))`, mRequestTotal, promRange)
-		case "endpoint":
-			successQuery = fmt.Sprintf(`sum by (endpoint) (increase(%s{status="success"}[%s]))`, mRequestTotal, promRange)
-			errorQuery = fmt.Sprintf(`sum by (endpoint) (increase(%s{status="error"}[%s]))`, mRequestTotal, promRange)
-		default: // global
-			successQuery = fmt.Sprintf(`sum(increase(%s{status="success"}[%s]))`, mRequestTotal, promRange)
-			errorQuery = fmt.Sprintf(`sum(increase(%s{status="error"}[%s]))`, mRequestTotal, promRange)
-		}
+		successQuery, errorQuery := buildTrendQueries(groupBy, promRange, modelCode)
 
 		if groupBy == "" {
 			// 全局汇总
@@ -768,6 +822,17 @@ func (a *Dashboard) getTrends(ctx context.Context, groupBy, timeRange string) (*
 		}
 	}
 
+	// 按模型过滤时 Redis 只有全局分钟计数，不能冒充该模型的序列。
+	if modelCode != "" {
+		if groupBy == "" {
+			res.Series = []TrendsSeries{emptyTrendSeries(rangeConfig.numPoints, modelCode)}
+		} else {
+			res.Series = []TrendsSeries{}
+		}
+		a.setCache(cacheKey, &res, 5*time.Second)
+		return &res, nil
+	}
+
 	// Redis 或 内存 降级路径：只返回全局汇总
 	if rangeConfig.redisMinutes > 0 {
 		var vals []interface{}
@@ -837,17 +902,29 @@ func (a *Dashboard) getTrends(ctx context.Context, groupBy, timeRange string) (*
 // @Summary Query bucketed gateway traffic success/failure trends
 // @Param group_by query string false "Group by: model, provider, tenant, endpoint (default: global)"
 // @Param time_range query string false "Time range: 1h, 6h, 24h, 7d, today (default: 1h)"
+// @Param model query string false "Filter by model code"
 // @Success 200 {object} util.ResponseResult{data=TrendsResponse}
 // @Router /api/v1/dashboard/trends [get]
 func (a *Dashboard) QueryTrends(c *gin.Context) {
 	groupBy := c.Query("group_by")
 	timeRange := c.DefaultQuery("time_range", "1h")
-	res, err := a.getTrends(c.Request.Context(), groupBy, timeRange)
+	modelCode := strings.TrimSpace(c.Query("model"))
+	res, err := a.getTrendsAt(c.Request.Context(), groupBy, timeRange, modelCode, dashboardQueryEnd(c))
 	if err != nil {
 		util.ResError(c, err)
 		return
 	}
 	util.ResSuccess(c, res)
+}
+
+func dashboardQueryEnd(c *gin.Context) time.Time {
+	value := strings.TrimSpace(c.Query("end_time"))
+	if value != "" {
+		if parsed, err := time.Parse(time.RFC3339, value); err == nil {
+			return parsed
+		}
+	}
+	return time.Now()
 }
 
 func resolveTrendRange(timeRange string, now time.Time) trendRangeConfig {
@@ -884,7 +961,29 @@ func resolveTrendRange(timeRange string, now time.Time) trendRangeConfig {
 			end:          midnight.Add(time.Duration(numPoints*stepMinutes) * time.Minute),
 		}
 	default:
-		return trendRangeConfig{numPoints: 60, stepSeconds: 60, redisMinutes: 60, end: now}
+		duration, err := time.ParseDuration(timeRange)
+		if err != nil || duration < time.Minute || duration > 7*24*time.Hour {
+			return trendRangeConfig{numPoints: 60, stepSeconds: 60, redisMinutes: 60, end: now}
+		}
+
+		minutes := int(math.Ceil(duration.Minutes()))
+		stepMinutes := 1
+		for _, candidate := range []int{1, 5, 10, 15, 30, 60, 120} {
+			stepMinutes = candidate
+			if (minutes+candidate-1)/candidate <= 120 {
+				break
+			}
+		}
+		redisMinutes := 0
+		if minutes <= 120 {
+			redisMinutes = minutes
+		}
+		return trendRangeConfig{
+			numPoints:    (minutes + stepMinutes - 1) / stepMinutes,
+			stepSeconds:  int64(stepMinutes * 60),
+			redisMinutes: redisMinutes,
+			end:          now,
+		}
 	}
 }
 
@@ -984,8 +1083,13 @@ func buildModelOtpsQuery(promRange string) string {
 // @Param limit query int false "Limit results (default: 10)"
 // @Success 200 {object} util.ResponseResult{data=[]ModelRankingItem}
 // @Router /api/v1/dashboard/model-ranking [get]
-func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange string, limit int) ([]ModelRankingItem, error) {
-	cacheKey := fmt.Sprintf("ranking:%s:%s:%d", sortBy, timeRange, limit)
+func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange string, limit int, modelFilter string) ([]ModelRankingItem, error) {
+	return a.getModelRankingAt(ctx, sortBy, timeRange, limit, modelFilter, time.Now())
+}
+
+func (a *Dashboard) getModelRankingAt(ctx context.Context, sortBy, timeRange string, limit int, modelFilter string, end time.Time) ([]ModelRankingItem, error) {
+	end = end.Truncate(time.Minute)
+	cacheKey := fmt.Sprintf("ranking:%s:%s:%d:%s:%d", sortBy, timeRange, limit, modelFilter, end.Unix())
 	if cached, ok := a.getCache(cacheKey); ok {
 		return cached.([]ModelRankingItem), nil
 	}
@@ -993,9 +1097,13 @@ func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange strin
 	// 根据 time_range 计算 PromQL 范围和 Redis 窗口
 	promRange, redisMinutes := resolveTimeRange(timeRange)
 
-	// 1. 从数据库查询所有启用的模型
+	// 1. 从数据库查询启用的模型；指定 model 时只取这一行
 	var models []rschema.Model
-	if err := a.DB.WithContext(ctx).Where("enabled = ?", 1).Find(&models).Error; err != nil {
+	query := a.DB.WithContext(ctx).Where("enabled = ?", 1)
+	if modelFilter != "" {
+		query = query.Where("id = ? OR model_code = ?", modelFilter, modelFilter)
+	}
+	if err := query.Find(&models).Error; err != nil {
 		return nil, err
 	}
 
@@ -1016,29 +1124,32 @@ func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange strin
 
 	// 3. 尝试从 Prometheus 获取数据
 	if a.isPrometheusAvailable() {
+		queryValues := func(query, label string) map[string]float64 {
+			return a.queryPrometheusMultiValuesAt(query, label, end)
+		}
 		// 查询请求计数
 		successQuery := fmt.Sprintf(`sum by (model) (increase(%s{status="success"}[%s]))`, mRequestTotal, promRange)
 		errorQuery := fmt.Sprintf(`sum by (model) (increase(%s{status="error"}[%s]))`, mRequestTotal, promRange)
 
-		successMap := a.queryPrometheusMultiValues(successQuery, "model")
-		errorMap := a.queryPrometheusMultiValues(errorQuery, "model")
+		successMap := queryValues(successQuery, "model")
+		errorMap := queryValues(errorQuery, "model")
 
 		// 查询延迟指标
-		avgLatencyMap := a.queryPrometheusMultiValues(fmt.Sprintf(`sum by (model) (rate(%s[%s])) / sum by (model) (rate(%s[%s]))`, mRequestDurationSum, promRange, mRequestDurationCount, promRange), "model")
-		p50LatencyMap := a.queryPrometheusMultiValues(fmt.Sprintf(`histogram_quantile(0.50, sum by (model, le) (rate(%s[%s])))`, mRequestDurationBucket, promRange), "model")
-		p95LatencyMap := a.queryPrometheusMultiValues(fmt.Sprintf(`histogram_quantile(0.95, sum by (model, le) (rate(%s[%s])))`, mRequestDurationBucket, promRange), "model")
-		p99LatencyMap := a.queryPrometheusMultiValues(fmt.Sprintf(`histogram_quantile(0.99, sum by (model, le) (rate(%s[%s])))`, mRequestDurationBucket, promRange), "model")
+		avgLatencyMap := queryValues(fmt.Sprintf(`sum by (model) (rate(%s[%s])) / sum by (model) (rate(%s[%s]))`, mRequestDurationSum, promRange, mRequestDurationCount, promRange), "model")
+		p50LatencyMap := queryValues(fmt.Sprintf(`histogram_quantile(0.50, sum by (model, le) (rate(%s[%s])))`, mRequestDurationBucket, promRange), "model")
+		p95LatencyMap := queryValues(fmt.Sprintf(`histogram_quantile(0.95, sum by (model, le) (rate(%s[%s])))`, mRequestDurationBucket, promRange), "model")
+		p99LatencyMap := queryValues(fmt.Sprintf(`histogram_quantile(0.99, sum by (model, le) (rate(%s[%s])))`, mRequestDurationBucket, promRange), "model")
 
 		// 查询 TTFT 指标
-		avgTTFTMap := a.queryPrometheusMultiValues(fmt.Sprintf(`sum by (model) (rate(%s[%s])) / sum by (model) (rate(%s[%s]))`, mTtftSum, promRange, mTtftCount, promRange), "model")
-		p50TTFTMap := a.queryPrometheusMultiValues(fmt.Sprintf(`histogram_quantile(0.50, sum by (model, le) (rate(%s[%s])))`, mTtftBucket, promRange), "model")
-		p95TTFTMap := a.queryPrometheusMultiValues(fmt.Sprintf(`histogram_quantile(0.95, sum by (model, le) (rate(%s[%s])))`, mTtftBucket, promRange), "model")
-		p99TTFTMap := a.queryPrometheusMultiValues(fmt.Sprintf(`histogram_quantile(0.99, sum by (model, le) (rate(%s[%s])))`, mTtftBucket, promRange), "model")
+		avgTTFTMap := queryValues(fmt.Sprintf(`sum by (model) (rate(%s[%s])) / sum by (model) (rate(%s[%s]))`, mTtftSum, promRange, mTtftCount, promRange), "model")
+		p50TTFTMap := queryValues(fmt.Sprintf(`histogram_quantile(0.50, sum by (model, le) (rate(%s[%s])))`, mTtftBucket, promRange), "model")
+		p95TTFTMap := queryValues(fmt.Sprintf(`histogram_quantile(0.95, sum by (model, le) (rate(%s[%s])))`, mTtftBucket, promRange), "model")
+		p99TTFTMap := queryValues(fmt.Sprintf(`histogram_quantile(0.99, sum by (model, le) (rate(%s[%s])))`, mTtftBucket, promRange), "model")
 
 		// 查询 Token、OTPS 和费用
-		tokensMap := a.queryPrometheusMultiValues(buildModelTokensQuery(promRange), "model")
-		otpsMap := a.queryPrometheusMultiValues(buildModelOtpsQuery(promRange), "model")
-		costMap := a.queryPrometheusMultiValues(fmt.Sprintf(`sum by (model) (increase(%s[%s]))`, mCostTotal, promRange), "model")
+		tokensMap := queryValues(buildModelTokensQuery(promRange), "model")
+		otpsMap := queryValues(buildModelOtpsQuery(promRange), "model")
+		costMap := queryValues(fmt.Sprintf(`sum by (model) (increase(%s[%s]))`, mCostTotal, promRange), "model")
 
 		// 填充数据
 		for i, m := range models {
@@ -1070,7 +1181,7 @@ func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange strin
 	} else if redisMinutes > 0 {
 		var values []interface{}
 		var err error
-		currentMin := time.Now().Unix() / 60
+		currentMin := end.Unix() / 60
 		numMinutes := redisMinutes
 
 		if a.RedisClient != nil {
@@ -1143,8 +1254,8 @@ func (a *Dashboard) getModelRanking(ctx context.Context, sortBy, timeRange strin
 	// 5. 排序
 	sortModelRankingItems(filtered, sortBy)
 
-	// 6. 限制结果数量
-	if len(filtered) > limit {
+	// 6. 限制结果数量。单模型查询需要完整这一行，不受 Top N 截断。
+	if modelFilter == "" && len(filtered) > limit {
 		filtered = filtered[:limit]
 	}
 
@@ -1190,16 +1301,18 @@ func sortModelRankingItems(items []ModelRankingItem, sortBy string) {
 // @Summary Query model usage ranking with detailed metrics
 // @Param sort_by query string false "Sort by: request_count, avg_latency, avg_ttft, tokens, cost, success_rate, otps (default: request_count)"
 // @Param limit query int false "Limit results (default: 10)"
+// @Param model query string false "Filter by model id or model code"
 // @Success 200 {object} util.ResponseResult{data=[]ModelRankingItem}
 // @Router /api/v1/dashboard/model-ranking [get]
 func (a *Dashboard) QueryModelRanking(c *gin.Context) {
 	sortBy := c.DefaultQuery("sort_by", "request_count")
 	timeRange := c.DefaultQuery("time_range", "1h")
+	modelFilter := strings.TrimSpace(c.Query("model"))
 	limit := 10
 	if l, err := strconv.Atoi(c.DefaultQuery("limit", "10")); err == nil && l > 0 {
 		limit = l
 	}
-	res, err := a.getModelRanking(c.Request.Context(), sortBy, timeRange, limit)
+	res, err := a.getModelRankingAt(c.Request.Context(), sortBy, timeRange, limit, modelFilter, dashboardQueryEnd(c))
 	if err != nil {
 		util.ResError(c, err)
 		return
@@ -1229,6 +1342,14 @@ func resolveTimeRange(timeRange string) (string, int) {
 		// PromQL 使用 "today" 时，用精确的分钟数作为范围
 		return fmt.Sprintf("%dm", minutes), minutes // Redis 也可以覆盖今日（只要不超过 2h TTL）
 	default: // "1h"
+		duration, err := time.ParseDuration(timeRange)
+		if err == nil && duration >= time.Minute && duration <= 7*24*time.Hour {
+			redisMinutes := 0
+			if duration <= 2*time.Hour {
+				redisMinutes = int(math.Ceil(duration.Minutes()))
+			}
+			return timeRange, redisMinutes
+		}
 		return "60m", 60
 	}
 }

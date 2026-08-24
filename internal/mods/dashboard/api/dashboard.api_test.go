@@ -3,17 +3,23 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
+	rschema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
+	"gorm.io/gorm"
 )
 
 type overviewRedisHook struct{}
@@ -112,6 +118,63 @@ func TestBuildModelTokensQueryCountsInputAndOutputOnly(t *testing.T) {
 	assert.Equal(t, expected, query)
 }
 
+func TestBuildTrendQueriesHomepageUnchangedWithoutModel(t *testing.T) {
+	successQuery, errorQuery := buildTrendQueries("", "60s", "")
+	assert.Equal(t, `sum(increase(`+mRequestTotal+`{status="success"}[60s]))`, successQuery)
+	assert.Equal(t, `sum(increase(`+mRequestTotal+`{status="error"}[60s]))`, errorQuery)
+
+	successQuery, errorQuery = buildTrendQueries("endpoint", "60s", "")
+	assert.Equal(t, `sum by (endpoint) (increase(`+mRequestTotal+`{status="success"}[60s]))`, successQuery)
+	assert.Equal(t, `sum by (endpoint) (increase(`+mRequestTotal+`{status="error"}[60s]))`, errorQuery)
+}
+
+func TestBuildTrendQueriesFiltersModelAndEscapesLabel(t *testing.T) {
+	successQuery, errorQuery := buildTrendQueries("", "60s", `gpt-4.1"`)
+	assert.Equal(t, `sum(increase(`+mRequestTotal+`{status="success",model="gpt-4.1\""}[60s]))`, successQuery)
+	assert.Equal(t, `sum(increase(`+mRequestTotal+`{status="error",model="gpt-4.1\""}[60s]))`, errorQuery)
+
+	successQuery, errorQuery = buildTrendQueries("endpoint", "300s", "gpt-4")
+	assert.Equal(t, `sum by (endpoint) (increase(`+mRequestTotal+`{status="success",model="gpt-4"}[300s]))`, successQuery)
+	assert.Equal(t, `sum by (endpoint) (increase(`+mRequestTotal+`{status="error",model="gpt-4"}[300s]))`, errorQuery)
+}
+
+func TestResolveTimeRangeAcceptsCustomDuration(t *testing.T) {
+	promRange, redisMinutes := resolveTimeRange("90m")
+
+	assert.Equal(t, "90m", promRange)
+	assert.Equal(t, 90, redisMinutes)
+
+	promRange, redisMinutes = resolveTimeRange("3h30m")
+	assert.Equal(t, "3h30m", promRange)
+	assert.Equal(t, 0, redisMinutes)
+}
+
+func TestResolveTrendRangeUsesCustomDurationAndSelectedEnd(t *testing.T) {
+	end := time.Date(2026, 8, 24, 12, 34, 0, 0, time.Local)
+	config := resolveTrendRange("90m", end)
+
+	assert.Equal(t, end, config.end)
+	assert.Equal(t, 90, config.numPoints)
+	assert.Equal(t, int64(60), config.stepSeconds)
+	assert.Equal(t, 90, config.redisMinutes)
+}
+
+func TestGetTrendsModelFilterSkipsRedisFallback(t *testing.T) {
+	dashboard := &Dashboard{}
+	res, err := dashboard.getTrends(context.Background(), "", "1h", "gpt-4")
+	assert.NoError(t, err)
+	assert.Len(t, res.Series, 1)
+	assert.Equal(t, "gpt-4", res.Series[0].Label)
+	assert.Equal(t, 60, len(res.Series[0].Success))
+	for _, value := range res.Series[0].Total {
+		assert.Equal(t, int64(0), value)
+	}
+
+	grouped, err := dashboard.getTrends(context.Background(), "endpoint", "1h", "gpt-4")
+	assert.NoError(t, err)
+	assert.Empty(t, grouped.Series)
+}
+
 func TestBuildModelOtpsQueryUsesOutputOverRequestDuration(t *testing.T) {
 	query := buildModelOtpsQuery("24h")
 
@@ -143,6 +206,25 @@ func TestModelRankingItemJSONIncludesOtpsWithoutDroppingExistingFields(t *testin
 	assert.Equal(t, float64(4000), payload["total_tokens"])
 	assert.Equal(t, 1.25, payload["total_cost"])
 	assert.Equal(t, 32.5, payload["otps"])
+}
+
+func TestGetModelRankingSingleModelNoTrafficReturnsEmpty(t *testing.T) {
+	dbName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=private", dbName)), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&rschema.Model{}))
+	require.NoError(t, db.Create(&rschema.Model{
+		ID:        "model-1",
+		ModelName: "GPT Test",
+		ModelCode: "gpt-test",
+		SpaceCode: "default",
+		Enabled:   1,
+	}).Error)
+
+	dashboard := &Dashboard{DB: db}
+	items, err := dashboard.getModelRanking(context.Background(), "request_count", "1h", 10, "gpt-test")
+	assert.NoError(t, err)
+	assert.Empty(t, items)
 }
 
 func TestSortModelRankingItemsByOtpsDescendingLeavesRequestCountDefault(t *testing.T) {

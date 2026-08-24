@@ -6,129 +6,143 @@
             class="info-card"
             :bordered="false">
             <template #extra>
-                <a-button
-                    type="primary"
-                    ghost
-                    size="small"
-                    @click="handleEditModel">
-                    <template #icon><edit-outlined /></template>
-                    {{ $t('pages.model.edit') }}
-                </a-button>
+                <a-space>
+                    <a-button
+                        type="text"
+                        size="small"
+                        @click="basicInfoCollapsed = !basicInfoCollapsed">
+                        <template #icon>
+                            <down-outlined v-if="basicInfoCollapsed" />
+                            <up-outlined v-else />
+                        </template>
+                        {{ basicInfoCollapsed ? $t('component.tagSelect.expand') : $t('component.tagSelect.collapse') }}
+                    </a-button>
+                    <a-button
+                        type="primary"
+                        ghost
+                        size="small"
+                        @click="handleEditModel">
+                        <template #icon><edit-outlined /></template>
+                        {{ $t('pages.model.edit') }}
+                    </a-button>
+                </a-space>
             </template>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.model.form.model_name') }}</span>
-                    <span class="info-value">{{ modelData.model_name || '--' }}</span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.model.form.model_code') }}</span>
-                    <span
-                        class="info-value info-value-code"
-                        :class="{ 'is-copyable': !!modelData.model_code }"
-                        @click="handleCopyModelCode">
-                        {{ modelData.model_code || '--' }}
-                    </span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.model.form.space_code') }}</span>
-                    <span class="info-value">{{ modelData.space_code || '--' }}</span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.model.form.owner') }}</span>
-                    <span class="info-value">{{ modelData.owner || '--' }}</span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.model.form.enabled') }}</span>
-                    <span class="info-value">
-                        <a-tag :color="modelData.enabled === 1 ? 'green' : 'default'">
-                            {{
-                                modelData.enabled === 1
-                                    ? $t('pages.model.form.enabled.active')
-                                    : $t('pages.model.form.enabled.inactive')
-                            }}
-                        </a-tag>
-                    </span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.model.form.creator') }}</span>
-                    <span class="info-value">{{ modelData.creator || '--' }}</span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.model.form.description') }}</span>
-                    <a-tooltip
-                        v-if="modelData.description"
-                        :title="modelData.description">
-                        <span class="info-value info-value-ellipsis">{{ modelData.description }}</span>
-                    </a-tooltip>
-                    <span
-                        v-else
-                        class="info-value"
-                        >--</span
-                    >
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.model.form.created_at') }}</span>
-                    <span class="info-value">{{ formatUtcDateTime(modelData.created_at) || '--' }}</span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.model.form.input_price') }}</span>
-                    <span class="info-value info-value-price">
-                        <template v-if="modelData.input_price !== undefined">
-                            {{ modelData.input_price }}<span class="info-unit">元/M</span>
-                        </template>
-                        <template v-else>--</template>
-                    </span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.model.form.output_price') }}</span>
-                    <span class="info-value info-value-price">
-                        <template v-if="modelData.output_price !== undefined">
-                            {{ modelData.output_price }}<span class="info-unit">元/M</span>
-                        </template>
-                        <template v-else>--</template>
-                    </span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.model.form.cached_price') }}</span>
-                    <span class="info-value info-value-price">
-                        <template v-if="modelData.cached_price !== undefined">
-                            {{ modelData.cached_price }}<span class="info-unit">元/M</span>
-                        </template>
-                        <template v-else>--</template>
-                    </span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.model.form.cache_creation_price') }}</span>
-                    <span class="info-value info-value-price">
-                        <template v-if="modelData.cache_creation_price !== undefined">
-                            {{ modelData.cache_creation_price }}<span class="info-unit">元/M</span>
-                        </template>
-                        <template v-else>--</template>
-                    </span>
-                </div>
-            </a-card-grid>
+            <template v-if="!basicInfoCollapsed">
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.model.form.model_name') }}</span>
+                        <span class="info-value">{{ modelData.model_name || '--' }}</span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.model.form.model_code') }}</span>
+                        <span
+                            class="info-value info-value-code"
+                            :class="{ 'is-copyable': !!modelData.model_code }"
+                            @click="handleCopyModelCode">
+                            {{ modelData.model_code || '--' }}
+                        </span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.model.form.space_code') }}</span>
+                        <span class="info-value">{{ modelData.space_code || '--' }}</span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.model.form.owner') }}</span>
+                        <span class="info-value">{{ modelData.owner || '--' }}</span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.model.form.enabled') }}</span>
+                        <span class="info-value">
+                            <a-tag :color="modelData.enabled === 1 ? 'green' : 'default'">
+                                {{
+                                    modelData.enabled === 1
+                                        ? $t('pages.model.form.enabled.active')
+                                        : $t('pages.model.form.enabled.inactive')
+                                }}
+                            </a-tag>
+                        </span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.model.form.creator') }}</span>
+                        <span class="info-value">{{ modelData.creator || '--' }}</span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.model.form.description') }}</span>
+                        <a-tooltip
+                            v-if="modelData.description"
+                            :title="modelData.description">
+                            <span class="info-value info-value-ellipsis">{{ modelData.description }}</span>
+                        </a-tooltip>
+                        <span
+                            v-else
+                            class="info-value"
+                            >--</span
+                        >
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.model.form.created_at') }}</span>
+                        <span class="info-value">{{ formatUtcDateTime(modelData.created_at) || '--' }}</span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.model.form.input_price') }}</span>
+                        <span class="info-value info-value-price">
+                            <template v-if="modelData.input_price !== undefined">
+                                {{ modelData.input_price }}<span class="info-unit">元/M</span>
+                            </template>
+                            <template v-else>--</template>
+                        </span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.model.form.output_price') }}</span>
+                        <span class="info-value info-value-price">
+                            <template v-if="modelData.output_price !== undefined">
+                                {{ modelData.output_price }}<span class="info-unit">元/M</span>
+                            </template>
+                            <template v-else>--</template>
+                        </span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.model.form.cached_price') }}</span>
+                        <span class="info-value info-value-price">
+                            <template v-if="modelData.cached_price !== undefined">
+                                {{ modelData.cached_price }}<span class="info-unit">元/M</span>
+                            </template>
+                            <template v-else>--</template>
+                        </span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.model.form.cache_creation_price') }}</span>
+                        <span class="info-value info-value-price">
+                            <template v-if="modelData.cache_creation_price !== undefined">
+                                {{ modelData.cache_creation_price }}<span class="info-unit">元/M</span>
+                            </template>
+                            <template v-else>--</template>
+                        </span>
+                    </div>
+                </a-card-grid>
+            </template>
         </a-card>
 
         <!-- Tab 区域 -->
@@ -149,12 +163,22 @@
                     :key="item.key"
                     :tab="item.label" />
                 <a-tab-pane
+                    key="monitor"
+                    :tab="$t('pages.model.detail.tab.monitor')" />
+                <a-tab-pane
                     key="member"
                     :tab="$t('pages.model.detail.tab.member')" />
             </a-tabs>
 
+            <div v-if="activeTab === 'monitor'">
+                <ModelMonitorTab
+                    :model-id="modelId"
+                    :model-code="modelData.model_code"
+                    :active="activeTab === 'monitor'" />
+            </div>
+
             <!-- 端点管理 Tab 内容 -->
-            <div v-if="activeTab === 'endpoint'">
+            <div v-else-if="activeTab === 'endpoint'">
                 <div class="tab-toolbar">
                     <a-button
                         type="primary"
@@ -634,6 +658,8 @@ import {
     CopyOutlined,
     PoweroffOutlined,
     PlusOutlined,
+    DownOutlined,
+    UpOutlined,
 } from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { config } from '@/config'
@@ -643,6 +669,7 @@ import ModelAliasEditDialog from './ModelAliasEditDialog.vue'
 import ModelMemberEditDialog from './ModelMemberEditDialog.vue'
 import EndpointEditDialog from './EndpointEditDialog.vue'
 import EndpointStatusStrip from '@/components/EndpointStatusStrip.vue'
+import ModelMonitorTab from './ModelMonitorTab.vue'
 import ModelEditDialog from './ModelEditDialog.vue'
 import LoadbalanceEditDialog from '@/views/policy/LoadbalanceEditDialog.vue'
 import TagRouteEditDialog from '@/views/policy/TagRouteEditDialog.vue'
@@ -660,7 +687,8 @@ const router = useRouter()
 const { t } = useI18n()
 const modelId = ref(route.params.id)
 const modelData = ref({})
-const activeTab = ref('endpoint')
+const activeTab = ref(route.query.tab === 'monitor' ? 'monitor' : 'endpoint')
+const basicInfoCollapsed = ref(false)
 const modelEditRef = ref(null)
 const spaceOptions = ref([])
 const loadbalanceEditRef = ref(null)
@@ -972,10 +1000,20 @@ onMounted(() => {
 })
 
 watch(
+    () => route.query.tab,
+    (tab) => {
+        if (tab === 'monitor' || tab === 'endpoint' || tab === 'alias' || tab === 'member' || isPolicyTab(tab)) {
+            activeTab.value = tab
+        }
+    }
+)
+
+watch(
     () => route.params.id,
     (newId) => {
         if (newId && route.name === 'modelDetail') {
             modelId.value = newId
+            activeTab.value = route.query.tab === 'monitor' ? 'monitor' : 'endpoint'
             // 重置状态以防残留旧数据
             modelData.value = {}
             aliasListData.value = []
@@ -1626,6 +1664,8 @@ function handleRemoveMember({ id }) {
 .detail-card {
     .detail-tabs {
         margin-bottom: 0;
+        -webkit-user-select: none;
+        user-select: none;
 
         :deep(.ant-tabs-nav) {
             margin-bottom: 16px;

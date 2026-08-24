@@ -6,95 +6,109 @@
             class="info-card"
             :bordered="false">
             <template #extra>
-                <a-button
-                    type="primary"
-                    ghost
-                    size="small"
-                    @click="handleEditProvider">
-                    <template #icon><edit-outlined /></template>
-                    {{ $t('pages.provider.edit') }}
-                </a-button>
+                <a-space>
+                    <a-button
+                        type="text"
+                        size="small"
+                        @click="basicInfoCollapsed = !basicInfoCollapsed">
+                        <template #icon>
+                            <down-outlined v-if="basicInfoCollapsed" />
+                            <up-outlined v-else />
+                        </template>
+                        {{ basicInfoCollapsed ? $t('component.tagSelect.expand') : $t('component.tagSelect.collapse') }}
+                    </a-button>
+                    <a-button
+                        type="primary"
+                        ghost
+                        size="small"
+                        @click="handleEditProvider">
+                        <template #icon><edit-outlined /></template>
+                        {{ $t('pages.provider.edit') }}
+                    </a-button>
+                </a-space>
             </template>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.provider.form.name') }}</span>
-                    <span class="info-value">{{ providerData.name || '--' }}</span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.provider.form.code') }}</span>
-                    <span
-                        class="info-value info-value-code"
-                        :class="{ 'is-copyable': !!providerData.code }"
-                        @click="handleCopyProviderCode">
-                        {{ providerData.code || '--' }}
-                    </span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.provider.form.protocol') }}</span>
-                    <span class="info-value">
-                        <a-tag
-                            color="blue"
-                            v-if="providerData.protocol"
-                            >{{ providerData.protocol }}</a-tag
+            <template v-if="!basicInfoCollapsed">
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.provider.form.name') }}</span>
+                        <span class="info-value">{{ providerData.name || '--' }}</span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.provider.form.code') }}</span>
+                        <span
+                            class="info-value info-value-code"
+                            :class="{ 'is-copyable': !!providerData.code }"
+                            @click="handleCopyProviderCode">
+                            {{ providerData.code || '--' }}
+                        </span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.provider.form.protocol') }}</span>
+                        <span class="info-value">
+                            <a-tag
+                                color="blue"
+                                v-if="providerData.protocol"
+                                >{{ providerData.protocol }}</a-tag
+                            >
+                            <span v-else>--</span>
+                        </span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.provider.form.enabled') }}</span>
+                        <span class="info-value">
+                            <a-tag :color="providerData.enabled === 1 ? 'green' : 'default'">
+                                {{
+                                    providerData.enabled === 1
+                                        ? $t('pages.provider.form.enabled.active')
+                                        : $t('pages.provider.form.enabled.inactive')
+                                }}
+                            </a-tag>
+                        </span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.provider.form.creator') }}</span>
+                        <span class="info-value">{{ providerData.creator || '--' }}</span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 50%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.provider.form.url') }}</span>
+                        <a-tooltip
+                            v-if="providerData.url"
+                            :title="providerData.url">
+                            <span class="info-value info-value-ellipsis">{{ providerData.url }}</span>
+                        </a-tooltip>
+                        <span
+                            v-else
+                            class="info-value"
+                            >--</span
                         >
-                        <span v-else>--</span>
-                    </span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.provider.form.enabled') }}</span>
-                    <span class="info-value">
-                        <a-tag :color="providerData.enabled === 1 ? 'green' : 'default'">
-                            {{
-                                providerData.enabled === 1
-                                    ? $t('pages.provider.form.enabled.active')
-                                    : $t('pages.provider.form.enabled.inactive')
-                            }}
-                        </a-tag>
-                    </span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.provider.form.creator') }}</span>
-                    <span class="info-value">{{ providerData.creator || '--' }}</span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 50%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.provider.form.url') }}</span>
-                    <a-tooltip
-                        v-if="providerData.url"
-                        :title="providerData.url">
-                        <span class="info-value info-value-ellipsis">{{ providerData.url }}</span>
-                    </a-tooltip>
-                    <span
-                        v-else
-                        class="info-value"
-                        >--</span
-                    >
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 25%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.provider.form.description') }}</span>
-                    <a-tooltip
-                        v-if="providerData.description"
-                        :title="providerData.description">
-                        <span class="info-value info-value-ellipsis">{{ providerData.description }}</span>
-                    </a-tooltip>
-                    <span
-                        v-else
-                        class="info-value"
-                        >--</span
-                    >
-                </div>
-            </a-card-grid>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 25%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.provider.form.description') }}</span>
+                        <a-tooltip
+                            v-if="providerData.description"
+                            :title="providerData.description">
+                            <span class="info-value info-value-ellipsis">{{ providerData.description }}</span>
+                        </a-tooltip>
+                        <span
+                            v-else
+                            class="info-value"
+                            >--</span
+                        >
+                    </div>
+                </a-card-grid>
+            </template>
         </a-card>
 
         <!-- OAuth 用量 -->
@@ -438,6 +452,8 @@ import {
     PoweroffOutlined,
     ImportOutlined,
     PlusOutlined,
+    DownOutlined,
+    UpOutlined,
 } from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { config } from '@/config'
@@ -460,6 +476,7 @@ const { t } = useI18n()
 const providerId = ref(route.params.id)
 const providerData = ref({})
 const activeTab = ref('endpoint')
+const basicInfoCollapsed = ref(false)
 const quotaLoading = ref(false)
 const quotaError = ref('')
 const quotaData = ref(null)
@@ -1202,6 +1219,8 @@ function handleRemoveMember({ id }) {
 .detail-card {
     .detail-tabs {
         margin-bottom: 0;
+        -webkit-user-select: none;
+        user-select: none;
 
         :deep(.ant-tabs-nav) {
             margin-bottom: 16px;

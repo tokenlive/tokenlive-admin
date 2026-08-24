@@ -1672,7 +1672,7 @@ function goTo(path) {
 }
 
 function goToModel(modelId) {
-    router.push({ name: 'modelDetail', params: { id: modelId } })
+    router.push({ name: 'modelDetail', params: { id: modelId }, query: { tab: 'monitor' } })
 }
 </script>
 

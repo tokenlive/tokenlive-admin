@@ -7,7 +7,8 @@ export const getOverview = () => request.basic.get('/api/v1/dashboard/overview')
 export const getCircuitBreakers = (params) => request.basic.get('/api/v1/dashboard/circuit-breakers', params)
 
 // 获取最近60分钟的成功/失败流量走势（支持分组）
-export const getTrends = (params) => request.basic.get('/api/v1/dashboard/trends', params)
+export const getTrends = (params) =>
+    request.basic.get('/api/v1/dashboard/trends', params, { enableAbortController: false })
 
 // 获取模型使用排行（支持排序，默认 Top 10）
 export const getModelRanking = (params) => request.basic.get('/api/v1/dashboard/model-ranking', params)

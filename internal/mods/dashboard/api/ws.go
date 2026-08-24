@@ -121,12 +121,12 @@ func (a *Dashboard) HandleWebSocket(c *gin.Context) {
 			return err
 		}
 
-		trends, err := a.getTrends(ctx, currentCfg.TrendsGroupBy, currentCfg.TrendsTimeRange)
+			trends, err := a.getTrends(ctx, currentCfg.TrendsGroupBy, currentCfg.TrendsTimeRange, "")
 		if err != nil {
 			return err
 		}
 
-		ranking, err := a.getModelRanking(ctx, currentCfg.ModelRankingSortBy, currentCfg.ModelRankingTimeRange, 10)
+			ranking, err := a.getModelRanking(ctx, currentCfg.ModelRankingSortBy, currentCfg.ModelRankingTimeRange, 10, "")
 		if err != nil {
 			return err
 		}
