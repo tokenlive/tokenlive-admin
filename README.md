@@ -30,6 +30,8 @@ TokenLive Admin is the operations and management console for the [TokenLive](htt
 
 ![Model Detail Screenshot](./docs/images/model.jpg)
 
+![Model Monitor Screenshot](./docs/images/model-monitor.jpg)
+
 ## Features
 
 ### Resource Management

@@ -30,6 +30,8 @@ TokenLive Admin (TokenLive 控制台) 是 [TokenLive](https://github.com/tokenli
 
 ![模型详情截图](./docs/images/model.jpg)
 
+![模型监控截图](./docs/images/model-monitor.jpg)
+
 ## 功能特性
 
 ### 基础资源管理
