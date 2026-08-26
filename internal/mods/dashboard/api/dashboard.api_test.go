@@ -240,3 +240,51 @@ func TestSortModelRankingItemsByOtpsDescendingLeavesRequestCountDefault(t *testi
 	sortModelRankingItems(items, "request_count")
 	assert.Equal(t, []string{"slow", "mid", "fast"}, []string{items[0].ModelCode, items[1].ModelCode, items[2].ModelCode})
 }
+
+func TestQueryPrometheusRangeReturnsNilOnEmptyResult(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`))
+	}))
+	defer ts.Close()
+
+	origAddr := config.C.Util.PrometheusServer.Address
+	config.C.Util.PrometheusServer.Address = ts.URL
+	defer func() { config.C.Util.PrometheusServer.Address = origAddr }()
+
+	dashboard := &Dashboard{}
+	values, err := dashboard.queryPrometheusRange("sum(increase(test[60s]))", 1000, 2000, 60)
+	assert.NoError(t, err)
+	assert.Nil(t, values)
+}
+
+func TestGetTrendsPreservesSuccessTrafficWhenErrorQueryReturnsEmpty(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		query := r.URL.Query().Get("query")
+		if strings.Contains(query, `status="error"`) {
+			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`))
+			return
+		}
+		// Return 1 success point
+		start := r.URL.Query().Get("start")
+		_, _ = w.Write([]byte(fmt.Sprintf(`{"status":"success","data":{"resultType":"matrix","result":[{"metric":{},"values":[[%s,"5"]]}]}}`, start)))
+	}))
+	defer ts.Close()
+
+	origAddr := config.C.Util.PrometheusServer.Address
+	config.C.Util.PrometheusServer.Address = ts.URL
+	defer func() { config.C.Util.PrometheusServer.Address = origAddr }()
+
+	dashboard := &Dashboard{}
+	res, err := dashboard.getTrendsAt(context.Background(), "", "1h", "glm-5.3", time.Unix(2000, 0))
+	assert.NoError(t, err)
+	require.Len(t, res.Series, 1)
+	assert.Equal(t, "glm-5.3", res.Series[0].Label)
+	assert.Equal(t, int64(5), res.Series[0].Success[0])
+	assert.Equal(t, int64(0), res.Series[0].Failure[0])
+	assert.Equal(t, int64(5), res.Series[0].Total[0])
+}
+

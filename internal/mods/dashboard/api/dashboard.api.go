@@ -757,8 +757,12 @@ func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCo
 			errorData, err2 := a.queryPrometheusRange(errorQuery, start.Unix(), end.Unix(), rangeConfig.stepSeconds)
 
 			if err1 == nil && err2 == nil {
+				label := "global"
+				if modelCode != "" {
+					label = modelCode
+				}
 				series := TrendsSeries{
-					Label:   "global",
+					Label:   label,
 					Success: make([]int64, rangeConfig.numPoints),
 					Failure: make([]int64, rangeConfig.numPoints),
 					Total:   make([]int64, rangeConfig.numPoints),
@@ -1447,8 +1451,12 @@ func (a *Dashboard) queryPrometheusRange(query string, start, end, step int64) (
 		return nil, err
 	}
 
-	if promResp.Status != "success" || len(promResp.Data.Result) == 0 {
-		return nil, fmt.Errorf("no data returned")
+	if promResp.Status != "success" {
+		return nil, fmt.Errorf("query failed")
+	}
+
+	if len(promResp.Data.Result) == 0 {
+		return nil, nil
 	}
 
 	return promResp.Data.Result[0].Values, nil
