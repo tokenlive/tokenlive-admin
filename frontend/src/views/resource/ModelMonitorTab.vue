@@ -84,7 +84,7 @@
         <a-row :gutter="16">
             <a-col
                 :xs="24"
-                :lg="14">
+                :lg="12">
                 <div class="monitor-panel">
                     <div class="monitor-panel__title">{{ $t('pages.model.detail.monitor.traffic') }}</div>
                     <a-empty
@@ -99,7 +99,7 @@
             </a-col>
             <a-col
                 :xs="24"
-                :lg="10">
+                :lg="12">
                 <div class="monitor-panel">
                     <div class="monitor-panel__title">{{ $t('pages.model.detail.monitor.endpointTraffic') }}</div>
                     <a-empty
