@@ -3,6 +3,7 @@ package biz
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -52,20 +53,6 @@ func TestModelDeleteRejectsAssociatedResources(t *testing.T) {
 			},
 			wantMessage: "关联别名",
 		},
-		{
-			name: "policy loadbalance",
-			seed: func(t *testing.T, db *gorm.DB) {
-				require.NoError(t, db.Create(&policySchema.PolicyLoadbalance{
-					ID:        "policy-1",
-					ModelID:   "model-1",
-					Name:      "Loadbalance Policy",
-					Type:      "ROUND_ROBIN",
-					Deleted:   "0",
-					CreatedAt: time.Now(),
-				}).Error)
-			},
-			wantMessage: "关联策略",
-		},
 	}
 
 	for _, tt := range tests {
@@ -86,6 +73,125 @@ func TestModelDeleteRejectsAssociatedResources(t *testing.T) {
 			require.Equal(t, "0", model.Deleted)
 		})
 	}
+}
+
+func TestModelDeleteCascadeDeletesAssociatedPolicies(t *testing.T) {
+	db := newModelDeleteTestDB(t)
+	biz := newModelDeleteTestBiz(db)
+	seedModelDeleteModel(t, db)
+	seedModelPolicies(t, db)
+
+	err := biz.Delete(newModelDeleteTestContext(), "model-1")
+
+	require.NoError(t, err)
+
+	requireModelSoftDeleted(t, db, &policySchema.PolicyLoadbalance{}, "loadbalance-1")
+	requireModelSoftDeleted(t, db, &policySchema.PolicyRoute{}, "route-1")
+	requireModelSoftDeleted(t, db, &policySchema.PolicyRouteDetail{}, "route-detail-1")
+	requireModelSoftDeleted(t, db, &policySchema.PolicyLimit{}, "limit-1")
+	requireModelSoftDeleted(t, db, &policySchema.PolicyCircuitBreak{}, "circuit-break-1")
+	requireModelSoftDeleted(t, db, &policySchema.PolicyInvocation{}, "invocation-1")
+	requireModelSoftDeleted(t, db, &policySchema.PolicyTagging{}, "tagging-1")
+
+	var model schema.Model
+	require.NoError(t, db.Unscoped().First(&model, "id = ?", "model-1").Error)
+	require.Equal(t, "model-1", model.Deleted)
+}
+
+func TestModelDeleteRollsBackPolicyCascadeWhenEndpointBlocks(t *testing.T) {
+	db := newModelDeleteTestDB(t)
+	biz := newModelDeleteTestBiz(db)
+	seedModelDeleteModel(t, db)
+	seedModelPolicies(t, db)
+	require.NoError(t, db.Create(&schema.Endpoint{
+		ID:         "endpoint-1",
+		Code:       "endpoint-code",
+		ModelID:    "model-1",
+		ProviderID: "provider-1",
+		URL:        "https://example.test",
+		Deleted:    "0",
+	}).Error)
+
+	err := biz.Delete(newModelDeleteTestContext(), "model-1")
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "关联端点")
+
+	var activePolicies int64
+	require.NoError(t, db.Model(&policySchema.PolicyLoadbalance{}).Where("id = ? AND deleted = '0'", "loadbalance-1").Count(&activePolicies).Error)
+	require.Equal(t, int64(1), activePolicies)
+}
+
+func seedModelPolicies(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	require.NoError(t, db.Create(&policySchema.PolicyLoadbalance{
+		ID:        "loadbalance-1",
+		ModelID:   "model-1",
+		Name:      "Loadbalance Policy",
+		Type:      "ROUND_ROBIN",
+		ScopeType: "tenant",
+		ScopeCode: "tenant-a",
+		Deleted:   "0",
+		CreatedAt: time.Now(),
+	}).Error)
+	require.NoError(t, db.Create(&policySchema.PolicyRoute{
+		ID:        "route-1",
+		ModelID:   "model-1",
+		Name:      "Route Policy",
+		ScopeType: "tenant",
+		ScopeCode: "tenant-a",
+		Deleted:   "0",
+		CreatedAt: time.Now(),
+	}).Error)
+	require.NoError(t, db.Create(&policySchema.PolicyRouteDetail{
+		ID:        "route-detail-1",
+		RouteId:   "route-1",
+		Deleted:   "0",
+		CreatedAt: time.Now(),
+	}).Error)
+	require.NoError(t, db.Create(&policySchema.PolicyLimit{
+		ID:        "limit-1",
+		ModelID:   "model-1",
+		Name:      "Limit Policy",
+		ScopeType: "tenant",
+		ScopeCode: "tenant-a",
+		Deleted:   "0",
+		CreatedAt: time.Now(),
+	}).Error)
+	require.NoError(t, db.Create(&policySchema.PolicyCircuitBreak{
+		ID:        "circuit-break-1",
+		ModelID:   "model-1",
+		Name:      "Circuit Break Policy",
+		ScopeType: "tenant",
+		ScopeCode: "tenant-a",
+		Deleted:   "0",
+		CreatedAt: time.Now(),
+	}).Error)
+	require.NoError(t, db.Create(&policySchema.PolicyInvocation{
+		ID:        "invocation-1",
+		ModelID:   "model-1",
+		Name:      "Invocation Policy",
+		ScopeType: "tenant",
+		ScopeCode: "tenant-a",
+		Deleted:   "0",
+		CreatedAt: time.Now(),
+	}).Error)
+	require.NoError(t, db.Create(&policySchema.PolicyTagging{
+		ID:        "tagging-1",
+		ModelID:   "model-1",
+		Name:      "Tagging Policy",
+		ScopeType: "tenant",
+		ScopeCode: "tenant-a",
+		Deleted:   "0",
+		CreatedAt: time.Now(),
+	}).Error)
+}
+
+func requireModelSoftDeleted(t *testing.T, db *gorm.DB, model interface{}, id string) {
+	t.Helper()
+	result := db.Unscoped().Where("id = ?", id).Find(model)
+	require.NoError(t, result.Error)
+	require.Equal(t, id, reflect.ValueOf(model).Elem().FieldByName("Deleted").String())
 }
 
 func TestModelDeleteRemovesDataPermissionWhenNoAssociations(t *testing.T) {
@@ -146,6 +252,7 @@ func newModelDeleteTestDB(t *testing.T) *gorm.DB {
 		&schema.DataPermission{},
 		&policySchema.PolicyLoadbalance{},
 		&policySchema.PolicyRoute{},
+		&policySchema.PolicyRouteDetail{},
 		&policySchema.PolicyLimit{},
 		&policySchema.PolicyCircuitBreak{},
 		&policySchema.PolicyInvocation{},

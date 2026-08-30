@@ -63,11 +63,13 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 	}
 
 	// 根据 modelCode 查 modelID
+	modelMissing := false
 	if modelCode != "*" && modelCode != "" {
 		modelID, err = s.lookupModelIDByCode(ctx, modelCode)
 		if err != nil {
 			return err
 		}
+		modelMissing = modelID == ""
 	}
 
 	if userID != "" {
@@ -98,6 +100,19 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		}
 		action = "skip_template_cleanup"
 		return nil
+	}
+
+	if modelMissing {
+		action = "hdel_missing_model"
+		err := s.RedisClient.HDel(ctx, redisKey, redisField).Err()
+		if err == nil {
+			util.ClearGatewayConfigCache()
+			if pubErr := s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err(); pubErr != nil {
+				policyRedisSyncLogger(ctx).Warn("Failed to publish policy update notification to redis channel", zap.Error(pubErr))
+			}
+			util.NotifyConfigChanged(ctx, util.ConfigChangePolicies, modelCode)
+		}
+		return err
 	}
 
 	// 多表级联聚合策略

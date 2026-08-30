@@ -241,6 +241,7 @@ export default {
     'pages.provider.form.name': 'Name',
     'pages.provider.form.name.placeholder': 'Please enter the provider name',
     'pages.provider.form.name.required': 'Provider name is required!',
+    'pages.provider.form.name_code': 'Name / Code',
     'pages.provider.form.protocol': 'Protocol',
     'pages.provider.form.protocol.placeholder': 'Please select the protocol',
     'pages.provider.form.url': 'API URL',
@@ -299,7 +300,8 @@ export default {
     'pages.model.syncTip': 'Are you sure you want to sync the Redis data for model "{name}"?',
     'pages.model.syncContent':
         'This will write the model itself, its endpoints, governance policies, and tenant binding caches to Redis.',
-    'pages.model.delTip': 'Are you sure you want to delete this model?',
+    'pages.model.delTip':
+        'Are you sure you want to delete this model? Any associated policies will be deleted together.',
     'pages.model.delEndpointTip':
         'This model has associated Endpoints. Please delete all Endpoints first before deleting the model.',
     'pages.model.form.model_name': 'Model Name',

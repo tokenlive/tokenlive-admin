@@ -1,6 +1,10 @@
 <template>
-    <div class="app-page">
-        <a-spin :spinning="loading">
+    <div
+        class="app-page"
+        :style="{ height: appStore.mainHeight }">
+        <a-spin
+            class="detail-spin"
+            :spinning="loading">
             <!-- 基本信息卡片 -->
             <a-card
                 :title="$t('pages.modelCatalog.detail.title') + ': ' + (catalog.slug || catalog.model_id)"
@@ -104,13 +108,17 @@
 
             <!-- Tab 页 -->
             <a-card
+                class="detail-card"
                 :bordered="false"
                 style="border-radius: 8px">
-                <a-tabs v-model:activeKey="activeTab">
+                <a-tabs
+                    v-model:activeKey="activeTab"
+                    class="detail-tabs">
                     <!-- 多语言 Tab -->
                     <a-tab-pane
                         key="i18n"
-                        :tab="$t('pages.modelCatalog.detail.tab.i18n')">
+                        :tab="$t('pages.modelCatalog.detail.tab.i18n')"
+                        class="tab-content">
                         <div class="tab-toolbar">
                             <a-button
                                 type="primary"
@@ -120,41 +128,48 @@
                                 {{ $t('pages.modelCatalog.detail.i18n.add') }}
                             </a-button>
                         </div>
-                        <a-table
-                            :columns="i18nColumns"
-                            :data-source="i18nData"
-                            :loading="i18nLoading"
-                            size="small"
-                            :pagination="false">
-                            <template #bodyCell="{ column, record }">
-                                <template v-if="'action' === column.key">
-                                    <a-space>
-                                        <a-button
-                                            type="link"
-                                            size="small"
-                                            @click="handleEditI18n(record)"
-                                            >{{ $t('button.edit') }}</a-button
-                                        >
-                                        <a-popconfirm
-                                            title="确认删除？"
-                                            @confirm="handleDeleteI18n(record)">
+                        <div
+                            ref="i18nTableContainerRef"
+                            class="table-fill-region"
+                            :style="i18nTableContainerStyle">
+                            <a-table
+                                :columns="i18nColumns"
+                                :data-source="i18nData"
+                                :loading="i18nLoading"
+                                size="small"
+                                :pagination="false"
+                                :scroll="{ y: i18nTableScrollY || undefined }">
+                                <template #bodyCell="{ column, record }">
+                                    <template v-if="'action' === column.key">
+                                        <a-space>
                                             <a-button
                                                 type="link"
                                                 size="small"
-                                                danger
-                                                >{{ $t('button.delete') }}</a-button
+                                                @click="handleEditI18n(record)"
+                                                >{{ $t('button.edit') }}</a-button
                                             >
-                                        </a-popconfirm>
-                                    </a-space>
+                                            <a-popconfirm
+                                                title="确认删除？"
+                                                @confirm="handleDeleteI18n(record)">
+                                                <a-button
+                                                    type="link"
+                                                    size="small"
+                                                    danger
+                                                    >{{ $t('button.delete') }}</a-button
+                                                >
+                                            </a-popconfirm>
+                                        </a-space>
+                                    </template>
                                 </template>
-                            </template>
-                        </a-table>
+                            </a-table>
+                        </div>
                     </a-tab-pane>
 
                     <!-- 价格版本 Tab -->
                     <a-tab-pane
                         key="prices"
-                        :tab="$t('pages.modelCatalog.detail.tab.prices')">
+                        :tab="$t('pages.modelCatalog.detail.tab.prices')"
+                        class="tab-content">
                         <div class="tab-toolbar">
                             <a-button
                                 type="primary"
@@ -164,99 +179,116 @@
                                 {{ $t('pages.modelCatalog.detail.prices.add') }}
                             </a-button>
                         </div>
-                        <a-table
-                            :columns="priceColumns"
-                            :data-source="priceData"
-                            :loading="priceLoading"
-                            size="small"
-                            :pagination="false">
-                            <template #bodyCell="{ column, record }">
-                                <template v-if="'status' === column.key">
-                                    <a-tag :color="record.status === 'active' ? 'green' : 'default'">
-                                        {{
-                                            record.status === 'active'
-                                                ? $t('pages.modelCatalog.detail.prices.status.active')
-                                                : $t('pages.modelCatalog.detail.prices.status.inactive')
-                                        }}
-                                    </a-tag>
-                                </template>
-                                <template v-if="'price_display' === column.key">
-                                    <div style="font-size: 12px; line-height: 1.6">
-                                        <div>
-                                            {{ $t('pages.modelCatalog.detail.prices.input') }}: ¥{{
-                                                formatPrice(record.input_price)
-                                            }}/M
+                        <div
+                            ref="priceTableContainerRef"
+                            class="table-fill-region"
+                            :style="priceTableContainerStyle">
+                            <a-table
+                                :columns="priceColumns"
+                                :data-source="priceData"
+                                :loading="priceLoading"
+                                size="small"
+                                :pagination="false"
+                                :scroll="{ y: priceTableScrollY || undefined }">
+                                <template #bodyCell="{ column, record }">
+                                    <template v-if="'status' === column.key">
+                                        <a-tag :color="record.status === 'active' ? 'green' : 'default'">
+                                            {{
+                                                record.status === 'active'
+                                                    ? $t('pages.modelCatalog.detail.prices.status.active')
+                                                    : $t('pages.modelCatalog.detail.prices.status.inactive')
+                                            }}
+                                        </a-tag>
+                                    </template>
+                                    <template v-if="'price_display' === column.key">
+                                        <div style="font-size: 12px; line-height: 1.6">
+                                            <div>
+                                                {{ $t('pages.modelCatalog.detail.prices.input') }}: ¥{{
+                                                    formatPrice(record.input_price)
+                                                }}/M
+                                            </div>
+                                            <div>
+                                                {{ $t('pages.modelCatalog.detail.prices.output') }}: ¥{{
+                                                    formatPrice(record.output_price)
+                                                }}/M
+                                            </div>
+                                            <div v-if="record.cached_price">
+                                                {{ $t('pages.modelCatalog.detail.prices.cache') }}: ¥{{
+                                                    formatPrice(record.cached_price)
+                                                }}/M
+                                            </div>
+                                            <div v-if="record.cache_creation_price">
+                                                {{ $t('pages.modelCatalog.detail.prices.cacheCreation') }}: ¥{{
+                                                    formatPrice(record.cache_creation_price)
+                                                }}/M
+                                            </div>
                                         </div>
-                                        <div>
-                                            {{ $t('pages.modelCatalog.detail.prices.output') }}: ¥{{
-                                                formatPrice(record.output_price)
-                                            }}/M
-                                        </div>
-                                        <div v-if="record.cached_price">
-                                            {{ $t('pages.modelCatalog.detail.prices.cache') }}: ¥{{
-                                                formatPrice(record.cached_price)
-                                            }}/M
-                                        </div>
-                                        <div v-if="record.cache_creation_price">
-                                            {{ $t('pages.modelCatalog.detail.prices.cacheCreation') }}: ¥{{
-                                                formatPrice(record.cache_creation_price)
-                                            }}/M
-                                        </div>
-                                    </div>
-                                </template>
-                                <template v-if="'action' === column.key">
-                                    <a-space>
-                                        <a-button
-                                            type="link"
-                                            size="small"
-                                            @click="handleEditPrice(record)"
-                                            >{{ $t('button.edit') }}</a-button
-                                        >
-                                        <a-popconfirm
-                                            title="确认删除？"
-                                            @confirm="handleDeletePrice(record)">
+                                    </template>
+                                    <template v-if="'action' === column.key">
+                                        <a-space>
                                             <a-button
                                                 type="link"
                                                 size="small"
-                                                danger
-                                                >{{ $t('button.delete') }}</a-button
+                                                @click="handleEditPrice(record)"
+                                                >{{ $t('button.edit') }}</a-button
                                             >
-                                        </a-popconfirm>
-                                    </a-space>
+                                            <a-popconfirm
+                                                title="确认删除？"
+                                                @confirm="handleDeletePrice(record)">
+                                                <a-button
+                                                    type="link"
+                                                    size="small"
+                                                    danger
+                                                    >{{ $t('button.delete') }}</a-button
+                                                >
+                                            </a-popconfirm>
+                                        </a-space>
+                                    </template>
                                 </template>
-                            </template>
-                        </a-table>
+                            </a-table>
+                        </div>
                     </a-tab-pane>
 
                     <!-- 服务指标 Tab -->
                     <a-tab-pane
                         key="metrics"
-                        :tab="$t('pages.modelCatalog.detail.tab.metrics')">
-                        <a-table
-                            :columns="metricColumns"
-                            :data-source="metricData"
-                            :loading="metricLoading"
-                            size="small"
-                            :pagination="false">
-                            <template #bodyCell="{ column, record }">
-                                <template v-if="'availability' === column.key">
-                                    {{
-                                        record.availability != null ? (record.availability * 100).toFixed(2) + '%' : '-'
-                                    }}
+                        :tab="$t('pages.modelCatalog.detail.tab.metrics')"
+                        class="tab-content">
+                        <div
+                            ref="metricTableContainerRef"
+                            class="table-fill-region"
+                            :style="metricTableContainerStyle">
+                            <a-table
+                                :columns="metricColumns"
+                                :data-source="metricData"
+                                :loading="metricLoading"
+                                size="small"
+                                :pagination="false"
+                                :scroll="{ y: metricTableScrollY || undefined }">
+                                <template #bodyCell="{ column, record }">
+                                    <template v-if="'availability' === column.key">
+                                        {{
+                                            record.availability != null
+                                                ? (record.availability * 100).toFixed(2) + '%'
+                                                : '-'
+                                        }}
+                                    </template>
+                                    <template v-if="'success_rate' === column.key">
+                                        {{
+                                            record.success_rate != null
+                                                ? (record.success_rate * 100).toFixed(2) + '%'
+                                                : '-'
+                                        }}
+                                    </template>
+                                    <template v-if="'ttft_p50_ms' === column.key">
+                                        {{ record.ttft_p50_ms != null ? record.ttft_p50_ms + 'ms' : '-' }}
+                                    </template>
+                                    <template v-if="'ttft_p95_ms' === column.key">
+                                        {{ record.ttft_p95_ms != null ? record.ttft_p95_ms + 'ms' : '-' }}
+                                    </template>
                                 </template>
-                                <template v-if="'success_rate' === column.key">
-                                    {{
-                                        record.success_rate != null ? (record.success_rate * 100).toFixed(2) + '%' : '-'
-                                    }}
-                                </template>
-                                <template v-if="'ttft_p50_ms' === column.key">
-                                    {{ record.ttft_p50_ms != null ? record.ttft_p50_ms + 'ms' : '-' }}
-                                </template>
-                                <template v-if="'ttft_p95_ms' === column.key">
-                                    {{ record.ttft_p95_ms != null ? record.ttft_p95_ms + 'ms' : '-' }}
-                                </template>
-                            </template>
-                        </a-table>
+                            </a-table>
+                        </div>
                     </a-tab-pane>
                 </a-tabs>
             </a-card>
@@ -418,11 +450,29 @@ import { message } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import { config } from '@/config'
 import apis from '@/apis'
+import { useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import { useI18n } from 'vue-i18n'
 import ModelCatalogEditDialog from './ModelCatalogEditDialog.vue'
 import { EditOutlined, PlusOutlined } from '@ant-design/icons-vue'
 
 const { t } = useI18n()
+const appStore = useAppStore()
+const {
+    scrollY: i18nTableScrollY,
+    containerRef: i18nTableContainerRef,
+    containerStyle: i18nTableContainerStyle,
+} = useTableAutoScrollY()
+const {
+    scrollY: priceTableScrollY,
+    containerRef: priceTableContainerRef,
+    containerStyle: priceTableContainerStyle,
+} = useTableAutoScrollY()
+const {
+    scrollY: metricTableScrollY,
+    containerRef: metricTableContainerRef,
+    containerStyle: metricTableContainerStyle,
+} = useTableAutoScrollY()
 const route = useRoute()
 const modelId = route.params.id
 
@@ -681,6 +731,7 @@ onMounted(() => {
 
 <style lang="less" scoped>
 .info-card {
+    flex: none;
     margin-bottom: 16px;
 
     :deep(.ant-card-head-title) {
@@ -707,6 +758,45 @@ onMounted(() => {
             font-weight: 500;
         }
     }
+}
+
+.detail-spin {
+    height: 100%;
+}
+.detail-spin :deep(.ant-spin-container) {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.detail-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.detail-card :deep(.ant-card-body) {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.detail-tabs {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.detail-tabs :deep(.ant-tabs-content-holder),
+.detail-tabs :deep(.ant-tabs-content),
+.detail-tabs :deep(.ant-tabs-tabpane) {
+    flex: 1;
+    min-height: 0;
+}
+.tab-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 .tab-toolbar {

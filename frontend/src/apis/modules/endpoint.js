@@ -3,7 +3,8 @@
  */
 import request from '@/utils/request'
 // 获取 endpoint 列表
-export const getEndpointList = (params) => request.basic.get('/api/v1/endpoints', params)
+export const getEndpointList = (params) =>
+    request.basic.get('/api/v1/endpoints', params, { enableAbortController: false })
 // 获取 endpoint 单条数据
 export const getEndpoint = (id) => request.basic.get(`/api/v1/endpoints/${id}`)
 // 添加 endpoint

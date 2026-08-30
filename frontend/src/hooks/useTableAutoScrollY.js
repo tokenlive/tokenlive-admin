@@ -1,4 +1,4 @@
-import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
+import { computed, onActivated, onBeforeUnmount, onDeactivated, ref, watch } from 'vue'
 
 /**
  * 表格高度自适应
@@ -65,16 +65,29 @@ export default (options = {}) => {
         })
     }
 
-    onMounted(() => {
+    function unbind() {
+        resizeObserver?.disconnect()
+        mutationObserver?.disconnect()
+        resizeObserver = null
+        mutationObserver = null
+    }
+
+    function bind(el) {
+        unbind()
+        if (!el) return
         resizeObserver = new ResizeObserver(scheduleMeasure)
-        resizeObserver.observe(containerRef.value)
+        resizeObserver.observe(el)
         // 分页/表头的挂载与卸载不改变容器自身尺寸，用 MutationObserver 补充感知
         mutationObserver = new MutationObserver(scheduleMeasure)
-        mutationObserver.observe(containerRef.value, { childList: true, subtree: true })
+        mutationObserver.observe(el, { childList: true, subtree: true })
         scheduleMeasure()
-    })
+    }
 
-    onActivated(scheduleMeasure)
+    watch(containerRef, (el) => bind(el), { flush: 'post', immediate: true })
+
+    onActivated(() => {
+        bind(containerRef.value)
+    })
 
     onDeactivated(() => {
         if (frameId) {
@@ -84,8 +97,7 @@ export default (options = {}) => {
     })
 
     onBeforeUnmount(() => {
-        resizeObserver?.disconnect()
-        mutationObserver?.disconnect()
+        unbind()
         if (frameId) cancelAnimationFrame(frameId)
     })
 

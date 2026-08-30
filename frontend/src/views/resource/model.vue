@@ -274,71 +274,46 @@ async function getPageList(isSilent = false) {
 }
 
 function handleRemove({ id, model_name }) {
-    // 检查是否有关联的endpoint
+    const showDeleteConfirm = () => {
+        const getRequestErrorMessage = (error) =>
+            error?.response?.data?.error?.detail || error?.message || t('component.message.error.request')
+
+        Modal.confirm({
+            title: t('pages.model.delTip'),
+            okText: t('button.confirm'),
+            okType: 'danger',
+            onOk: async () => {
+                try {
+                    const { success } = await apis.model.delModel(id)
+                    if (config('http.code.success') === success) {
+                        message.success(t('component.message.success.delete'))
+                        await getPageList()
+                    }
+                } catch (error) {
+                    message.error(getRequestErrorMessage(error))
+                    throw error
+                }
+            },
+        })
+    }
+
+    // 删除前只做 endpoint 提示；后端仍是最终一致性校验来源
     apis.endpoint
         .getEndpointsByModelId(id)
         .then(({ success, data }) => {
             if (config('http.code.success') === success && data && data.length > 0) {
-                // 存在关联的endpoint，拒绝删除并提示用户
                 Modal.warning({
                     title: t('pages.model.delEndpointTip'),
                     content: `${model_name} - ${data.length} 个Endpoint`,
                     okText: t('button.confirm'),
                 })
-            } else {
-                // 没有关联的endpoint，允许删除
-                Modal.confirm({
-                    title: t('pages.model.delTip'),
-                    content: t('button.confirm'),
-                    okText: t('button.confirm'),
-                    okType: 'danger',
-                    onOk: () => {
-                        return new Promise((resolve, reject) => {
-                            ;(async () => {
-                                try {
-                                    const { success } = await apis.model.delModel(id).catch(() => {
-                                        throw new Error()
-                                    })
-                                    if (config('http.code.success') === success) {
-                                        resolve()
-                                        message.success(t('component.message.success.delete'))
-                                        await getPageList()
-                                    }
-                                } catch (error) {
-                                    reject()
-                                }
-                            })()
-                        })
-                    },
-                })
+                return
             }
+            showDeleteConfirm()
         })
         .catch(() => {
             // 查询失败时仍然允许删除
-            Modal.confirm({
-                title: t('pages.model.delTip'),
-                content: t('button.confirm'),
-                okText: t('button.confirm'),
-                okType: 'danger',
-                onOk: () => {
-                    return new Promise((resolve, reject) => {
-                        ;(async () => {
-                            try {
-                                const { success } = await apis.model.delModel(id).catch(() => {
-                                    throw new Error()
-                                })
-                                if (config('http.code.success') === success) {
-                                    resolve()
-                                    message.success(t('component.message.success.delete'))
-                                    await getPageList()
-                                }
-                            } catch (error) {
-                                reject()
-                            }
-                        })()
-                    })
-                },
-            })
+            showDeleteConfirm()
         })
 }
 

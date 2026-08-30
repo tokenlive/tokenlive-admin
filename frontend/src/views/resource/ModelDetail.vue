@@ -1,647 +1,689 @@
 <template>
-    <div class="model-detail">
-        <!-- 基本信息 -->
-        <a-card
-            :title="$t('pages.model.detail.basicInfo')"
-            class="info-card"
-            :bordered="false">
-            <template #extra>
-                <a-space>
-                    <a-button
-                        type="text"
-                        size="small"
-                        @click="basicInfoCollapsed = !basicInfoCollapsed">
-                        <template #icon>
-                            <down-outlined v-if="basicInfoCollapsed" />
-                            <up-outlined v-else />
-                        </template>
-                        {{ basicInfoCollapsed ? $t('component.tagSelect.expand') : $t('component.tagSelect.collapse') }}
-                    </a-button>
-                    <a-button
-                        type="primary"
-                        ghost
-                        size="small"
-                        @click="handleEditModel">
-                        <template #icon><edit-outlined /></template>
-                        {{ $t('pages.model.edit') }}
-                    </a-button>
-                </a-space>
-            </template>
-            <template v-if="!basicInfoCollapsed">
-                <a-card-grid style="width: 25%; text-align: center">
-                    <div class="info-item">
-                        <span class="info-label">{{ $t('pages.model.form.model_name') }}</span>
-                        <span class="info-value">{{ modelData.model_name || '--' }}</span>
-                    </div>
-                </a-card-grid>
-                <a-card-grid style="width: 25%; text-align: center">
-                    <div class="info-item">
-                        <span class="info-label">{{ $t('pages.model.form.model_code') }}</span>
-                        <span
-                            class="info-value info-value-code"
-                            :class="{ 'is-copyable': !!modelData.model_code }"
-                            @click="handleCopyModelCode">
-                            {{ modelData.model_code || '--' }}
-                        </span>
-                    </div>
-                </a-card-grid>
-                <a-card-grid style="width: 25%; text-align: center">
-                    <div class="info-item">
-                        <span class="info-label">{{ $t('pages.model.form.space_code') }}</span>
-                        <span class="info-value">{{ modelData.space_code || '--' }}</span>
-                    </div>
-                </a-card-grid>
-                <a-card-grid style="width: 25%; text-align: center">
-                    <div class="info-item">
-                        <span class="info-label">{{ $t('pages.model.form.owner') }}</span>
-                        <span class="info-value">{{ modelData.owner || '--' }}</span>
-                    </div>
-                </a-card-grid>
-                <a-card-grid style="width: 25%; text-align: center">
-                    <div class="info-item">
-                        <span class="info-label">{{ $t('pages.model.form.enabled') }}</span>
-                        <span class="info-value">
-                            <a-tag :color="modelData.enabled === 1 ? 'green' : 'default'">
-                                {{
-                                    modelData.enabled === 1
-                                        ? $t('pages.model.form.enabled.active')
-                                        : $t('pages.model.form.enabled.inactive')
-                                }}
-                            </a-tag>
-                        </span>
-                    </div>
-                </a-card-grid>
-                <a-card-grid style="width: 25%; text-align: center">
-                    <div class="info-item">
-                        <span class="info-label">{{ $t('pages.model.form.creator') }}</span>
-                        <span class="info-value">{{ modelData.creator || '--' }}</span>
-                    </div>
-                </a-card-grid>
-                <a-card-grid style="width: 25%; text-align: center">
-                    <div class="info-item">
-                        <span class="info-label">{{ $t('pages.model.form.description') }}</span>
-                        <a-tooltip
-                            v-if="modelData.description"
-                            :title="modelData.description">
-                            <span class="info-value info-value-ellipsis">{{ modelData.description }}</span>
-                        </a-tooltip>
-                        <span
-                            v-else
-                            class="info-value"
-                            >--</span
-                        >
-                    </div>
-                </a-card-grid>
-                <a-card-grid style="width: 25%; text-align: center">
-                    <div class="info-item">
-                        <span class="info-label">{{ $t('pages.model.form.created_at') }}</span>
-                        <span class="info-value">{{ formatUtcDateTime(modelData.created_at) || '--' }}</span>
-                    </div>
-                </a-card-grid>
-                <a-card-grid style="width: 25%; text-align: center">
-                    <div class="info-item">
-                        <span class="info-label">{{ $t('pages.model.form.input_price') }}</span>
-                        <span class="info-value info-value-price">
-                            <template v-if="modelData.input_price !== undefined">
-                                {{ modelData.input_price }}<span class="info-unit">元/M</span>
+    <div
+        class="app-page"
+        :style="{ height: appStore.mainHeight }">
+        <div class="model-detail">
+            <!-- 基本信息 -->
+            <a-card
+                :title="$t('pages.model.detail.basicInfo')"
+                class="info-card"
+                :bordered="false">
+                <template #extra>
+                    <a-space>
+                        <a-button
+                            type="text"
+                            size="small"
+                            @click="basicInfoCollapsed = !basicInfoCollapsed">
+                            <template #icon>
+                                <down-outlined v-if="basicInfoCollapsed" />
+                                <up-outlined v-else />
                             </template>
-                            <template v-else>--</template>
-                        </span>
-                    </div>
-                </a-card-grid>
-                <a-card-grid style="width: 25%; text-align: center">
-                    <div class="info-item">
-                        <span class="info-label">{{ $t('pages.model.form.output_price') }}</span>
-                        <span class="info-value info-value-price">
-                            <template v-if="modelData.output_price !== undefined">
-                                {{ modelData.output_price }}<span class="info-unit">元/M</span>
-                            </template>
-                            <template v-else>--</template>
-                        </span>
-                    </div>
-                </a-card-grid>
-                <a-card-grid style="width: 25%; text-align: center">
-                    <div class="info-item">
-                        <span class="info-label">{{ $t('pages.model.form.cached_price') }}</span>
-                        <span class="info-value info-value-price">
-                            <template v-if="modelData.cached_price !== undefined">
-                                {{ modelData.cached_price }}<span class="info-unit">元/M</span>
-                            </template>
-                            <template v-else>--</template>
-                        </span>
-                    </div>
-                </a-card-grid>
-                <a-card-grid style="width: 25%; text-align: center">
-                    <div class="info-item">
-                        <span class="info-label">{{ $t('pages.model.form.cache_creation_price') }}</span>
-                        <span class="info-value info-value-price">
-                            <template v-if="modelData.cache_creation_price !== undefined">
-                                {{ modelData.cache_creation_price }}<span class="info-unit">元/M</span>
-                            </template>
-                            <template v-else>--</template>
-                        </span>
-                    </div>
-                </a-card-grid>
-            </template>
-        </a-card>
-
-        <!-- Tab 区域 -->
-        <a-card
-            class="detail-card"
-            :bordered="false">
-            <a-tabs
-                v-model:activeKey="activeTab"
-                class="detail-tabs">
-                <a-tab-pane
-                    key="endpoint"
-                    :tab="$t('pages.model.detail.tab.endpoint')" />
-                <a-tab-pane
-                    key="alias"
-                    :tab="$t('pages.model.detail.tab.alias')" />
-                <a-tab-pane
-                    v-for="item in policyTypeTabs"
-                    :key="item.key"
-                    :tab="item.label" />
-                <a-tab-pane
-                    key="monitor"
-                    :tab="$t('pages.model.detail.tab.monitor')" />
-                <a-tab-pane
-                    key="member"
-                    :tab="$t('pages.model.detail.tab.member')" />
-            </a-tabs>
-
-            <div v-if="activeTab === 'monitor'">
-                <ModelMonitorTab
-                    :model-id="modelId"
-                    :model-code="modelData.model_code"
-                    :active="activeTab === 'monitor'" />
-            </div>
-
-            <!-- 端点管理 Tab 内容 -->
-            <div v-else-if="activeTab === 'endpoint'">
-                <div class="tab-toolbar">
-                    <a-button
-                        type="primary"
-                        ghost
-                        @click="$refs.endpointEditRef.handleCreate()">
-                        <template #icon><plus-outlined /></template>
-                        {{ $t('pages.endpoint.add') }}
-                    </a-button>
-                    <div class="tab-toolbar-right">
-                        <a-select
-                            v-model:value="endpointFilterProviderId"
-                            :placeholder="$t('pages.endpoint.filter.provider')"
-                            style="width: 200px; margin-right: 8px"
-                            allow-clear
-                            show-search
-                            :filter-option="filterProviderOption"
-                            @change="handleEndpointFilterChange">
-                            <a-select-option
-                                v-for="p in providerOptions"
-                                :key="p.id"
-                                :value="p.id">
-                                {{ p.name }}
-                            </a-select-option>
-                        </a-select>
-                        <a-select
-                            v-model:value="endpointFilterEnabled"
-                            :placeholder="$t('pages.endpoint.filter.status')"
-                            style="width: 150px; margin-right: 8px"
-                            allow-clear
-                            @change="handleEndpointFilterChange">
-                            <a-select-option :value="1">
-                                {{ $t('pages.endpoint.form.enabled.active') }}
-                            </a-select-option>
-                            <a-select-option :value="0">
-                                {{ $t('pages.endpoint.form.enabled.inactive') }}
-                            </a-select-option>
-                        </a-select>
-                        <a-button @click="loadEndpointList">
-                            <template #icon><reload-outlined /></template>
+                            {{
+                                basicInfoCollapsed
+                                    ? $t('component.tagSelect.expand')
+                                    : $t('component.tagSelect.collapse')
+                            }}
                         </a-button>
-                    </div>
-                </div>
-                <a-table
-                    :columns="endpointColumns"
-                    :data-source="endpointListData"
-                    :loading="endpointLoading"
-                    :pagination="endpointPagination"
-                    :scroll="{ x: 1200 }"
-                    @change="onEndpointTableChange">
-                    <template #bodyCell="{ column, record }">
-                        <template v-if="'provider_id' === column.key">
-                            <a
-                                v-if="record.provider_id"
-                                @click.prevent="goToProviderDetail(record.provider_id)">
-                                {{ getProviderName(record.provider_id) }}
-                            </a>
-                            <span v-else>--</span>
-                        </template>
-                        <template v-if="'url' === column.key">
-                            <a-tooltip :title="record.url">
-                                <span class="url-text">{{ record.url }}</span>
-                            </a-tooltip>
-                        </template>
-                        <template v-if="'protocol' === column.key">
-                            <a-tag
-                                v-if="record.protocol"
-                                color="blue"
-                                >{{ record.protocol }}</a-tag
-                            >
-                            <a-tag
-                                v-else-if="getInheritedProtocol(record.provider_id)"
-                                color="blue"
-                                style="border-style: dashed"
-                                >{{ getInheritedProtocol(record.provider_id) }}</a-tag
-                            >
-                            <span
-                                v-else
-                                style="color: #999"
-                                >{{ $t('pages.endpoint.form.protocol.inherit') }}</span
-                            >
-                        </template>
-                        <template v-if="'real_model' === column.key">
-                            {{ record.real_model || '--' }}
-                        </template>
-                        <template v-if="'priority' === column.key">
-                            {{ record.priority ?? 0 }}
-                        </template>
-                        <template v-if="'enabled' === column.key">
-                            <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
-                                {{
-                                    record.enabled === 1
-                                        ? $t('pages.endpoint.form.enabled.active')
-                                        : $t('pages.endpoint.form.enabled.inactive')
-                                }}
-                            </a-tag>
-                        </template>
-                        <template v-if="'recent_status' === column.key">
-                            <EndpointStatusStrip :points="record.status_points || []" />
-                        </template>
-                        <template v-if="'created_at' === column.key">
-                            {{ formatUtcDateTime(record.created_at) }}
-                        </template>
-                        <template v-if="'action' === column.key">
-                            <x-action-button
-                                :disabled="testingEndpoints[record.id]"
-                                @click="handleTestEndpoint(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('pages.endpoint.test') }}</template>
-                                    <loading-outlined v-if="testingEndpoints[record.id]" />
-                                    <api-outlined v-else />
-                                </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleToggleEndpointEnabled(record)">
-                                <a-tooltip>
-                                    <template #title>{{
-                                        record.enabled === 1
-                                            ? $t('pages.endpoint.disable')
-                                            : $t('pages.endpoint.enable')
-                                    }}</template>
-                                    <poweroff-outlined :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }"
-                                /></a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="$refs.endpointEditRef.handleEdit(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('pages.endpoint.edit') }}</template>
-                                    <edit-outlined />
-                                </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="$refs.endpointEditRef.handleCopy(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('pages.endpoint.copy') }}</template>
-                                    <copy-outlined />
-                                </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleRemoveEndpoint(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('button.delete') }}</template>
-                                    <delete-outlined style="color: #ff4d4f" />
-                                </a-tooltip>
-                            </x-action-button>
-                        </template>
-                    </template>
-                </a-table>
-            </div>
-
-            <!-- 模型别名 Tab 内容 -->
-            <div v-else-if="activeTab === 'alias'">
-                <div class="tab-toolbar">
-                    <a-button
-                        type="primary"
-                        ghost
-                        @click="$refs.aliasEditRef.handleCreate()">
-                        <template #icon><plus-outlined /></template>
-                        {{ $t('pages.model.alias.create') }}
-                    </a-button>
-                    <div class="tab-toolbar-right">
-                        <a-input-search
-                            v-model:value="aliasSearchName"
-                            :placeholder="$t('pages.model.alias.search.placeholder')"
-                            style="width: 200px"
-                            allow-clear
-                            @search="loadAliasList"
-                            @pressEnter="loadAliasList" />
-                        <a-button @click="loadAliasList">
-                            <template #icon><reload-outlined /></template>
-                        </a-button>
-                    </div>
-                </div>
-                <a-table
-                    :columns="aliasColumns"
-                    :data-source="aliasListData"
-                    :loading="aliasLoading"
-                    :pagination="aliasPagination"
-                    @change="onAliasTableChange">
-                    <template #bodyCell="{ column, record }">
-                        <template v-if="'created_at' === column.key">
-                            {{ formatUtcDateTime(record.created_at) }}
-                        </template>
-                        <template v-if="'action' === column.key">
-                            <x-action-button @click="$refs.aliasEditRef.handleEdit(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('pages.model.alias.edit') }}</template>
-                                    <edit-outlined />
-                                </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleRemoveAlias(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('button.delete') }}</template>
-                                    <delete-outlined style="color: #ff4d4f" />
-                                </a-tooltip>
-                            </x-action-button>
-                        </template>
-                    </template>
-                </a-table>
-            </div>
-
-            <!-- 治理策略 Tab 内容 -->
-            <div v-else-if="isPolicyTab(activeTab)">
-                <div class="tab-toolbar">
-                    <div class="tab-toolbar-left">
                         <a-button
                             type="primary"
                             ghost
-                            @click="handleCreateModelPolicy">
+                            size="small"
+                            @click="handleEditModel">
+                            <template #icon><edit-outlined /></template>
+                            {{ $t('pages.model.edit') }}
+                        </a-button>
+                    </a-space>
+                </template>
+                <template v-if="!basicInfoCollapsed">
+                    <a-card-grid style="width: 25%; text-align: center">
+                        <div class="info-item">
+                            <span class="info-label">{{ $t('pages.model.form.model_name') }}</span>
+                            <span class="info-value">{{ modelData.model_name || '--' }}</span>
+                        </div>
+                    </a-card-grid>
+                    <a-card-grid style="width: 25%; text-align: center">
+                        <div class="info-item">
+                            <span class="info-label">{{ $t('pages.model.form.model_code') }}</span>
+                            <span
+                                class="info-value info-value-code"
+                                :class="{ 'is-copyable': !!modelData.model_code }"
+                                @click="handleCopyModelCode">
+                                {{ modelData.model_code || '--' }}
+                            </span>
+                        </div>
+                    </a-card-grid>
+                    <a-card-grid style="width: 25%; text-align: center">
+                        <div class="info-item">
+                            <span class="info-label">{{ $t('pages.model.form.space_code') }}</span>
+                            <span class="info-value">{{ modelData.space_code || '--' }}</span>
+                        </div>
+                    </a-card-grid>
+                    <a-card-grid style="width: 25%; text-align: center">
+                        <div class="info-item">
+                            <span class="info-label">{{ $t('pages.model.form.owner') }}</span>
+                            <span class="info-value">{{ modelData.owner || '--' }}</span>
+                        </div>
+                    </a-card-grid>
+                    <a-card-grid style="width: 25%; text-align: center">
+                        <div class="info-item">
+                            <span class="info-label">{{ $t('pages.model.form.enabled') }}</span>
+                            <span class="info-value">
+                                <a-tag :color="modelData.enabled === 1 ? 'green' : 'default'">
+                                    {{
+                                        modelData.enabled === 1
+                                            ? $t('pages.model.form.enabled.active')
+                                            : $t('pages.model.form.enabled.inactive')
+                                    }}
+                                </a-tag>
+                            </span>
+                        </div>
+                    </a-card-grid>
+                    <a-card-grid style="width: 25%; text-align: center">
+                        <div class="info-item">
+                            <span class="info-label">{{ $t('pages.model.form.creator') }}</span>
+                            <span class="info-value">{{ modelData.creator || '--' }}</span>
+                        </div>
+                    </a-card-grid>
+                    <a-card-grid style="width: 25%; text-align: center">
+                        <div class="info-item">
+                            <span class="info-label">{{ $t('pages.model.form.description') }}</span>
+                            <a-tooltip
+                                v-if="modelData.description"
+                                :title="modelData.description">
+                                <span class="info-value info-value-ellipsis">{{ modelData.description }}</span>
+                            </a-tooltip>
+                            <span
+                                v-else
+                                class="info-value"
+                                >--</span
+                            >
+                        </div>
+                    </a-card-grid>
+                    <a-card-grid style="width: 25%; text-align: center">
+                        <div class="info-item">
+                            <span class="info-label">{{ $t('pages.model.form.created_at') }}</span>
+                            <span class="info-value">{{ formatUtcDateTime(modelData.created_at) || '--' }}</span>
+                        </div>
+                    </a-card-grid>
+                    <a-card-grid style="width: 25%; text-align: center">
+                        <div class="info-item">
+                            <span class="info-label">{{ $t('pages.model.form.input_price') }}</span>
+                            <span class="info-value info-value-price">
+                                <template v-if="modelData.input_price !== undefined">
+                                    {{ modelData.input_price }}<span class="info-unit">元/M</span>
+                                </template>
+                                <template v-else>--</template>
+                            </span>
+                        </div>
+                    </a-card-grid>
+                    <a-card-grid style="width: 25%; text-align: center">
+                        <div class="info-item">
+                            <span class="info-label">{{ $t('pages.model.form.output_price') }}</span>
+                            <span class="info-value info-value-price">
+                                <template v-if="modelData.output_price !== undefined">
+                                    {{ modelData.output_price }}<span class="info-unit">元/M</span>
+                                </template>
+                                <template v-else>--</template>
+                            </span>
+                        </div>
+                    </a-card-grid>
+                    <a-card-grid style="width: 25%; text-align: center">
+                        <div class="info-item">
+                            <span class="info-label">{{ $t('pages.model.form.cached_price') }}</span>
+                            <span class="info-value info-value-price">
+                                <template v-if="modelData.cached_price !== undefined">
+                                    {{ modelData.cached_price }}<span class="info-unit">元/M</span>
+                                </template>
+                                <template v-else>--</template>
+                            </span>
+                        </div>
+                    </a-card-grid>
+                    <a-card-grid style="width: 25%; text-align: center">
+                        <div class="info-item">
+                            <span class="info-label">{{ $t('pages.model.form.cache_creation_price') }}</span>
+                            <span class="info-value info-value-price">
+                                <template v-if="modelData.cache_creation_price !== undefined">
+                                    {{ modelData.cache_creation_price }}<span class="info-unit">元/M</span>
+                                </template>
+                                <template v-else>--</template>
+                            </span>
+                        </div>
+                    </a-card-grid>
+                </template>
+            </a-card>
+
+            <!-- Tab 区域 -->
+            <a-card
+                class="detail-card"
+                :bordered="false">
+                <a-tabs
+                    v-model:activeKey="activeTab"
+                    class="detail-tabs">
+                    <a-tab-pane
+                        key="endpoint"
+                        :tab="$t('pages.model.detail.tab.endpoint')" />
+                    <a-tab-pane
+                        key="alias"
+                        :tab="$t('pages.model.detail.tab.alias')" />
+                    <a-tab-pane
+                        v-for="item in policyTypeTabs"
+                        :key="item.key"
+                        :tab="item.label" />
+                    <a-tab-pane
+                        key="monitor"
+                        :tab="$t('pages.model.detail.tab.monitor')" />
+                    <a-tab-pane
+                        key="member"
+                        :tab="$t('pages.model.detail.tab.member')" />
+                </a-tabs>
+
+                <div
+                    v-if="activeTab === 'monitor'"
+                    class="tab-content">
+                    <ModelMonitorTab
+                        :model-id="modelId"
+                        :model-code="modelData.model_code"
+                        :active="activeTab === 'monitor'" />
+                </div>
+
+                <!-- 端点管理 Tab 内容 -->
+                <div
+                    v-else-if="activeTab === 'endpoint'"
+                    class="tab-content">
+                    <div class="tab-toolbar">
+                        <a-button
+                            type="primary"
+                            ghost
+                            @click="$refs.endpointEditRef.handleCreate()">
                             <template #icon><plus-outlined /></template>
-                            {{ $t('button.createPolicy') }}
+                            {{ $t('pages.endpoint.add') }}
                         </a-button>
-                        <a-button @click="handleOpenCopyTemplate">
-                            <template #icon><copy-outlined /></template>
-                            {{ $t('button.copyFromTemplate') }}
-                        </a-button>
+                        <div class="tab-toolbar-right">
+                            <a-select
+                                v-model:value="endpointFilterProviderId"
+                                :placeholder="$t('pages.endpoint.filter.provider')"
+                                style="width: 200px; margin-right: 8px"
+                                allow-clear
+                                show-search
+                                :filter-option="filterProviderOption"
+                                @change="handleEndpointFilterChange">
+                                <a-select-option
+                                    v-for="p in providerOptions"
+                                    :key="p.id"
+                                    :value="p.id">
+                                    {{ p.name }}
+                                </a-select-option>
+                            </a-select>
+                            <a-select
+                                v-model:value="endpointFilterEnabled"
+                                :placeholder="$t('pages.endpoint.filter.status')"
+                                style="width: 150px; margin-right: 8px"
+                                allow-clear
+                                @change="handleEndpointFilterChange">
+                                <a-select-option :value="1">
+                                    {{ $t('pages.endpoint.form.enabled.active') }}
+                                </a-select-option>
+                                <a-select-option :value="0">
+                                    {{ $t('pages.endpoint.form.enabled.inactive') }}
+                                </a-select-option>
+                            </a-select>
+                            <a-button @click="loadEndpointList">
+                                <template #icon><reload-outlined /></template>
+                            </a-button>
+                        </div>
                     </div>
-                    <div class="tab-toolbar-right">
-                        <a-button @click="loadModelPolicies">
-                            <template #icon><reload-outlined /></template>
-                        </a-button>
-                    </div>
-                </div>
-                <a-table
-                    :columns="modelPolicyColumns"
-                    :data-source="currentModelPolicies"
-                    :loading="policyLoading"
-                    :pagination="policyPagination"
-                    @change="onPolicyTableChange">
-                    <template #bodyCell="{ column, record }">
-                        <template v-if="'enabled' === column.key">
-                            <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
-                                {{
-                                    record.enabled === 1
-                                        ? $t('pages.model.form.enabled.active')
-                                        : $t('pages.model.form.enabled.inactive')
-                                }}
-                            </a-tag>
-                        </template>
-                        <template v-if="'scope_type' === column.key">
-                            <span v-if="record.scope_type === 'global'">
-                                {{ $t('pages.policy.form.scope_type.global') }}
-                            </span>
-                            <span v-else-if="record.scope_type === 'tenant'">
-                                {{ $t('pages.policy.form.scope_type.tenant') }}
-                            </span>
-                            <span v-else-if="record.scope_type === 'user'">
-                                {{ $t('pages.policy.form.scope_type.user') }}
-                            </span>
-                            <span v-else>-</span>
-                        </template>
-                        <template v-if="'created_at' === column.key">
-                            {{ formatUtcDateTime(record.created_at) }}
-                        </template>
-                        <template v-if="'action' === column.key">
-                            <x-action-button
-                                :disabled="togglingModelPolicies[record.id]"
-                                @click="handleToggleModelPolicyEnabled(record)">
-                                <a-tooltip>
-                                    <template #title>{{
-                                        record.enabled === 1
-                                            ? $t('pages.endpoint.disable')
-                                            : $t('pages.endpoint.enable')
-                                    }}</template>
-                                    <loading-outlined v-if="togglingModelPolicies[record.id]" />
-                                    <poweroff-outlined
+                    <div
+                        ref="endpointTableContainerRef"
+                        class="table-fill-region"
+                        :style="endpointTableContainerStyle">
+                        <a-table
+                            :columns="endpointColumns"
+                            :data-source="endpointListData"
+                            :loading="endpointLoading"
+                            :pagination="endpointPagination"
+                            :scroll="{ x: 1200, y: endpointTableScrollY || undefined }"
+                            @change="onEndpointTableChange">
+                            <template #bodyCell="{ column, record }">
+                                <template v-if="'provider_id' === column.key">
+                                    <a
+                                        v-if="record.provider_id"
+                                        @click.prevent="goToProviderDetail(record.provider_id)">
+                                        {{ getProviderName(record.provider_id) }}
+                                    </a>
+                                    <span v-else>--</span>
+                                </template>
+                                <template v-if="'url' === column.key">
+                                    <a-tooltip :title="record.url">
+                                        <span class="url-text">{{ record.url }}</span>
+                                    </a-tooltip>
+                                </template>
+                                <template v-if="'protocol' === column.key">
+                                    <a-tag
+                                        v-if="record.protocol"
+                                        color="blue"
+                                        >{{ record.protocol }}</a-tag
+                                    >
+                                    <a-tag
+                                        v-else-if="getInheritedProtocol(record.provider_id)"
+                                        color="blue"
+                                        style="border-style: dashed"
+                                        >{{ getInheritedProtocol(record.provider_id) }}</a-tag
+                                    >
+                                    <span
                                         v-else
-                                        :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }" />
-                                </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleEditModelPolicy(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('pages.endpoint.edit') }}</template>
-                                    <edit-outlined />
-                                </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleRemoveModelPolicy(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('button.delete') }}</template>
-                                    <delete-outlined style="color: #ff4d4f" />
-                                </a-tooltip>
-                            </x-action-button>
-                        </template>
-                    </template>
-                </a-table>
-            </div>
-
-            <!-- 成员管理 Tab 内容 -->
-            <div v-else-if="activeTab === 'member'">
-                <div class="tab-toolbar">
-                    <a-button
-                        type="primary"
-                        ghost
-                        @click="$refs.memberEditRef.handleCreate()">
-                        <template #icon><plus-outlined /></template>
-                        {{ $t('pages.member.add') }}
-                    </a-button>
-                    <div class="tab-toolbar-right">
-                        <a-input-search
-                            v-model:value="memberSearchUser"
-                            :placeholder="$t('pages.member.search.placeholder')"
-                            style="width: 200px"
-                            allow-clear
-                            @search="loadMemberList"
-                            @pressEnter="loadMemberList" />
-                        <a-button @click="loadMemberList">
-                            <template #icon><reload-outlined /></template>
-                        </a-button>
+                                        style="color: #999"
+                                        >{{ $t('pages.endpoint.form.protocol.inherit') }}</span
+                                    >
+                                </template>
+                                <template v-if="'real_model' === column.key">
+                                    {{ record.real_model || '--' }}
+                                </template>
+                                <template v-if="'priority' === column.key">
+                                    {{ record.priority ?? 0 }}
+                                </template>
+                                <template v-if="'enabled' === column.key">
+                                    <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
+                                        {{
+                                            record.enabled === 1
+                                                ? $t('pages.endpoint.form.enabled.active')
+                                                : $t('pages.endpoint.form.enabled.inactive')
+                                        }}
+                                    </a-tag>
+                                </template>
+                                <template v-if="'recent_status' === column.key">
+                                    <EndpointStatusStrip :points="record.status_points || []" />
+                                </template>
+                                <template v-if="'created_at' === column.key">
+                                    {{ formatUtcDateTime(record.created_at) }}
+                                </template>
+                                <template v-if="'action' === column.key">
+                                    <x-action-button
+                                        :disabled="testingEndpoints[record.id]"
+                                        @click="handleTestEndpoint(record)">
+                                        <a-tooltip>
+                                            <template #title> {{ $t('pages.endpoint.test') }}</template>
+                                            <loading-outlined v-if="testingEndpoints[record.id]" />
+                                            <api-outlined v-else />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                    <x-action-button @click="handleToggleEndpointEnabled(record)">
+                                        <a-tooltip>
+                                            <template #title>{{
+                                                record.enabled === 1
+                                                    ? $t('pages.endpoint.disable')
+                                                    : $t('pages.endpoint.enable')
+                                            }}</template>
+                                            <poweroff-outlined
+                                                :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }"
+                                        /></a-tooltip>
+                                    </x-action-button>
+                                    <x-action-button @click="$refs.endpointEditRef.handleEdit(record)">
+                                        <a-tooltip>
+                                            <template #title> {{ $t('pages.endpoint.edit') }}</template>
+                                            <edit-outlined />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                    <x-action-button @click="$refs.endpointEditRef.handleCopy(record)">
+                                        <a-tooltip>
+                                            <template #title> {{ $t('pages.endpoint.copy') }}</template>
+                                            <copy-outlined />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                    <x-action-button @click="handleRemoveEndpoint(record)">
+                                        <a-tooltip>
+                                            <template #title> {{ $t('button.delete') }}</template>
+                                            <delete-outlined style="color: #ff4d4f" />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                </template>
+                            </template>
+                        </a-table>
                     </div>
                 </div>
-                <a-table
-                    :columns="memberColumns"
-                    :data-source="memberListData"
-                    :loading="memberLoading"
-                    :pagination="memberPagination"
-                    @change="onMemberTableChange">
-                    <template #bodyCell="{ column, record }">
-                        <template v-if="'permission' === column.key">
-                            <a-tag
-                                v-if="hasPermission(record.permission, 1)"
-                                color="green"
-                                >{{ $t('pages.member.form.permission.read') }}</a-tag
-                            >
-                            <a-tag
-                                v-if="hasPermission(record.permission, 2)"
-                                color="blue"
-                                >{{ $t('pages.member.form.permission.write') }}</a-tag
-                            >
-                            <a-tag
-                                v-if="hasPermission(record.permission, 4)"
-                                color="red"
-                                >{{ $t('pages.member.form.permission.delete') }}</a-tag
-                            >
-                        </template>
-                        <template v-if="'created_at' === column.key">
-                            {{ formatUtcDateTime(record.created_at) }}
-                        </template>
-                        <template v-if="'action' === column.key">
-                            <x-action-button @click="$refs.memberEditRef.handleEdit(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('pages.member.edit') }}</template>
-                                    <edit-outlined />
-                                </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleRemoveMember(record)">
-                                <a-tooltip>
-                                    <template #title> {{ $t('button.delete') }}</template>
-                                    <delete-outlined style="color: #ff4d4f" />
-                                </a-tooltip>
-                            </x-action-button>
-                        </template>
-                    </template>
-                </a-table>
-            </div>
-        </a-card>
 
-        <!-- 别名编辑弹窗 -->
-        <model-alias-edit-dialog
-            ref="aliasEditRef"
-            :model-id="modelId"
-            :default-space-code="modelData.space_code"
-            @ok="loadAliasList" />
+                <!-- 模型别名 Tab 内容 -->
+                <div
+                    v-else-if="activeTab === 'alias'"
+                    class="tab-content">
+                    <div class="tab-toolbar">
+                        <a-button
+                            type="primary"
+                            ghost
+                            @click="$refs.aliasEditRef.handleCreate()">
+                            <template #icon><plus-outlined /></template>
+                            {{ $t('pages.model.alias.create') }}
+                        </a-button>
+                        <div class="tab-toolbar-right">
+                            <a-input-search
+                                v-model:value="aliasSearchName"
+                                :placeholder="$t('pages.model.alias.search.placeholder')"
+                                style="width: 200px"
+                                allow-clear
+                                @search="loadAliasList"
+                                @pressEnter="loadAliasList" />
+                            <a-button @click="loadAliasList">
+                                <template #icon><reload-outlined /></template>
+                            </a-button>
+                        </div>
+                    </div>
+                    <div
+                        ref="aliasTableContainerRef"
+                        class="table-fill-region"
+                        :style="aliasTableContainerStyle">
+                        <a-table
+                            :columns="aliasColumns"
+                            :data-source="aliasListData"
+                            :loading="aliasLoading"
+                            :pagination="aliasPagination"
+                            :scroll="{ y: aliasTableScrollY || undefined }"
+                            @change="onAliasTableChange">
+                            <template #bodyCell="{ column, record }">
+                                <template v-if="'created_at' === column.key">
+                                    {{ formatUtcDateTime(record.created_at) }}
+                                </template>
+                                <template v-if="'action' === column.key">
+                                    <x-action-button @click="$refs.aliasEditRef.handleEdit(record)">
+                                        <a-tooltip>
+                                            <template #title> {{ $t('pages.model.alias.edit') }}</template>
+                                            <edit-outlined />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                    <x-action-button @click="handleRemoveAlias(record)">
+                                        <a-tooltip>
+                                            <template #title> {{ $t('button.delete') }}</template>
+                                            <delete-outlined style="color: #ff4d4f" />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                </template>
+                            </template>
+                        </a-table>
+                    </div>
+                </div>
 
-        <!-- 成员编辑弹窗 -->
-        <model-member-edit-dialog
-            ref="memberEditRef"
-            :model-id="modelId"
-            @ok="loadMemberList" />
+                <!-- 治理策略 Tab 内容 -->
+                <div
+                    v-else-if="isPolicyTab(activeTab)"
+                    class="tab-content">
+                    <div class="tab-toolbar">
+                        <div class="tab-toolbar-left">
+                            <a-button
+                                type="primary"
+                                ghost
+                                @click="handleCreateModelPolicy">
+                                <template #icon><plus-outlined /></template>
+                                {{ $t('button.createPolicy') }}
+                            </a-button>
+                            <a-button @click="handleOpenCopyTemplate">
+                                <template #icon><copy-outlined /></template>
+                                {{ $t('button.copyFromTemplate') }}
+                            </a-button>
+                        </div>
+                        <div class="tab-toolbar-right">
+                            <a-button @click="loadModelPolicies">
+                                <template #icon><reload-outlined /></template>
+                            </a-button>
+                        </div>
+                    </div>
+                    <div
+                        ref="policyTableContainerRef"
+                        class="table-fill-region"
+                        :style="policyTableContainerStyle">
+                        <a-table
+                            :columns="modelPolicyColumns"
+                            :data-source="currentModelPolicies"
+                            :loading="policyLoading"
+                            :pagination="policyPagination"
+                            :scroll="{ y: policyTableScrollY || undefined }"
+                            @change="onPolicyTableChange">
+                            <template #bodyCell="{ column, record }">
+                                <template v-if="'enabled' === column.key">
+                                    <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
+                                        {{
+                                            record.enabled === 1
+                                                ? $t('pages.model.form.enabled.active')
+                                                : $t('pages.model.form.enabled.inactive')
+                                        }}
+                                    </a-tag>
+                                </template>
+                                <template v-if="'scope_type' === column.key">
+                                    <span v-if="record.scope_type === 'global'">
+                                        {{ $t('pages.policy.form.scope_type.global') }}
+                                    </span>
+                                    <span v-else-if="record.scope_type === 'tenant'">
+                                        {{ $t('pages.policy.form.scope_type.tenant') }}
+                                    </span>
+                                    <span v-else-if="record.scope_type === 'user'">
+                                        {{ $t('pages.policy.form.scope_type.user') }}
+                                    </span>
+                                    <span v-else>-</span>
+                                </template>
+                                <template v-if="'created_at' === column.key">
+                                    {{ formatUtcDateTime(record.created_at) }}
+                                </template>
+                                <template v-if="'action' === column.key">
+                                    <x-action-button
+                                        :disabled="togglingModelPolicies[record.id]"
+                                        @click="handleToggleModelPolicyEnabled(record)">
+                                        <a-tooltip>
+                                            <template #title>{{
+                                                record.enabled === 1
+                                                    ? $t('pages.endpoint.disable')
+                                                    : $t('pages.endpoint.enable')
+                                            }}</template>
+                                            <loading-outlined v-if="togglingModelPolicies[record.id]" />
+                                            <poweroff-outlined
+                                                v-else
+                                                :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }" />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                    <x-action-button @click="handleEditModelPolicy(record)">
+                                        <a-tooltip>
+                                            <template #title> {{ $t('pages.endpoint.edit') }}</template>
+                                            <edit-outlined />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                    <x-action-button @click="handleRemoveModelPolicy(record)">
+                                        <a-tooltip>
+                                            <template #title> {{ $t('button.delete') }}</template>
+                                            <delete-outlined style="color: #ff4d4f" />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                </template>
+                            </template>
+                        </a-table>
+                    </div>
+                </div>
 
-        <!-- 端点编辑弹窗 -->
-        <endpoint-edit-dialog
-            ref="endpointEditRef"
-            :provider-options="providerOptions"
-            :model-options="modelOptions"
-            :model-id="modelId"
-            @ok="loadEndpointList" />
+                <!-- 成员管理 Tab 内容 -->
+                <div
+                    v-else-if="activeTab === 'member'"
+                    class="tab-content">
+                    <div class="tab-toolbar">
+                        <a-button
+                            type="primary"
+                            ghost
+                            @click="$refs.memberEditRef.handleCreate()">
+                            <template #icon><plus-outlined /></template>
+                            {{ $t('pages.member.add') }}
+                        </a-button>
+                        <div class="tab-toolbar-right">
+                            <a-input-search
+                                v-model:value="memberSearchUser"
+                                :placeholder="$t('pages.member.search.placeholder')"
+                                style="width: 200px"
+                                allow-clear
+                                @search="loadMemberList"
+                                @pressEnter="loadMemberList" />
+                            <a-button @click="loadMemberList">
+                                <template #icon><reload-outlined /></template>
+                            </a-button>
+                        </div>
+                    </div>
+                    <div
+                        ref="memberTableContainerRef"
+                        class="table-fill-region"
+                        :style="memberTableContainerStyle">
+                        <a-table
+                            :columns="memberColumns"
+                            :data-source="memberListData"
+                            :loading="memberLoading"
+                            :pagination="memberPagination"
+                            :scroll="{ y: memberTableScrollY || undefined }"
+                            @change="onMemberTableChange">
+                            <template #bodyCell="{ column, record }">
+                                <template v-if="'permission' === column.key">
+                                    <a-tag
+                                        v-if="hasPermission(record.permission, 1)"
+                                        color="green"
+                                        >{{ $t('pages.member.form.permission.read') }}</a-tag
+                                    >
+                                    <a-tag
+                                        v-if="hasPermission(record.permission, 2)"
+                                        color="blue"
+                                        >{{ $t('pages.member.form.permission.write') }}</a-tag
+                                    >
+                                    <a-tag
+                                        v-if="hasPermission(record.permission, 4)"
+                                        color="red"
+                                        >{{ $t('pages.member.form.permission.delete') }}</a-tag
+                                    >
+                                </template>
+                                <template v-if="'created_at' === column.key">
+                                    {{ formatUtcDateTime(record.created_at) }}
+                                </template>
+                                <template v-if="'action' === column.key">
+                                    <x-action-button @click="$refs.memberEditRef.handleEdit(record)">
+                                        <a-tooltip>
+                                            <template #title> {{ $t('pages.member.edit') }}</template>
+                                            <edit-outlined />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                    <x-action-button @click="handleRemoveMember(record)">
+                                        <a-tooltip>
+                                            <template #title> {{ $t('button.delete') }}</template>
+                                            <delete-outlined style="color: #ff4d4f" />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                </template>
+                            </template>
+                        </a-table>
+                    </div>
+                </div>
+            </a-card>
 
-        <loadbalance-edit-dialog
-            ref="loadbalanceEditRef"
-            @ok="loadModelPolicies" />
-        <tag-route-edit-dialog
-            ref="routeEditRef"
-            @ok="loadModelPolicies" />
-        <limit-edit-dialog
-            ref="limitEditRef"
-            @ok="loadModelPolicies" />
-        <circuit-break-edit-dialog
-            ref="circuitBreakEditRef"
-            @ok="loadModelPolicies" />
-        <invocation-edit-dialog
-            ref="invocationEditRef"
-            @ok="loadModelPolicies" />
-        <tagging-edit-dialog
-            ref="taggingEditRef"
-            @ok="loadModelPolicies" />
+            <!-- 别名编辑弹窗 -->
+            <model-alias-edit-dialog
+                ref="aliasEditRef"
+                :model-id="modelId"
+                :default-space-code="modelData.space_code"
+                @ok="loadAliasList" />
 
-        <a-modal
-            v-model:open="copyTemplateModal.open"
-            :title="$t('pages.model.policy.copyTemplate.title')"
-            :confirm-loading="copyTemplateModal.loading"
-            :ok-text="$t('button.confirm')"
-            :cancel-text="$t('button.cancel')"
-            @ok="handleCopyTemplateToModel">
-            <a-form layout="vertical">
-                <a-form-item :label="$t('pages.model.policy.copyTemplate.templateLabel')">
-                    <a-select
-                        v-model:value="copyTemplateModal.templateId"
-                        show-search
-                        :filter-option="filterTemplateOption"
-                        :placeholder="$t('pages.model.policy.copyTemplate.templatePlaceholder')">
-                        <a-select-option
-                            v-for="item in templateOptions"
-                            :key="item.id"
-                            :value="item.id">
-                            {{ item.name }}
-                        </a-select-option>
-                    </a-select>
-                </a-form-item>
-                <a-form-item :label="$t('pages.model.policy.copyTemplate.newPolicyNameLabel')">
-                    <a-input
-                        v-model:value="copyTemplateModal.name"
-                        :placeholder="$t('pages.model.policy.copyTemplate.newPolicyNamePlaceholder')" />
-                </a-form-item>
-                <a-form-item :label="$t('pages.policy.form.scope_type') || '适用维度'">
-                    <a-select
-                        v-model:value="copyTemplateModal.scope_type"
-                        style="width: 100%">
-                        <a-select-option value="global">{{
-                            $t('pages.policy.form.scope_type.global') || '全局'
-                        }}</a-select-option>
-                        <a-select-option value="tenant">{{
-                            $t('pages.policy.form.scope_type.tenant') || '租户'
-                        }}</a-select-option>
-                        <a-select-option value="user">{{
-                            $t('pages.policy.form.scope_type.user') || '用户'
-                        }}</a-select-option>
-                    </a-select>
-                </a-form-item>
-                <a-form-item
-                    v-if="copyTemplateModal.scope_type !== 'global'"
-                    :label="
-                        copyTemplateModal.scope_type === 'tenant'
-                            ? $t('pages.policy.form.scope_code.tenant') || '适用租户'
-                            : $t('pages.policy.form.scope_code.user') || '适用用户'
-                    ">
-                    <a-input
-                        v-model:value="copyTemplateModal.scope_code"
-                        :placeholder="
+            <!-- 成员编辑弹窗 -->
+            <model-member-edit-dialog
+                ref="memberEditRef"
+                :model-id="modelId"
+                @ok="loadMemberList" />
+
+            <!-- 端点编辑弹窗 -->
+            <endpoint-edit-dialog
+                ref="endpointEditRef"
+                :provider-options="providerOptions"
+                :model-options="modelOptions"
+                :model-id="modelId"
+                @ok="loadEndpointList" />
+
+            <loadbalance-edit-dialog
+                ref="loadbalanceEditRef"
+                @ok="loadModelPolicies" />
+            <tag-route-edit-dialog
+                ref="routeEditRef"
+                @ok="loadModelPolicies" />
+            <limit-edit-dialog
+                ref="limitEditRef"
+                @ok="loadModelPolicies" />
+            <circuit-break-edit-dialog
+                ref="circuitBreakEditRef"
+                @ok="loadModelPolicies" />
+            <invocation-edit-dialog
+                ref="invocationEditRef"
+                @ok="loadModelPolicies" />
+            <tagging-edit-dialog
+                ref="taggingEditRef"
+                @ok="loadModelPolicies" />
+
+            <a-modal
+                v-model:open="copyTemplateModal.open"
+                :title="$t('pages.model.policy.copyTemplate.title')"
+                :confirm-loading="copyTemplateModal.loading"
+                :ok-text="$t('button.confirm')"
+                :cancel-text="$t('button.cancel')"
+                @ok="handleCopyTemplateToModel">
+                <a-form layout="vertical">
+                    <a-form-item :label="$t('pages.model.policy.copyTemplate.templateLabel')">
+                        <a-select
+                            v-model:value="copyTemplateModal.templateId"
+                            show-search
+                            :filter-option="filterTemplateOption"
+                            :placeholder="$t('pages.model.policy.copyTemplate.templatePlaceholder')">
+                            <a-select-option
+                                v-for="item in templateOptions"
+                                :key="item.id"
+                                :value="item.id">
+                                {{ item.name }}
+                            </a-select-option>
+                        </a-select>
+                    </a-form-item>
+                    <a-form-item :label="$t('pages.model.policy.copyTemplate.newPolicyNameLabel')">
+                        <a-input
+                            v-model:value="copyTemplateModal.name"
+                            :placeholder="$t('pages.model.policy.copyTemplate.newPolicyNamePlaceholder')" />
+                    </a-form-item>
+                    <a-form-item :label="$t('pages.policy.form.scope_type') || '适用维度'">
+                        <a-select
+                            v-model:value="copyTemplateModal.scope_type"
+                            style="width: 100%">
+                            <a-select-option value="global">{{
+                                $t('pages.policy.form.scope_type.global') || '全局'
+                            }}</a-select-option>
+                            <a-select-option value="tenant">{{
+                                $t('pages.policy.form.scope_type.tenant') || '租户'
+                            }}</a-select-option>
+                            <a-select-option value="user">{{
+                                $t('pages.policy.form.scope_type.user') || '用户'
+                            }}</a-select-option>
+                        </a-select>
+                    </a-form-item>
+                    <a-form-item
+                        v-if="copyTemplateModal.scope_type !== 'global'"
+                        :label="
                             copyTemplateModal.scope_type === 'tenant'
-                                ? $t('pages.policy.form.scope_code.tenant.placeholder') || '请输入租户Code'
-                                : $t('pages.policy.form.scope_code.user.placeholder') || '请输入用户ID'
-                        " />
-                </a-form-item>
-                <a-form-item :label="$t('pages.policy.form.priority') || '冲突优先级'">
-                    <a-input-number
-                        v-model:value="copyTemplateModal.priority"
-                        :min="0"
-                        style="width: 100%"
-                        :placeholder="$t('pages.policy.form.priority.placeholder') || '数值越小越优先'" />
-                </a-form-item>
-            </a-form>
-        </a-modal>
+                                ? $t('pages.policy.form.scope_code.tenant') || '适用租户'
+                                : $t('pages.policy.form.scope_code.user') || '适用用户'
+                        ">
+                        <a-input
+                            v-model:value="copyTemplateModal.scope_code"
+                            :placeholder="
+                                copyTemplateModal.scope_type === 'tenant'
+                                    ? $t('pages.policy.form.scope_code.tenant.placeholder') || '请输入租户Code'
+                                    : $t('pages.policy.form.scope_code.user.placeholder') || '请输入用户ID'
+                            " />
+                    </a-form-item>
+                    <a-form-item :label="$t('pages.policy.form.priority') || '冲突优先级'">
+                        <a-input-number
+                            v-model:value="copyTemplateModal.priority"
+                            :min="0"
+                            style="width: 100%"
+                            :placeholder="$t('pages.policy.form.priority.placeholder') || '数值越小越优先'" />
+                    </a-form-item>
+                </a-form>
+            </a-modal>
 
-        <!-- 模型基本信息编辑弹窗 -->
-        <model-edit-dialog
-            ref="modelEditRef"
-            :space-options="spaceOptions"
-            @ok="loadModelDetail" />
+            <!-- 模型基本信息编辑弹窗 -->
+            <model-edit-dialog
+                ref="modelEditRef"
+                :space-options="spaceOptions"
+                @ok="loadModelDetail" />
+        </div>
     </div>
 </template>
 
@@ -664,6 +706,8 @@ import {
 import apis from '@/apis'
 import { config } from '@/config'
 import { formatUtcDateTime } from '@/utils/util'
+import { useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 import { useI18n } from 'vue-i18n'
 import ModelAliasEditDialog from './ModelAliasEditDialog.vue'
 import ModelMemberEditDialog from './ModelMemberEditDialog.vue'
@@ -685,6 +729,27 @@ defineOptions({
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const appStore = useAppStore()
+const {
+    scrollY: endpointTableScrollY,
+    containerRef: endpointTableContainerRef,
+    containerStyle: endpointTableContainerStyle,
+} = useTableAutoScrollY()
+const {
+    scrollY: aliasTableScrollY,
+    containerRef: aliasTableContainerRef,
+    containerStyle: aliasTableContainerStyle,
+} = useTableAutoScrollY()
+const {
+    scrollY: policyTableScrollY,
+    containerRef: policyTableContainerRef,
+    containerStyle: policyTableContainerStyle,
+} = useTableAutoScrollY()
+const {
+    scrollY: memberTableScrollY,
+    containerRef: memberTableContainerRef,
+    containerStyle: memberTableContainerStyle,
+} = useTableAutoScrollY()
 const modelId = ref(route.params.id)
 const modelData = ref({})
 const activeTab = ref(route.query.tab === 'monitor' ? 'monitor' : 'endpoint')
@@ -988,12 +1053,14 @@ const memberColumns = [
     },
 ]
 
+const endpointFilterProviderId = ref(undefined)
+const endpointFilterEnabled = ref(undefined)
+
 onMounted(() => {
     loadModelDetail()
     loadAliasList()
     loadModelOptions()
     loadProviderOptions()
-    loadEndpointList()
     loadMemberList()
     loadModelPolicies()
     loadSpaceOptions()
@@ -1006,6 +1073,16 @@ watch(
             activeTab.value = tab
         }
     }
+)
+
+watch(
+    activeTab,
+    (tab) => {
+        if (tab === 'endpoint') {
+            loadEndpointList()
+        }
+    },
+    { immediate: true }
 )
 
 watch(
@@ -1038,16 +1115,15 @@ watch(
             loadAliasList()
             loadModelOptions()
             loadProviderOptions()
-            loadEndpointList()
+            if (activeTab.value === 'endpoint') {
+                loadEndpointList()
+            }
             loadMemberList()
             loadModelPolicies()
             loadSpaceOptions()
         }
     }
 )
-
-const endpointFilterProviderId = ref(undefined)
-const endpointFilterEnabled = ref(undefined)
 
 function handleEndpointFilterChange() {
     endpointPagination.current = 1
@@ -1571,10 +1647,15 @@ function handleRemoveMember({ id }) {
 
 <style lang="less" scoped>
 .model-detail {
+    height: 100%;
     padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .info-card {
+    flex: none;
     margin-bottom: 16px;
 
     :deep(.ant-card-head-title) {
@@ -1662,7 +1743,21 @@ function handleRemoveMember({ id }) {
 }
 
 .detail-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    :deep(.ant-card-body) {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
     .detail-tabs {
+        flex: none;
         margin-bottom: 0;
         -webkit-user-select: none;
         user-select: none;
@@ -1671,6 +1766,13 @@ function handleRemoveMember({ id }) {
             margin-bottom: 16px;
         }
     }
+}
+
+.tab-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .tab-toolbar {

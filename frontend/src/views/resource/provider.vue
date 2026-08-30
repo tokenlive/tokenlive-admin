@@ -67,14 +67,16 @@
                     @change="onTableChange">
                     <template #bodyCell="{ column, record }">
                         <template v-if="'name' === column.key">
-                            <a @click="goToDetail(record)">
-                                {{ record.name }}
-                            </a>
-                        </template>
-                        <template v-if="'code' === column.key">
-                            <a @click="goToDetail(record)">
-                                {{ record.code }}
-                            </a>
+                            <div class="provider-name-cell">
+                                <a @click="goToDetail(record)">
+                                    {{ record.name }}
+                                </a>
+                                <span
+                                    class="provider-code-text"
+                                    :title="record.code">
+                                    {{ record.code }}
+                                </span>
+                            </div>
                         </template>
                         <template v-if="'enabled' === column.key">
                             <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
@@ -162,7 +164,7 @@ function goToDetail(record) {
 }
 const columns = [
     {
-        title: t('pages.provider.form.name'),
+        title: t('pages.provider.form.name_code'),
         dataIndex: 'name',
         key: 'name',
         minWidth: 200,
@@ -171,16 +173,6 @@ const columns = [
         },
         sorter: (a, b) => (a.name || '').localeCompare(b.name || ''),
         fixed: 'left',
-    },
-    {
-        title: t('pages.provider.form.code'),
-        dataIndex: 'code',
-        key: 'code',
-        minWidth: 180,
-        ellipsis: {
-            showTitle: true,
-        },
-        sorter: (a, b) => (a.code || '').localeCompare(b.code || ''),
     },
     { title: t('pages.provider.form.protocol'), dataIndex: 'protocol', key: 'protocol', width: 120 },
     { title: t('pages.provider.form.enabled'), key: 'enabled', width: 100 },
@@ -412,3 +404,31 @@ async function onOk() {
     await getPageList()
 }
 </script>
+
+<style scoped>
+.provider-name-cell {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+}
+
+.provider-name-cell a {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.provider-code-text {
+    margin-left: 8px;
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: none;
+}
+
+[data-theme='dark'] .provider-code-text {
+    color: #8e919c;
+}
+</style>

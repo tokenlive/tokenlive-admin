@@ -19,6 +19,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 // Model business logic layer
@@ -308,6 +309,7 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 	}
 
 	var tenantCodes []string
+	var policies []modelPolicyCascadeRecord
 	err = m.Trans.Exec(ctx, func(ctx context.Context) error {
 		tx := util.GetDB(ctx, m.ModelDAL.DB)
 
@@ -315,6 +317,14 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 		tenantModelTable := config.C.FormatTableName("tenant_model")
 		err := tx.Table(tenantModelTable).Where("model_id = ?", id).Pluck("tenant_code", &tenantCodes).Error
 		if err != nil {
+			return err
+		}
+
+		policies, err = collectModelOwnedPolicies(tx, model.ID)
+		if err != nil {
+			return err
+		}
+		if err := softDeleteModelOwnedPolicies(tx, model.ID, policies); err != nil {
 			return err
 		}
 
@@ -336,8 +346,12 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 		_ = m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
 		// 删除时，同步清理 Redis 相关租户的缓存
 		_ = m.ConfigRedisSync.SyncModelDisable(ctx, model.ID, model.ModelCode, tenantCodes...)
+		m.syncDeletedModelPolicyDimensions(ctx, model.ModelCode, policies)
 
 		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, model, nil)
+		for _, policy := range policies {
+			m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policy.ID, policy.Name, policy, nil)
+		}
 	}
 	return err
 }
@@ -375,18 +389,104 @@ func (m *Model) ensureModelCanDelete(ctx context.Context, model *schema.Model) e
 		}
 	}
 
-	policyTables := []string{"policy_loadbalance", "policy_route", "policy_limit", "policy_circuit_break", "policy_invocation", "policy_tagging"}
-	for _, tbl := range policyTables {
-		var count int64
-		if err := db.Table(config.C.FormatTableName(tbl)).Where("model_id = ? AND deleted = '0'", model.ID).Count(&count).Error; err != nil {
-			return err
+	return nil
+}
+
+type modelPolicyCascadeRecord struct {
+	Table     string `gorm:"-" json:"-"`
+	ID        string `gorm:"column:id" json:"id"`
+	Name      string `gorm:"column:name" json:"name"`
+	ScopeType string `gorm:"column:scope_type" json:"scope_type"`
+	ScopeCode string `gorm:"column:scope_code" json:"scope_code"`
+}
+
+var modelOwnedPolicyTables = []string{
+	"policy_loadbalance",
+	"policy_route",
+	"policy_limit",
+	"policy_circuit_break",
+	"policy_invocation",
+	"policy_tagging",
+}
+
+func collectModelOwnedPolicies(tx *gorm.DB, modelID string) ([]modelPolicyCascadeRecord, error) {
+	policies := make([]modelPolicyCascadeRecord, 0)
+	for _, table := range modelOwnedPolicyTables {
+		var tablePolicies []modelPolicyCascadeRecord
+		if err := tx.Table(config.C.FormatTableName(table)).
+			Select("id, name, scope_type, scope_code").
+			Where("model_id = ? AND deleted = '0'", modelID).
+			Find(&tablePolicies).Error; err != nil {
+			return nil, err
 		}
-		if count > 0 {
-			return errors.BadRequest("", "模型存在关联策略，请先清理后再执行删除操作")
+		for i := range tablePolicies {
+			tablePolicies[i].Table = table
+		}
+		policies = append(policies, tablePolicies...)
+	}
+	return policies, nil
+}
+
+func softDeleteModelOwnedPolicies(tx *gorm.DB, modelID string, policies []modelPolicyCascadeRecord) error {
+	if len(policies) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	updates := map[string]interface{}{
+		"deleted":    gorm.Expr("id"),
+		"deleted_at": &now,
+	}
+
+	routeIDs := make([]string, 0)
+	for _, policy := range policies {
+		if policy.Table == "policy_route" {
+			routeIDs = append(routeIDs, policy.ID)
+		}
+	}
+	if len(routeIDs) > 0 {
+		if err := tx.Table(config.C.FormatTableName("policy_route_detail")).
+			Where("route_id IN ? AND deleted = '0'", routeIDs).
+			UpdateColumns(updates).Error; err != nil {
+			return err
 		}
 	}
 
+	for _, table := range modelOwnedPolicyTables {
+		if err := tx.Table(config.C.FormatTableName(table)).
+			Where("model_id = ? AND deleted = '0'", modelID).
+			UpdateColumns(updates).Error; err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (m *Model) syncDeletedModelPolicyDimensions(ctx context.Context, modelCode string, policies []modelPolicyCascadeRecord) {
+	if m.PolicyRedisSync == nil {
+		return
+	}
+
+	_ = m.PolicyRedisSync.SyncDimension(ctx, "", "", modelCode)
+	seen := map[string]bool{"global:": true}
+	for _, policy := range policies {
+		dimensionKey := policy.ScopeType + ":" + policy.ScopeCode
+		if seen[dimensionKey] {
+			continue
+		}
+		seen[dimensionKey] = true
+
+		var tenantCode, userID string
+		switch policy.ScopeType {
+		case "tenant":
+			tenantCode = policy.ScopeCode
+		case "user":
+			userID = policy.ScopeCode
+		default:
+			continue
+		}
+		_ = m.PolicyRedisSync.SyncDimension(ctx, tenantCode, userID, modelCode)
+	}
 }
 
 func (m *Model) fillModelsStatusPoints(ctx context.Context, models []*schema.Model) {

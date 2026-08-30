@@ -1,150 +1,227 @@
 <template>
-    <div class="tenant-detail">
-        <!-- 头部：基本信息 -->
-        <a-card
-            :title="$t('pages.tenant.detail.basic_info')"
-            class="info-card"
-            :bordered="false">
-            <a-card-grid style="width: 20%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.tenant.form.name') }}</span>
-                    <span class="info-value">{{ tenantData.name || '--' }}</span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 20%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.tenant.form.code') }}</span>
-                    <span class="info-value tenant-code-container">
-                        <span class="tenant-code">{{ tenantData.code || '--' }}</span>
-                        <a-tooltip
-                            v-if="tenantData.code"
-                            :title="$t('pages.tenant.copy.code')">
-                            <copy-outlined
-                                class="copy-btn-icon"
-                                @click="handleCopyCode(tenantData.code)" />
-                        </a-tooltip>
-                    </span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 30%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.tenant.form.api_key') }}</span>
-                    <span class="info-value tenant-code-container">
-                        <span class="tenant-code">
-                            {{ apiKeyVisible ? tenantData.api_key || '--' : '••••••••••••••••••••••••••••••••' }}
+    <div
+        class="app-page"
+        :style="{ height: appStore.mainHeight }">
+        <div class="tenant-detail">
+            <!-- 头部：基本信息 -->
+            <a-card
+                :title="$t('pages.tenant.detail.basic_info')"
+                class="info-card"
+                :bordered="false">
+                <a-card-grid style="width: 20%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.tenant.form.name') }}</span>
+                        <span class="info-value">{{ tenantData.name || '--' }}</span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 20%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.tenant.form.code') }}</span>
+                        <span class="info-value tenant-code-container">
+                            <span class="tenant-code">{{ tenantData.code || '--' }}</span>
+                            <a-tooltip
+                                v-if="tenantData.code"
+                                :title="$t('pages.tenant.copy.code')">
+                                <copy-outlined
+                                    class="copy-btn-icon"
+                                    @click="handleCopyCode(tenantData.code)" />
+                            </a-tooltip>
                         </span>
-                        <a-tooltip
-                            :title="
-                                apiKeyVisible
-                                    ? $t('pages.tenant.detail.api_key.hide')
-                                    : $t('pages.tenant.detail.api_key.show')
-                            ">
-                            <span
-                                class="copy-btn-icon"
-                                @click="apiKeyVisible = !apiKeyVisible">
-                                <eye-outlined v-if="!apiKeyVisible" />
-                                <eye-invisible-outlined v-else />
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 30%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.tenant.form.api_key') }}</span>
+                        <span class="info-value tenant-code-container">
+                            <span class="tenant-code">
+                                {{ apiKeyVisible ? tenantData.api_key || '--' : '••••••••••••••••••••••••••••••••' }}
                             </span>
-                        </a-tooltip>
-                        <a-tooltip
-                            v-if="tenantData.api_key"
-                            :title="$t('pages.tenant.copy.api_key')">
-                            <copy-outlined
-                                class="copy-btn-icon"
-                                @click="handleCopyCode(tenantData.api_key)" />
-                        </a-tooltip>
-                    </span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 10%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.tenant.form.status') }}</span>
-                    <span class="info-value">
-                        <a-tag :color="tenantData.status === 'activated' ? 'success' : 'error'">
-                            {{
-                                tenantData.status === 'activated'
-                                    ? $t('pages.tenant.form.status.activated')
-                                    : $t('pages.tenant.form.status.freezed')
-                            }}
-                        </a-tag>
-                    </span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 20%; text-align: center">
-                <div class="info-item">
-                    <span class="info-label">{{ $t('pages.tenant.form.created_at') }}</span>
-                    <span class="info-value">{{ formatUtcDateTime(tenantData.created_at) || '--' }}</span>
-                </div>
-            </a-card-grid>
-            <a-card-grid style="width: 100%">
-                <div class="info-desc-item">
-                    <span class="info-label">{{ $t('pages.tenant.form.description') }}:</span>
-                    <span class="info-desc-value">{{
-                        tenantData.description || $t('pages.tenant.detail.description.empty')
-                    }}</span>
-                </div>
-            </a-card-grid>
-        </a-card>
+                            <a-tooltip
+                                :title="
+                                    apiKeyVisible
+                                        ? $t('pages.tenant.detail.api_key.hide')
+                                        : $t('pages.tenant.detail.api_key.show')
+                                ">
+                                <span
+                                    class="copy-btn-icon"
+                                    @click="apiKeyVisible = !apiKeyVisible">
+                                    <eye-outlined v-if="!apiKeyVisible" />
+                                    <eye-invisible-outlined v-else />
+                                </span>
+                            </a-tooltip>
+                            <a-tooltip
+                                v-if="tenantData.api_key"
+                                :title="$t('pages.tenant.copy.api_key')">
+                                <copy-outlined
+                                    class="copy-btn-icon"
+                                    @click="handleCopyCode(tenantData.api_key)" />
+                            </a-tooltip>
+                        </span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 10%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.tenant.form.status') }}</span>
+                        <span class="info-value">
+                            <a-tag :color="tenantData.status === 'activated' ? 'success' : 'error'">
+                                {{
+                                    tenantData.status === 'activated'
+                                        ? $t('pages.tenant.form.status.activated')
+                                        : $t('pages.tenant.form.status.freezed')
+                                }}
+                            </a-tag>
+                        </span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 20%; text-align: center">
+                    <div class="info-item">
+                        <span class="info-label">{{ $t('pages.tenant.form.created_at') }}</span>
+                        <span class="info-value">{{ formatUtcDateTime(tenantData.created_at) || '--' }}</span>
+                    </div>
+                </a-card-grid>
+                <a-card-grid style="width: 100%">
+                    <div class="info-desc-item">
+                        <span class="info-label">{{ $t('pages.tenant.form.description') }}:</span>
+                        <span class="info-desc-value">{{
+                            tenantData.description || $t('pages.tenant.detail.description.empty')
+                        }}</span>
+                    </div>
+                </a-card-grid>
+            </a-card>
 
-        <!-- Tab 区域：模型配置 -->
-        <a-card
-            class="detail-card"
-            :bordered="false">
-            <a-tabs
-                v-model:activeKey="activeTab"
-                class="detail-tabs">
-                <a-tab-pane
-                    key="model"
-                    :tab="$t('pages.tenant.detail.tab.model')" />
-            </a-tabs>
+            <!-- Tab 区域：模型配置 -->
+            <a-card
+                class="detail-card"
+                :bordered="false">
+                <a-tabs
+                    v-model:activeKey="activeTab"
+                    class="detail-tabs">
+                    <a-tab-pane
+                        key="model"
+                        :tab="$t('pages.tenant.detail.tab.model')" />
+                </a-tabs>
 
-            <div
-                v-if="activeTab === 'model'"
-                class="model-config-container">
-                <!-- 工具栏 -->
-                <div class="tab-toolbar">
-                    <a-button
-                        type="primary"
-                        ghost
-                        @click="openAddModelModal">
-                        <template #icon>
-                            <plus-outlined />
-                        </template>
-                        {{ $t('pages.tenant.detail.model.add') }}
-                    </a-button>
-                    <div class="tab-toolbar-right">
-                        <a-input-search
-                            v-model:value="authorizedSearchKey"
-                            :placeholder="$t('pages.tenant.detail.model.search.authorized')"
-                            style="width: 200px"
-                            allow-clear
-                            @search="handleAuthorizedSearch"
-                            @pressEnter="handleAuthorizedSearch" />
-                        <a-button @click="loadAuthorizedModels">
-                            <template #icon><reload-outlined /></template>
+                <div
+                    v-if="activeTab === 'model'"
+                    class="model-config-container">
+                    <!-- 工具栏 -->
+                    <div class="tab-toolbar">
+                        <a-button
+                            type="primary"
+                            ghost
+                            @click="openAddModelModal">
+                            <template #icon>
+                                <plus-outlined />
+                            </template>
+                            {{ $t('pages.tenant.detail.model.add') }}
                         </a-button>
+                        <div class="tab-toolbar-right">
+                            <a-input-search
+                                v-model:value="authorizedSearchKey"
+                                :placeholder="$t('pages.tenant.detail.model.search.authorized')"
+                                style="width: 200px"
+                                allow-clear
+                                @search="handleAuthorizedSearch"
+                                @pressEnter="handleAuthorizedSearch" />
+                            <a-button @click="loadAuthorizedModels">
+                                <template #icon><reload-outlined /></template>
+                            </a-button>
+                        </div>
+                    </div>
+
+                    <!-- 已授权模型表格 -->
+                    <div
+                        ref="authorizedTableContainerRef"
+                        class="table-fill-region"
+                        :style="authorizedTableContainerStyle">
+                        <a-table
+                            row-key="id"
+                            :columns="authorizedColumns"
+                            :data-source="filteredAuthorizedModels"
+                            :loading="authorizedLoading"
+                            :pagination="authorizedPagination"
+                            :scroll="{ y: authorizedTableScrollY || undefined }"
+                            @change="onAuthorizedTableChange">
+                            <template #bodyCell="{ column, record }">
+                                <template v-if="'allowed_endpoints' === column.key">
+                                    <span v-if="!record.allowedEndpointCount || record.allowedEndpointCount === 0">
+                                        <a-tag color="default">{{ $t('pages.tenant.detail.endpoint.all') }}</a-tag>
+                                    </span>
+                                    <span v-else>
+                                        <a-tag color="blue">{{
+                                            $t('pages.tenant.detail.endpoint.count', {
+                                                count: record.allowedEndpointCount,
+                                            })
+                                        }}</a-tag>
+                                    </span>
+                                </template>
+                                <template v-if="'enabled' === column.key">
+                                    <a-tag :color="record.enabled === 1 ? 'success' : 'default'">
+                                        {{
+                                            record.enabled === 1
+                                                ? $t('pages.tenant.detail.enabled')
+                                                : $t('pages.tenant.detail.disabled')
+                                        }}
+                                    </a-tag>
+                                </template>
+                                <template v-if="'created_at' === column.key">
+                                    {{ formatUtcDateTime(record.created_at) }}
+                                </template>
+                                <template v-if="'action' === column.key">
+                                    <x-action-button
+                                        @click="openConfigEndpointsDrawer(record)"
+                                        style="margin-right: 8px">
+                                        <a-tooltip :title="$t('pages.tenant.detail.endpoint.select')">
+                                            <setting-outlined style="color: #1890ff" />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                    <x-action-button @click="handleRemoveModel(record)">
+                                        <a-tooltip :title="$t('pages.tenant.detail.model.remove')">
+                                            <delete-outlined style="color: #ff4d4f" />
+                                        </a-tooltip>
+                                    </x-action-button>
+                                </template>
+                            </template>
+                            <template #emptyText>
+                                <a-empty :description="emptyAuthorizedText" />
+                            </template>
+                        </a-table>
                     </div>
                 </div>
+            </a-card>
 
-                <!-- 已授权模型表格 -->
+            <!-- 添加模型抽屉 -->
+            <a-drawer
+                v-model:open="addModalVisible"
+                :title="$t('pages.tenant.detail.model.add_authorized')"
+                :width="960"
+                placement="right"
+                :destroy-on-close="true"
+                @close="addModalVisible = false">
+                <div class="add-modal-toolbar">
+                    <a-input-search
+                        v-model:value="modalSearchKey"
+                        :placeholder="$t('pages.tenant.detail.model.search.available')"
+                        style="width: 280px"
+                        allow-clear
+                        @search="handleModalSearch"
+                        @pressEnter="handleModalSearch" />
+                    <span class="selected-count">
+                        {{ $t('pages.tenant.detail.model.selected', { count: selectedModelKeys.length }) }}
+                    </span>
+                </div>
                 <a-table
                     row-key="id"
-                    :columns="authorizedColumns"
-                    :data-source="filteredAuthorizedModels"
-                    :loading="authorizedLoading"
-                    :pagination="authorizedPagination"
-                    @change="onAuthorizedTableChange">
+                    :columns="addModalColumns"
+                    :data-source="filteredAvailableModels"
+                    :loading="availableModelsLoading"
+                    :pagination="availablePagination"
+                    :row-selection="{
+                        selectedRowKeys: selectedModelKeys,
+                        onChange: onSelectChange,
+                    }"
+                    @change="onAvailableTableChange">
                     <template #bodyCell="{ column, record }">
-                        <template v-if="'allowed_endpoints' === column.key">
-                            <span v-if="!record.allowedEndpointCount || record.allowedEndpointCount === 0">
-                                <a-tag color="default">{{ $t('pages.tenant.detail.endpoint.all') }}</a-tag>
-                            </span>
-                            <span v-else>
-                                <a-tag color="blue">{{
-                                    $t('pages.tenant.detail.endpoint.count', { count: record.allowedEndpointCount })
-                                }}</a-tag>
-                            </span>
-                        </template>
                         <template v-if="'enabled' === column.key">
                             <a-tag :color="record.enabled === 1 ? 'success' : 'default'">
                                 {{
@@ -154,180 +231,116 @@
                                 }}
                             </a-tag>
                         </template>
-                        <template v-if="'created_at' === column.key">
-                            {{ formatUtcDateTime(record.created_at) }}
+                    </template>
+                    <template #emptyText>
+                        <a-empty :description="$t('pages.tenant.detail.model.empty.available')" />
+                    </template>
+                </a-table>
+                <template #footer>
+                    <div class="drawer-footer">
+                        <a-button @click="addModalVisible = false">{{ $t('common.cancel') }}</a-button>
+                        <a-button
+                            type="primary"
+                            :loading="addModalLoading"
+                            :disabled="selectedModelKeys.length === 0"
+                            @click="handleConfirmAdd">
+                            {{ $t('pages.tenant.detail.model.confirm_add') }}
+                        </a-button>
+                    </div>
+                </template>
+            </a-drawer>
+
+            <!-- 选择端点抽屉 -->
+            <a-drawer
+                v-model:open="configEndpointsVisible"
+                :title="$t('pages.tenant.detail.endpoint.select_title')"
+                :width="960"
+                placement="right"
+                :destroy-on-close="true"
+                @close="configEndpointsVisible = false">
+                <div class="endpoint-drawer-toolbar">
+                    <a-input-search
+                        v-model:value="endpointSearchKey"
+                        :placeholder="$t('pages.tenant.detail.endpoint.search')"
+                        style="width: 280px"
+                        allow-clear />
+                    <a-select
+                        v-model:value="endpointProviderFilter"
+                        :placeholder="$t('pages.tenant.detail.endpoint.provider_filter')"
+                        allow-clear
+                        style="width: 180px">
+                        <a-select-option
+                            v-for="p in endpointProviderOptions"
+                            :key="p"
+                            :value="p"
+                            >{{ p }}</a-select-option
+                        >
+                    </a-select>
+                    <span class="selected-count">
+                        {{ $t('pages.tenant.detail.endpoint.selected', { count: selectedEndpointIds.length }) }}
+                    </span>
+                </div>
+                <a-table
+                    row-key="id"
+                    :columns="endpointDrawerColumns"
+                    :data-source="filteredEndpoints"
+                    :loading="configEndpointsLoading"
+                    :pagination="endpointPagination"
+                    :row-selection="{
+                        selectedRowKeys: selectedEndpointIds,
+                        onChange: onEndpointSelectChange,
+                    }"
+                    @change="onEndpointTableChange">
+                    <template #bodyCell="{ column, record }">
+                        <template v-if="'enabled' === column.key">
+                            <a-tag :color="record.enabled === 1 ? 'success' : 'default'">
+                                {{
+                                    record.enabled === 1
+                                        ? $t('pages.tenant.detail.enabled')
+                                        : $t('pages.tenant.detail.disabled')
+                                }}
+                            </a-tag>
                         </template>
-                        <template v-if="'action' === column.key">
-                            <x-action-button
-                                @click="openConfigEndpointsDrawer(record)"
-                                style="margin-right: 8px">
-                                <a-tooltip :title="$t('pages.tenant.detail.endpoint.select')">
-                                    <setting-outlined style="color: #1890ff" />
+                        <template v-if="'status_points' === column.key">
+                            <div
+                                v-if="record.status_points && record.status_points.length > 0"
+                                style="display: flex; gap: 2px; align-items: center">
+                                <a-tooltip
+                                    v-for="(point, idx) in record.status_points"
+                                    :key="idx">
+                                    <template #title>
+                                        {{ point.start_time }} ~ {{ point.end_time }}<br />
+                                        {{ $t('common.success') }}: {{ point.success_count }} |
+                                        {{ $t('common.failed') }}:
+                                        {{ point.fail_count }}
+                                    </template>
+                                    <div :style="getPointStyle(point)"></div>
                                 </a-tooltip>
-                            </x-action-button>
-                            <x-action-button @click="handleRemoveModel(record)">
-                                <a-tooltip :title="$t('pages.tenant.detail.model.remove')">
-                                    <delete-outlined style="color: #ff4d4f" />
-                                </a-tooltip>
-                            </x-action-button>
+                            </div>
+                            <span
+                                v-else
+                                style="color: #bbb"
+                                >--</span
+                            >
                         </template>
                     </template>
                     <template #emptyText>
-                        <a-empty :description="emptyAuthorizedText" />
+                        <a-empty :description="$t('pages.tenant.detail.endpoint.empty')" />
                     </template>
                 </a-table>
-            </div>
-        </a-card>
-
-        <!-- 添加模型抽屉 -->
-        <a-drawer
-            v-model:open="addModalVisible"
-            :title="$t('pages.tenant.detail.model.add_authorized')"
-            :width="960"
-            placement="right"
-            :destroy-on-close="true"
-            @close="addModalVisible = false">
-            <div class="add-modal-toolbar">
-                <a-input-search
-                    v-model:value="modalSearchKey"
-                    :placeholder="$t('pages.tenant.detail.model.search.available')"
-                    style="width: 280px"
-                    allow-clear
-                    @search="handleModalSearch"
-                    @pressEnter="handleModalSearch" />
-                <span class="selected-count">
-                    {{ $t('pages.tenant.detail.model.selected', { count: selectedModelKeys.length }) }}
-                </span>
-            </div>
-            <a-table
-                row-key="id"
-                :columns="addModalColumns"
-                :data-source="filteredAvailableModels"
-                :loading="availableModelsLoading"
-                :pagination="availablePagination"
-                :row-selection="{
-                    selectedRowKeys: selectedModelKeys,
-                    onChange: onSelectChange,
-                }"
-                @change="onAvailableTableChange">
-                <template #bodyCell="{ column, record }">
-                    <template v-if="'enabled' === column.key">
-                        <a-tag :color="record.enabled === 1 ? 'success' : 'default'">
-                            {{
-                                record.enabled === 1
-                                    ? $t('pages.tenant.detail.enabled')
-                                    : $t('pages.tenant.detail.disabled')
-                            }}
-                        </a-tag>
-                    </template>
+                <template #footer>
+                    <div class="drawer-footer">
+                        <a-button @click="configEndpointsVisible = false">{{ $t('common.cancel') }}</a-button>
+                        <a-button
+                            type="primary"
+                            :loading="configEndpointsSaving"
+                            @click="handleSaveEndpoints">
+                            {{ $t('common.save') }}
+                        </a-button>
+                    </div>
                 </template>
-                <template #emptyText>
-                    <a-empty :description="$t('pages.tenant.detail.model.empty.available')" />
-                </template>
-            </a-table>
-            <template #footer>
-                <div class="drawer-footer">
-                    <a-button @click="addModalVisible = false">{{ $t('common.cancel') }}</a-button>
-                    <a-button
-                        type="primary"
-                        :loading="addModalLoading"
-                        :disabled="selectedModelKeys.length === 0"
-                        @click="handleConfirmAdd">
-                        {{ $t('pages.tenant.detail.model.confirm_add') }}
-                    </a-button>
-                </div>
-            </template>
-        </a-drawer>
-
-        <!-- 选择端点抽屉 -->
-        <a-drawer
-            v-model:open="configEndpointsVisible"
-            :title="$t('pages.tenant.detail.endpoint.select_title')"
-            :width="960"
-            placement="right"
-            :destroy-on-close="true"
-            @close="configEndpointsVisible = false">
-            <div class="endpoint-drawer-toolbar">
-                <a-input-search
-                    v-model:value="endpointSearchKey"
-                    :placeholder="$t('pages.tenant.detail.endpoint.search')"
-                    style="width: 280px"
-                    allow-clear />
-                <a-select
-                    v-model:value="endpointProviderFilter"
-                    :placeholder="$t('pages.tenant.detail.endpoint.provider_filter')"
-                    allow-clear
-                    style="width: 180px">
-                    <a-select-option
-                        v-for="p in endpointProviderOptions"
-                        :key="p"
-                        :value="p"
-                        >{{ p }}</a-select-option
-                    >
-                </a-select>
-                <span class="selected-count">
-                    {{ $t('pages.tenant.detail.endpoint.selected', { count: selectedEndpointIds.length }) }}
-                </span>
-            </div>
-            <a-table
-                row-key="id"
-                :columns="endpointDrawerColumns"
-                :data-source="filteredEndpoints"
-                :loading="configEndpointsLoading"
-                :pagination="endpointPagination"
-                :row-selection="{
-                    selectedRowKeys: selectedEndpointIds,
-                    onChange: onEndpointSelectChange,
-                }"
-                @change="onEndpointTableChange">
-                <template #bodyCell="{ column, record }">
-                    <template v-if="'enabled' === column.key">
-                        <a-tag :color="record.enabled === 1 ? 'success' : 'default'">
-                            {{
-                                record.enabled === 1
-                                    ? $t('pages.tenant.detail.enabled')
-                                    : $t('pages.tenant.detail.disabled')
-                            }}
-                        </a-tag>
-                    </template>
-                    <template v-if="'status_points' === column.key">
-                        <div
-                            v-if="record.status_points && record.status_points.length > 0"
-                            style="display: flex; gap: 2px; align-items: center">
-                            <a-tooltip
-                                v-for="(point, idx) in record.status_points"
-                                :key="idx">
-                                <template #title>
-                                    {{ point.start_time }} ~ {{ point.end_time }}<br />
-                                    {{ $t('common.success') }}: {{ point.success_count }} | {{ $t('common.failed') }}:
-                                    {{ point.fail_count }}
-                                </template>
-                                <div :style="getPointStyle(point)"></div>
-                            </a-tooltip>
-                        </div>
-                        <span
-                            v-else
-                            style="color: #bbb"
-                            >--</span
-                        >
-                    </template>
-                </template>
-                <template #emptyText>
-                    <a-empty :description="$t('pages.tenant.detail.endpoint.empty')" />
-                </template>
-            </a-table>
-            <template #footer>
-                <div class="drawer-footer">
-                    <a-button @click="configEndpointsVisible = false">{{ $t('common.cancel') }}</a-button>
-                    <a-button
-                        type="primary"
-                        :loading="configEndpointsSaving"
-                        @click="handleSaveEndpoints">
-                        {{ $t('common.save') }}
-                    </a-button>
-                </div>
-            </template>
-        </a-drawer>
+            </a-drawer>
+        </div>
     </div>
 </template>
 
@@ -348,6 +361,8 @@ import {
 import apis from '@/apis'
 import { config } from '@/config'
 import { formatUtcDateTime } from '@/utils/util'
+import { useTableAutoScrollY } from '@/hooks'
+import { useAppStore } from '@/store'
 
 defineOptions({
     name: 'tenantDetail',
@@ -355,6 +370,12 @@ defineOptions({
 
 const route = useRoute()
 const { t } = useI18n()
+const appStore = useAppStore()
+const {
+    scrollY: authorizedTableScrollY,
+    containerRef: authorizedTableContainerRef,
+    containerStyle: authorizedTableContainerStyle,
+} = useTableAutoScrollY()
 const tenantId = ref(route.params.id)
 const tenantData = ref({})
 const activeTab = ref('model')
@@ -866,10 +887,15 @@ function getPointStyle(point) {
 
 <style lang="less" scoped>
 .tenant-detail {
+    height: 100%;
     padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .info-card {
+    flex: none;
     margin-bottom: 16px;
 
     :deep(.ant-card-head-title) {
@@ -948,6 +974,18 @@ function getPointStyle(point) {
 }
 
 .detail-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    :deep(.ant-card-body) {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
     .detail-tabs {
         margin-bottom: 0;
 
@@ -955,6 +993,13 @@ function getPointStyle(point) {
             margin-bottom: 16px;
         }
     }
+}
+
+.model-config-container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .model-config-container {
