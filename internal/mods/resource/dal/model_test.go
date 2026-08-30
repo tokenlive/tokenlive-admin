@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
 )
 
@@ -34,6 +35,29 @@ func TestModelDALLookupUsesConfiguredTableName(t *testing.T) {
 	modelID, err := modelDAL.GetIDByModelCode(context.Background(), "GLM-5")
 	require.NoError(t, err)
 	require.Equal(t, "model-1", modelID)
+}
+
+func TestModelDALQueryFiltersModelNameCaseInsensitively(t *testing.T) {
+	db := newModelTestDB(t)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	require.NoError(t, db.Exec("PRAGMA case_sensitive_like = ON").Error)
+	require.NoError(t, db.AutoMigrate(&schema.Model{}))
+	require.NoError(t, db.Create(&schema.Model{
+		ID:           "model-1",
+		ModelName:    "OpenAI GPT-5",
+		ModelCode:    "gpt-5",
+		SpaceCode:    "default",
+		RequestTypes: `["chat_completion"]`,
+		Deleted:      "0",
+	}).Error)
+
+	result, err := (&Model{DB: db}).Query(util.NewIsRootUser(context.Background()), schema.ModelQueryParam{LikeName: "gpt-5"})
+
+	require.NoError(t, err)
+	require.Len(t, result.Data, 1)
+	require.Equal(t, "OpenAI GPT-5", result.Data[0].ModelName)
 }
 
 func newModelTestDB(t *testing.T) *gorm.DB {

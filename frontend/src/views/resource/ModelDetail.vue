@@ -179,7 +179,7 @@
 
                 <div
                     v-if="activeTab === 'monitor'"
-                    class="tab-content">
+                    class="tab-content tab-content--scroll">
                     <ModelMonitorTab
                         :model-id="modelId"
                         :model-code="modelData.model_code"
@@ -1773,6 +1773,11 @@ function handleRemoveMember({ id }) {
     min-height: 0;
     display: flex;
     flex-direction: column;
+}
+
+// 监控信息等非表格自适应内容固定的外壳无法自己撑开滚动，需允许整块纵向滚动
+.tab-content--scroll {
+    overflow-y: auto;
 }
 
 .tab-toolbar {

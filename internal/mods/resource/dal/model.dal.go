@@ -2,6 +2,7 @@ package dal
 
 import (
 	"context"
+	"strings"
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
@@ -32,7 +33,7 @@ func (m *Model) Query(ctx context.Context, params schema.ModelQueryParam, opts .
 	db := GetModelDB(ctx, m.DB)
 
 	if v := params.LikeName; len(v) > 0 {
-		db = db.Where(tableName+".model_name LIKE ?", "%"+v+"%")
+		db = db.Where("LOWER("+tableName+".model_name) LIKE ?", "%"+strings.ToLower(v)+"%")
 	}
 	if v := params.ModelCode; len(v) > 0 {
 		db = db.Where(tableName+".model_code = ?", v)
