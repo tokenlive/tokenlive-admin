@@ -65,6 +65,11 @@ li {
     background: rgba(0, 0, 0, 0.25);
 }
 
+// 横向与纵向滚动条交汇处的角块，默认会渲染成亮色方块
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
 // 暗色主题下的滚动条美化
 html[data-theme='dark'] {
     ::-webkit-scrollbar-thumb {

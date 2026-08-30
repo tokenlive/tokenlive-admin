@@ -21,5 +21,5 @@ test('remaining detail pages use adaptive table height in their tab content', as
 test('model detail monitor tab content is scrollable', async () => {
     const source = await readFile(new URL('../src/views/resource/ModelDetail.vue', import.meta.url), 'utf8')
     assert.match(source, /v-if="activeTab === 'monitor'"\s+class="tab-content tab-content--scroll"/)
-    assert.match(source, /\.tab-content--scroll\s*\{\s*overflow-y:\s*auto;/)
+    assert.match(source, /\.tab-content--scroll\s*\{\s*overflow-y:\s*auto;\s*overflow-x:\s*hidden;/)
 })

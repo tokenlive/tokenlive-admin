@@ -1775,9 +1775,11 @@ function handleRemoveMember({ id }) {
     flex-direction: column;
 }
 
-// 监控信息等非表格自适应内容固定的外壳无法自己撑开滚动，需允许整块纵向滚动
+// 监控信息等非表格自适应内容固定的外壳无法自己撑开滚动，需允许整块纵向滚动；
+// 内容中 a-row gutter 的负外边距会略微超出容器，横向需裁剪，否则会出现横向滚动条
 .tab-content--scroll {
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .tab-toolbar {

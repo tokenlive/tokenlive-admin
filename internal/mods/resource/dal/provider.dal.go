@@ -2,6 +2,7 @@ package dal
 
 import (
 	"context"
+	"strings"
 
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -31,7 +32,7 @@ func (p *Provider) Query(ctx context.Context, params schema.ProviderQueryParam, 
 		db = db.Where("code LIKE ?", "%"+v+"%")
 	}
 	if v := params.LikeName; len(v) > 0 {
-		db = db.Where("name LIKE ?", "%"+v+"%")
+		db = db.Where("LOWER(name) LIKE ?", "%"+strings.ToLower(v)+"%")
 	}
 
 	var list schema.Providers
