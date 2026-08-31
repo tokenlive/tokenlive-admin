@@ -19,6 +19,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/biz"
 	rschema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/errors"
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
@@ -647,6 +648,12 @@ type TrendsResponse struct {
 	Series []TrendsSeries `json:"series"`
 }
 
+type ModelPerformanceTrendsResponse struct {
+	Times     []string   `json:"times"`
+	AvgTTFTMs []*float64 `json:"avg_ttft_ms"`
+	Otps      []*float64 `json:"otps"`
+}
+
 type trendRangeConfig struct {
 	numPoints    int
 	stepSeconds  int64
@@ -712,6 +719,29 @@ func buildTrendQueries(groupBy, promRange, modelCode string) (successQuery, erro
 	return successQuery, errorQuery
 }
 
+func buildModelPerformanceQueries(modelCode, promRange string) (ttftQuery, otpsQuery string) {
+	modelMatcher := fmt.Sprintf(`model="%s"`, escapePromLabelValue(modelCode))
+	ttftQuery = fmt.Sprintf(
+		`sum(increase(%s{%s}[%s])) / sum(increase(%s{%s}[%s])) * 1000`,
+		mTtftSum,
+		modelMatcher,
+		promRange,
+		mTtftCount,
+		modelMatcher,
+		promRange,
+	)
+	otpsQuery = fmt.Sprintf(
+		`sum(increase(%s{%s,type="output"}[%s])) / sum(increase(%s{%s}[%s]))`,
+		mTokensTotal,
+		modelMatcher,
+		promRange,
+		mRequestDurationSum,
+		modelMatcher,
+		promRange,
+	)
+	return ttftQuery, otpsQuery
+}
+
 func emptyTrendSeries(numPoints int, label string) TrendsSeries {
 	return TrendsSeries{
 		Label:   label,
@@ -725,6 +755,20 @@ func (a *Dashboard) getTrends(ctx context.Context, groupBy, timeRange, modelCode
 	return a.getTrendsAt(ctx, groupBy, timeRange, modelCode, time.Now().Truncate(time.Minute))
 }
 
+func buildTrendTimes(rangeConfig trendRangeConfig, timeRange string) ([]string, time.Time) {
+	end := rangeConfig.end
+	start := end.Add(-time.Duration(rangeConfig.numPoints-1) * time.Duration(rangeConfig.stepSeconds) * time.Second)
+	times := make([]string, rangeConfig.numPoints)
+	for i := 0; i < rangeConfig.numPoints; i++ {
+		pointTime := start.Add(time.Duration(i) * time.Duration(rangeConfig.stepSeconds) * time.Second)
+		times[i] = pointTime.Format("15:04")
+		if timeRange == "7d" {
+			times[i] = pointTime.Format("01/02 15:04")
+		}
+	}
+	return times, start
+}
+
 func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode string, end time.Time) (*TrendsResponse, error) {
 	end = end.Truncate(time.Minute)
 	cacheKey := fmt.Sprintf("trends:%s:%s:%s:%d", groupBy, timeRange, modelCode, end.Unix())
@@ -734,18 +778,11 @@ func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCo
 
 	rangeConfig := resolveTrendRange(timeRange, end)
 	end = rangeConfig.end
-	start := end.Add(-time.Duration(rangeConfig.numPoints-1) * time.Duration(rangeConfig.stepSeconds) * time.Second)
+	times, start := buildTrendTimes(rangeConfig, timeRange)
 	promRange := fmt.Sprintf("%ds", rangeConfig.stepSeconds)
 
 	// 初始化响应
-	var res TrendsResponse
-	res.Times = make([]string, rangeConfig.numPoints)
-	for i := 0; i < rangeConfig.numPoints; i++ {
-		res.Times[i] = start.Add(time.Duration(i) * time.Duration(rangeConfig.stepSeconds) * time.Second).Format("15:04")
-		if timeRange == "7d" {
-			res.Times[i] = start.Add(time.Duration(i) * time.Duration(rangeConfig.stepSeconds) * time.Second).Format("01/02 15:04")
-		}
-	}
+	res := TrendsResponse{Times: times}
 
 	// 尝试从 Prometheus 获取数据
 	if a.isPrometheusAvailable() {
@@ -899,6 +936,236 @@ func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCo
 
 	a.setCache(cacheKey, &res, 5*time.Second)
 	return &res, nil
+}
+
+func (a *Dashboard) getModelPerformanceTrends(ctx context.Context, modelCode, timeRange string) (*ModelPerformanceTrendsResponse, error) {
+	return a.getModelPerformanceTrendsAt(ctx, modelCode, timeRange, time.Now().Truncate(time.Minute))
+}
+
+func (a *Dashboard) getModelPerformanceTrendsAt(ctx context.Context, modelCode, timeRange string, end time.Time) (*ModelPerformanceTrendsResponse, error) {
+	end = end.Truncate(time.Minute)
+	cacheKey := fmt.Sprintf("model-performance-trends:%s:%s:%d", modelCode, timeRange, end.Unix())
+	if cached, ok := a.getCache(cacheKey); ok {
+		return cached.(*ModelPerformanceTrendsResponse), nil
+	}
+
+	rangeConfig := resolveTrendRange(timeRange, end)
+	end = rangeConfig.end
+	times, start := buildTrendTimes(rangeConfig, timeRange)
+	res := &ModelPerformanceTrendsResponse{
+		Times:     times,
+		AvgTTFTMs: make([]*float64, rangeConfig.numPoints),
+		Otps:      make([]*float64, rangeConfig.numPoints),
+	}
+
+	if a.isPrometheusAvailable() {
+		promRange := fmt.Sprintf("%ds", rangeConfig.stepSeconds)
+		ttftQuery, otpsQuery := buildModelPerformanceQueries(modelCode, promRange)
+		var ttftValues, otpsValues [][]interface{}
+		var ttftErr, otpsErr error
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			ttftValues, ttftErr = a.queryPrometheusRange(
+				ttftQuery,
+				start.Unix(),
+				end.Unix(),
+				rangeConfig.stepSeconds,
+			)
+		}()
+		go func() {
+			defer wg.Done()
+			otpsValues, otpsErr = a.queryPrometheusRange(
+				otpsQuery,
+				start.Unix(),
+				end.Unix(),
+				rangeConfig.stepSeconds,
+			)
+		}()
+		wg.Wait()
+		if ttftErr == nil {
+			alignPrometheusFloatData(res.AvgTTFTMs, ttftValues, start.Unix(), rangeConfig.stepSeconds)
+		}
+		if otpsErr == nil {
+			alignPrometheusFloatData(res.Otps, otpsValues, start.Unix(), rangeConfig.stepSeconds)
+		}
+	}
+
+	if !hasFloatValues(res.AvgTTFTMs) || !hasFloatValues(res.Otps) {
+		fallbackTTFT, fallbackOtps, err := a.getModelPerformanceFallback(ctx, modelCode, rangeConfig, start, end)
+		if err == nil {
+			if !hasFloatValues(res.AvgTTFTMs) {
+				res.AvgTTFTMs = fallbackTTFT
+			}
+			if !hasFloatValues(res.Otps) {
+				res.Otps = fallbackOtps
+			}
+		}
+	}
+
+	a.setCache(cacheKey, res, 5*time.Second)
+	return res, nil
+}
+
+func hasFloatValues(values []*float64) bool {
+	for _, value := range values {
+		if value != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *Dashboard) getModelPerformanceFallback(
+	ctx context.Context,
+	modelCode string,
+	rangeConfig trendRangeConfig,
+	start time.Time,
+	end time.Time,
+) ([]*float64, []*float64, error) {
+	ttft := make([]*float64, rangeConfig.numPoints)
+	otps := make([]*float64, rangeConfig.numPoints)
+	stepMinutes := rangeConfig.stepSeconds / 60
+	windowMinutes := int64(rangeConfig.numPoints) * stepMinutes
+	if stepMinutes <= 0 || windowMinutes > 120 {
+		return ttft, otps, nil
+	}
+
+	currentMinute := end.Unix() / 60
+	numMinutes := int(windowMinutes)
+	const keysPerMinute = 6
+	values := make([]interface{}, numMinutes*keysPerMinute)
+
+	if a.RedisClient != nil {
+		keys := make([]string, len(values))
+		firstMinute := currentMinute - int64(numMinutes-1)
+		for i := 0; i < numMinutes; i++ {
+			minute := firstMinute + int64(i)
+			offset := i * keysPerMinute
+			keys[offset] = fmt.Sprintf("aigw:status:model:%s:%d:s", modelCode, minute)
+			keys[offset+1] = fmt.Sprintf("aigw:status:model:%s:%d:f", modelCode, minute)
+			keys[offset+2] = fmt.Sprintf("aigw:status:model:%s:%d:ttft_sum", modelCode, minute)
+			keys[offset+3] = fmt.Sprintf("aigw:status:model:%s:%d:ttft_cnt", modelCode, minute)
+			keys[offset+4] = fmt.Sprintf("aigw:status:model:%s:%d:out", modelCode, minute)
+			keys[offset+5] = fmt.Sprintf("aigw:status:model:%s:%d:dur_ms", modelCode, minute)
+		}
+
+		values = values[:0]
+		const batchSize = 500
+		for i := 0; i < len(keys); i += batchSize {
+			batchEnd := i + batchSize
+			if batchEnd > len(keys) {
+				batchEnd = len(keys)
+			}
+			batchValues, err := a.RedisClient.MGet(ctx, keys[i:batchEnd]...).Result()
+			if err != nil {
+				return ttft, otps, err
+			}
+			values = append(values, batchValues...)
+		}
+	} else {
+		firstMinute := currentMinute - int64(numMinutes-1)
+		for i := 0; i < numMinutes; i++ {
+			minute := firstMinute + int64(i)
+			perf := metrics.GlobalStore.GetModelMinutePerf(modelCode, minute)
+			offset := i * keysPerMinute
+			values[offset] = perf.Success
+			values[offset+1] = perf.Fail
+			values[offset+2] = perf.TTFTSum
+			values[offset+3] = perf.TTFTCount
+			values[offset+4] = perf.Output
+			values[offset+5] = perf.DurationMs
+		}
+	}
+
+	aggregateModelPerformanceValues(
+		ttft,
+		otps,
+		values,
+		currentMinute,
+		start.Unix()/60,
+		stepMinutes,
+	)
+	return ttft, otps, nil
+}
+
+func aggregateModelPerformanceValues(
+	ttft []*float64,
+	otps []*float64,
+	values []interface{},
+	currentMinute int64,
+	startMinute int64,
+	stepMinutes int64,
+) {
+	const valuesPerMinute = 6
+	numMinutes := len(values) / valuesPerMinute
+	ttftSums := make([]int64, len(ttft))
+	ttftCounts := make([]int64, len(ttft))
+	outputSums := make([]int64, len(otps))
+	durationSums := make([]int64, len(otps))
+
+	for i := 0; i < numMinutes; i++ {
+		valueMinute := currentMinute - int64(numMinutes-1-i)
+		diff := valueMinute - startMinute
+		index := int64(0)
+		if diff > 0 {
+			index = (diff + stepMinutes - 1) / stepMinutes
+		}
+		if index < 0 || index >= int64(len(ttft)) {
+			continue
+		}
+
+		offset := i * valuesPerMinute
+		ttftSums[index] += parseMetricInt(values[offset+2])
+		ttftCounts[index] += parseMetricInt(values[offset+3])
+		outputSums[index] += parseMetricInt(values[offset+4])
+		durationSums[index] += parseMetricInt(values[offset+5])
+	}
+
+	for i := range ttft {
+		if ttftCounts[i] > 0 {
+			value := float64(ttftSums[i]) / float64(ttftCounts[i])
+			ttft[i] = &value
+		}
+		if outputSums[i] > 0 && durationSums[i] > 0 {
+			value := float64(outputSums[i]) / (float64(durationSums[i]) / 1000)
+			otps[i] = &value
+		}
+	}
+}
+
+func parseMetricInt(value interface{}) int64 {
+	if value == nil {
+		return 0
+	}
+	parsed, _ := strconv.ParseInt(fmt.Sprint(value), 10, 64)
+	return parsed
+}
+
+// @Tags DashboardAPI
+// @Security ApiKeyAuth
+// @Summary Query model TTFT and request-period OTPS trends
+// @Param model query string true "Model code"
+// @Param time_range query string false "Time range: 1h, 6h, 24h, 7d, today, or a duration up to 7d (default: 1h)"
+// @Param end_time query string false "RFC3339 query end time"
+// @Success 200 {object} util.ResponseResult{data=ModelPerformanceTrendsResponse}
+// @Failure 400 {object} util.ResponseResult
+// @Router /api/v1/dashboard/model-performance-trends [get]
+func (a *Dashboard) QueryModelPerformanceTrends(c *gin.Context) {
+	modelCode := strings.TrimSpace(c.Query("model"))
+	if modelCode == "" {
+		util.ResError(c, errors.BadRequest("", "model is required"))
+		return
+	}
+
+	timeRange := c.DefaultQuery("time_range", "1h")
+	res, err := a.getModelPerformanceTrendsAt(c.Request.Context(), modelCode, timeRange, dashboardQueryEnd(c))
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResSuccess(c, res)
 }
 
 // @Tags DashboardAPI
@@ -1396,6 +1663,43 @@ func alignPrometheusData(dst []int64, values [][]interface{}, startUnix int64, s
 		// 边界处理
 		if idx >= 0 && idx < numPoints {
 			dst[idx] = val
+		}
+	}
+}
+
+func alignPrometheusFloatData(dst []*float64, values [][]interface{}, startUnix int64, step int64) {
+	numPoints := int64(len(dst))
+	for _, value := range values {
+		if len(value) < 2 {
+			continue
+		}
+
+		var timestampValue float64
+		switch typed := value[0].(type) {
+		case float64:
+			timestampValue = typed
+		case string:
+			timestampValue, _ = strconv.ParseFloat(typed, 64)
+		}
+
+		var metricValue float64
+		switch typed := value[1].(type) {
+		case string:
+			metricValue, _ = strconv.ParseFloat(typed, 64)
+		case float64:
+			metricValue = typed
+		default:
+			continue
+		}
+		if math.IsNaN(metricValue) || math.IsInf(metricValue, 0) {
+			continue
+		}
+
+		diff := int64(timestampValue) - startUnix
+		idx := (diff + step/2) / step
+		if idx >= 0 && idx < numPoints {
+			v := metricValue
+			dst[idx] = &v
 		}
 	}
 }

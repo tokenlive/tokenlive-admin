@@ -10,6 +10,10 @@ export const getCircuitBreakers = (params) => request.basic.get('/api/v1/dashboa
 export const getTrends = (params) =>
     request.basic.get('/api/v1/dashboard/trends', params, { enableAbortController: false })
 
+// 获取单个模型的 TTFT 与请求期 OTPS 趋势
+export const getModelPerformanceTrends = (params) =>
+    request.basic.get('/api/v1/dashboard/model-performance-trends', params)
+
 // 获取模型使用排行（支持排序，默认 Top 10）
 export const getModelRanking = (params) => request.basic.get('/api/v1/dashboard/model-ranking', params)
 

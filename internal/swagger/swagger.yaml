@@ -25,6 +25,21 @@ definitions:
         description: 关联的 URL 地址
         type: string
     type: object
+  api.ModelPerformanceTrendsResponse:
+    properties:
+      avg_ttft_ms:
+        items:
+          type: number
+        type: array
+      otps:
+        items:
+          type: number
+        type: array
+      times:
+        items:
+          type: string
+        type: array
+    type: object
   api.ModelRankingItem:
     properties:
       avg_latency_ms:
@@ -2867,6 +2882,42 @@ paths:
       - ApiKeyAuth: []
       summary: Query all endpoints that are currently in Open/Isolated state from
         Redis
+      tags:
+      - DashboardAPI
+  /api/v1/dashboard/model-performance-trends:
+    get:
+      parameters:
+      - description: Model code
+        in: query
+        name: model
+        required: true
+        type: string
+      - description: 'Time range: 1h, 6h, 24h, 7d, today, or a duration up to
+          7d (default: 1h)'
+        in: query
+        name: time_range
+        type: string
+      - description: RFC3339 query end time
+        in: query
+        name: end_time
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/api.ModelPerformanceTrendsResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Query model TTFT and request-period OTPS trends
       tags:
       - DashboardAPI
   /api/v1/dashboard/model-ranking:

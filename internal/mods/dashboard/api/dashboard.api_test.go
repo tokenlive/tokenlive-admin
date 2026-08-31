@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	rschema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
 )
@@ -43,6 +44,38 @@ func (overviewRedisHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 }
 
 func (overviewRedisHook) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.ProcessPipelineHook {
+	return func(_ context.Context, _ []redis.Cmder) error {
+		return nil
+	}
+}
+
+type performanceRedisHook struct {
+	values map[string]interface{}
+}
+
+func (performanceRedisHook) DialHook(next redis.DialHook) redis.DialHook {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return next(ctx, network, addr)
+	}
+}
+
+func (h performanceRedisHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
+	return func(_ context.Context, cmd redis.Cmder) error {
+		sliceCmd, ok := cmd.(*redis.SliceCmd)
+		if !ok {
+			return nil
+		}
+		args := cmd.Args()
+		values := make([]interface{}, 0, len(args)-1)
+		for _, arg := range args[1:] {
+			values = append(values, h.values[fmt.Sprint(arg)])
+		}
+		sliceCmd.SetVal(values)
+		return nil
+	}
+}
+
+func (performanceRedisHook) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.ProcessPipelineHook {
 	return func(_ context.Context, _ []redis.Cmder) error {
 		return nil
 	}
@@ -288,3 +321,178 @@ func TestGetTrendsPreservesSuccessTrafficWhenErrorQueryReturnsEmpty(t *testing.T
 	assert.Equal(t, int64(5), res.Series[0].Total[0])
 }
 
+func TestBuildModelPerformanceQueriesFiltersModelAndEscapesLabel(t *testing.T) {
+	ttftQuery, otpsQuery := buildModelPerformanceQueries(`gpt-4.1"`, "300s")
+
+	assert.Equal(t,
+		`sum(increase(`+mTtftSum+`{model="gpt-4.1\""}[300s])) / sum(increase(`+mTtftCount+`{model="gpt-4.1\""}[300s])) * 1000`,
+		ttftQuery,
+	)
+	assert.Equal(t,
+		`sum(increase(`+mTokensTotal+`{model="gpt-4.1\"",type="output"}[300s])) / sum(increase(`+mRequestDurationSum+`{model="gpt-4.1\""}[300s]))`,
+		otpsQuery,
+	)
+}
+
+func TestAlignPrometheusFloatDataPreservesFractionsAndMissingPoints(t *testing.T) {
+	values := [][]interface{}{
+		{float64(1000), "125.5"},
+		{float64(1060), "NaN"},
+		{float64(1120), "32.25"},
+	}
+	dst := make([]*float64, 4)
+
+	alignPrometheusFloatData(dst, values, 1000, 60)
+
+	require.NotNil(t, dst[0])
+	assert.Equal(t, 125.5, *dst[0])
+	assert.Nil(t, dst[1])
+	require.NotNil(t, dst[2])
+	assert.Equal(t, 32.25, *dst[2])
+	assert.Nil(t, dst[3])
+}
+
+func TestModelPerformanceResponseMarshalsUnavailablePointsAsNull(t *testing.T) {
+	value := 180.5
+	raw, err := json.Marshal(ModelPerformanceTrendsResponse{
+		Times:     []string{"10:00", "10:01"},
+		AvgTTFTMs: []*float64{&value, nil},
+		Otps:      []*float64{nil, &value},
+	})
+	require.NoError(t, err)
+
+	assert.JSONEq(t, `{
+		"times":["10:00","10:01"],
+		"avg_ttft_ms":[180.5,null],
+		"otps":[null,180.5]
+	}`, string(raw))
+}
+
+func TestGetModelPerformanceTrendsUsesTrafficTimeGridWhenUnavailable(t *testing.T) {
+	end := time.Date(2026, 8, 31, 12, 0, 0, 0, time.Local)
+	dashboard := &Dashboard{}
+
+	res, err := dashboard.getModelPerformanceTrendsAt(context.Background(), "gpt-test", "6h", end)
+	require.NoError(t, err)
+
+	rangeConfig := resolveTrendRange("6h", end)
+	require.Len(t, res.Times, rangeConfig.numPoints)
+	require.Len(t, res.AvgTTFTMs, rangeConfig.numPoints)
+	require.Len(t, res.Otps, rangeConfig.numPoints)
+	assert.Equal(t, end.Add(-time.Duration(rangeConfig.numPoints-1)*time.Duration(rangeConfig.stepSeconds)*time.Second).Format("15:04"), res.Times[0])
+	for i := range res.Times {
+		assert.Nil(t, res.AvgTTFTMs[i])
+		assert.Nil(t, res.Otps[i])
+	}
+}
+
+func TestQueryModelPerformanceTrendsRequiresModel(t *testing.T) {
+	dashboard := &Dashboard{}
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/v1/dashboard/model-performance-trends?time_range=1h", nil)
+
+	dashboard.QueryModelPerformanceTrends(ctx)
+
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	var response util.ResponseResult
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.NotNil(t, response.Error)
+	assert.Equal(t, "bad_request", response.Error.ID)
+}
+
+func TestGetModelPerformanceTrendsFallsBackToRedisForOneHour(t *testing.T) {
+	end := time.Date(2026, 8, 31, 12, 0, 0, 0, time.Local)
+	minute := end.Unix() / 60
+	modelCode := "gpt-test"
+	values := map[string]interface{}{
+		fmt.Sprintf("aigw:status:model:%s:%d:ttft_sum", modelCode, minute): "500",
+		fmt.Sprintf("aigw:status:model:%s:%d:ttft_cnt", modelCode, minute): "2",
+		fmt.Sprintf("aigw:status:model:%s:%d:out", modelCode, minute):      "80",
+		fmt.Sprintf("aigw:status:model:%s:%d:dur_ms", modelCode, minute):   "2000",
+	}
+	redisClient := redis.NewClient(&redis.Options{Addr: "unused:6379"})
+	redisClient.AddHook(performanceRedisHook{values: values})
+	dashboard := &Dashboard{RedisClient: redisClient}
+
+	res, err := dashboard.getModelPerformanceTrendsAt(context.Background(), modelCode, "1h", end)
+	require.NoError(t, err)
+	require.Len(t, res.AvgTTFTMs, 60)
+	require.NotNil(t, res.AvgTTFTMs[59])
+	assert.Equal(t, 250.0, *res.AvgTTFTMs[59])
+	require.NotNil(t, res.Otps[59])
+	assert.Equal(t, 40.0, *res.Otps[59])
+	assert.Nil(t, res.AvgTTFTMs[58])
+	assert.Nil(t, res.Otps[58])
+}
+
+func TestGetModelPerformanceTrendsFallsBackPerMetricWithoutOverwritingPrometheus(t *testing.T) {
+	end := time.Now().Truncate(time.Minute)
+	modelCode := "partial-prom-model"
+	originalStore := metrics.GlobalStore
+	metrics.GlobalStore = metrics.NewMemoryStore()
+	defer func() { metrics.GlobalStore = originalStore }()
+	metrics.GlobalStore.Record(metrics.RequestMetric{
+		Time:         end.Unix(),
+		Model:        modelCode,
+		Success:      true,
+		OutputTokens: 60,
+		TTFTMs:       100,
+		DurationMs:   2000,
+	})
+
+	prometheus := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/-/healthy" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		query := r.URL.Query().Get("query")
+		if strings.Contains(query, mTtftSum) {
+			_, _ = w.Write([]byte(fmt.Sprintf(
+				`{"status":"success","data":{"resultType":"matrix","result":[{"metric":{},"values":[[%d,"350.5"]]}]}}`,
+				end.Unix(),
+			)))
+			return
+		}
+		_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`))
+	}))
+	defer prometheus.Close()
+
+	originalAddress := config.C.Util.PrometheusServer.Address
+	config.C.Util.PrometheusServer.Address = prometheus.URL
+	defer func() { config.C.Util.PrometheusServer.Address = originalAddress }()
+
+	dashboard := &Dashboard{}
+	res, err := dashboard.getModelPerformanceTrendsAt(context.Background(), modelCode, "1h", end)
+	require.NoError(t, err)
+	require.NotNil(t, res.AvgTTFTMs[59])
+	assert.Equal(t, 350.5, *res.AvgTTFTMs[59])
+	require.NotNil(t, res.Otps[59])
+	assert.Equal(t, 30.0, *res.Otps[59])
+}
+
+func TestGetModelPerformanceTrendsDoesNotPartiallyFallbackLongWindow(t *testing.T) {
+	end := time.Now().Truncate(time.Minute)
+	modelCode := "long-window-model"
+	originalStore := metrics.GlobalStore
+	metrics.GlobalStore = metrics.NewMemoryStore()
+	defer func() { metrics.GlobalStore = originalStore }()
+	metrics.GlobalStore.Record(metrics.RequestMetric{
+		Time:         end.Unix(),
+		Model:        modelCode,
+		Success:      true,
+		OutputTokens: 60,
+		TTFTMs:       100,
+		DurationMs:   2000,
+	})
+
+	dashboard := &Dashboard{}
+	res, err := dashboard.getModelPerformanceTrendsAt(context.Background(), modelCode, "6h", end)
+	require.NoError(t, err)
+	for i := range res.Times {
+		assert.Nil(t, res.AvgTTFTMs[i])
+		assert.Nil(t, res.Otps[i])
+	}
+}

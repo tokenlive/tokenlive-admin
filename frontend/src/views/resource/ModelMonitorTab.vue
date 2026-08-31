@@ -114,6 +114,39 @@
             </a-col>
         </a-row>
 
+        <a-row :gutter="16">
+            <a-col
+                :xs="24"
+                :lg="12">
+                <div class="monitor-panel">
+                    <div class="monitor-panel__title">{{ $t('pages.model.detail.monitor.ttftTrend') }}</div>
+                    <a-empty
+                        v-if="!hasTTFTTrend"
+                        :description="$t('pages.model.detail.monitor.performance.empty')" />
+                    <x-chart
+                        v-else
+                        :options="ttftChartOptions"
+                        height="280px"
+                        :loading="loading" />
+                </div>
+            </a-col>
+            <a-col
+                :xs="24"
+                :lg="12">
+                <div class="monitor-panel">
+                    <div class="monitor-panel__title">{{ $t('pages.model.detail.monitor.otpsTrend') }}</div>
+                    <a-empty
+                        v-if="!hasOTPSTrend"
+                        :description="$t('pages.model.detail.monitor.performance.empty')" />
+                    <x-chart
+                        v-else
+                        :options="otpsChartOptions"
+                        height="280px"
+                        :loading="loading" />
+                </div>
+            </a-col>
+        </a-row>
+
         <div class="monitor-panel events-panel">
             <div class="monitor-panel__title">{{ $t('pages.model.detail.monitor.events') }}</div>
             <a-empty
@@ -250,6 +283,7 @@ const loading = ref(false)
 const ranking = ref(null)
 const traffic = ref({ times: [], series: [] })
 const endpointTraffic = ref({ times: [], series: [] })
+const performance = ref({ times: [], avg_ttft_ms: [], otps: [] })
 const endpoints = ref([])
 const breakers = ref([])
 const events = ref([])
@@ -442,6 +476,13 @@ const hasEndpointTraffic = computed(() =>
     (endpointTraffic.value.series || []).some((series) => (series.total || []).some((value) => Number(value) > 0))
 )
 
+function hasMetricData(values) {
+    return (values || []).some((value) => value !== null && value !== undefined && Number.isFinite(Number(value)))
+}
+
+const hasTTFTTrend = computed(() => hasMetricData(performance.value.avg_ttft_ms))
+const hasOTPSTrend = computed(() => hasMetricData(performance.value.otps))
+
 function chartTheme() {
     const isDark = appStore.config.theme === 'dark'
     return {
@@ -587,6 +628,99 @@ const endpointChartOptions = computed(() => {
     }
 })
 
+const ttftChartOptions = computed(() => {
+    const theme = chartTheme()
+    const seriesName = t('pages.model.detail.monitor.kpi.ttft')
+    return {
+        tooltip: {
+            ...theme.tooltip,
+            trigger: 'axis',
+            axisPointer: { type: 'cross' },
+            valueFormatter: (value) => formatLatency(value),
+        },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: performance.value.times || [],
+            axisLabel: { color: theme.text },
+            axisLine: theme.axisLine,
+        },
+        yAxis: {
+            type: 'value',
+            name: t('pages.model.detail.monitor.performance.ttftUnit'),
+            axisLabel: {
+                color: theme.text,
+                formatter: (value) => (Number(value) >= 1000 ? `${(Number(value) / 1000).toFixed(1)}s` : `${value}ms`),
+            },
+            splitLine: theme.splitLine,
+        },
+        series: [
+            {
+                name: seriesName,
+                type: 'line',
+                smooth: true,
+                showSymbol: false,
+                connectNulls: false,
+                itemStyle: { color: '#8b5cf6' },
+                lineStyle: { width: 2 },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(139, 92, 246, 0.28)' },
+                        { offset: 1, color: 'rgba(139, 92, 246, 0.02)' },
+                    ]),
+                },
+                data: performance.value.avg_ttft_ms || [],
+            },
+        ],
+    }
+})
+
+const otpsChartOptions = computed(() => {
+    const theme = chartTheme()
+    const seriesName = t('pages.model.detail.monitor.kpi.otps')
+    return {
+        tooltip: {
+            ...theme.tooltip,
+            trigger: 'axis',
+            axisPointer: { type: 'cross' },
+            valueFormatter: (value) => formatOtps(value),
+        },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: performance.value.times || [],
+            axisLabel: { color: theme.text },
+            axisLine: theme.axisLine,
+        },
+        yAxis: {
+            type: 'value',
+            name: t('pages.model.detail.monitor.performance.otpsUnit'),
+            axisLabel: { color: theme.text },
+            splitLine: theme.splitLine,
+        },
+        series: [
+            {
+                name: seriesName,
+                type: 'line',
+                smooth: true,
+                showSymbol: false,
+                connectNulls: false,
+                itemStyle: { color: '#2f8cff' },
+                lineStyle: { width: 2 },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(47, 140, 255, 0.28)' },
+                        { offset: 1, color: 'rgba(47, 140, 255, 0.02)' },
+                    ]),
+                },
+                data: performance.value.otps || [],
+            },
+        ],
+    }
+})
+
 function endpointSeriesLabel(label) {
     if (!label) return t('pages.model.detail.monitor.unselectedEndpoint')
     const match = endpoints.value.find((item) => item.id === label)
@@ -602,37 +736,42 @@ async function loadAll() {
     const model = props.modelCode || props.modelId
     const range = queryTimeRange()
     const [start, end] = selectedTimeRange.value
-    const endTime = end.toISOString()
+    const endTime = end.format()
     try {
-        const [rankingRes, trafficRes, endpointRes, endpointListRes, breakerRes, eventRes] = await Promise.all([
-            apis.dashboard
-                .getModelRanking({ model, time_range: range, end_time: endTime, limit: 1 })
-                .catch(() => ({ data: [] })),
-            apis.dashboard
-                .getTrends({ model, time_range: range, end_time: endTime })
-                .catch(() => ({ data: { times: [], series: [] } })),
-            apis.dashboard
-                .getTrends({ model, time_range: range, end_time: endTime, group_by: 'endpoint' })
-                .catch(() => ({ data: { times: [], series: [] } })),
-            apis.endpoint
-                .getEndpointList({ model_id: props.modelId, pageSize: 100, current: 1 })
-                .catch(() => ({ data: [] })),
-            apis.dashboard.getCircuitBreakers().catch(() => ({ data: [] })),
-            apis.ops
-                .getEvents({
-                    model_code: props.modelCode || undefined,
-                    start_time: start.toISOString(),
-                    end_time: endTime,
-                    pageSize: eventPagination.pageSize,
-                    current: eventPagination.current,
-                })
-                .catch(() => ({ data: [] })),
-        ])
+        const [rankingRes, trafficRes, endpointRes, performanceRes, endpointListRes, breakerRes, eventRes] =
+            await Promise.all([
+                apis.dashboard
+                    .getModelRanking({ model, time_range: range, end_time: endTime, limit: 1 })
+                    .catch(() => ({ data: [] })),
+                apis.dashboard
+                    .getTrends({ model, time_range: range, end_time: endTime })
+                    .catch(() => ({ data: { times: [], series: [] } })),
+                apis.dashboard
+                    .getTrends({ model, time_range: range, end_time: endTime, group_by: 'endpoint' })
+                    .catch(() => ({ data: { times: [], series: [] } })),
+                apis.dashboard
+                    .getModelPerformanceTrends({ model, time_range: range, end_time: endTime })
+                    .catch(() => ({ data: { times: [], avg_ttft_ms: [], otps: [] } })),
+                apis.endpoint
+                    .getEndpointList({ model_id: props.modelId, pageSize: 100, current: 1 })
+                    .catch(() => ({ data: [] })),
+                apis.dashboard.getCircuitBreakers().catch(() => ({ data: [] })),
+                apis.ops
+                    .getEvents({
+                        model_code: props.modelCode || undefined,
+                        start_time: start.toISOString(),
+                        end_time: endTime,
+                        pageSize: eventPagination.pageSize,
+                        current: eventPagination.current,
+                    })
+                    .catch(() => ({ data: [] })),
+            ])
 
         const rankingRows = rankingRes.data || []
         ranking.value = rankingRows[0] || null
         traffic.value = trafficRes.data || { times: [], series: [] }
         endpointTraffic.value = endpointRes.data || { times: [], series: [] }
+        performance.value = performanceRes.data || { times: [], avg_ttft_ms: [], otps: [] }
         endpoints.value = endpointListRes.data || []
         breakers.value = breakerRes.data || []
         events.value = (eventRes.data || []).filter((item) => !props.modelCode || item.model_code === props.modelCode)

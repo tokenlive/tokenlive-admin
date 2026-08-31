@@ -557,6 +557,66 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/dashboard/model-performance-trends": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "DashboardAPI"
+                ],
+                "summary": "Query model TTFT and request-period OTPS trends",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model code",
+                        "name": "model",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Time range: 1h, 6h, 24h, 7d, today, or a duration up to 7d (default: 1h)",
+                        "name": "time_range",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RFC3339 query end time",
+                        "name": "end_time",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/api.ModelPerformanceTrendsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/dashboard/model-ranking": {
             "get": {
                 "security": [
@@ -9343,6 +9403,29 @@ const docTemplate = `{
                 "url": {
                     "description": "关联的 URL 地址",
                     "type": "string"
+                }
+            }
+        },
+        "api.ModelPerformanceTrendsResponse": {
+            "type": "object",
+            "properties": {
+                "avg_ttft_ms": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "otps": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "times": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
