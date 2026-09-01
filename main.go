@@ -8,10 +8,10 @@ import (
 )
 
 // Usage: go build -ldflags "-X main.VERSION=x.x.x"
-var VERSION = "v0.9.3"
+var VERSION = "v1.0.0"
 
 // @title tokenlive-admin
-// @version v0.9.3
+// @version v1.0.0
 // @description An admin control center for tokelvie.
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header

@@ -1,6 +1,6 @@
 [General]
 AppName = "tokenlive-admin"
-Version = "v0.9.3"
+Version = "v1.0.0"
 Debug = true
 PprofAddr = "" # Pprof monitor address, "localhost:6060"
 DisableSwagger = false

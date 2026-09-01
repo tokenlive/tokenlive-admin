@@ -2,7 +2,7 @@
 FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-builder
 RUN set -eux && sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 
-ARG VERSION=v0.9.3
+ARG VERSION=v1.0.0
 ENV VITE_APP_VERSION=${VERSION}
 
 WORKDIR /app/frontend
@@ -16,7 +16,7 @@ FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS backend-builder
 RUN set -eux && sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 
 ARG APP=tokenlive-admin
-ARG VERSION=v0.9.3
+ARG VERSION=v1.0.0
 ARG RELEASE_TAG=${VERSION}
 ARG GOPROXY="https://goproxy.cn,direct"
 

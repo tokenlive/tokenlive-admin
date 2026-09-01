@@ -2,7 +2,7 @@
 
 NOW = $(shell date -u '+%Y%m%d%I%M%S')
 
-RELEASE_VERSION ?= v0.9.3
+RELEASE_VERSION ?= v1.0.0
 
 APP 		= tokenlive-admin
 REGISTRY        ?=

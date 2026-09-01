@@ -1,7 +1,7 @@
 {
     "name": "tokenlive-admin",
     "private": true,
-    "version": "0.9.3",
+    "version": "1.0.0",
     "scripts": {
         "dev": "vite --mode dev",
         "build:test": "vite build --mode test",
