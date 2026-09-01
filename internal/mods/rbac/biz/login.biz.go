@@ -102,6 +102,14 @@ func (a *Login) ParseUserID(c *gin.Context) (string, error) {
 	return userID, nil
 }
 
+// GetVersion returns the current system version info.
+func (a *Login) GetVersion(ctx context.Context) (*schema.VersionInfo, error) {
+	return &schema.VersionInfo{
+		Version: config.C.General.Version,
+		AppName: config.C.General.AppName,
+	}, nil
+}
+
 // This function generates a new captcha ID and returns it as a `schema.Captcha` struct. The length of
 // the captcha is determined by the `config.C.Util.Captcha.Length` configuration value.
 func (a *Login) GetCaptcha(ctx context.Context) (*schema.Captcha, error) {

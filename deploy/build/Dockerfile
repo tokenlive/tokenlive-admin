@@ -1,6 +1,9 @@
 # Stage 1: Build frontend
 FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-builder
 
+ARG VERSION=v0.9.3
+ENV VITE_APP_VERSION=${VERSION}
+
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
@@ -11,7 +14,7 @@ RUN npm run build:prod
 FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS backend-builder
 
 ARG APP=tokenlive-admin
-ARG VERSION=v1.0.0
+ARG VERSION=v0.9.3
 ARG RELEASE_TAG=${VERSION}
 ARG GOPROXY="https://proxy.golang.org,direct"
 

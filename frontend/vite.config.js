@@ -50,7 +50,7 @@ export default ({ mode }) => {
         },
         define: {
             __APP_INFO__: JSON.stringify({
-                version: pkg.version,
+                version: process.env.VITE_APP_VERSION || env.VITE_APP_VERSION || pkg.version,
             }),
         },
         plugins: [useVuePlugin(), useProgressPlugin(), useCompressPlugin(), useVisualizerPlugin(), useEslintPlugin()],

@@ -20,6 +20,7 @@ type Options struct {
 	WorkDir   string // default "configs"
 	Configs   string // relative to WorkDir, default "dev"
 	StaticDir string // SPA directory; empty skips static middleware
+	Version   string // optional version override
 
 	// Engine, if non-nil, is used for Register (host-owned). New does not listen.
 	Engine *gin.Engine
@@ -65,6 +66,7 @@ func New(ctx context.Context, opt Options) (*App, error) {
 		WorkDir:   opt.WorkDir,
 		Configs:   opt.Configs,
 		StaticDir: opt.StaticDir,
+		Version:   opt.Version,
 	})
 	if err != nil {
 		return nil, err

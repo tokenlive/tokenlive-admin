@@ -15,7 +15,7 @@ import (
 
 // The function defines a CLI command to start a server with various flags and options, including the
 // ability to run as a daemon.
-func StartCmd() *cli.Command {
+func StartCmd(version ...string) *cli.Command {
 	return &cli.Command{
 		Name:  "start",
 		Usage: "Start server",
@@ -48,6 +48,10 @@ func StartCmd() *cli.Command {
 			workDir := c.String("workdir")
 			staticDir := c.String("static")
 			configs := c.String("config")
+			ver := ""
+			if len(version) > 0 {
+				ver = version[0]
+			}
 
 			if c.Bool("daemon") {
 				bin, err := filepath.Abs(os.Args[0])
@@ -95,6 +99,7 @@ func StartCmd() *cli.Command {
 				WorkDir:   workDir,
 				Configs:   configs,
 				StaticDir: staticDir,
+				Version:   ver,
 			})
 			if err != nil {
 				fmt.Printf("failed to start service: %s \n", err.Error())

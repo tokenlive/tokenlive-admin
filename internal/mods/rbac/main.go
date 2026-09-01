@@ -76,6 +76,11 @@ func (a *RBAC) Init(ctx context.Context) error {
 }
 
 func (a *RBAC) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) error {
+	pub := v1.Group("pub")
+	{
+		pub.GET("version", a.LoginAPI.GetVersion)
+	}
+
 	captcha := v1.Group("captcha")
 	{
 		captcha.GET("id", a.LoginAPI.GetCaptcha)

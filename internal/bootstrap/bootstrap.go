@@ -21,6 +21,7 @@ type RunConfig struct {
 	WorkDir   string // Working directory
 	Configs   string // Directory or files (multiple separated by commas)
 	StaticDir string // Static files directory
+	Version   string // Optional version override
 }
 
 // Runtime holds an initialized admin stack without listening.
@@ -38,6 +39,9 @@ func Init(ctx context.Context, runCfg RunConfig) (*Runtime, error) {
 	workDir := runCfg.WorkDir
 	staticDir := runCfg.StaticDir
 	config.MustLoad(workDir, strings.Split(runCfg.Configs, ",")...)
+	if runCfg.Version != "" {
+		config.C.General.Version = runCfg.Version
+	}
 	config.C.General.WorkDir = workDir
 	config.C.Middleware.Static.Dir = staticDir
 	config.C.Print()

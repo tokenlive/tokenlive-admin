@@ -32,7 +32,23 @@ jobs:
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
 
+    - name: Extract version
+      id: version
+      run: |
+        if [ -n "${{ github.event.inputs.version }}" ]; then
+          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          VERSION_TMP="${GITHUB_REF#refs/tags/}"
+          if [[ "${VERSION_TMP}" == refs/heads/* ]] || [[ "${VERSION_TMP}" == refs/pull/* ]]; then
+            VERSION_TMP="v0.0.0-${GITHUB_SHA::7}"
+          fi
+          echo "VERSION=${VERSION_TMP}" >> $GITHUB_OUTPUT
+        fi
+
     - name: Build frontend
+      env:
+        RELEASE_TAG: ${{ steps.version.outputs.VERSION }}
+        VITE_APP_VERSION: ${{ steps.version.outputs.VERSION }}
       run: make build-frontend
 
     - name: Upload frontend dist

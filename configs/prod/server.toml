@@ -1,6 +1,6 @@
 [General]
 AppName = "tokenlive-admin"
-Version = "v1.0.0"
+Version = "v0.9.3"
 Debug = false
 PprofAddr = ""
 DisableSwagger = true

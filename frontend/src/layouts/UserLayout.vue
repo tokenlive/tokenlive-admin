@@ -24,7 +24,7 @@
                 <div class="user-layout-form">
                     <router-view></router-view>
                 </div>
-                <div class="user-layout-footer">© {{ title }} {{ version }}</div>
+                <div class="user-layout-footer">© {{ title }} {{ displayVersion }}</div>
             </div>
         </div>
 
@@ -130,6 +130,8 @@ import { TranslationOutlined } from '@ant-design/icons-vue'
 import { useAppStore } from '@/store'
 import ActionButton from './components/ActionButton.vue'
 
+import apis from '@/apis'
+
 import storage from '@/utils/storage'
 import { useI18n } from 'vue-i18n'
 const { locale, t } = useI18n()
@@ -139,6 +141,7 @@ defineOptions({
 })
 
 const { version } = __APP_INFO__
+const displayVersion = ref(version)
 const title = config('app.title')
 const defaultLang = storage.local.getItem(conf('storage.lang')) || 'zh-ch'
 const current = ref(defaultLang)
@@ -380,8 +383,20 @@ function initSmokeBackground() {
     }
 }
 
+async function fetchSystemVersion() {
+    try {
+        const res = await apis.pub?.getVersion?.()
+        if (res?.version) {
+            displayVersion.value = res.version
+        }
+    } catch (_) {
+        // Fallback to build-time version
+    }
+}
+
 onMounted(() => {
     initSmokeBackground()
+    fetchSystemVersion()
 })
 
 onBeforeUnmount(() => {

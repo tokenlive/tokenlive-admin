@@ -7,6 +7,11 @@ type Captcha struct {
 	Disabled  bool   `json:"disabled,omitempty"` // true when captcha is turned off
 }
 
+type VersionInfo struct {
+	Version string `json:"version"`  // Application release version
+	AppName string `json:"app_name"` // Application name
+}
+
 type LoginForm struct {
 	Username    string `json:"username" binding:"required"` // Login name
 	Password    string `json:"password" binding:"required"` // Login password (md5 hash)

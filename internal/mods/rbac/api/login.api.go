@@ -12,6 +12,20 @@ type Login struct {
 }
 
 // @Tags LoginAPI
+// @Summary Get system version info
+// @Success 200 {object} util.ResponseResult{data=schema.VersionInfo}
+// @Router /api/v1/pub/version [get]
+func (a *Login) GetVersion(c *gin.Context) {
+	ctx := c.Request.Context()
+	data, err := a.LoginBIZ.GetVersion(ctx)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResSuccess(c, data)
+}
+
+// @Tags LoginAPI
 // @Summary Get captcha ID
 // @Success 200 {object} util.ResponseResult{data=schema.Captcha}
 // @Router /api/v1/captcha/id [get]

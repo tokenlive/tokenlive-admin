@@ -8,10 +8,10 @@ import (
 )
 
 // Usage: go build -ldflags "-X main.VERSION=x.x.x"
-var VERSION = "v1.0.0"
+var VERSION = "v0.9.3"
 
 // @title tokenlive-admin
-// @version v1.0.0
+// @version v0.9.3
 // @description An admin control center for tokelvie.
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
@@ -24,7 +24,7 @@ func main() {
 	app.Version = VERSION
 	app.Usage = "An admin control center for tokelvie."
 	app.Commands = []*cli.Command{
-		cmd.StartCmd(),
+		cmd.StartCmd(VERSION),
 		cmd.StopCmd(),
 		cmd.VersionCmd(VERSION),
 	}

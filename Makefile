@@ -2,7 +2,7 @@
 
 NOW = $(shell date -u '+%Y%m%d%I%M%S')
 
-RELEASE_VERSION = v1.0.0
+RELEASE_VERSION ?= v0.9.3
 
 APP 		= tokenlive-admin
 REGISTRY        ?=
@@ -27,7 +27,7 @@ build:
 
 build-frontend:
 	@echo "Building frontend..."
-	@cd frontend && npm ci && npm run build:prod
+	@cd frontend && npm ci && VITE_APP_VERSION=$(RELEASE_TAG) npm run build:prod
 	@echo "Frontend build completed."
 
 build-all: build-frontend build
