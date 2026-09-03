@@ -637,8 +637,8 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			reqBody, _ = json.Marshal(bodyMap)
 		} else if protocol == "joycode" {
 			base := url
-			if base == "" {
-				base = "http://joycode-api-saas.jd.com"
+			if base == "" || base == "http://joycode-api-saas.jd.com" {
+				base = "https://api-ai.jd.com"
 			}
 			isAnt := strings.Contains(strings.ToLower(realModel), "claude")
 			if strings.HasPrefix(base, "https://") {
@@ -1063,13 +1063,22 @@ func signJoyCodeGatewayURL(baseURL, functionID string) (string, error) {
 	t := time.Now().UnixNano() / int64(time.Millisecond)
 
 	appID := os.Getenv("JOYCODE_APPID")
-	if appID == "" {
-		return "", fmt.Errorf("JOYCODE_APPID environment variable is missing")
-	}
-
 	signKey := os.Getenv("JOYCODE_SIGN_KEY")
-	if signKey == "" {
-		return "", fmt.Errorf("JOYCODE_SIGN_KEY environment variable is missing")
+
+	if appID == "" && signKey == "" {
+		if strings.Contains(baseURL, "api-ai.jd.com") || strings.Contains(baseURL, "jd.com") {
+			appID = "joycode_ide"
+			signKey = "0691a3f0b37b4a85aeb63ad0fc7db3ed"
+		} else {
+			return "", fmt.Errorf("JOYCODE_APPID environment variable is missing")
+		}
+	} else {
+		if appID == "" {
+			return "", fmt.Errorf("JOYCODE_APPID environment variable is missing")
+		}
+		if signKey == "" {
+			return "", fmt.Errorf("JOYCODE_SIGN_KEY environment variable is missing")
+		}
 	}
 
 	stringToSign := fmt.Sprintf("%s&%s&%d", appID, functionID, t)

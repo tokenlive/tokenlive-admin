@@ -249,6 +249,9 @@ func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem 
 	if baseURL == "" && isCodexOAuthProvider(provider) {
 		baseURL = codexDefaultBaseURL
 	}
+	if (baseURL == "" || baseURL == "http://joycode-api-saas.jd.com") && provider.Protocol == "joycode" {
+		baseURL = "https://api-ai.jd.com"
+	}
 	if baseURL == "" {
 		return nil, errors.BadRequest("", "Base URL is required, please provide it or set provider URL")
 	}
