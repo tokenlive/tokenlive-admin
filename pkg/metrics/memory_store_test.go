@@ -135,3 +135,35 @@ func TestMemoryStoreKeepsFailedTokensOutOfOtpsTotals(t *testing.T) {
 	assert.Equal(t, int64(30), perf.Output)
 	assert.Equal(t, int64(3000), perf.DurationMs)
 }
+
+func TestMemoryStoreRecordsSuccessfulRequestUsageAndAvailability(t *testing.T) {
+	store := NewMemoryStore()
+	now := time.Now()
+	store.Record(RequestMetric{
+		Time:         now.Unix(),
+		Model:        "gpt-4",
+		Provider:     "openai",
+		Success:      true,
+		InputTokens:  100,
+		OutputTokens: 20,
+		Cost:         0.25,
+		TTFTMs:       250,
+		DurationMs:   2000,
+	})
+
+	perf := store.GetModelMinutePerf("gpt-4", now.Unix()/60)
+	assert.Equal(t, int64(1), perf.Requests)
+	assert.Equal(t, int64(1), perf.Success)
+	assert.Equal(t, int64(0), perf.Fail)
+	assert.Equal(t, int64(100), perf.InputTokens)
+	assert.Equal(t, int64(20), perf.OutputTokens)
+	assert.Equal(t, 0.25, perf.Cost)
+	assert.Equal(t, int64(250), perf.TTFTSum)
+	assert.Equal(t, int64(2000), perf.LatencySumMs)
+
+	daily := store.GetDailyStats(now.Format("2006-01-02"))
+	assert.Equal(t, int64(1), daily.ReqCount)
+	assert.Equal(t, int64(100), daily.InputTokens)
+	assert.Equal(t, int64(20), daily.OutputTokens)
+	assert.Equal(t, 0.25, daily.Cost)
+}

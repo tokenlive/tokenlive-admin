@@ -382,11 +382,9 @@ func (a *Dashboard) getOverview(ctx context.Context) (*OverviewResponse, error) 
 		} else {
 			// 降级：从内存计算 QPS
 			minute := time.Now().Unix() / 60
-			succ1, fail1 := metrics.GlobalStore.GetGlobalStatus(minute - 1)
-			total := succ1 + fail1
+			total := metrics.GlobalStore.GetGlobalMinutePerf(minute - 1).Requests
 			if total <= 0 {
-				succ0, fail0 := metrics.GlobalStore.GetGlobalStatus(minute)
-				total = succ0 + fail0
+				total = metrics.GlobalStore.GetGlobalMinutePerf(minute).Requests
 			}
 			qps = float64(total) / 60.0
 		}
@@ -1516,9 +1514,10 @@ func (a *Dashboard) getModelRankingAt(ctx context.Context, sortBy, timeRange str
 			perf := metrics.GlobalStore.AggregateModelMinutePerf(model.ModelCode, startMinute, currentMin)
 			items[i].SuccessCount = perf.Success
 			items[i].FailCount = perf.Fail
-			items[i].RequestCount = perf.Success + perf.Fail
-			if items[i].RequestCount > 0 {
-				items[i].SuccessRate = float64(perf.Success) / float64(items[i].RequestCount) * 100
+			items[i].RequestCount = perf.Requests
+			availabilityCount := perf.Success + perf.Fail
+			if availabilityCount > 0 {
+				items[i].SuccessRate = float64(perf.Success) / float64(availabilityCount) * 100
 			}
 			if perf.LatencyCount > 0 {
 				items[i].AvgLatencyMs = float64(perf.LatencySumMs) / float64(perf.LatencyCount)

@@ -28,6 +28,7 @@ type RequestMetric struct {
 }
 
 type EndpointMinutePerf struct {
+	Requests     int64
 	Success      int64
 	Fail         int64
 	InputTokens  int64
@@ -100,6 +101,7 @@ func getOrCreateDimension(values map[string]map[int64]*EndpointMinutePerf, key s
 }
 
 func recordRequest(perf *EndpointMinutePerf, metric RequestMetric) {
+	perf.Requests++
 	if metric.Success {
 		perf.Success++
 	} else {
@@ -221,6 +223,7 @@ func addPerf(total *EndpointMinutePerf, perf *EndpointMinutePerf) {
 	}
 	total.Success += perf.Success
 	total.Fail += perf.Fail
+	total.Requests += perf.Requests
 	total.InputTokens += perf.InputTokens
 	total.OutputTokens += perf.OutputTokens
 	total.Output += perf.Output
