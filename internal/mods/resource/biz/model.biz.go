@@ -227,36 +227,30 @@ func (m *Model) Update(ctx context.Context, id string, formItem *schema.ModelFor
 	model.UpdatedAt = time.Now()
 
 	err = m.Trans.Exec(ctx, func(ctx context.Context) error {
-		if err := m.ModelDAL.Update(ctx, model); err != nil {
-			return err
-		}
-		if originalModelCode != model.ModelCode {
-			policyBindingTable := config.C.FormatTableName("policy_binding")
-			if err := util.GetDB(ctx, m.ModelDAL.DB).Table(policyBindingTable).
-				Where("model_code = ? AND deleted = '0'", originalModelCode).
-				Updates(map[string]interface{}{"model_code": model.ModelCode}).Error; err != nil {
-				return errors.WithStack(err)
-			}
-		}
-		return nil
+		return m.ModelDAL.Update(ctx, model)
 	})
 	if err == nil {
-		_ = m.ConfigRedisSync.SyncModelByCode(ctx, originalModelCode)
-		if originalModelCode != model.ModelCode {
-			_ = m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
-			_ = m.ConfigRedisSync.SyncModelCodeChange(ctx, model.ID, originalModelCode, model.ModelCode)
-		}
+		if m.ConfigRedisSync != nil {
+			if originalModelCode != model.ModelCode {
+				_ = m.ConfigRedisSync.SyncModelCodeChange(ctx, model.ID, originalModelCode, model.ModelCode)
+				_ = m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
+			} else {
+				_ = m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
+			}
 
-		// 检查启用状态是否变化
-		if originalEnabled != model.Enabled {
-			if model.Enabled == 0 {
-				_ = m.ConfigRedisSync.SyncModelDisable(ctx, model.ID, model.ModelCode)
-			} else if model.Enabled == 1 {
-				_ = m.ConfigRedisSync.SyncModelEnable(ctx, model.ID, model.ModelCode)
+			// 检查启用状态是否变化
+			if originalEnabled != model.Enabled {
+				if model.Enabled == 0 {
+					_ = m.ConfigRedisSync.SyncModelDisable(ctx, model.ID, model.ModelCode)
+				} else if model.Enabled == 1 {
+					_ = m.ConfigRedisSync.SyncModelEnable(ctx, model.ID, model.ModelCode)
+				}
 			}
 		}
 
-		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, beforeModel, model)
+		if m.AuditLogBIZ != nil {
+			m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, beforeModel, model)
+		}
 	}
 	return err
 }

@@ -253,7 +253,15 @@ function filterOwnerOption(input, option) {
 
 formRules.value = {
     model_name: { required: true, message: t('pages.model.form.model_name.placeholder') },
-    model_code: { required: true, message: t('pages.model.form.model_code.placeholder') },
+    model_code: [
+        { required: true, message: t('pages.model.form.model_code.placeholder') },
+        { max: 64, message: t('pages.model.form.model_code.pattern') },
+        {
+            pattern: /^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/,
+            message: t('pages.model.form.model_code.pattern'),
+            trigger: ['blur', 'change'],
+        },
+    ],
     space_code: { required: true, message: t('pages.model.form.space_code.placeholder') },
     request_types: { required: true, message: t('pages.model.form.request_types.placeholder') },
 }
@@ -318,6 +326,9 @@ function handleOk() {
                 showLoading()
                 // Convert request_types and abilities arrays to JSON string
                 const submitType = modal.value.type
+                if (values.model_code && typeof values.model_code === 'string') {
+                    values.model_code = values.model_code.trim()
+                }
                 const params = {
                     ...values,
                     request_types: JSON.stringify(values.request_types || []),
@@ -330,14 +341,10 @@ function handleOk() {
                 let result = null
                 switch (submitType) {
                     case 'create':
-                        result = await apis.model.createModel(params).catch(() => {
-                            throw new Error()
-                        })
+                        result = await apis.model.createModel(params)
                         break
                     case 'edit':
-                        result = await apis.model.updateModel(formData.value.id, params).catch(() => {
-                            throw new Error()
-                        })
+                        result = await apis.model.updateModel(formData.value.id, params)
                         break
                 }
                 hideLoading()
@@ -350,11 +357,16 @@ function handleOk() {
                     }
                     emit('ok')
                 } else {
-                    message.error(t('component.message.error.save'))
+                    message.error(result?.msg || t('component.message.error.save'))
                 }
             } catch (error) {
                 hideLoading()
-                message.error(t('component.message.error.request'))
+                const errMsg =
+                    error?.response?.data?.error?.detail ||
+                    error?.response?.data?.msg ||
+                    error?.message ||
+                    t('component.message.error.request')
+                message.error(errMsg)
             }
         })
         .catch(() => {

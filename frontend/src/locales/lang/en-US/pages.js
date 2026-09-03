@@ -310,6 +310,8 @@ export default {
     'pages.model.form.model_code': 'Model Code',
     'pages.model.form.model_code.placeholder': 'Please enter the model code',
     'pages.model.form.model_code.required': 'Model code is required!',
+    'pages.model.form.model_code.pattern':
+        'Model code can only contain letters, numbers, hyphens, and dots, and cannot start or end with a hyphen or dot',
     'pages.model.form.space_code': 'Space',
     'pages.model.form.space_code.placeholder': 'Please select a space',
     'pages.model.form.space_code.required': 'Space is required!',

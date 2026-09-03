@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
@@ -92,7 +94,19 @@ type ModelCreateResult struct {
 	SkippedSeeds []string `json:"skipped_seeds,omitempty"`
 }
 
+var modelCodePattern = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$`)
+
 func (m *ModelForm) Validate() error {
+	m.ModelCode = strings.TrimSpace(m.ModelCode)
+	if m.ModelCode == "" {
+		return errors.BadRequest("", "模型编码不能为空")
+	}
+	if len(m.ModelCode) > 64 {
+		return errors.BadRequest("", "模型编码长度不能超过64个字符")
+	}
+	if !modelCodePattern.MatchString(m.ModelCode) {
+		return errors.BadRequest("", "模型编码只能包含字母、数字、中划线和点号，且首尾不能为中划线或点号")
+	}
 	return nil
 }
 

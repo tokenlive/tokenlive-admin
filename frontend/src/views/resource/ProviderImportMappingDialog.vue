@@ -38,11 +38,18 @@
                     </a-select>
                 </template>
                 <template v-if="'new_code' === column.key">
-                    <a-input
-                        v-if="mapping[record.id] === '__NEW__'"
-                        v-model:value="newModelCodes[record.id]"
-                        :placeholder="$t('pages.provider.fetchModels.table.new_code.placeholder')"
-                        style="width: 100%" />
+                    <div v-if="mapping[record.id] === '__NEW__'">
+                        <a-input
+                            v-model:value="newModelCodes[record.id]"
+                            :status="isInvalidModelCode(newModelCodes[record.id]) ? 'error' : ''"
+                            :placeholder="$t('pages.provider.fetchModels.table.new_code.placeholder')"
+                            style="width: 100%" />
+                        <div
+                            v-if="isInvalidModelCode(newModelCodes[record.id])"
+                            style="color: #ff4d4f; font-size: 12px; margin-top: 4px; line-height: 1.2">
+                            {{ $t('pages.model.form.model_code.pattern') }}
+                        </div>
+                    </div>
                     <span
                         v-else
                         style="opacity: 0.25"
@@ -115,6 +122,23 @@ const columns = [
     { title: t('pages.provider.fetchModels.table.new_code'), key: 'new_code' },
 ]
 
+const MODEL_CODE_PATTERN = /^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/
+
+function sanitizeInitialCode(rawId) {
+    if (!rawId || typeof rawId !== 'string') return ''
+    let cleaned = rawId.trim().replace(/[\s_]+/g, '-')
+    cleaned = cleaned.replace(/[^a-zA-Z0-9.-]/g, '')
+    cleaned = cleaned.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '')
+    return MODEL_CODE_PATTERN.test(cleaned) ? cleaned : rawId.trim()
+}
+
+function isInvalidModelCode(code) {
+    if (!code) return true
+    const trimmed = String(code).trim()
+    if (!trimmed || trimmed.length > 64) return true
+    return !MODEL_CODE_PATTERN.test(trimmed)
+}
+
 function filterModelOption(input, option) {
     // 处理 ASelect 选项标签的过滤逻辑
     const label = option.children?.[0]?.children || option.children || ''
@@ -143,7 +167,7 @@ async function handleOpen(context) {
     applyCircuitBreakSeed.value = true
     for (const m of models.value) {
         mapping.value[m.id] = '__NEW__'
-        newModelCodes.value[m.id] = m.id
+        newModelCodes.value[m.id] = sanitizeInitialCode(m.id)
     }
 
     // 获取系统已有模型
@@ -161,6 +185,19 @@ async function handleOpen(context) {
 }
 
 async function handleOk() {
+    // 提前校验待新建模型的 code 格式，防止脏数据和部分失败
+    for (const selectedModel of models.value) {
+        if (mapping.value[selectedModel.id] === '__NEW__') {
+            const rawCode = (newModelCodes.value[selectedModel.id] || selectedModel.id || '').trim()
+            if (isInvalidModelCode(rawCode)) {
+                message.error(
+                    `${t('pages.provider.fetchModels.table.model')}: ${selectedModel.id} -> ${t('pages.model.form.model_code.pattern')}`
+                )
+                return
+            }
+        }
+    }
+
     confirmLoading.value = true
     const hideLoadingMsg = message.loading('正在保存模型与端点配置，请稍候...', 0)
 
@@ -176,7 +213,8 @@ async function handleOk() {
             // 确定即将导入/关联的模型 code
             let modelCodeForEp
             if (modelId === '__NEW__') {
-                modelCodeForEp = newModelCodes.value[selectedModel.id] || selectedModel.id
+                modelCodeForEp = (newModelCodes.value[selectedModel.id] || selectedModel.id || '').trim()
+                newModelCodes.value[selectedModel.id] = modelCodeForEp
             } else {
                 // 已有模型：从 existingModels 中查找 model_code
                 const existing = existingModels.value.find((m) => m.id === modelId)

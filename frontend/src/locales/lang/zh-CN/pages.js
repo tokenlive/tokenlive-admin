@@ -308,6 +308,7 @@ export default {
     'pages.model.form.model_code': '模型编码',
     'pages.model.form.model_code.placeholder': '请输入模型编码',
     'pages.model.form.model_code.required': '模型编码是必填项！',
+    'pages.model.form.model_code.pattern': '模型编码只能包含字母、数字、中划线和点号，且首尾不能为中划线或点号',
     'pages.model.form.space_code': '所属空间',
     'pages.model.form.space_code.placeholder': '请选择所属空间',
     'pages.model.form.space_code.required': '所属空间是必填项！',
