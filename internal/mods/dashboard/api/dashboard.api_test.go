@@ -112,6 +112,38 @@ func TestQueryOverviewUsesRedisDailyCost(t *testing.T) {
 	assert.Equal(t, 11.027258, data["daily_cost"])
 }
 
+func TestGetOverviewFallsBackToMemoryLatencyAndTTFT(t *testing.T) {
+	originalStore := metrics.GlobalStore
+	metrics.GlobalStore = metrics.NewMemoryStore()
+	defer func() { metrics.GlobalStore = originalStore }()
+
+	originalAddress := config.C.Util.PrometheusServer.Address
+	config.C.Util.PrometheusServer.Address = ""
+	defer func() { config.C.Util.PrometheusServer.Address = originalAddress }()
+
+	now := time.Now()
+	metrics.GlobalStore.Record(metrics.RequestMetric{
+		Time:       now.Add(-time.Minute).Unix(),
+		Model:      "gpt-test",
+		Success:    true,
+		TTFTMs:     100,
+		DurationMs: 1000,
+	})
+	metrics.GlobalStore.Record(metrics.RequestMetric{
+		Time:       now.Unix(),
+		Model:      "gpt-test",
+		Success:    true,
+		TTFTMs:     300,
+		DurationMs: 3000,
+	})
+
+	dashboard := &Dashboard{}
+	overview, err := dashboard.getOverview(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 2000.0, overview.AvgLatencyMs)
+	assert.Equal(t, 200.0, overview.AvgTTFTMs)
+}
+
 func TestResolveTrendRangeToday(t *testing.T) {
 	now := time.Date(2026, 6, 15, 10, 3, 0, 0, time.Local)
 
@@ -208,6 +240,49 @@ func TestGetTrendsModelFilterSkipsRedisFallback(t *testing.T) {
 	assert.Empty(t, grouped.Series)
 }
 
+func TestGetTrendsFallsBackToSevenDayMemoryDataGroupedByModelAndProvider(t *testing.T) {
+	originalStore := metrics.GlobalStore
+	metrics.GlobalStore = metrics.NewMemoryStore()
+	defer func() { metrics.GlobalStore = originalStore }()
+
+	originalAddress := config.C.Util.PrometheusServer.Address
+	config.C.Util.PrometheusServer.Address = ""
+	defer func() { config.C.Util.PrometheusServer.Address = originalAddress }()
+
+	end := time.Now().Truncate(time.Minute)
+	for _, metric := range []metrics.RequestMetric{
+		{Time: end.Add(-6 * 24 * time.Hour).Unix(), Model: "gpt-a", Provider: "openai", Success: true},
+		{Time: end.Unix(), Model: "gpt-b", Provider: "anthropic", Success: false},
+	} {
+		metrics.GlobalStore.Record(metric)
+	}
+
+	dashboard := &Dashboard{}
+	models, err := dashboard.getTrendsAt(context.Background(), "model", "7d", "", end)
+	require.NoError(t, err)
+	require.Len(t, models.Series, 2)
+	assert.Equal(t, "gpt-a", models.Series[0].Label)
+	assert.Equal(t, int64(1), sumInt64(models.Series[0].Success))
+	assert.Equal(t, "gpt-b", models.Series[1].Label)
+	assert.Equal(t, int64(1), sumInt64(models.Series[1].Failure))
+
+	providers, err := dashboard.getTrendsAt(context.Background(), "provider", "7d", "", end)
+	require.NoError(t, err)
+	require.Len(t, providers.Series, 2)
+	assert.Equal(t, "anthropic", providers.Series[0].Label)
+	assert.Equal(t, int64(1), sumInt64(providers.Series[0].Failure))
+	assert.Equal(t, "openai", providers.Series[1].Label)
+	assert.Equal(t, int64(1), sumInt64(providers.Series[1].Success))
+}
+
+func sumInt64(values []int64) int64 {
+	var total int64
+	for _, value := range values {
+		total += value
+	}
+	return total
+}
+
 func TestBuildModelOtpsQueryUsesOutputOverRequestDuration(t *testing.T) {
 	query := buildModelOtpsQuery("24h")
 
@@ -258,6 +333,64 @@ func TestGetModelRankingSingleModelNoTrafficReturnsEmpty(t *testing.T) {
 	items, err := dashboard.getModelRanking(context.Background(), "request_count", "1h", 10, "gpt-test")
 	assert.NoError(t, err)
 	assert.Empty(t, items)
+}
+
+func TestGetModelRankingFallsBackToDetailedMemoryMetricsForTwentyFourHours(t *testing.T) {
+	originalStore := metrics.GlobalStore
+	metrics.GlobalStore = metrics.NewMemoryStore()
+	defer func() { metrics.GlobalStore = originalStore }()
+
+	originalAddress := config.C.Util.PrometheusServer.Address
+	config.C.Util.PrometheusServer.Address = ""
+	defer func() { config.C.Util.PrometheusServer.Address = originalAddress }()
+
+	dbName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=private", dbName)), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&rschema.Model{}))
+	require.NoError(t, db.Create(&rschema.Model{
+		ID:        "model-1",
+		ModelName: "GPT Test",
+		ModelCode: "gpt-test",
+		SpaceCode: "default",
+		Enabled:   1,
+	}).Error)
+
+	end := time.Now().Truncate(time.Minute)
+	metrics.GlobalStore.Record(metrics.RequestMetric{
+		Time:         end.Add(-23 * time.Hour).Unix(),
+		Model:        "gpt-test",
+		Provider:     "openai",
+		Success:      true,
+		InputTokens:  10,
+		OutputTokens: 20,
+		Cost:         0.1,
+		TTFTMs:       100,
+		DurationMs:   1000,
+	})
+	metrics.GlobalStore.Record(metrics.RequestMetric{
+		Time:         end.Unix(),
+		Model:        "gpt-test",
+		Provider:     "openai",
+		Success:      true,
+		InputTokens:  30,
+		OutputTokens: 40,
+		Cost:         0.2,
+		TTFTMs:       300,
+		DurationMs:   3000,
+	})
+
+	dashboard := &Dashboard{DB: db}
+	items, err := dashboard.getModelRankingAt(context.Background(), "request_count", "24h", 10, "", end)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, int64(2), items[0].RequestCount)
+	assert.Equal(t, 100.0, items[0].SuccessRate)
+	assert.Equal(t, 2000.0, items[0].AvgLatencyMs)
+	assert.Equal(t, 200.0, items[0].AvgTTFTMs)
+	assert.Equal(t, int64(100), items[0].TotalTokens)
+	assert.InDelta(t, 0.3, items[0].TotalCost, 0.000001)
+	assert.Equal(t, 15.0, items[0].Otps)
 }
 
 func TestSortModelRankingItemsByOtpsDescendingLeavesRequestCountDefault(t *testing.T) {
@@ -473,7 +606,7 @@ func TestGetModelPerformanceTrendsFallsBackPerMetricWithoutOverwritingPrometheus
 	assert.Equal(t, 30.0, *res.Otps[59])
 }
 
-func TestGetModelPerformanceTrendsDoesNotPartiallyFallbackLongWindow(t *testing.T) {
+func TestGetModelPerformanceTrendsFallsBackToMemoryForLongWindow(t *testing.T) {
 	end := time.Now().Truncate(time.Minute)
 	modelCode := "long-window-model"
 	originalStore := metrics.GlobalStore
@@ -491,8 +624,8 @@ func TestGetModelPerformanceTrendsDoesNotPartiallyFallbackLongWindow(t *testing.
 	dashboard := &Dashboard{}
 	res, err := dashboard.getModelPerformanceTrendsAt(context.Background(), modelCode, "6h", end)
 	require.NoError(t, err)
-	for i := range res.Times {
-		assert.Nil(t, res.AvgTTFTMs[i])
-		assert.Nil(t, res.Otps[i])
-	}
+	require.NotNil(t, res.AvgTTFTMs[len(res.AvgTTFTMs)-1])
+	assert.Equal(t, 100.0, *res.AvgTTFTMs[len(res.AvgTTFTMs)-1])
+	require.NotNil(t, res.Otps[len(res.Otps)-1])
+	assert.Equal(t, 30.0, *res.Otps[len(res.Otps)-1])
 }

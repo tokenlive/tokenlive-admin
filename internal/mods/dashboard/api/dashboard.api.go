@@ -435,11 +435,22 @@ func (a *Dashboard) getOverview(ctx context.Context) (*OverviewResponse, error) 
 		res.DailyCost = stats.Cost
 	}
 
-	// 3. 获取最近 5 分钟的滚动平均延迟与首包延迟 (TTFT)，转换为毫秒
-	avgLatency := a.queryPrometheusSingleValue(fmt.Sprintf(`sum(rate(%s[5m])) / sum(rate(%s[5m]))`, mRequestDurationSum, mRequestDurationCount))
-	avgTTFT := a.queryPrometheusSingleValue(fmt.Sprintf(`sum(rate(%s[5m])) / sum(rate(%s[5m]))`, mTtftSum, mTtftCount))
-	res.AvgLatencyMs = avgLatency * 1000
-	res.AvgTTFTMs = avgTTFT * 1000
+	// 3. 获取最近 5 分钟的滚动平均延迟与首包延迟 (TTFT)
+	if a.isPrometheusAvailable() {
+		avgLatency := a.queryPrometheusSingleValue(fmt.Sprintf(`sum(rate(%s[5m])) / sum(rate(%s[5m]))`, mRequestDurationSum, mRequestDurationCount))
+		avgTTFT := a.queryPrometheusSingleValue(fmt.Sprintf(`sum(rate(%s[5m])) / sum(rate(%s[5m]))`, mTtftSum, mTtftCount))
+		res.AvgLatencyMs = avgLatency * 1000
+		res.AvgTTFTMs = avgTTFT * 1000
+	} else if a.RedisClient == nil {
+		endMinute := time.Now().Unix() / 60
+		perf := metrics.GlobalStore.AggregateGlobalMinutePerf(endMinute-4, endMinute)
+		if perf.LatencyCount > 0 {
+			res.AvgLatencyMs = float64(perf.LatencySumMs) / float64(perf.LatencyCount)
+		}
+		if perf.TTFTCount > 0 {
+			res.AvgTTFTMs = float64(perf.TTFTSum) / float64(perf.TTFTCount)
+		}
+	}
 
 	// 4. 获取熔断器信息
 	res.ActiveCircuitBreakers = a.getCircuitBreakers(ctx)
@@ -865,6 +876,11 @@ func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCo
 
 	// 按模型过滤时 Redis 只有全局分钟计数，不能冒充该模型的序列。
 	if modelCode != "" {
+		if a.RedisClient == nil && groupBy == "" {
+			res.Series = buildMemoryTrendSeries("model", []string{modelCode}, rangeConfig, start, end)
+			a.setCache(cacheKey, &res, 5*time.Second)
+			return &res, nil
+		}
 		if groupBy == "" {
 			res.Series = []TrendsSeries{emptyTrendSeries(rangeConfig.numPoints, modelCode)}
 		} else {
@@ -874,35 +890,39 @@ func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCo
 		return &res, nil
 	}
 
-	// Redis 或 内存 降级路径：只返回全局汇总
-	if rangeConfig.redisMinutes > 0 {
+	// Redis 降级沿用两小时窗口；内存模式支持完整的七天保留窗口及分组。
+	fallbackMinutes := rangeConfig.redisMinutes
+	if a.RedisClient == nil {
+		fallbackMinutes = rangeConfig.numPoints * int(rangeConfig.stepSeconds/60)
+	}
+	if fallbackMinutes > 0 {
 		var vals []interface{}
 		var err error
 		if a.RedisClient != nil {
 			minute := end.Unix() / 60
-			keys := make([]string, rangeConfig.redisMinutes*2)
-			for i := 0; i < rangeConfig.redisMinutes; i++ {
-				ts := minute - int64(rangeConfig.redisMinutes-1-i)
+			keys := make([]string, fallbackMinutes*2)
+			for i := 0; i < fallbackMinutes; i++ {
+				ts := minute - int64(fallbackMinutes-1-i)
 				keys[i*2] = fmt.Sprintf("aigw:status:global:%d:s", ts)
 				keys[i*2+1] = fmt.Sprintf("aigw:status:global:%d:f", ts)
 			}
 			vals, err = a.RedisClient.MGet(ctx, keys...).Result()
 		} else {
-			minute := end.Unix() / 60
-			vals = make([]interface{}, rangeConfig.redisMinutes*2)
-			for i := 0; i < rangeConfig.redisMinutes; i++ {
-				ts := minute - int64(rangeConfig.redisMinutes-1-i)
-				succ, fail := metrics.GlobalStore.GetGlobalStatus(ts)
-				if succ > 0 {
-					vals[i*2] = strconv.FormatInt(succ, 10)
-				}
-				if fail > 0 {
-					vals[i*2+1] = strconv.FormatInt(fail, 10)
-				}
+			var labels []string
+			switch groupBy {
+			case "model":
+				labels = metrics.GlobalStore.GetModelCodes()
+			case "provider":
+				labels = metrics.GlobalStore.GetProviderNames()
+			default:
+				labels = []string{"global"}
 			}
+			res.Series = buildMemoryTrendSeries(groupBy, labels, rangeConfig, start, end)
+			a.setCache(cacheKey, &res, 5*time.Second)
+			return &res, nil
 		}
 
-		if err == nil && len(vals) == rangeConfig.redisMinutes*2 {
+		if err == nil && len(vals) == fallbackMinutes*2 {
 			series := TrendsSeries{
 				Label:   "global",
 				Success: make([]int64, rangeConfig.numPoints),
@@ -936,6 +956,45 @@ func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCo
 
 	a.setCache(cacheKey, &res, 5*time.Second)
 	return &res, nil
+}
+
+func buildMemoryTrendSeries(groupBy string, labels []string, rangeConfig trendRangeConfig, start, end time.Time) []TrendsSeries {
+	stepMinutes := rangeConfig.stepSeconds / 60
+	numMinutes := rangeConfig.numPoints * int(stepMinutes)
+	currentMinute := end.Unix() / 60
+	seriesList := make([]TrendsSeries, 0, len(labels))
+
+	for _, label := range labels {
+		values := make([]interface{}, numMinutes*2)
+		for i := 0; i < numMinutes; i++ {
+			minute := currentMinute - int64(numMinutes-1-i)
+			var success, failure int64
+			switch groupBy {
+			case "model":
+				success, failure = metrics.GlobalStore.GetModelStatus(label, minute)
+			case "provider":
+				success, failure = metrics.GlobalStore.GetProviderStatus(label, minute)
+			default:
+				success, failure = metrics.GlobalStore.GetGlobalStatus(minute)
+			}
+			if success > 0 {
+				values[i*2] = success
+			}
+			if failure > 0 {
+				values[i*2+1] = failure
+			}
+		}
+
+		series := TrendsSeries{
+			Label:   label,
+			Success: make([]int64, rangeConfig.numPoints),
+			Failure: make([]int64, rangeConfig.numPoints),
+			Total:   make([]int64, rangeConfig.numPoints),
+		}
+		aggregateRedisTrendValues(&series, values, currentMinute, start.Unix()/60, stepMinutes)
+		seriesList = append(seriesList, series)
+	}
+	return seriesList
 }
 
 func (a *Dashboard) getModelPerformanceTrends(ctx context.Context, modelCode, timeRange string) (*ModelPerformanceTrendsResponse, error) {
@@ -1028,7 +1087,7 @@ func (a *Dashboard) getModelPerformanceFallback(
 	otps := make([]*float64, rangeConfig.numPoints)
 	stepMinutes := rangeConfig.stepSeconds / 60
 	windowMinutes := int64(rangeConfig.numPoints) * stepMinutes
-	if stepMinutes <= 0 || windowMinutes > 120 {
+	if stepMinutes <= 0 || windowMinutes > 7*24*60 || (a.RedisClient != nil && windowMinutes > 120) {
 		return ttft, otps, nil
 	}
 
@@ -1449,6 +1508,30 @@ func (a *Dashboard) getModelRankingAt(ctx context.Context, sortBy, timeRange str
 			items[i].Otps = otpsMap[code]
 			items[i].TotalCost = costMap[code]
 		}
+	} else if a.RedisClient == nil {
+		currentMin := end.Unix() / 60
+		numMinutes := memoryRangeMinutes(timeRange, end)
+		startMinute := currentMin - int64(numMinutes-1)
+		for i, model := range models {
+			perf := metrics.GlobalStore.AggregateModelMinutePerf(model.ModelCode, startMinute, currentMin)
+			items[i].SuccessCount = perf.Success
+			items[i].FailCount = perf.Fail
+			items[i].RequestCount = perf.Success + perf.Fail
+			if items[i].RequestCount > 0 {
+				items[i].SuccessRate = float64(perf.Success) / float64(items[i].RequestCount) * 100
+			}
+			if perf.LatencyCount > 0 {
+				items[i].AvgLatencyMs = float64(perf.LatencySumMs) / float64(perf.LatencyCount)
+			}
+			if perf.TTFTCount > 0 {
+				items[i].AvgTTFTMs = float64(perf.TTFTSum) / float64(perf.TTFTCount)
+			}
+			items[i].TotalTokens = perf.InputTokens + perf.OutputTokens
+			items[i].TotalCost = perf.Cost
+			if perf.Output > 0 && perf.DurationMs > 0 {
+				items[i].Otps = float64(perf.Output) / (float64(perf.DurationMs) / 1000)
+			}
+		}
 	} else if redisMinutes > 0 {
 		var values []interface{}
 		var err error
@@ -1532,6 +1615,20 @@ func (a *Dashboard) getModelRankingAt(ctx context.Context, sortBy, timeRange str
 
 	a.setCache(cacheKey, filtered, 5*time.Second)
 	return filtered, nil
+}
+
+func memoryRangeMinutes(timeRange string, end time.Time) int {
+	if timeRange == "today" {
+		midnight := time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
+		minutes := int(math.Ceil(end.Sub(midnight).Minutes())) + 1
+		return min(minutes, 7*24*60)
+	}
+
+	duration, err := time.ParseDuration(timeRange)
+	if err != nil || duration < time.Minute || duration > 7*24*time.Hour {
+		duration = time.Hour
+	}
+	return int(math.Ceil(duration.Minutes()))
 }
 
 func sortModelRankingItems(items []ModelRankingItem, sortBy string) {

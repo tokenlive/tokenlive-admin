@@ -1,13 +1,17 @@
 package metrics
 
 import (
+	"sort"
 	"sync"
 	"time"
 )
 
+const minuteMetricRetention = 7 * 24 * time.Hour
+
 type RequestMetric struct {
 	Time                int64   `json:"time"` // Unix timestamp
 	Model               string  `json:"model"`
+	Provider            string  `json:"provider,omitempty"`
 	Success             bool    `json:"success"`
 	InputTokens         int64   `json:"input_tokens"`
 	OutputTokens        int64   `json:"output_tokens"`
@@ -24,12 +28,17 @@ type RequestMetric struct {
 }
 
 type EndpointMinutePerf struct {
-	Success    int64
-	Fail       int64
-	TTFTSum    int64
-	TTFTCount  int64
-	Output     int64
-	DurationMs int64
+	Success      int64
+	Fail         int64
+	InputTokens  int64
+	OutputTokens int64
+	Output       int64
+	Cost         float64
+	TTFTSum      int64
+	TTFTCount    int64
+	LatencySumMs int64
+	LatencyCount int64
+	DurationMs   int64
 }
 
 type DailyStats struct {
@@ -44,28 +53,14 @@ type DailyStats struct {
 type MemoryStore struct {
 	mu sync.RWMutex
 
-	// minute -> success/failure
-	globalSuccess map[int64]int64
-	globalFailure map[int64]int64
-
-	// model_code -> minute -> success/failure
-	modelSuccess map[string]map[int64]int64
-	modelFailure map[string]map[int64]int64
-	modelTTFTSum map[string]map[int64]int64
-	modelTTFTCnt map[string]map[int64]int64
-	modelOutput  map[string]map[int64]int64
-	modelDurMs   map[string]map[int64]int64
-
-	// endpoint_id -> minute -> success/failure
-	endpointSuccess map[string]map[int64]int64
-	endpointFailure map[string]map[int64]int64
-	endpointTTFTSum map[string]map[int64]int64
-	endpointTTFTCnt map[string]map[int64]int64
-	endpointOutput  map[string]map[int64]int64
-	endpointDurMs   map[string]map[int64]int64
+	globalPerf   map[int64]*EndpointMinutePerf
+	modelPerf    map[string]map[int64]*EndpointMinutePerf
+	providerPerf map[string]map[int64]*EndpointMinutePerf
+	endpointPerf map[string]map[int64]*EndpointMinutePerf
 
 	// date -> stats
-	dailyStats map[string]*DailyStats
+	dailyStats        map[string]*DailyStats
+	lastCleanupMinute int64
 
 	// circuit breaker: open endpoints & services
 	openEndpoints map[string]bool
@@ -76,23 +71,54 @@ var GlobalStore = NewMemoryStore()
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		globalSuccess:   make(map[int64]int64),
-		globalFailure:   make(map[int64]int64),
-		modelSuccess:    make(map[string]map[int64]int64),
-		modelFailure:    make(map[string]map[int64]int64),
-		modelTTFTSum:    make(map[string]map[int64]int64),
-		modelTTFTCnt:    make(map[string]map[int64]int64),
-		modelOutput:     make(map[string]map[int64]int64),
-		modelDurMs:      make(map[string]map[int64]int64),
-		endpointSuccess: make(map[string]map[int64]int64),
-		endpointFailure: make(map[string]map[int64]int64),
-		endpointTTFTSum: make(map[string]map[int64]int64),
-		endpointTTFTCnt: make(map[string]map[int64]int64),
-		endpointOutput:  make(map[string]map[int64]int64),
-		endpointDurMs:   make(map[string]map[int64]int64),
-		dailyStats:      make(map[string]*DailyStats),
-		openEndpoints:   make(map[string]bool),
-		openServices:    make(map[string]bool),
+		globalPerf:    make(map[int64]*EndpointMinutePerf),
+		modelPerf:     make(map[string]map[int64]*EndpointMinutePerf),
+		providerPerf:  make(map[string]map[int64]*EndpointMinutePerf),
+		endpointPerf:  make(map[string]map[int64]*EndpointMinutePerf),
+		dailyStats:    make(map[string]*DailyStats),
+		openEndpoints: make(map[string]bool),
+		openServices:  make(map[string]bool),
+	}
+}
+
+func getOrCreateMinute(values map[int64]*EndpointMinutePerf, minute int64) *EndpointMinutePerf {
+	perf := values[minute]
+	if perf == nil {
+		perf = &EndpointMinutePerf{}
+		values[minute] = perf
+	}
+	return perf
+}
+
+func getOrCreateDimension(values map[string]map[int64]*EndpointMinutePerf, key string, minute int64) *EndpointMinutePerf {
+	minutes := values[key]
+	if minutes == nil {
+		minutes = make(map[int64]*EndpointMinutePerf)
+		values[key] = minutes
+	}
+	return getOrCreateMinute(minutes, minute)
+}
+
+func recordRequest(perf *EndpointMinutePerf, metric RequestMetric) {
+	if metric.Success {
+		perf.Success++
+	} else {
+		perf.Fail++
+	}
+	perf.InputTokens += metric.InputTokens
+	perf.OutputTokens += metric.OutputTokens
+	perf.Cost += metric.Cost
+	if metric.TTFTMs > 0 {
+		perf.TTFTSum += metric.TTFTMs
+		perf.TTFTCount++
+	}
+	if metric.DurationMs > 0 {
+		perf.LatencySumMs += metric.DurationMs
+		perf.LatencyCount++
+	}
+	if metric.Success && metric.OutputTokens > 0 && metric.DurationMs > 0 {
+		perf.Output += metric.OutputTokens
+		perf.DurationMs += metric.DurationMs
 	}
 }
 
@@ -101,184 +127,128 @@ func (s *MemoryStore) Record(m RequestMetric) {
 	defer s.mu.Unlock()
 
 	minute := m.Time / 60
-	t := time.Unix(m.Time, 0)
-	dateStr := t.Format("2006-01-02")
+	dateStr := time.Unix(m.Time, 0).Format("2006-01-02")
 
-	// 1. Global
-	if m.Success {
-		s.globalSuccess[minute]++
-	} else {
-		s.globalFailure[minute]++
-	}
-
-	// 2. Model
+	recordRequest(getOrCreateMinute(s.globalPerf, minute), m)
 	if m.Model != "" {
-		if _, ok := s.modelSuccess[m.Model]; !ok {
-			s.modelSuccess[m.Model] = make(map[int64]int64)
-			s.modelFailure[m.Model] = make(map[int64]int64)
-		}
-		if m.Success {
-			s.modelSuccess[m.Model][minute]++
-		} else {
-			s.modelFailure[m.Model][minute]++
-		}
-		if m.TTFTMs > 0 {
-			if _, ok := s.modelTTFTSum[m.Model]; !ok {
-				s.modelTTFTSum[m.Model] = make(map[int64]int64)
-				s.modelTTFTCnt[m.Model] = make(map[int64]int64)
-			}
-			s.modelTTFTSum[m.Model][minute] += m.TTFTMs
-			s.modelTTFTCnt[m.Model][minute]++
-		}
-		if m.Success && m.OutputTokens > 0 && m.DurationMs > 0 {
-			if _, ok := s.modelOutput[m.Model]; !ok {
-				s.modelOutput[m.Model] = make(map[int64]int64)
-				s.modelDurMs[m.Model] = make(map[int64]int64)
-			}
-			s.modelOutput[m.Model][minute] += m.OutputTokens
-			s.modelDurMs[m.Model][minute] += m.DurationMs
-		}
+		recordRequest(getOrCreateDimension(s.modelPerf, m.Model, minute), m)
+	}
+	if m.Provider != "" {
+		recordRequest(getOrCreateDimension(s.providerPerf, m.Provider, minute), m)
 	}
 
-	// 3. Endpoint
-	for _, att := range m.Attempts {
-		if att.EndpointID != "" {
-			if _, ok := s.endpointSuccess[att.EndpointID]; !ok {
-				s.endpointSuccess[att.EndpointID] = make(map[int64]int64)
-				s.endpointFailure[att.EndpointID] = make(map[int64]int64)
-			}
-			if att.Success {
-				s.endpointSuccess[att.EndpointID][minute]++
-			} else {
-				s.endpointFailure[att.EndpointID][minute]++
-			}
+	for _, attempt := range m.Attempts {
+		if attempt.EndpointID == "" {
+			continue
+		}
+		perf := getOrCreateDimension(s.endpointPerf, attempt.EndpointID, minute)
+		if attempt.Success {
+			perf.Success++
+		} else {
+			perf.Fail++
 		}
 	}
 
 	if m.EndpointID != "" {
+		perf := getOrCreateDimension(s.endpointPerf, m.EndpointID, minute)
+		perf.InputTokens += m.InputTokens
+		perf.OutputTokens += m.OutputTokens
+		perf.Cost += m.Cost
 		if m.TTFTMs > 0 {
-			if _, ok := s.endpointTTFTSum[m.EndpointID]; !ok {
-				s.endpointTTFTSum[m.EndpointID] = make(map[int64]int64)
-				s.endpointTTFTCnt[m.EndpointID] = make(map[int64]int64)
-			}
-			s.endpointTTFTSum[m.EndpointID][minute] += m.TTFTMs
-			s.endpointTTFTCnt[m.EndpointID][minute]++
+			perf.TTFTSum += m.TTFTMs
+			perf.TTFTCount++
+		}
+		if m.DurationMs > 0 {
+			perf.LatencySumMs += m.DurationMs
+			perf.LatencyCount++
 		}
 		if m.Success && m.OutputTokens > 0 && m.DurationMs > 0 {
-			if _, ok := s.endpointOutput[m.EndpointID]; !ok {
-				s.endpointOutput[m.EndpointID] = make(map[int64]int64)
-				s.endpointDurMs[m.EndpointID] = make(map[int64]int64)
-			}
-			s.endpointOutput[m.EndpointID][minute] += m.OutputTokens
-			s.endpointDurMs[m.EndpointID][minute] += m.DurationMs
+			perf.Output += m.OutputTokens
+			perf.DurationMs += m.DurationMs
 		}
 	}
 
-	// 4. Daily
-	d, ok := s.dailyStats[dateStr]
-	if !ok {
-		d = &DailyStats{}
-		s.dailyStats[dateStr] = d
+	daily := s.dailyStats[dateStr]
+	if daily == nil {
+		daily = &DailyStats{}
+		s.dailyStats[dateStr] = daily
 	}
-	d.ReqCount++
-	d.InputTokens += m.InputTokens
-	d.OutputTokens += m.OutputTokens
-	d.CachedTokens += m.CachedTokens
-	d.CacheCreationTokens += m.CacheCreationTokens
-	d.Cost += m.Cost
+	daily.ReqCount++
+	daily.InputTokens += m.InputTokens
+	daily.OutputTokens += m.OutputTokens
+	daily.CachedTokens += m.CachedTokens
+	daily.CacheCreationTokens += m.CacheCreationTokens
+	daily.Cost += m.Cost
 
-	// 5. Cleanup older than 3 hours (180 minutes) to prevent memory leak
-	cutoff := (time.Now().Unix() - 10800) / 60
-	for min := range s.globalSuccess {
-		if min < cutoff {
-			delete(s.globalSuccess, min)
-			delete(s.globalFailure, min)
+	currentMinute := time.Now().Unix() / 60
+	if currentMinute != s.lastCleanupMinute {
+		cutoff := time.Now().Add(-minuteMetricRetention).Unix() / 60
+		cleanupMinutes(s.globalPerf, cutoff)
+		cleanupDimensions(s.modelPerf, cutoff)
+		cleanupDimensions(s.providerPerf, cutoff)
+		cleanupDimensions(s.endpointPerf, cutoff)
+		s.lastCleanupMinute = currentMinute
+	}
+}
+
+func cleanupMinutes(values map[int64]*EndpointMinutePerf, cutoff int64) {
+	for minute := range values {
+		if minute < cutoff {
+			delete(values, minute)
 		}
 	}
-	for _, mMin := range s.modelSuccess {
-		for min := range mMin {
-			if min < cutoff {
-				delete(mMin, min)
-			}
+}
+
+func cleanupDimensions(values map[string]map[int64]*EndpointMinutePerf, cutoff int64) {
+	for key, minutes := range values {
+		cleanupMinutes(minutes, cutoff)
+		if len(minutes) == 0 {
+			delete(values, key)
 		}
 	}
-	for _, mMin := range s.modelFailure {
-		for min := range mMin {
-			if min < cutoff {
-				delete(mMin, min)
-			}
+}
+
+func copyPerf(perf *EndpointMinutePerf) EndpointMinutePerf {
+	if perf == nil {
+		return EndpointMinutePerf{}
+	}
+	return *perf
+}
+
+func addPerf(total *EndpointMinutePerf, perf *EndpointMinutePerf) {
+	if perf == nil {
+		return
+	}
+	total.Success += perf.Success
+	total.Fail += perf.Fail
+	total.InputTokens += perf.InputTokens
+	total.OutputTokens += perf.OutputTokens
+	total.Output += perf.Output
+	total.Cost += perf.Cost
+	total.TTFTSum += perf.TTFTSum
+	total.TTFTCount += perf.TTFTCount
+	total.LatencySumMs += perf.LatencySumMs
+	total.LatencyCount += perf.LatencyCount
+	total.DurationMs += perf.DurationMs
+}
+
+func aggregateMinutes(values map[int64]*EndpointMinutePerf, startMinute, endMinute int64) EndpointMinutePerf {
+	var total EndpointMinutePerf
+	for minute, perf := range values {
+		if minute >= startMinute && minute <= endMinute {
+			addPerf(&total, perf)
 		}
 	}
-	for _, mMin := range s.modelTTFTSum {
-		for min := range mMin {
-			if min < cutoff {
-				delete(mMin, min)
-			}
-		}
+	return total
+}
+
+func dimensionKeys(values map[string]map[int64]*EndpointMinutePerf) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
 	}
-	for _, mMin := range s.modelTTFTCnt {
-		for min := range mMin {
-			if min < cutoff {
-				delete(mMin, min)
-			}
-		}
-	}
-	for _, mMin := range s.modelOutput {
-		for min := range mMin {
-			if min < cutoff {
-				delete(mMin, min)
-			}
-		}
-	}
-	for _, mMin := range s.modelDurMs {
-		for min := range mMin {
-			if min < cutoff {
-				delete(mMin, min)
-			}
-		}
-	}
-	for _, eMin := range s.endpointSuccess {
-		for min := range eMin {
-			if min < cutoff {
-				delete(eMin, min)
-			}
-		}
-	}
-	for _, eMin := range s.endpointFailure {
-		for min := range eMin {
-			if min < cutoff {
-				delete(eMin, min)
-			}
-		}
-	}
-	for _, eMin := range s.endpointTTFTSum {
-		for min := range eMin {
-			if min < cutoff {
-				delete(eMin, min)
-			}
-		}
-	}
-	for _, eMin := range s.endpointTTFTCnt {
-		for min := range eMin {
-			if min < cutoff {
-				delete(eMin, min)
-			}
-		}
-	}
-	for _, eMin := range s.endpointOutput {
-		for min := range eMin {
-			if min < cutoff {
-				delete(eMin, min)
-			}
-		}
-	}
-	for _, eMin := range s.endpointDurMs {
-		for min := range eMin {
-			if min < cutoff {
-				delete(eMin, min)
-			}
-		}
-	}
+	sort.Strings(keys)
+	return keys
 }
 
 func (s *MemoryStore) UpdateCircuitBreakers(endpoints []string, services []string) {
@@ -297,9 +267,20 @@ func (s *MemoryStore) UpdateCircuitBreakers(endpoints []string, services []strin
 }
 
 func (s *MemoryStore) GetGlobalStatus(minute int64) (int64, int64) {
+	perf := s.GetGlobalMinutePerf(minute)
+	return perf.Success, perf.Fail
+}
+
+func (s *MemoryStore) GetGlobalMinutePerf(minute int64) EndpointMinutePerf {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.globalSuccess[minute], s.globalFailure[minute]
+	return copyPerf(s.globalPerf[minute])
+}
+
+func (s *MemoryStore) AggregateGlobalMinutePerf(startMinute, endMinute int64) EndpointMinutePerf {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return aggregateMinutes(s.globalPerf, startMinute, endMinute)
 }
 
 func (s *MemoryStore) GetModelStatus(modelCode string, minute int64) (int64, int64) {
@@ -310,27 +291,36 @@ func (s *MemoryStore) GetModelStatus(modelCode string, minute int64) (int64, int
 func (s *MemoryStore) GetModelMinutePerf(modelCode string, minute int64) EndpointMinutePerf {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	return copyPerf(s.modelPerf[modelCode][minute])
+}
 
-	var perf EndpointMinutePerf
-	if mMin, ok := s.modelSuccess[modelCode]; ok {
-		perf.Success = mMin[minute]
-	}
-	if mMin, ok := s.modelFailure[modelCode]; ok {
-		perf.Fail = mMin[minute]
-	}
-	if mMin, ok := s.modelTTFTSum[modelCode]; ok {
-		perf.TTFTSum = mMin[minute]
-	}
-	if mMin, ok := s.modelTTFTCnt[modelCode]; ok {
-		perf.TTFTCount = mMin[minute]
-	}
-	if mMin, ok := s.modelOutput[modelCode]; ok {
-		perf.Output = mMin[minute]
-	}
-	if mMin, ok := s.modelDurMs[modelCode]; ok {
-		perf.DurationMs = mMin[minute]
-	}
-	return perf
+func (s *MemoryStore) AggregateModelMinutePerf(modelCode string, startMinute, endMinute int64) EndpointMinutePerf {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return aggregateMinutes(s.modelPerf[modelCode], startMinute, endMinute)
+}
+
+func (s *MemoryStore) GetModelCodes() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return dimensionKeys(s.modelPerf)
+}
+
+func (s *MemoryStore) GetProviderStatus(provider string, minute int64) (int64, int64) {
+	perf := s.GetProviderMinutePerf(provider, minute)
+	return perf.Success, perf.Fail
+}
+
+func (s *MemoryStore) GetProviderMinutePerf(provider string, minute int64) EndpointMinutePerf {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return copyPerf(s.providerPerf[provider][minute])
+}
+
+func (s *MemoryStore) GetProviderNames() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return dimensionKeys(s.providerPerf)
 }
 
 func (s *MemoryStore) GetEndpointStatus(endpointID string, minute int64) (int64, int64) {
@@ -341,27 +331,7 @@ func (s *MemoryStore) GetEndpointStatus(endpointID string, minute int64) (int64,
 func (s *MemoryStore) GetEndpointMinutePerf(endpointID string, minute int64) EndpointMinutePerf {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-
-	var perf EndpointMinutePerf
-	if eMin, ok := s.endpointSuccess[endpointID]; ok {
-		perf.Success = eMin[minute]
-	}
-	if eMin, ok := s.endpointFailure[endpointID]; ok {
-		perf.Fail = eMin[minute]
-	}
-	if eMin, ok := s.endpointTTFTSum[endpointID]; ok {
-		perf.TTFTSum = eMin[minute]
-	}
-	if eMin, ok := s.endpointTTFTCnt[endpointID]; ok {
-		perf.TTFTCount = eMin[minute]
-	}
-	if eMin, ok := s.endpointOutput[endpointID]; ok {
-		perf.Output = eMin[minute]
-	}
-	if eMin, ok := s.endpointDurMs[endpointID]; ok {
-		perf.DurationMs = eMin[minute]
-	}
-	return perf
+	return copyPerf(s.endpointPerf[endpointID][minute])
 }
 
 func (s *MemoryStore) GetDailyStats(dateStr string) DailyStats {
