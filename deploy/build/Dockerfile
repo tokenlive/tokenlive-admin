@@ -11,7 +11,7 @@ COPY frontend/ .
 RUN npm run build:prod
 
 # Stage 2: Build backend
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine AS backend-builder
 
 ARG APP=tokenlive-admin
 ARG VERSION=v1.0.0

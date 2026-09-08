@@ -69,11 +69,15 @@
                     <a-form-item
                         label="上下文长度"
                         name="context_length">
-                        <a-input-number
+                        <a-select
                             v-model:value="formData.context_length"
-                            :min="0"
-                            style="width: 100%"
-                            placeholder="如 128000" />
+                            mode="combobox"
+                            placeholder="请选择或输入上下文长度"
+                            :options="contextLengthOptions"
+                            :filter-option="filterContextLengthOption"
+                            allow-clear
+                            style="width: 100%">
+                        </a-select>
                     </a-form-item>
                 </a-col>
                 <a-col :span="12">
@@ -132,6 +136,12 @@
 import { ref, reactive } from 'vue'
 import { message } from 'ant-design-vue'
 import apis from '@/apis'
+import {
+    CONTEXT_LENGTH_OPTIONS,
+    filterContextLengthOption,
+    parseContextLength,
+    toContextLengthSelectValue,
+} from '@/enums/model'
 
 const emit = defineEmits(['success'])
 const visible = ref(false)
@@ -160,6 +170,8 @@ const modalityOptions = [
     { value: 'file', label: '文件 (File)' },
 ]
 
+const contextLengthOptions = CONTEXT_LENGTH_OPTIONS
+
 const defaultForm = {
     model_id: '',
     model_code: '',
@@ -181,6 +193,20 @@ const rules = {
     slug: [{ required: true, message: '请输入 Slug' }],
     status: [{ required: true, message: '请选择状态' }],
     visibility: [{ required: true, message: '请选择可见性' }],
+    context_length: [
+        {
+            validator: (_, value) => {
+                if (value === undefined || value === null || value === '') {
+                    return Promise.resolve()
+                }
+                if (parseContextLength(value) === null) {
+                    return Promise.reject('请输入有效的上下文长度')
+                }
+                return Promise.resolve()
+            },
+            trigger: ['blur', 'change'],
+        },
+    ],
 }
 
 function handleCreate() {
@@ -200,7 +226,7 @@ function handleEdit(record) {
         status: record.status,
         visibility: record.visibility,
         logo_url: record.logo_url || '',
-        context_length: record.context_length,
+        context_length: toContextLengthSelectValue(record.context_length),
         sort_weight: record.sort_weight || 0,
         capabilities: [],
         input_modalities: [],
@@ -251,6 +277,7 @@ async function handleSubmit() {
         // 将数组转换为 JSON 字符串
         const params = {
             ...formData,
+            context_length: parseContextLength(formData.context_length),
             capabilities: JSON.stringify(formData.capabilities || []),
             input_modalities: JSON.stringify(formData.input_modalities || []),
             output_modalities: JSON.stringify(formData.output_modalities || []),

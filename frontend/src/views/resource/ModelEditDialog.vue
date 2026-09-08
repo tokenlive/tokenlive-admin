@@ -59,10 +59,15 @@
             <a-form-item
                 :label="$t('pages.model.form.context_length')"
                 name="context_length">
-                <a-input-number
+                <a-select
                     v-model:value="formData.context_length"
-                    :min="0"
-                    style="width: 100%" />
+                    mode="combobox"
+                    :placeholder="$t('pages.model.form.context_length.placeholder')"
+                    :options="contextLengthOptions"
+                    :filter-option="filterContextLengthOption"
+                    allow-clear
+                    style="width: 100%">
+                </a-select>
             </a-form-item>
 
             <a-form-item
@@ -195,6 +200,12 @@ import { useForm, useModal } from '@/hooks'
 import { useI18n } from 'vue-i18n'
 import { initSpaceCode, setCurrentSpaceCode } from '@/utils/spaceStorage'
 import { watch } from 'vue'
+import {
+    CONTEXT_LENGTH_OPTIONS,
+    filterContextLengthOption,
+    parseContextLength,
+    toContextLengthSelectValue,
+} from '@/enums/model'
 
 const props = defineProps({
     spaceOptions: {
@@ -222,6 +233,8 @@ function filterSpaceOption(input, option) {
     const label = option.children?.[0]?.children || ''
     return option.value.toLowerCase().includes(input.toLowerCase()) || label.toLowerCase().includes(input.toLowerCase())
 }
+
+const contextLengthOptions = CONTEXT_LENGTH_OPTIONS
 
 const ownerOptions = ref([
     { value: 'OpenAI', label: 'OpenAI' },
@@ -264,6 +277,18 @@ formRules.value = {
     ],
     space_code: { required: true, message: t('pages.model.form.space_code.placeholder') },
     request_types: { required: true, message: t('pages.model.form.request_types.placeholder') },
+    context_length: {
+        validator: (_, value) => {
+            if (value === undefined || value === null || value === '') {
+                return Promise.resolve()
+            }
+            if (parseContextLength(value) === null) {
+                return Promise.reject(t('pages.model.form.context_length.invalid'))
+            }
+            return Promise.resolve()
+        },
+        trigger: ['blur', 'change'],
+    },
 }
 
 function handleCreate() {
@@ -273,7 +298,7 @@ function handleCreate() {
     })
     formData.value.enabled = 1
     formData.value.space_code = initSpaceCode(props.spaceOptions)
-    formData.value.context_length = 128000
+    formData.value.context_length = toContextLengthSelectValue(1000000)
     formData.value.max_output_tokens = 8192
     formData.value.abilities = []
     formData.value.input_price = 3.0
@@ -316,6 +341,7 @@ async function handleEdit(record = {}) {
     }
     formRecord.value = data
     formData.value = cloneDeep(data)
+    formData.value.context_length = toContextLengthSelectValue(formData.value.context_length)
 }
 
 function handleOk() {
@@ -329,6 +355,7 @@ function handleOk() {
                 if (values.model_code && typeof values.model_code === 'string') {
                     values.model_code = values.model_code.trim()
                 }
+                values.context_length = parseContextLength(values.context_length)
                 const params = {
                     ...values,
                     request_types: JSON.stringify(values.request_types || []),

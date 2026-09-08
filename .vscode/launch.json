@@ -22,15 +22,10 @@
         },
         {
             "name": "Frontend (Vite)",
-            "type": "node",
+            "type": "node-terminal",
             "request": "launch",
-            "runtimeExecutable": "npm",
-            "runtimeArgs": [
-                "run",
-                "dev"
-            ],
-            "cwd": "${workspaceFolder}/frontend",
-            "console": "integratedTerminal"
+            "command": "npm run dev",
+            "cwd": "${workspaceFolder}/frontend"
         }
     ],
     "compounds": [

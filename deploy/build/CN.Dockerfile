@@ -12,7 +12,7 @@ COPY frontend/ .
 RUN npm run build:prod
 
 # Stage 2: Build backend
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine AS backend-builder
 RUN set -eux && sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 
 ARG APP=tokenlive-admin
