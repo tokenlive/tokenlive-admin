@@ -69,15 +69,13 @@
                     <a-form-item
                         label="上下文长度"
                         name="context_length">
-                        <a-select
+                        <a-auto-complete
                             v-model:value="formData.context_length"
-                            mode="combobox"
                             placeholder="请选择或输入上下文长度"
                             :options="contextLengthOptions"
                             :filter-option="filterContextLengthOption"
                             allow-clear
-                            style="width: 100%">
-                        </a-select>
+                            style="width: 100%" />
                     </a-form-item>
                 </a-col>
                 <a-col :span="12">

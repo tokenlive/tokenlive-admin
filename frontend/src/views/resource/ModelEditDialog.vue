@@ -59,15 +59,13 @@
             <a-form-item
                 :label="$t('pages.model.form.context_length')"
                 name="context_length">
-                <a-select
+                <a-auto-complete
                     v-model:value="formData.context_length"
-                    mode="combobox"
                     :placeholder="$t('pages.model.form.context_length.placeholder')"
                     :options="contextLengthOptions"
                     :filter-option="filterContextLengthOption"
                     allow-clear
-                    style="width: 100%">
-                </a-select>
+                    style="width: 100%" />
             </a-form-item>
 
             <a-form-item
