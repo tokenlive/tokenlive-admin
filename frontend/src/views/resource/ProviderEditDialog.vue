@@ -43,12 +43,8 @@
                         name="protocol">
                         <a-select
                             v-model:value="formData.protocol"
-                            :placeholder="$t('pages.provider.form.protocol.placeholder')">
-                            <a-select-option value="openai">OpenAI</a-select-option>
-                            <a-select-option value="anthropic">Anthropic</a-select-option>
-                            <a-select-option value="gemini">Gemini</a-select-option>
-                            <a-select-option value="joycode">JoyCode</a-select-option>
-                        </a-select>
+                            :options="protocolOptions"
+                            :placeholder="$t('pages.provider.form.protocol.placeholder')" />
                     </a-form-item>
                 </a-col>
                 <a-col :span="12">
@@ -73,11 +69,12 @@
             </a-form-item>
 
             <a-form-item
-                label="验证类型"
+                :label="$t('pages.provider.form.auth_type')"
+                :extra="$t('pages.provider.form.auth_type.hint')"
                 name="auth_type">
                 <a-radio-group v-model:value="formData.auth_type">
-                    <a-radio value="api_key">API Key 密钥</a-radio>
-                    <a-radio value="oauth_token">OAuth 凭证</a-radio>
+                    <a-radio value="api_key">{{ $t('pages.provider.form.auth_type.api_key') }}</a-radio>
+                    <a-radio value="oauth_token">{{ $t('pages.provider.form.auth_type.oauth_token') }}</a-radio>
                 </a-radio-group>
             </a-form-item>
 
@@ -112,7 +109,7 @@
 
             <a-form-item
                 v-if="formData.auth_type === 'oauth_token'"
-                label="OAuth 凭证"
+                :label="$t('pages.provider.form.oauth_credentials')"
                 name="api_keys">
                 <div style="display: flex; flex-direction: column; gap: 12px">
                     <div style="display: flex; align-items: center; gap: 8px">
@@ -233,6 +230,7 @@ import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons-vue'
 import { config } from '@/config'
 import apis from '@/apis'
 import { useForm, useModal } from '@/hooks'
+import { getProviderProtocolOptions } from '@/enums/provider'
 
 const emit = defineEmits(['ok'])
 import { useI18n } from 'vue-i18n'
@@ -241,6 +239,7 @@ const { formRecord, formData, formRef, formRules, resetForm } = useForm()
 const { t } = useI18n()
 const cancelText = ref(t('button.cancel'))
 const okText = ref(t('button.confirm'))
+const protocolOptions = computed(() => getProviderProtocolOptions(t))
 formRules.value = {
     code: { required: true, message: t('pages.provider.form.code.placeholder') },
     name: { required: true, message: t('pages.provider.form.name.placeholder') },

@@ -59,7 +59,7 @@
                                 <a-tag
                                     color="blue"
                                     v-if="providerData.protocol"
-                                    >{{ providerData.protocol }}</a-tag
+                                    >{{ protocolLabel(providerData.protocol) }}</a-tag
                                 >
                                 <span v-else>--</span>
                             </span>
@@ -287,13 +287,13 @@
                                     <a-tag
                                         v-if="record.protocol"
                                         color="blue"
-                                        >{{ record.protocol }}</a-tag
+                                        >{{ protocolLabel(record.protocol) }}</a-tag
                                     >
                                     <a-tag
                                         v-else-if="providerData.protocol"
                                         color="blue"
                                         style="border-style: dashed"
-                                        >{{ providerData.protocol }}</a-tag
+                                        >{{ protocolLabel(providerData.protocol) }}</a-tag
                                     >
                                     <span
                                         v-else
@@ -505,6 +505,7 @@ import ProviderEditDialog from './ProviderEditDialog.vue'
 import ProviderMemberEditDialog from './ProviderMemberEditDialog.vue'
 import FetchModelsDrawer from './ProviderFetchModelsDrawer.vue'
 import ImportMappingDialog from './ProviderImportMappingDialog.vue'
+import { getProviderProtocolLabel } from '@/enums/provider'
 
 defineOptions({
     name: 'providerDetail',
@@ -513,6 +514,7 @@ defineOptions({
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const protocolLabel = (protocol) => getProviderProtocolLabel(protocol, t)
 const appStore = useAppStore()
 const {
     scrollY: endpointTableScrollY,
@@ -563,7 +565,7 @@ const endpointColumns = [
     {
         title: t('pages.endpoint.form.protocol'),
         key: 'protocol',
-        width: 120,
+        width: 220,
     },
     {
         title: t('pages.endpoint.form.url'),

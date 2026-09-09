@@ -261,13 +261,13 @@
                                     <a-tag
                                         v-if="record.protocol"
                                         color="blue"
-                                        >{{ record.protocol }}</a-tag
+                                        >{{ protocolLabel(record.protocol) }}</a-tag
                                     >
                                     <a-tag
                                         v-else-if="getInheritedProtocol(record.provider_id)"
                                         color="blue"
                                         style="border-style: dashed"
-                                        >{{ getInheritedProtocol(record.provider_id) }}</a-tag
+                                        >{{ protocolLabel(getInheritedProtocol(record.provider_id)) }}</a-tag
                                     >
                                     <span
                                         v-else
@@ -721,6 +721,7 @@ import LimitEditDialog from '@/views/policy/LimitEditDialog.vue'
 import CircuitBreakEditDialog from '@/views/policy/CircuitBreakEditDialog.vue'
 import InvocationEditDialog from '@/views/policy/InvocationEditDialog.vue'
 import TaggingEditDialog from '@/views/policy/TaggingEditDialog.vue'
+import { getProviderProtocolLabel } from '@/enums/provider'
 
 defineOptions({
     name: 'modelDetail',
@@ -729,6 +730,7 @@ defineOptions({
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const protocolLabel = (protocol) => getProviderProtocolLabel(protocol, t)
 const appStore = useAppStore()
 const {
     scrollY: endpointTableScrollY,
@@ -957,7 +959,7 @@ const endpointColumns = [
     {
         title: t('pages.endpoint.form.protocol'),
         key: 'protocol',
-        width: 120,
+        width: 180,
     },
     {
         title: t('pages.endpoint.form.url'),

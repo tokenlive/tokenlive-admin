@@ -121,6 +121,7 @@
             </a-form-item>
             <a-form-item
                 :label="$t('pages.endpoint.form.auth_type')"
+                :extra="$t('pages.endpoint.form.auth_type.hint')"
                 name="auth_type">
                 <a-radio-group
                     v-model:value="formData.auth_type"
@@ -152,10 +153,12 @@
                     allow-clear
                     :placeholder="$t('pages.endpoint.form.protocol.placeholder')">
                     <a-select-option value="">{{ $t('pages.endpoint.form.protocol.inherit') }}</a-select-option>
-                    <a-select-option value="openai">OpenAI</a-select-option>
-                    <a-select-option value="anthropic">Anthropic</a-select-option>
-                    <a-select-option value="gemini">Gemini</a-select-option>
-                    <a-select-option value="joycode">JoyCode</a-select-option>
+                    <a-select-option
+                        v-for="option in protocolOptions"
+                        :key="option.value"
+                        :value="option.value">
+                        {{ option.label }}
+                    </a-select-option>
                 </a-select>
             </a-form-item>
             <a-form-item
@@ -280,13 +283,14 @@
 
 <script setup>
 import { cloneDeep } from 'lodash-es'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import { config } from '@/config'
 import apis from '@/apis'
 import { useForm, useModal } from '@/hooks'
 import { useI18n } from 'vue-i18n'
+import { getProviderProtocolOptions } from '@/enums/provider'
 
 const props = defineProps({
     providerOptions: { type: Array, default: () => [] },
@@ -301,6 +305,7 @@ const { formRecord, formData, formRef, formRules, resetForm } = useForm()
 const { t } = useI18n()
 const cancelText = ref(t('button.cancel'))
 const okText = ref(t('button.confirm'))
+const protocolOptions = computed(() => getProviderProtocolOptions(t))
 
 const metadataList = ref([])
 const headersList = ref([])

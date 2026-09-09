@@ -91,7 +91,7 @@
                             <a-tag
                                 v-if="record.protocol"
                                 color="blue"
-                                >{{ record.protocol }}</a-tag
+                                >{{ protocolLabel(record.protocol) }}</a-tag
                             >
                             <span v-else>--</span>
                         </template>
@@ -152,12 +152,14 @@ import ImportMappingDialog from './ProviderImportMappingDialog.vue'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { getProviderProtocolLabel } from '@/enums/provider'
 
 defineOptions({
     name: 'providerList',
 })
 const router = useRouter()
 const { t } = useI18n()
+const protocolLabel = (protocol) => getProviderProtocolLabel(protocol, t)
 
 function goToDetail(record) {
     router.push({ name: 'providerDetail', params: { id: record.id } })
@@ -174,7 +176,7 @@ const columns = [
         sorter: (a, b) => (a.name || '').localeCompare(b.name || ''),
         fixed: 'left',
     },
-    { title: t('pages.provider.form.protocol'), dataIndex: 'protocol', key: 'protocol', width: 120 },
+    { title: t('pages.provider.form.protocol'), dataIndex: 'protocol', key: 'protocol', width: 180 },
     { title: t('pages.provider.form.enabled'), key: 'enabled', width: 100 },
     {
         title: t('pages.provider.form.url'),
