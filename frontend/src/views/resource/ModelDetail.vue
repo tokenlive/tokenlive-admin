@@ -30,7 +30,7 @@
                             size="small"
                             @click="handleEditModel">
                             <template #icon><edit-outlined /></template>
-                            {{ $t('pages.model.edit') }}
+                            {{ $t('common.edit') }}
                         </a-button>
                     </a-space>
                 </template>

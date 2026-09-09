@@ -3,7 +3,7 @@
         :open="visible"
         :title="$t('pages.provider.fetchModels.title')"
         :width="660"
-        :after-open="onAfterOpen"
+        @afterOpenChange="onAfterOpen"
         @close="handleClose">
         <a-form
             ref="formRef"
@@ -221,7 +221,7 @@ function maskKey(key) {
 
 async function handleFetchModels() {
     try {
-        await formRef.value.validateFields()
+        await formRef.value.validateFields(['base_url'])
     } catch {
         return
     }
@@ -320,8 +320,10 @@ function handleOpen(record) {
     visible.value = true
 }
 
-function onAfterOpen() {
-    // no-op
+function onAfterOpen(open) {
+    if (open && formData.value.base_url) {
+        handleFetchModels()
+    }
 }
 
 function handleClose() {

@@ -394,7 +394,7 @@ export default {
     'pages.provider.detail.load.failed': '加载供应商详情失败',
     'pages.provider.detail.importEndpoint': '导入端点',
     'pages.provider.detail.quota.title': '用量 / 配额',
-    'pages.provider.detail.quota.refresh': '刷新用量',
+    'pages.provider.detail.quota.refresh': '刷新',
     'pages.provider.detail.quota.plan': '套餐',
     'pages.provider.detail.quota.renewal': '续期时间',
     'pages.provider.detail.quota.extra': '附加',

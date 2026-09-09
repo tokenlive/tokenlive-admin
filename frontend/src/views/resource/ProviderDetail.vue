@@ -30,7 +30,7 @@
                             size="small"
                             @click="handleEditProvider">
                             <template #icon><edit-outlined /></template>
-                            {{ $t('pages.provider.edit') }}
+                            {{ $t('common.edit') }}
                         </a-button>
                     </a-space>
                 </template>
@@ -133,16 +133,30 @@
                     </a-tag>
                 </template>
                 <template #extra>
-                    <a-button
-                        size="small"
-                        :loading="quotaLoading"
-                        @click="loadProviderQuota">
-                        <template #icon><reload-outlined /></template>
-                        {{ $t('pages.provider.detail.quota.refresh') }}
-                    </a-button>
+                    <a-space>
+                        <a-button
+                            type="text"
+                            size="small"
+                            @click="quotaCollapsed = !quotaCollapsed">
+                            <template #icon>
+                                <down-outlined v-if="quotaCollapsed" />
+                                <up-outlined v-else />
+                            </template>
+                            {{ quotaCollapsed ? $t('component.tagSelect.expand') : $t('component.tagSelect.collapse') }}
+                        </a-button>
+                        <a-button
+                            size="small"
+                            :loading="quotaLoading"
+                            @click="loadProviderQuota">
+                            <template #icon><reload-outlined /></template>
+                            {{ $t('pages.provider.detail.quota.refresh') }}
+                        </a-button>
+                    </a-space>
                 </template>
 
-                <a-spin :spinning="quotaLoading">
+                <a-spin
+                    v-if="!quotaCollapsed"
+                    :spinning="quotaLoading">
                     <div
                         v-if="quotaError"
                         class="quota-error">
@@ -514,6 +528,7 @@ const providerId = ref(route.params.id)
 const providerData = ref({})
 const activeTab = ref('endpoint')
 const basicInfoCollapsed = ref(false)
+const quotaCollapsed = ref(false)
 const quotaLoading = ref(false)
 const quotaError = ref('')
 const quotaData = ref(null)
