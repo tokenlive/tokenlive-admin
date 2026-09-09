@@ -241,7 +241,7 @@
                             :data-source="endpointListData"
                             :loading="endpointLoading"
                             :pagination="endpointPagination"
-                            :scroll="{ x: 1200, y: endpointTableScrollY || undefined }"
+                            :scroll="{ x: 'max-content', y: endpointTableScrollY || undefined }"
                             @change="onEndpointTableChange">
                             <template #bodyCell="{ column, record }">
                                 <template v-if="'provider_id' === column.key">
@@ -949,12 +949,16 @@ const endpointColumns = [
     {
         title: t('pages.endpoint.form.code'),
         dataIndex: 'code',
+        width: 160,
         ellipsis: true,
+        fixed: 'left',
     },
     {
         title: t('pages.endpoint.form.provider_id'),
         key: 'provider_id',
         width: 150,
+        ellipsis: true,
+        fixed: 'left',
     },
     {
         title: t('pages.endpoint.form.protocol'),
@@ -964,6 +968,7 @@ const endpointColumns = [
     {
         title: t('pages.endpoint.form.url'),
         key: 'url',
+        minWidth: 240,
         ellipsis: true,
     },
     {
@@ -1007,6 +1012,7 @@ const endpointColumns = [
         title: t('button.action'),
         key: 'action',
         width: 230,
+        fixed: 'right',
     },
 ]
 

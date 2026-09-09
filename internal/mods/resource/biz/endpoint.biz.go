@@ -554,10 +554,15 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 	isCodex := isCodexEndpoint(provider, url, apis)
 	isResponses := false
 	isEmbedding := false
+	isImageGeneration := false
 	for _, cap := range apis {
 		switch cap {
 		case "embedding":
 			isEmbedding = true
+		case "image_generation":
+			isImageGeneration = true
+			isEmbedding = false
+			isResponses = false
 		case "responses":
 			isResponses = true
 			isEmbedding = false
@@ -578,7 +583,9 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 	var reqURL string
 	var reqBody []byte
 
-	if isEmbedding {
+	if isImageGeneration {
+		reqURL, reqBody = buildImageGenerationProbe(url, realModel)
+	} else if isEmbedding {
 		// Embedding 探测
 		if strings.Contains(url, "/embeddings") {
 			reqURL = url
@@ -684,8 +691,8 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 		}
 	}
 
-	// 创建带 10s 超时的 Context
-	testCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	// 图片生成通常显著慢于文本/向量探测，给予更长的首个结果等待时间。
+	testCtx, cancel := context.WithTimeout(ctx, endpointProbeTimeout(isImageGeneration))
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(testCtx, http.MethodPost, reqURL, bytes.NewBuffer(reqBody))
@@ -769,7 +776,31 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 	}
 
 	// 7. 处理响应结果
-	if isEmbedding {
+	if isImageGeneration {
+		if resp.StatusCode != http.StatusOK {
+			return &schema.EndpointTestResult{
+				Success:   false,
+				LatencyMs: latency,
+				Message:   fmt.Sprintf("上游返回错误状态码: %d", resp.StatusCode),
+				Detail:    rawDetail,
+			}, nil
+		}
+		if err := validateImageGenerationProbeResponse(bodyBytes); err != nil {
+			return &schema.EndpointTestResult{
+				Success:   false,
+				LatencyMs: latency,
+				Message:   err.Error(),
+				Detail:    rawDetail,
+			}, nil
+		}
+		return &schema.EndpointTestResult{
+			Success:   true,
+			LatencyMs: latency,
+			Message:   "测试连接成功",
+			Detail:    "图片生成成功",
+		}, nil
+
+	} else if isEmbedding {
 		// 校验 Embedding
 		var embResp struct {
 			Data []struct {
@@ -1027,6 +1058,53 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			Detail:    oaResp.Choices[0].Message.Content,
 		}, nil
 	}
+}
+
+func buildImageGenerationProbe(baseURL, model string) (string, []byte) {
+	reqURL := strings.TrimRight(baseURL, "/")
+	if !strings.Contains(reqURL, "/images/generations") {
+		reqURL += "/images/generations"
+	}
+	reqBody, _ := json.Marshal(map[string]interface{}{
+		"model":           model,
+		"prompt":          "A simple red circle on a white background",
+		"response_format": "url",
+	})
+	return reqURL, reqBody
+}
+
+func endpointProbeTimeout(isImageGeneration bool) time.Duration {
+	if isImageGeneration {
+		return 120 * time.Second
+	}
+	return 10 * time.Second
+}
+
+func validateImageGenerationProbeResponse(body []byte) error {
+	var imageResp struct {
+		Data []struct {
+			URL     string `json:"url"`
+			B64JSON string `json:"b64_json"`
+		} `json:"data"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &imageResp); err != nil {
+		return fmt.Errorf("上游响应不是有效 JSON: %w", err)
+	}
+	if imageResp.Error != nil {
+		return fmt.Errorf("上游返回业务报错: %s", imageResp.Error.Message)
+	}
+	if len(imageResp.Data) == 0 {
+		return fmt.Errorf("上游响应不符合图片生成规范 (未获取到 data 数组)")
+	}
+	for _, item := range imageResp.Data {
+		if item.URL != "" || item.B64JSON != "" {
+			return nil
+		}
+	}
+	return fmt.Errorf("上游响应不符合图片生成规范 (data 中没有图片)")
 }
 
 // TestByID 测试已保存端点的连通性
