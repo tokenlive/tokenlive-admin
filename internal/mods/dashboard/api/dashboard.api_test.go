@@ -629,3 +629,100 @@ func TestGetModelPerformanceTrendsFallsBackToMemoryForLongWindow(t *testing.T) {
 	require.NotNil(t, res.Otps[len(res.Otps)-1])
 	assert.Equal(t, 30.0, *res.Otps[len(res.Otps)-1])
 }
+
+func TestGetTrendsEndpointFallsBackToRedis(t *testing.T) {
+	end := time.Date(2026, 8, 31, 12, 0, 0, 0, time.Local)
+	minute := end.Unix() / 60
+	modelCode := "gpt-test"
+	endpointID := "ep-1"
+
+	dbName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=private", dbName)), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&rschema.Model{}, &rschema.Endpoint{}))
+	require.NoError(t, db.Create(&rschema.Model{
+		ID:        "model-1",
+		ModelName: "GPT Test",
+		ModelCode: modelCode,
+		SpaceCode: "default",
+		Enabled:   1,
+		Deleted:   "0",
+	}).Error)
+	require.NoError(t, db.Create(&rschema.Endpoint{
+		ID:       endpointID,
+		Code:     "ep-test",
+		ModelID:  "model-1",
+		Enabled:  1,
+		Deleted:  "0",
+	}).Error)
+
+	values := map[string]interface{}{
+		fmt.Sprintf("aigw:status:endpoint:%s:%d:s", endpointID, minute): "5",
+		fmt.Sprintf("aigw:status:endpoint:%s:%d:f", endpointID, minute): "1",
+	}
+	redisClient := redis.NewClient(&redis.Options{Addr: "unused:6379"})
+	redisClient.AddHook(performanceRedisHook{values: values})
+	dashboard := &Dashboard{DB: db, RedisClient: redisClient}
+
+	res, err := dashboard.getTrendsAt(context.Background(), "endpoint", "1h", modelCode, end)
+	require.NoError(t, err)
+	require.Len(t, res.Series, 1)
+	assert.Equal(t, endpointID, res.Series[0].Label)
+	assert.Equal(t, int64(5), res.Series[0].Success[59])
+	assert.Equal(t, int64(1), res.Series[0].Failure[59])
+	assert.Equal(t, int64(6), res.Series[0].Total[59])
+}
+
+func TestGetTrendsEndpointFallsBackToMemory(t *testing.T) {
+	end := time.Now().Truncate(time.Minute)
+	modelCode := "mem-model"
+	endpointID := "ep-mem-1"
+
+	originalStore := metrics.GlobalStore
+	metrics.GlobalStore = metrics.NewMemoryStore()
+	defer func() { metrics.GlobalStore = originalStore }()
+
+	metrics.GlobalStore.Record(metrics.RequestMetric{
+		Time:    end.Unix(),
+		Model:   modelCode,
+		Success: true,
+		Attempts: []struct {
+			EndpointID string `json:"endpoint_id"`
+			Success    bool   `json:"success"`
+		}{
+			{EndpointID: endpointID, Success: true},
+			{EndpointID: endpointID, Success: false},
+		},
+	})
+
+	dashboard := &Dashboard{}
+	res, err := dashboard.getTrendsAt(context.Background(), "endpoint", "1h", modelCode, end)
+	require.NoError(t, err)
+	require.Len(t, res.Series, 1)
+	assert.Equal(t, endpointID, res.Series[0].Label)
+	assert.Equal(t, int64(1), res.Series[0].Success[59])
+	assert.Equal(t, int64(1), res.Series[0].Failure[59])
+	assert.Equal(t, int64(2), res.Series[0].Total[59])
+}
+
+func TestGetTrendsModelFallsBackToRedis(t *testing.T) {
+	end := time.Date(2026, 8, 31, 12, 0, 0, 0, time.Local)
+	minute := end.Unix() / 60
+	modelCode := "gpt-test-model"
+
+	values := map[string]interface{}{
+		fmt.Sprintf("aigw:status:model:%s:%d:s", modelCode, minute): "10",
+		fmt.Sprintf("aigw:status:model:%s:%d:f", modelCode, minute): "2",
+	}
+	redisClient := redis.NewClient(&redis.Options{Addr: "unused:6379"})
+	redisClient.AddHook(performanceRedisHook{values: values})
+	dashboard := &Dashboard{RedisClient: redisClient}
+
+	res, err := dashboard.getTrendsAt(context.Background(), "", "1h", modelCode, end)
+	require.NoError(t, err)
+	require.Len(t, res.Series, 1)
+	assert.Equal(t, modelCode, res.Series[0].Label)
+	assert.Equal(t, int64(10), res.Series[0].Success[59])
+	assert.Equal(t, int64(2), res.Series[0].Failure[59])
+	assert.Equal(t, int64(12), res.Series[0].Total[59])
+}

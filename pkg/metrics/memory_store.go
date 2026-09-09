@@ -63,6 +63,8 @@ type MemoryStore struct {
 	dailyStats        map[string]*DailyStats
 	lastCleanupMinute int64
 
+	modelEndpoints map[string]map[string]bool
+
 	// circuit breaker: open endpoints & services
 	openEndpoints map[string]bool
 	openServices  map[string]bool
@@ -72,13 +74,14 @@ var GlobalStore = NewMemoryStore()
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		globalPerf:    make(map[int64]*EndpointMinutePerf),
-		modelPerf:     make(map[string]map[int64]*EndpointMinutePerf),
-		providerPerf:  make(map[string]map[int64]*EndpointMinutePerf),
-		endpointPerf:  make(map[string]map[int64]*EndpointMinutePerf),
-		dailyStats:    make(map[string]*DailyStats),
-		openEndpoints: make(map[string]bool),
-		openServices:  make(map[string]bool),
+		globalPerf:     make(map[int64]*EndpointMinutePerf),
+		modelPerf:      make(map[string]map[int64]*EndpointMinutePerf),
+		providerPerf:   make(map[string]map[int64]*EndpointMinutePerf),
+		endpointPerf:   make(map[string]map[int64]*EndpointMinutePerf),
+		dailyStats:     make(map[string]*DailyStats),
+		modelEndpoints: make(map[string]map[string]bool),
+		openEndpoints:  make(map[string]bool),
+		openServices:   make(map[string]bool),
 	}
 }
 
@@ -143,6 +146,12 @@ func (s *MemoryStore) Record(m RequestMetric) {
 		if attempt.EndpointID == "" {
 			continue
 		}
+		if m.Model != "" {
+			if s.modelEndpoints[m.Model] == nil {
+				s.modelEndpoints[m.Model] = make(map[string]bool)
+			}
+			s.modelEndpoints[m.Model][attempt.EndpointID] = true
+		}
 		perf := getOrCreateDimension(s.endpointPerf, attempt.EndpointID, minute)
 		if attempt.Success {
 			perf.Success++
@@ -152,6 +161,12 @@ func (s *MemoryStore) Record(m RequestMetric) {
 	}
 
 	if m.EndpointID != "" {
+		if m.Model != "" {
+			if s.modelEndpoints[m.Model] == nil {
+				s.modelEndpoints[m.Model] = make(map[string]bool)
+			}
+			s.modelEndpoints[m.Model][m.EndpointID] = true
+		}
 		perf := getOrCreateDimension(s.endpointPerf, m.EndpointID, minute)
 		perf.InputTokens += m.InputTokens
 		perf.OutputTokens += m.OutputTokens
@@ -335,6 +350,27 @@ func (s *MemoryStore) GetEndpointMinutePerf(endpointID string, minute int64) End
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return copyPerf(s.endpointPerf[endpointID][minute])
+}
+
+func (s *MemoryStore) GetEndpointIDs() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return dimensionKeys(s.endpointPerf)
+}
+
+func (s *MemoryStore) GetModelEndpointIDs(model string) []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	eps := s.modelEndpoints[model]
+	if len(eps) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(eps))
+	for ep := range eps {
+		keys = append(keys, ep)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func (s *MemoryStore) GetDailyStats(dateStr string) DailyStats {

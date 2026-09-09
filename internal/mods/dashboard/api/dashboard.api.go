@@ -872,15 +872,108 @@ func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCo
 		}
 	}
 
-	// 按模型过滤时 Redis 只有全局分钟计数，不能冒充该模型的序列。
+	if groupBy == "endpoint" {
+		endpointIDs := a.getEndpointsForTrend(ctx, modelCode)
+		if len(endpointIDs) == 0 {
+			res.Series = []TrendsSeries{}
+			a.setCache(cacheKey, &res, 5*time.Second)
+			return &res, nil
+		}
+
+		if a.RedisClient != nil {
+			stepMinutes := rangeConfig.stepSeconds / 60
+			if stepMinutes <= 0 {
+				stepMinutes = 1
+			}
+			windowMinutes := int64(rangeConfig.numPoints) * stepMinutes
+			numMinutes := int(windowMinutes)
+			if numMinutes > 120 {
+				numMinutes = 120
+			}
+			currentMinute := end.Unix() / 60
+			startMinute := start.Unix() / 60
+			firstMinute := currentMinute - int64(numMinutes-1)
+
+			res.Series = make([]TrendsSeries, 0, len(endpointIDs))
+			for _, epID := range endpointIDs {
+				keys := make([]string, numMinutes*2)
+				for i := 0; i < numMinutes; i++ {
+					minute := firstMinute + int64(i)
+					keys[i*2] = fmt.Sprintf("aigw:status:endpoint:%s:%d:s", epID, minute)
+					keys[i*2+1] = fmt.Sprintf("aigw:status:endpoint:%s:%d:f", epID, minute)
+				}
+				vals, err := a.RedisClient.MGet(ctx, keys...).Result()
+				series := TrendsSeries{
+					Label:   epID,
+					Success: make([]int64, rangeConfig.numPoints),
+					Failure: make([]int64, rangeConfig.numPoints),
+					Total:   make([]int64, rangeConfig.numPoints),
+				}
+				if err == nil && len(vals) == numMinutes*2 {
+					aggregateRedisTrendValues(&series, vals, currentMinute, startMinute, stepMinutes)
+				}
+				res.Series = append(res.Series, series)
+			}
+			a.setCache(cacheKey, &res, 5*time.Second)
+			return &res, nil
+		}
+
+		res.Series = buildMemoryTrendSeries("endpoint", endpointIDs, rangeConfig, start, end)
+		a.setCache(cacheKey, &res, 5*time.Second)
+		return &res, nil
+	}
+
 	if modelCode != "" {
+		resolvedModelCode := modelCode
+		if a.DB != nil {
+			var m rschema.Model
+			if err := a.DB.WithContext(ctx).Where("(id = ? OR model_code = ?) AND deleted = '0'", modelCode, modelCode).First(&m).Error; err == nil && m.ModelCode != "" {
+				resolvedModelCode = m.ModelCode
+			}
+		}
+
+		if a.RedisClient != nil && groupBy == "" {
+			stepMinutes := rangeConfig.stepSeconds / 60
+			if stepMinutes <= 0 {
+				stepMinutes = 1
+			}
+			windowMinutes := int64(rangeConfig.numPoints) * stepMinutes
+			numMinutes := int(windowMinutes)
+			if numMinutes > 120 {
+				numMinutes = 120
+			}
+			currentMinute := end.Unix() / 60
+			startMinute := start.Unix() / 60
+			firstMinute := currentMinute - int64(numMinutes-1)
+
+			keys := make([]string, numMinutes*2)
+			for i := 0; i < numMinutes; i++ {
+				minute := firstMinute + int64(i)
+				keys[i*2] = fmt.Sprintf("aigw:status:model:%s:%d:s", resolvedModelCode, minute)
+				keys[i*2+1] = fmt.Sprintf("aigw:status:model:%s:%d:f", resolvedModelCode, minute)
+			}
+			vals, err := a.RedisClient.MGet(ctx, keys...).Result()
+			series := TrendsSeries{
+				Label:   resolvedModelCode,
+				Success: make([]int64, rangeConfig.numPoints),
+				Failure: make([]int64, rangeConfig.numPoints),
+				Total:   make([]int64, rangeConfig.numPoints),
+			}
+			if err == nil && len(vals) == numMinutes*2 {
+				aggregateRedisTrendValues(&series, vals, currentMinute, startMinute, stepMinutes)
+			}
+			res.Series = []TrendsSeries{series}
+			a.setCache(cacheKey, &res, 5*time.Second)
+			return &res, nil
+		}
+
 		if a.RedisClient == nil && groupBy == "" {
-			res.Series = buildMemoryTrendSeries("model", []string{modelCode}, rangeConfig, start, end)
+			res.Series = buildMemoryTrendSeries("model", []string{resolvedModelCode}, rangeConfig, start, end)
 			a.setCache(cacheKey, &res, 5*time.Second)
 			return &res, nil
 		}
 		if groupBy == "" {
-			res.Series = []TrendsSeries{emptyTrendSeries(rangeConfig.numPoints, modelCode)}
+			res.Series = []TrendsSeries{emptyTrendSeries(rangeConfig.numPoints, resolvedModelCode)}
 		} else {
 			res.Series = []TrendsSeries{}
 		}
@@ -912,6 +1005,8 @@ func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCo
 				labels = metrics.GlobalStore.GetModelCodes()
 			case "provider":
 				labels = metrics.GlobalStore.GetProviderNames()
+			case "endpoint":
+				labels = a.getEndpointsForTrend(ctx, "")
 			default:
 				labels = []string{"global"}
 			}
@@ -972,6 +1067,8 @@ func buildMemoryTrendSeries(groupBy string, labels []string, rangeConfig trendRa
 				success, failure = metrics.GlobalStore.GetModelStatus(label, minute)
 			case "provider":
 				success, failure = metrics.GlobalStore.GetProviderStatus(label, minute)
+			case "endpoint":
+				success, failure = metrics.GlobalStore.GetEndpointStatus(label, minute)
 			default:
 				success, failure = metrics.GlobalStore.GetGlobalStatus(minute)
 			}
@@ -993,6 +1090,38 @@ func buildMemoryTrendSeries(groupBy string, labels []string, rangeConfig trendRa
 		seriesList = append(seriesList, series)
 	}
 	return seriesList
+}
+
+func (a *Dashboard) getEndpointsForTrend(ctx context.Context, modelCode string) []string {
+	var endpointIDs []string
+	if a.DB != nil {
+		if modelCode != "" {
+			var model rschema.Model
+			if err := a.DB.WithContext(ctx).Where("(id = ? OR model_code = ?) AND deleted = '0'", modelCode, modelCode).First(&model).Error; err == nil {
+				var eps []rschema.Endpoint
+				if err := a.DB.WithContext(ctx).Where("model_id = ? AND enabled = 1 AND deleted = '0'", model.ID).Find(&eps).Error; err == nil {
+					for _, ep := range eps {
+						endpointIDs = append(endpointIDs, ep.ID)
+					}
+				}
+			}
+		} else {
+			var eps []rschema.Endpoint
+			if err := a.DB.WithContext(ctx).Where("enabled = 1 AND deleted = '0'").Find(&eps).Error; err == nil {
+				for _, ep := range eps {
+					endpointIDs = append(endpointIDs, ep.ID)
+				}
+			}
+		}
+	}
+	if len(endpointIDs) == 0 {
+		if modelCode != "" {
+			endpointIDs = metrics.GlobalStore.GetModelEndpointIDs(modelCode)
+		} else {
+			endpointIDs = metrics.GlobalStore.GetEndpointIDs()
+		}
+	}
+	return endpointIDs
 }
 
 func (a *Dashboard) getModelPerformanceTrends(ctx context.Context, modelCode, timeRange string) (*ModelPerformanceTrendsResponse, error) {
