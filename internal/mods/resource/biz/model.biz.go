@@ -75,6 +75,8 @@ func (m *Model) Get(ctx context.Context, id string) (*schema.Model, error) {
 		}
 	}
 
+	m.fillModelsStatusPoints(ctx, []*schema.Model{model})
+
 	return model, nil
 }
 

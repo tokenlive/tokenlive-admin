@@ -152,6 +152,64 @@
                 </template>
             </a-card>
 
+            <a-card
+                class="pulse-card"
+                :bordered="false">
+                <div
+                    class="model-pulse-rail"
+                    :class="pulseToneClass">
+                    <span class="model-pulse-rail__label">{{ $t('pages.model.recent_status') }}</span>
+                    <template v-if="hasRecentUsage">
+                        <EndpointStatusStrip :points="modelStatusPoints" />
+                        <div class="model-pulse-rail__stats">
+                            <span class="model-pulse-rail__stat">
+                                <span class="model-pulse-rail__stat-label">{{
+                                    $t('pages.endpoint.recent_status.success')
+                                }}</span>
+                                <span class="model-pulse-rail__stat-value">{{
+                                    formatPulseCount(pulseStats.success)
+                                }}</span>
+                            </span>
+                            <span class="model-pulse-rail__stat">
+                                <span class="model-pulse-rail__stat-label">{{
+                                    $t('pages.endpoint.recent_status.fail')
+                                }}</span>
+                                <span
+                                    class="model-pulse-rail__stat-value"
+                                    :class="{ 'is-alert': pulseStats.fail > 0 }">
+                                    {{ formatPulseCount(pulseStats.fail) }}
+                                </span>
+                            </span>
+                            <span
+                                v-if="pulseStats.ttft > 0"
+                                class="model-pulse-rail__stat">
+                                <span class="model-pulse-rail__stat-label">{{
+                                    $t('pages.endpoint.recent_status.ttft')
+                                }}</span>
+                                <span class="model-pulse-rail__stat-value is-metric">{{
+                                    formatPulseTtft(pulseStats.ttft)
+                                }}</span>
+                            </span>
+                            <span
+                                v-if="pulseStats.otps > 0"
+                                class="model-pulse-rail__stat">
+                                <span class="model-pulse-rail__stat-label">{{
+                                    $t('pages.endpoint.recent_status.otps')
+                                }}</span>
+                                <span class="model-pulse-rail__stat-value is-metric">{{
+                                    formatPulseOtps(pulseStats.otps)
+                                }}</span>
+                            </span>
+                        </div>
+                    </template>
+                    <span
+                        v-else
+                        class="model-pulse-rail__empty">
+                        {{ $t('pages.model.recent_status.empty') }}
+                    </span>
+                </div>
+            </a-card>
+
             <!-- Tab 区域 -->
             <a-card
                 class="detail-card"
@@ -756,6 +814,71 @@ const modelId = ref(route.params.id)
 const modelData = ref({})
 const activeTab = ref(route.query.tab === 'monitor' ? 'monitor' : 'endpoint')
 const basicInfoCollapsed = ref(false)
+
+const modelStatusPoints = computed(() => modelData.value.status_points || [])
+const hasRecentUsage = computed(() =>
+    modelStatusPoints.value.some((point) => Number(point?.success_count) > 0 || Number(point?.fail_count) > 0)
+)
+const pulseStats = computed(() => {
+    let success = 0
+    let fail = 0
+    let ttftWeighted = 0
+    let ttftWeight = 0
+    let otpsWeighted = 0
+    let otpsWeight = 0
+    for (const point of modelStatusPoints.value) {
+        const successCount = Number(point?.success_count) || 0
+        const failCount = Number(point?.fail_count) || 0
+        const requests = successCount + failCount
+        const ttft = Number(point?.avg_ttft_ms)
+        const otps = Number(point?.otps)
+        success += successCount
+        fail += failCount
+        if (requests > 0 && Number.isFinite(ttft) && ttft > 0) {
+            ttftWeighted += ttft * requests
+            ttftWeight += requests
+        }
+        if (requests > 0 && Number.isFinite(otps) && otps > 0) {
+            otpsWeighted += otps * requests
+            otpsWeight += requests
+        }
+    }
+    return {
+        success,
+        fail,
+        ttft: ttftWeight > 0 ? ttftWeighted / ttftWeight : 0,
+        otps: otpsWeight > 0 ? otpsWeighted / otpsWeight : 0,
+    }
+})
+const pulseToneClass = computed(() => {
+    if (!hasRecentUsage.value) return 'is-idle'
+    if (pulseStats.value.fail > 0 && pulseStats.value.success === 0) return 'is-fail'
+    if (pulseStats.value.fail > 0) return 'is-mixed'
+    return 'is-ok'
+})
+
+function formatPulseCount(val) {
+    const num = Number(val)
+    if (!Number.isFinite(num)) return '0'
+    return num.toLocaleString('en-US')
+}
+
+function formatPulseTtft(val) {
+    const num = Number(val)
+    if (!Number.isFinite(num) || num <= 0) return '-'
+    return (num / 1000).toFixed(2) + 's'
+}
+
+function formatPulseOtps(val) {
+    const num = Number(val)
+    if (!Number.isFinite(num) || num <= 0) return '-'
+    return (
+        num.toLocaleString('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+        }) + ' t/s'
+    )
+}
 const modelEditRef = ref(null)
 const spaceOptions = ref([])
 const loadbalanceEditRef = ref(null)
@@ -1748,6 +1871,91 @@ function handleRemoveMember({ id }) {
                 0 1px 0 0 rgba(255, 255, 255, 0.08);
         }
     }
+}
+
+.pulse-card {
+    flex: none;
+    margin-bottom: 16px;
+
+    :deep(.ant-card-body) {
+        padding: 10px 16px;
+    }
+}
+
+.model-pulse-rail {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    min-height: 28px;
+    min-width: 0;
+}
+
+.model-pulse-rail__label {
+    flex: none;
+    font-size: 12px;
+    line-height: 18px;
+    opacity: 0.45;
+}
+
+.model-pulse-rail__stats {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 12px 18px;
+    min-width: 0;
+}
+
+.model-pulse-rail__stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
+.model-pulse-rail__stat-label {
+    font-size: 11px;
+    line-height: 16px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.45;
+}
+
+.model-pulse-rail__stat-value {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 18px;
+    font-variant-numeric: tabular-nums;
+}
+
+.model-pulse-rail__stat-value.is-metric {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-weight: 500;
+}
+
+.model-pulse-rail__stat-value.is-alert {
+    color: #f5222d;
+}
+
+.model-pulse-rail__empty {
+    font-size: 13px;
+    line-height: 20px;
+    opacity: 0.45;
+}
+
+.model-pulse-rail.is-ok .model-pulse-rail__label {
+    color: #389e0d;
+    opacity: 0.85;
+}
+
+.model-pulse-rail.is-mixed .model-pulse-rail__label {
+    color: #d46b08;
+    opacity: 0.85;
+}
+
+.model-pulse-rail.is-fail .model-pulse-rail__label {
+    color: #cf1322;
+    opacity: 0.85;
 }
 
 .detail-card {

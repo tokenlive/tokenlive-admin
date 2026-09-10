@@ -304,6 +304,7 @@ export default {
     'pages.provider.fetchModels.import.success_endpoints': '导入完成：关联并成功创建 {count} 个端点。',
     // model (模型)
     'pages.model.recent_status': '最近使用状态',
+    'pages.model.recent_status.empty': '暂无请求',
     'pages.model.add': '添加模型',
     'pages.model.edit': '编辑模型',
     'pages.model.sync': '同步 Redis 缓存',

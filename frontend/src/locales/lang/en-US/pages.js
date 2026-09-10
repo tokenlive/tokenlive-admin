@@ -303,6 +303,7 @@ export default {
     'pages.provider.fetchModels.import.success_endpoints': 'Import finished: created {count} endpoints.',
     // model
     'pages.model.recent_status': 'Recent Usage Status',
+    'pages.model.recent_status.empty': 'No recent requests',
     'pages.model.add': 'Add Model',
     'pages.model.edit': 'Edit Model',
     'pages.model.sync': 'Sync Redis Cache',
