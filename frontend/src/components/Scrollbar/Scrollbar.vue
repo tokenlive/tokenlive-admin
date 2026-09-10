@@ -29,6 +29,14 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    overflowX: {
+        type: String,
+        default: 'scroll',
+    },
+    overflowY: {
+        type: String,
+        default: 'scroll',
+    },
 })
 
 const emit = defineEmits(['scroll'])
@@ -44,6 +52,10 @@ const cpStyle = computed(() => {
     }
 })
 const cpOptions = computed(() => ({
+    overflow: {
+        x: props.overflowX,
+        y: props.overflowY,
+    },
     scrollbars: {
         autoHide: props.always ? 'never' : 'leave',
         autoHideDelay: 100,

@@ -18,7 +18,8 @@
         </div>
         <x-scrollbar
             v-if="cpShowDefaultSlot"
-            class="basic-side__body">
+            class="basic-side__body"
+            overflow-x="hidden">
             <slot></slot>
         </x-scrollbar>
         <div
@@ -84,21 +85,42 @@ const cpShowFooterSlot = computed(() => !!slots.footer)
 
     :deep(.ant-layout-sider-children) {
         height: 100%;
+        min-width: 0;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
     }
 
     &__header {
         flex-shrink: 0;
+        min-width: 0;
+        overflow: hidden;
     }
 
     &__body {
         flex: 1;
+        min-width: 0;
         min-height: 0;
-        // overflow: auto;
+        width: 100%;
+        overflow-x: hidden;
+
+        :deep(.os-host),
+        :deep(.os-padding),
+        :deep(.os-viewport),
+        :deep(.os-content) {
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        :deep(.os-scrollbar-horizontal) {
+            display: none;
+        }
 
         :deep(.ant-menu) {
             border-right: 0;
+            width: 100%;
+            max-width: 100%;
+            padding-inline: 8px;
         }
     }
 
@@ -111,6 +133,10 @@ const cpShowFooterSlot = computed(() => !!slots.footer)
             h1 {
                 display: none;
             }
+        }
+
+        :deep(.ant-menu) {
+            padding-inline: 0;
         }
     }
 

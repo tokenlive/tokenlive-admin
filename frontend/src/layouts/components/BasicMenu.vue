@@ -180,9 +180,14 @@ function onOpenChange(value) {
 
 <style lang="less" scoped>
 .basic-menu {
+    min-width: 0;
+    width: 100%;
+    overflow: hidden;
+
     .ant-menu:not(.ant-menu-horizontal) {
         :deep(.ant-menu-submenu-title) {
             display: flex;
+            min-width: 0;
         }
 
         :deep(.basic-menu) {
@@ -207,8 +212,11 @@ function onOpenChange(value) {
             height: 32px;
             line-height: 32px;
             letter-spacing: 0.04em;
-            padding: 5px 10px 0 35px;
+            padding: 5px 8px 0 16px;
             margin: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         &.ant-menu-dark {
@@ -218,7 +226,8 @@ function onOpenChange(value) {
             :deep(.ant-menu-submenu-title) {
                 height: 38px;
                 line-height: 38px;
-                margin: 3px 10px;
+                width: 100%;
+                margin: 3px 0;
                 border-radius: 8px;
                 color: rgba(196, 207, 224, 0.68);
                 transition:
@@ -276,7 +285,8 @@ function onOpenChange(value) {
             :deep(.ant-menu-submenu-title) {
                 height: 38px;
                 line-height: 38px;
-                margin: 3px 10px;
+                width: 100%;
+                margin: 3px 0;
                 border-radius: 8px;
                 color: rgba(31, 41, 55, 0.68);
                 transition:
