@@ -1089,6 +1089,11 @@ const endpointColumns = [
         width: 180,
     },
     {
+        title: t('pages.endpoint.recent_status'),
+        key: 'recent_status',
+        width: 180,
+    },
+    {
         title: t('pages.endpoint.form.url'),
         key: 'url',
         minWidth: 240,
@@ -1098,11 +1103,6 @@ const endpointColumns = [
         title: t('pages.endpoint.form.real_model'),
         key: 'real_model',
         width: 150,
-    },
-    {
-        title: t('pages.endpoint.recent_status'),
-        key: 'recent_status',
-        width: 180,
     },
     {
         title: t('pages.endpoint.form.priority'),
