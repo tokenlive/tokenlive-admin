@@ -160,6 +160,7 @@
                 :data-source="events"
                 :columns="eventColumns"
                 :scroll="{ x: 900 }"
+                :expand-row-by-click="true"
                 @change="handleEventTableChange">
                 <template #bodyCell="{ column, record }">
                     <template v-if="column.key === 'event_time'">
@@ -879,6 +880,10 @@ watch(
 .events-panel :deep(.ant-table-tbody > tr > td) {
     border-bottom-color: var(--color-border-secondary);
     background: transparent;
+}
+
+.events-panel :deep(.ant-table-tbody > tr.ant-table-row) {
+    cursor: pointer;
 }
 
 .events-panel :deep(.ant-table-tbody > tr:hover > td) {

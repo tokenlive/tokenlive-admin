@@ -18,6 +18,11 @@
         <!-- 右侧 -->
         <div class="basic-header__right">
             <a-space :size="16">
+                <span
+                    v-if="displayVersion"
+                    class="header-version">
+                    {{ displayVersion }}
+                </span>
                 <a-tooltip :title="themeToggleTitle">
                     <action-button @click="handleThemeToggle">
                         <template v-if="config.theme === 'dark'">
@@ -154,8 +159,9 @@
 <script setup>
 import { Modal } from 'ant-design-vue'
 import { storeToRefs } from 'pinia'
-import { computed, useSlots, ref } from 'vue'
+import { computed, onMounted, useSlots, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import apis from '@/apis'
 import {
     LoginOutlined,
     SettingOutlined,
@@ -174,6 +180,9 @@ const { locale, t } = useI18n()
 defineOptions({
     name: 'BasicHeader',
 })
+
+const { version } = __APP_INFO__
+const displayVersion = ref(version)
 
 /**
  * @property {string} theme 主题【light=亮色，dark=暗色】
@@ -311,6 +320,22 @@ function handleConfig() {
 function handleGithub() {
     window.open('https://github.com/tokenlive', '_blank')
 }
+
+async function fetchSystemVersion() {
+    try {
+        const res = await apis.pub?.getVersion?.()
+        const nextVersion = res?.data?.version || res?.version
+        if (nextVersion) {
+            displayVersion.value = nextVersion
+        }
+    } catch (_) {
+        // Fallback to build-time version
+    }
+}
+
+onMounted(() => {
+    fetchSystemVersion()
+})
 </script>
 
 <style lang="less" scoped>
@@ -340,6 +365,16 @@ function handleGithub() {
         margin: 0 0 0 auto;
         display: flex;
         align-items: center;
+    }
+
+    .header-version {
+        font-size: 12px;
+        line-height: 1;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+        color: currentColor;
+        opacity: 0.72;
+        user-select: text;
+        white-space: nowrap;
     }
 
     :deep(.ant-menu-horizontal) {

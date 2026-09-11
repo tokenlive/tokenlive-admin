@@ -279,6 +279,7 @@
                 row-key="id"
                 size="middle"
                 :scroll="{ x: 1000 }"
+                :expand-row-by-click="true"
                 @change="onTableChange">
                 <template #bodyCell="{ column, record }">
                     <template v-if="column.key === 'event_type'">
@@ -299,7 +300,7 @@
                                     type="link"
                                     size="small"
                                     class="ops-cell-filter-btn"
-                                    @click="handleFilterField('tenant_code', record.tenant_code)">
+                                    @click.stop="handleFilterField('tenant_code', record.tenant_code)">
                                     <template #icon><search-outlined /></template>
                                 </a-button>
                             </a-tooltip>
@@ -313,7 +314,7 @@
                             <span class="ops-cell-text">
                                 <a
                                     v-if="modelMap[record.model_code]"
-                                    @click="goToModelDetail(record.model_code)"
+                                    @click.stop="goToModelDetail(record.model_code)"
                                     style="cursor: pointer">
                                     {{ record.model_code }}
                                 </a>
@@ -324,7 +325,7 @@
                                     type="link"
                                     size="small"
                                     class="ops-cell-filter-btn"
-                                    @click="handleFilterField('model_code', record.model_code)">
+                                    @click.stop="handleFilterField('model_code', record.model_code)">
                                     <template #icon><search-outlined /></template>
                                 </a-button>
                             </a-tooltip>
@@ -341,7 +342,7 @@
                                     type="link"
                                     size="small"
                                     class="ops-cell-filter-btn"
-                                    @click="handleFilterField('endpoint_code', record.endpoint_code)">
+                                    @click.stop="handleFilterField('endpoint_code', record.endpoint_code)">
                                     <template #icon><search-outlined /></template>
                                 </a-button>
                             </a-tooltip>
@@ -358,7 +359,7 @@
                                     type="link"
                                     size="small"
                                     class="ops-cell-filter-btn"
-                                    @click="handleFilterField('provider_name', record.provider_name)">
+                                    @click.stop="handleFilterField('provider_name', record.provider_name)">
                                     <template #icon><search-outlined /></template>
                                 </a-button>
                             </a-tooltip>
@@ -1466,6 +1467,10 @@ onUnmounted(() => {
 .ops-table-panel :deep(.ant-table-tbody > tr > td) {
     border-bottom-color: var(--ops-table-row-border);
     background: transparent;
+}
+
+.ops-table-panel :deep(.ant-table-tbody > tr.ant-table-row) {
+    cursor: pointer;
 }
 
 .ops-table-panel :deep(.ant-table-tbody > tr:hover > td) {
