@@ -4,11 +4,43 @@ Admin 是 TokenLive 平台的管理后台。其用户角色随部署场景变化
 
 ## Language
 
+### 产品发行形态
+
+**Standalone Edition (单机版)**:
+以 standalone 整包交付、通过 Homebrew 安装的 TokenLive 产品发行形态。
+_Avoid_: 将单机版发行版本与其内含的 Admin、Gateway 组件版本混为一谈。
+
+**Professional Edition (专业版)**:
+Admin 与 Gateway 分别打包交付的 TokenLive 产品发行形态。
+_Avoid_: 将专业版与企业内部、公共 API 平台等使用场景混为一谈。
+
+**Standalone Release Version (单机版发行版本)**:
+标识某个单机版整包发行的版本号，不等同于其内含的 Admin 或 Gateway 组件版本。
+
+**Professional Component Version (专业版组件版本)**:
+标识专业版中 Admin 或 Gateway 某个独立发行的版本号；专业版没有额外的整套产品版本号。
+_Avoid_: 用 Admin 版本或 Gateway 版本代指整个专业版的版本。
+
+**Homebrew-Ready Release (Homebrew 就绪发行)**:
+已完成 Homebrew 安装源发布、可通过 Homebrew 获取的单机版发行。
+_Avoid_: 将仅创建了 Release、尚未更新 Homebrew 安装源的发行视为 Homebrew 就绪发行。
+
+**Gateway Node (网关节点)**:
+专业版中独立运行的一个 Gateway 实例。同一专业版部署可以包含多个节点，节点可能运行不同的组件版本。
+
+**Gateway Version Distribution (网关版本分布)**:
+具有有效版本上报的网关节点按组件版本分组形成的版本与节点数量集合。
+_Avoid_: 用任意一个节点的版本代表全部网关节点。
+
 ### 用户与权限
 
 **Admin User (管理用户)**:
 Admin 系统中的注册用户。在企业内部部署场景下，涵盖管理员、运维和普通开发者（即终端消费者）；在公共平台部署场景下（搭配 Portal），仅为平台运营团队。用户角色通过 RBAC 控制。
 _Avoid_: 将 Admin User 固定定义为"仅管理员" — 其含义取决于部署场景。
+
+**Update Administrator (更新管理员)**:
+拥有“版本更新管理”权限的 Admin User，包括默认拥有此权限的 Root，以及通过角色授权获得此权限的其他用户。
+_Avoid_: 将更新管理员等同于所有控制台用户，或仅凭用户名识别。
 
 **External Identity (第三方身份)**:
 由外部身份提供方证明的登录身份，用于绑定到一个 Admin User；同一已验证邮箱对应同一个 Admin User。
