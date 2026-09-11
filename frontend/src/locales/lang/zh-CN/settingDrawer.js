@@ -1,4 +1,8 @@
 export default {
+    'app.about.title': '关于 TokenLive',
+    'app.about.description': '具备丰富的流量治理策略的AI网关治理控制台',
+    'app.about.version': '版本',
+    'app.about.copy': '复制版本信息',
     'app.setting.pagestyle': '整体风格设置',
     'app.setting.theme': '系统主题',
     'app.setting.theme.switch.light': '切换为亮色主题',

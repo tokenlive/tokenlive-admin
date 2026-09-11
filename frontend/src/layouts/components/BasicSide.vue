@@ -25,7 +25,9 @@
         <div
             v-if="cpShowFooterSlot"
             class="basic-side__footer">
-            <slot name="footer"></slot>
+            <slot
+                name="footer"
+                :collapsed="collapsed"></slot>
         </div>
     </a-layout-sider>
 </template>

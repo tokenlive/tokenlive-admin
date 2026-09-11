@@ -73,6 +73,7 @@ const theme = computed(() => {
             Table: {
                 paddingContentVerticalLG: 12,
                 padding: 12,
+                rowHoverBg: isDark ? '#1c2030' : '#f5f5f5',
             },
             Card: {
                 paddingLG: 16,

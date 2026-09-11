@@ -100,14 +100,10 @@ watch(
                     return {
                         ...item,
                         type: 'group',
-                        label: h(
-                            'span',
-                            { class: 'basic-menu__title', style: { display: 'flex', alignItems: 'center' } },
-                            [
-                                h('span', { class: 'basic-menu__name' }, item.meta?.title || item.name),
-                                h(Badge, { count: item.meta?.badge || 0 }),
-                            ]
-                        ),
+                        label: h('span', { class: 'basic-menu__title' }, [
+                            h('span', { class: 'basic-menu__name' }, item.meta?.title || item.name),
+                            h(Badge, { count: item.meta?.badge || 0 }),
+                        ]),
                     }
                 }
                 return item
@@ -212,7 +208,7 @@ function onOpenChange(value) {
             height: 32px;
             line-height: 32px;
             letter-spacing: 0.04em;
-            padding: 5px 8px 0 16px;
+            padding: 5px 8px 0 25px;
             margin: 0;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -334,6 +330,69 @@ function onOpenChange(value) {
 
             :deep(.ant-menu-item-group-title) {
                 color: rgba(31, 41, 55, 0.42);
+            }
+        }
+
+        &.ant-menu-inline-collapsed {
+            // Default collapsed padding assumes a wider icon box and shifts our icons left.
+            :deep(.ant-menu-item),
+            :deep(.ant-menu-submenu-title) {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: calc(100% - 16px);
+                margin-inline: 8px;
+                padding-inline: 0;
+            }
+
+            :deep(.ant-menu-item-icon),
+            :deep(.anticon) {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex: 0 0 16px;
+                width: 16px;
+                margin: 0;
+                font-size: 16px;
+                line-height: 1;
+            }
+
+            :deep(.ant-menu-item-icon + .ant-menu-title-content),
+            :deep(.anticon + .ant-menu-title-content) {
+                flex: 0 0 0;
+                min-width: 0;
+                width: 0;
+                margin-inline: 0;
+                overflow: hidden;
+            }
+
+            :deep(.ant-menu-item-group-title) {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 16px;
+                padding: 0;
+                line-height: 1;
+
+                .basic-menu__title {
+                    display: none;
+                }
+
+                &::after {
+                    content: '';
+                    width: 20px;
+                    height: 1px;
+                    background: currentColor;
+                    opacity: 0.6;
+                }
+            }
+
+            :deep(> .ant-menu-item-group:first-child > .ant-menu-item-group-title) {
+                height: 8px;
+
+                &::after {
+                    display: none;
+                }
             }
         }
     }

@@ -1,4 +1,8 @@
 export default {
+    'app.about.title': 'About TokenLive',
+    'app.about.description': 'AI gateway management console with rich traffic governance policies',
+    'app.about.version': 'Version',
+    'app.about.copy': 'Copy version information',
     'app.setting.topBottom': 'topBottom',
     'app.setting.leftRight': 'leftRight',
     'app.setting.pagestyle': 'Page style setting',

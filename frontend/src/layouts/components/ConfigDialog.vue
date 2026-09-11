@@ -52,6 +52,16 @@
             <!--                    @change="onChange"></a-switch>-->
             <!--            </a-form-item>-->
         </a-form>
+        <template #footer>
+            <a-button
+                type="text"
+                block
+                aria-haspopup="dialog"
+                @click="handleAbout">
+                <template #icon><info-circle-outlined /></template>
+                {{ $t('app.about.title') }}
+            </a-button>
+        </template>
     </a-drawer>
 </template>
 
@@ -60,19 +70,30 @@ import { storeToRefs } from 'pinia'
 import { ref } from 'vue'
 import { useAppStore } from '@/store'
 import { useI18n } from 'vue-i18n'
+import { InfoCircleOutlined } from '@ant-design/icons-vue'
+const emit = defineEmits(['about'])
 const { t } = useI18n()
 const appStore = useAppStore()
 
 const { config } = storeToRefs(appStore)
 
 const open = ref(false)
+let triggerElement = null
 const themeList = ref([
     { value: 'light', label: t('app.setting.pagestyle.light') },
     { value: 'dark', label: t('app.setting.pagestyle.dark') },
 ])
 
 function handleOpen() {
+    triggerElement = document.activeElement
     open.value = true
+}
+
+function handleAbout() {
+    open.value = false
+    // Let the modal remember the visible Settings trigger, not this closing drawer.
+    triggerElement?.focus({ preventScroll: true })
+    emit('about')
 }
 
 function onChange() {

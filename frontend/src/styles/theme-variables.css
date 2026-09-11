@@ -30,6 +30,7 @@
     --color-bg-mask: rgba(0, 0, 0, 0.45);
     --color-bg-hover: rgba(0, 0, 0, 0.04);
     --color-bg-active: rgba(0, 0, 0, 0.06);
+    --color-table-row-hover: #f5f5f5;
 
     /* ── 文字 / Text ── */
     --color-text-primary: rgba(0, 0, 0, 0.88);
@@ -149,6 +150,7 @@ select:focus-visible {
     --color-bg-mask: rgba(0, 0, 0, 0.6);
     --color-bg-hover: rgba(255, 255, 255, 0.04);
     --color-bg-active: rgba(255, 255, 255, 0.08);
+    --color-table-row-hover: #1c2030;
 
     /* ── 文字 / Text ── */
     --color-text-primary: #e8eaed;
@@ -215,9 +217,22 @@ select:focus-visible {
     box-shadow: var(--shadow-glow);
 }
 
-/* 表格行悬浮 */
-.ant-table-tbody > tr:hover > td {
-    background: var(--color-bg-hover) !important;
+/* 表格行悬浮：必须用不透明底色。半透明 hover 叠在固定列上会把后列内容透出来。 */
+.ant-table-cell-fix-left,
+.ant-table-cell-fix-right {
+    background: var(--color-bg-container);
+}
+
+.ant-table-tbody > tr:hover > td,
+.ant-table-tbody > tr > td.ant-table-cell-row-hover {
+    background: var(--color-table-row-hover) !important;
+}
+
+.ant-table-tbody > tr:hover > td.ant-table-cell-fix-left,
+.ant-table-tbody > tr:hover > td.ant-table-cell-fix-right,
+.ant-table-tbody > tr > td.ant-table-cell-row-hover.ant-table-cell-fix-left,
+.ant-table-tbody > tr > td.ant-table-cell-row-hover.ant-table-cell-fix-right {
+    background: var(--color-table-row-hover) !important;
 }
 
 /* 状态标签统一 */

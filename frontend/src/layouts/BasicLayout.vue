@@ -23,6 +23,13 @@
                             <basic-menu
                                 :theme="config.sideTheme"
                                 :data-list="sideMenuList"></basic-menu>
+                            <template #footer="{ collapsed }">
+                                <sidebar-version
+                                    :version="displayVersion"
+                                    :collapsed="collapsed"
+                                    :theme="config.sideTheme"
+                                    @about="aboutOpen = true" />
+                            </template>
                         </basic-side>
                         <a-layout>
                             <multi-tab v-if="config.multiTab"></multi-tab>
@@ -55,6 +62,13 @@
                                 <basic-menu
                                     :theme="config.sideTheme"
                                     :data-list="sideMenuList"></basic-menu>
+                                <template #footer="{ collapsed }">
+                                    <sidebar-version
+                                        :version="displayVersion"
+                                        :collapsed="collapsed"
+                                        :theme="config.sideTheme"
+                                        @about="aboutOpen = true" />
+                                </template>
                             </basic-side>
                         </template>
                         <a-layout>
@@ -81,6 +95,13 @@
                         <basic-menu
                             :theme="config.sideTheme"
                             :data-list="sideMenuList"></basic-menu>
+                        <template #footer="{ collapsed }">
+                            <sidebar-version
+                                :version="displayVersion"
+                                :collapsed="collapsed"
+                                :theme="config.sideTheme"
+                                @about="aboutOpen = true" />
+                        </template>
                     </basic-side>
                     <a-layout>
                         <basic-header
@@ -108,6 +129,13 @@
                         <basic-menu
                             :theme="config.sideTheme"
                             :data-list="sideMenuList"></basic-menu>
+                        <template #footer="{ collapsed }">
+                            <sidebar-version
+                                :version="displayVersion"
+                                :collapsed="collapsed"
+                                :theme="config.sideTheme"
+                                @about="aboutOpen = true" />
+                        </template>
                     </basic-side>
                     <a-layout>
                         <basic-header
@@ -143,12 +171,18 @@
         </template>
     </a-layout>
 
-    <config-dialog ref="configDialogRef"></config-dialog>
+    <config-dialog
+        ref="configDialogRef"
+        @about="aboutOpen = true"></config-dialog>
+    <system-about-dialog
+        v-model:open="aboutOpen"
+        :version="displayVersion" />
 </template>
 
 <script setup>
 import { storeToRefs } from 'pinia'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import apis from '@/apis'
 import { useAppStore } from '@/store'
 import useMultiTab from './hooks/useMultiTab'
 import useMenu from './hooks/useMenu'
@@ -159,6 +193,8 @@ import BasicSide from './components/BasicSide.vue'
 import Brand from './components/Brand.vue'
 import MultiTab from './components/MultiTab.vue'
 import ConfigDialog from './components/ConfigDialog.vue'
+import SidebarVersion from './components/SidebarVersion.vue'
+import SystemAboutDialog from './components/SystemAboutDialog.vue'
 
 defineOptions({
     name: 'BasicLayout',
@@ -171,6 +207,20 @@ const { sideMenuList, topMenuList } = useMenu()
 const { config } = storeToRefs(appStore)
 
 const configDialogRef = ref()
+const aboutOpen = ref(false)
+const displayVersion = ref(__APP_INFO__.version)
+
+onMounted(async () => {
+    try {
+        const res = await apis.pub.getVersion()
+        const version = res?.data?.version || res?.version
+        if (typeof version === 'string' && version.trim()) {
+            displayVersion.value = version.trim()
+        }
+    } catch {
+        // Keep the build-time version available when the public API is unreachable.
+    }
+})
 </script>
 
 <style lang="less" scoped>
