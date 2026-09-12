@@ -10,7 +10,12 @@ PLATFORMS       ?= linux/amd64,linux/arm64
 SERVER_BIN  	= bin/${APP}
 GIT_COUNT 		= $(shell git rev-list --all --count)
 GIT_HASH        = $(shell git rev-parse --short HEAD)
-RELEASE_TAG     = $(RELEASE_VERSION).$(GIT_COUNT).$(GIT_HASH)
+RELEASE_TAG     ?= $(RELEASE_VERSION).$(GIT_COUNT).$(GIT_HASH)
+BUILD_KIND      ?= dev
+
+ifeq ($(RELEASE_TAG),latest)
+$(error latest is an image alias, not a runtime version)
+endif
 
 CONFIG_DIR       = ./configs
 CONFIG_FILES     = dev
@@ -20,10 +25,10 @@ START_ARGS       = -d $(CONFIG_DIR) -c $(CONFIG_FILES) -s $(STATIC_DIR)
 all: start
 
 start:
-	@go run -ldflags "-X main.VERSION=$(RELEASE_TAG)" main.go start $(START_ARGS)
+	@go run -ldflags "-X main.VERSION=$(RELEASE_TAG) -X main.BUILD_KIND=$(BUILD_KIND)" main.go start $(START_ARGS)
 
 build:
-	@go build -ldflags "-w -s -X main.VERSION=$(RELEASE_TAG)" -o $(SERVER_BIN)
+	@go build -ldflags "-w -s -X main.VERSION=$(RELEASE_TAG) -X main.BUILD_KIND=$(BUILD_KIND)" -o $(SERVER_BIN)
 
 build-frontend:
 	@echo "Building frontend..."
@@ -35,19 +40,19 @@ build-all: build-frontend build
 
 # --- Cross-compilation targets (CGO_ENABLED=0, pure Go) ---
 build-linux-amd64:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-w -s -X main.VERSION=$(RELEASE_TAG)" -o $(SERVER_BIN)_linux_amd64
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-w -s -X main.VERSION=$(RELEASE_TAG) -X main.BUILD_KIND=$(BUILD_KIND)" -o $(SERVER_BIN)_linux_amd64
 
 build-linux-arm64:
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-w -s -X main.VERSION=$(RELEASE_TAG)" -o $(SERVER_BIN)_linux_arm64
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-w -s -X main.VERSION=$(RELEASE_TAG) -X main.BUILD_KIND=$(BUILD_KIND)" -o $(SERVER_BIN)_linux_arm64
 
 build-darwin-amd64:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-w -s -X main.VERSION=$(RELEASE_TAG)" -o $(SERVER_BIN)_darwin_amd64
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "-w -s -X main.VERSION=$(RELEASE_TAG) -X main.BUILD_KIND=$(BUILD_KIND)" -o $(SERVER_BIN)_darwin_amd64
 
 build-darwin-arm64:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-w -s -X main.VERSION=$(RELEASE_TAG)" -o $(SERVER_BIN)_darwin_arm64
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "-w -s -X main.VERSION=$(RELEASE_TAG) -X main.BUILD_KIND=$(BUILD_KIND)" -o $(SERVER_BIN)_darwin_arm64
 
 build-windows-amd64:
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-w -s -X main.VERSION=$(RELEASE_TAG)" -o $(SERVER_BIN)_windows_amd64.exe
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-w -s -X main.VERSION=$(RELEASE_TAG) -X main.BUILD_KIND=$(BUILD_KIND)" -o $(SERVER_BIN)_windows_amd64.exe
 
 build-cross-all: build-linux-amd64 build-linux-arm64 build-darwin-amd64 build-darwin-arm64 build-windows-amd64
 	@echo "All cross-platform binaries built."
@@ -80,7 +85,7 @@ gen-application-code:
 	gin-admin-cli gen -d ./ -m Resource -c gen/prototype/application.yaml
 
 docker-build:
-	docker buildx build --load -t $(REGISTRY)$(APP):$(RELEASE_TAG) -t $(REGISTRY)$(APP):latest -f deploy/build/Dockerfile .
+	docker buildx build --load --build-arg VERSION=$(RELEASE_TAG) --build-arg RELEASE_TAG=$(RELEASE_TAG) --build-arg BUILD_KIND=$(BUILD_KIND) -t $(REGISTRY)$(APP):$(RELEASE_TAG) -t $(REGISTRY)$(APP):latest -f deploy/build/Dockerfile .
 
 docker-push:
-	docker buildx build --platform $(PLATFORMS) --push -t $(REGISTRY)$(APP):$(RELEASE_TAG) -t $(REGISTRY)$(APP):latest -f deploy/build/Dockerfile .
+	docker buildx build --platform $(PLATFORMS) --push --build-arg VERSION=$(RELEASE_TAG) --build-arg RELEASE_TAG=$(RELEASE_TAG) --build-arg BUILD_KIND=$(BUILD_KIND) -t $(REGISTRY)$(APP):$(RELEASE_TAG) -t $(REGISTRY)$(APP):latest -f deploy/build/Dockerfile .

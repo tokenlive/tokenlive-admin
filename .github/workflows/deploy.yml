@@ -13,6 +13,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: git-${{ github.sha }}
+      BUILD_KIND: dev
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -28,7 +31,7 @@ jobs:
         run: |
           cd frontend
           npm install
-          npm run build:prod
+          VITE_APP_VERSION="${RELEASE_TAG}" npm run build:prod
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -38,8 +41,7 @@ jobs:
 
       - name: Compile Go Binary
         run: |
-          GIT_SHA="$(git rev-parse --short HEAD)"
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-w -s -X main.VERSION=git-${GIT_SHA}" -o ./bin/tokenlive-admin_linux_amd64
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-w -s -X main.VERSION=${RELEASE_TAG} -X main.BUILD_KIND=${BUILD_KIND}" -o ./bin/tokenlive-admin_linux_amd64
 
       - name: Customize Systemd Service
         run: |
