@@ -1,6 +1,6 @@
 export default {
     'app.about.title': '关于 TokenLive',
-    'app.about.description': '具备丰富的流量治理策略的AI网关治理控制台',
+    'app.about.description': '具备丰富流量治理策略的高可用大模型网关',
     'app.about.version': '版本',
     'app.about.copy': '复制版本信息',
     'app.about.edition.professional': '专业版',

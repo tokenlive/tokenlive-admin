@@ -5,34 +5,33 @@
         <div class="provider-detail">
             <!-- 基本信息 -->
             <a-card
-                :title="$t('pages.provider.detail.basicInfo')"
                 class="info-card"
                 :bordered="false">
-                <template #extra>
-                    <a-space>
-                        <a-button
-                            type="text"
-                            size="small"
-                            @click="basicInfoCollapsed = !basicInfoCollapsed">
-                            <template #icon>
-                                <down-outlined v-if="basicInfoCollapsed" />
-                                <up-outlined v-else />
-                            </template>
+                <template #title>
+                    <div
+                        class="info-card-title"
+                        @click="toggleBasicInfo">
+                        <span class="info-card-title__text">{{ $t('pages.provider.detail.basicInfo') }}</span>
+                        <span class="info-card-toggle">
+                            <down-outlined v-if="basicInfoCollapsed" />
+                            <up-outlined v-else />
                             {{
                                 basicInfoCollapsed
                                     ? $t('component.tagSelect.expand')
                                     : $t('component.tagSelect.collapse')
                             }}
-                        </a-button>
-                        <a-button
-                            type="primary"
-                            ghost
-                            size="small"
-                            @click="handleEditProvider">
-                            <template #icon><edit-outlined /></template>
-                            {{ $t('common.edit') }}
-                        </a-button>
-                    </a-space>
+                        </span>
+                    </div>
+                </template>
+                <template #extra>
+                    <a-button
+                        type="primary"
+                        ghost
+                        size="small"
+                        @click.stop="handleEditProvider">
+                        <template #icon><edit-outlined /></template>
+                        {{ $t('common.edit') }}
+                    </a-button>
                 </template>
                 <template v-if="!basicInfoCollapsed">
                     <a-card-grid style="width: 25%; text-align: center">
@@ -124,34 +123,30 @@
                 class="info-card quota-card"
                 :bordered="false">
                 <template #title>
-                    <span>{{ $t('pages.provider.detail.quota.title') }}</span>
-                    <a-tag
-                        v-if="quotaData?.provider"
-                        color="processing"
-                        style="margin-left: 8px">
-                        {{ quotaProviderLabel }}
-                    </a-tag>
+                    <div
+                        class="info-card-title"
+                        @click="toggleQuota">
+                        <span class="info-card-title__text">{{ $t('pages.provider.detail.quota.title') }}</span>
+                        <a-tag
+                            v-if="quotaData?.provider"
+                            color="processing">
+                            {{ quotaProviderLabel }}
+                        </a-tag>
+                        <span class="info-card-toggle">
+                            <down-outlined v-if="quotaCollapsed" />
+                            <up-outlined v-else />
+                            {{ quotaCollapsed ? $t('component.tagSelect.expand') : $t('component.tagSelect.collapse') }}
+                        </span>
+                    </div>
                 </template>
                 <template #extra>
-                    <a-space>
-                        <a-button
-                            type="text"
-                            size="small"
-                            @click="quotaCollapsed = !quotaCollapsed">
-                            <template #icon>
-                                <down-outlined v-if="quotaCollapsed" />
-                                <up-outlined v-else />
-                            </template>
-                            {{ quotaCollapsed ? $t('component.tagSelect.expand') : $t('component.tagSelect.collapse') }}
-                        </a-button>
-                        <a-button
-                            size="small"
-                            :loading="quotaLoading"
-                            @click="loadProviderQuota">
-                            <template #icon><reload-outlined /></template>
-                            {{ $t('pages.provider.detail.quota.refresh') }}
-                        </a-button>
-                    </a-space>
+                    <a-button
+                        size="small"
+                        :loading="quotaLoading"
+                        @click.stop="loadProviderQuota">
+                        <template #icon><reload-outlined /></template>
+                        {{ $t('pages.provider.detail.quota.refresh') }}
+                    </a-button>
                 </template>
 
                 <a-spin
@@ -531,6 +526,14 @@ const providerData = ref({})
 const activeTab = ref('endpoint')
 const basicInfoCollapsed = ref(false)
 const quotaCollapsed = ref(false)
+
+function toggleBasicInfo() {
+    basicInfoCollapsed.value = !basicInfoCollapsed.value
+}
+
+function toggleQuota() {
+    quotaCollapsed.value = !quotaCollapsed.value
+}
 const quotaLoading = ref(false)
 const quotaError = ref('')
 const quotaData = ref(null)
@@ -1141,8 +1144,51 @@ function handleRemoveMember({ id }) {
     flex: none;
     margin-bottom: 16px;
 
+    :deep(.ant-card-head) {
+        min-height: 48px;
+    }
+
     :deep(.ant-card-head-title) {
+        overflow: hidden;
+        padding: 0;
         font-size: 14px;
+        cursor: pointer;
+    }
+
+    :deep(.ant-card-extra) {
+        margin-left: 12px;
+        padding: 0;
+    }
+
+    .info-card-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        min-height: 48px;
+        min-width: 0;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .info-card-title__text {
+        flex: none;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 22px;
+        white-space: nowrap;
+    }
+
+    .info-card-toggle {
+        display: inline-flex;
+        align-items: center;
+        flex: none;
+        gap: 4px;
+        margin-left: auto;
+        font-size: 14px;
+        line-height: 22px;
+        white-space: nowrap;
+        opacity: 0.65;
     }
 
     :deep(.ant-card-grid) {
