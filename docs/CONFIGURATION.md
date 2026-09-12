@@ -126,7 +126,7 @@ VersionNamespace = "default"
 
 检查启动后异步进行一次，之后每 6 小时检查；一轮各来源并行执行、共享 5 秒截止时间。手动检查具有同一 Admin 实例所有用户共享的 60 秒冷却，并合并进行中的请求。只读版本页面使用缓存，不会因为打开对话框或节点过期而请求公网。关闭 `UPDATE_CHECK_ENABLED` 后，自动/手动公网检查均停止，当前版本、内部上报与节点聚合继续工作；手动接口返回 HTTP 409，冷却中返回 HTTP 429 和 `Retry-After`。
 
-专业版分别查询 Admin 和 Gateway 仓库的 latest Release；只有正式稳定标签可成为候选，不搜索历史最高版本、不回退历史发行。all-in-one 仅在确认 Homebrew 安装渠道时读取官方 tap 当前 Formula，并核实对应 Release 的公开状态、稳定标签和发行资产；不借用专业版来源。失败或过期结果不可作为可执行的升级建议；无网络时仍能显示本地版本。
+专业版分别查询 Admin 和 Gateway 仓库的 latest Release；只有正式稳定标签可成为候选，不搜索历史最高版本、不回退历史发行。all-in-one 仅在确认 Homebrew 安装渠道时读取官方 tap 当前已发布 Formula，从中解析稳定版本，并据此判断 Homebrew 候选已就绪；运行时不额外查询或验证对应 Release 的公开状态及发行资产，也不借用专业版来源。由发布流程保证先上传必需资产、确认 Release 已公开，再更新 tap；仅发布 Release 不代表 Homebrew 已就绪。失败或过期结果不可作为可执行的升级建议；无网络时仍能显示本地版本。
 
 ### Gateway 观测范围与清理
 

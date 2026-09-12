@@ -18,6 +18,9 @@ export default {
     'app.about.frontendBuildNotice':
         'The server version is unavailable. This information does not identify the running service version.',
     'app.about.gatewayVersions': 'Gateway version distribution',
+    'app.about.gatewaySummary.mixed': 'Gateway · Mixed versions',
+    'app.about.gatewaySummary.unknown': 'Gateway · Unknown',
+    'app.about.gatewaySummary.unavailable': 'Gateway · Reports unavailable',
     'app.about.gatewayWindow':
         'Only valid node reports from the last 3 minutes are included. This is not a complete node inventory or live health status.',
     'app.about.scope.shared': 'Scope: valid reports in the shared cache.',
@@ -49,6 +52,7 @@ export default {
     'app.about.state.stale': 'Historical result expired',
     'app.about.state.unknown': 'Cannot determine',
     'app.about.state.unavailable': 'Update source unavailable',
+    'app.about.state.unchecked': 'Not checked yet',
     'app.about.state.checking': 'Checking',
     'app.about.current': 'Current version',
     'app.about.historyResult':

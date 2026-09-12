@@ -28,6 +28,10 @@ func TestProviderDefaultsAndConstructionDoesNotFetch(t *testing.T) {
 	if got := config.C.UpdateCheck; !got.Enabled || got.IntervalSeconds != 21600 || got.TimeoutSeconds != 5 || got.CooldownSeconds != 60 {
 		t.Fatalf("wrong update defaults: %+v", got)
 	}
+	options, err := checkerOptions(config.C.UpdateCheck)
+	if err != nil || options.Interval != 6*time.Hour {
+		t.Fatalf("omitted configuration must retain its six-hour interval: %+v, %v", options, err)
+	}
 	var requests atomic.Int32
 	previous := http.DefaultClient
 	http.DefaultClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -99,9 +103,14 @@ func TestProviderResolvesEnvironmentAndConfigDurations(t *testing.T) {
 	config.C.UpdateCheck.IntervalSeconds = 19
 	config.C.UpdateCheck.TimeoutSeconds = 7
 	config.C.UpdateCheck.CooldownSeconds = 11
+	options, err := checkerOptions(config.C.UpdateCheck)
+	if err != nil || options.Enabled || options.Interval != 19*time.Second ||
+		options.Timeout != 7*time.Second || options.Cooldown != 11*time.Second {
+		t.Fatalf("bad configured checker options: %+v, %v", options, err)
+	}
 	t.Setenv("UPDATE_CHECK_ENABLED", "true")
 	t.Setenv("UPDATE_CHECK_INTERVAL_SECONDS", "42")
-	options, err := checkerOptions(config.C.UpdateCheck)
+	options, err = checkerOptions(config.C.UpdateCheck)
 	if err != nil || !options.Enabled || options.Interval != 42*time.Second ||
 		options.Timeout != 7*time.Second || options.Cooldown != 11*time.Second {
 		t.Fatalf("bad resolved checker options: %+v, %v", options, err)
@@ -118,6 +127,8 @@ func TestProviderRejectsInvalidCheckConfigurationWithoutStarting(t *testing.T) {
 		{name: "bad enable flag", env: "UPDATE_CHECK_ENABLED", value: "sometimes"},
 		{name: "bad interval", env: "UPDATE_CHECK_INTERVAL_SECONDS", value: "tomorrow"},
 		{name: "negative env interval", env: "UPDATE_CHECK_INTERVAL_SECONDS", value: "-1"},
+		{name: "zero env interval", env: "UPDATE_CHECK_INTERVAL_SECONDS", value: "0"},
+		{name: "zero config interval", change: func() { config.C.UpdateCheck.IntervalSeconds = 0 }},
 		{name: "overflow interval", env: "UPDATE_CHECK_INTERVAL_SECONDS", value: "9223372036854775807"},
 		{name: "negative config timeout", change: func() { config.C.UpdateCheck.TimeoutSeconds = -1 }},
 		{name: "negative config cooldown", change: func() { config.C.UpdateCheck.CooldownSeconds = -1 }},

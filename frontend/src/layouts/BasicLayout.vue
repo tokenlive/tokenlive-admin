@@ -27,6 +27,7 @@
                             <template #footer="{ collapsed }">
                                 <sidebar-version
                                     :version="displayVersion"
+                                    :gateway-summary="gatewaySummary"
                                     :has-update="hasUpdate"
                                     :collapsed="collapsed"
                                     :theme="config.sideTheme"
@@ -68,6 +69,7 @@
                                 <template #footer="{ collapsed }">
                                     <sidebar-version
                                         :version="displayVersion"
+                                        :gateway-summary="gatewaySummary"
                                         :has-update="hasUpdate"
                                         :collapsed="collapsed"
                                         :theme="config.sideTheme"
@@ -102,6 +104,7 @@
                         <template #footer="{ collapsed }">
                             <sidebar-version
                                 :version="displayVersion"
+                                :gateway-summary="gatewaySummary"
                                 :has-update="hasUpdate"
                                 :collapsed="collapsed"
                                 :theme="config.sideTheme"
@@ -138,6 +141,7 @@
                         <template #footer="{ collapsed }">
                             <sidebar-version
                                 :version="displayVersion"
+                                :gateway-summary="gatewaySummary"
                                 :has-update="hasUpdate"
                                 :collapsed="collapsed"
                                 :theme="config.sideTheme"
@@ -253,6 +257,14 @@ const displayVersion = computed(() =>
         ? formatIdentity(summary.value.identity, versionLabels.value)
         : t('app.about.frontendBuildShort', { version: fallbackVersion.value })
 )
+const gatewaySummary = computed(() => {
+    if (summary.value?.identity?.edition !== 'professional') return ''
+    const gateway = summary.value.gateway
+    if (gateway?.status === 'unavailable') return t('app.about.gatewaySummary.unavailable')
+    if (gateway?.status !== 'observed' || !gateway.groups?.length) return t('app.about.gatewaySummary.unknown')
+    if (gateway.groups.length > 1) return t('app.about.gatewaySummary.mixed')
+    return `Gateway ${gateway.groups[0].version || t('app.about.unknown')}`
+})
 const hasUpdate = computed(() => hasAvailableUpdate(summary.value, updates.value))
 watch(aboutOpen, (open) => {
     if (open) void load()

@@ -167,7 +167,14 @@ try {
     await reload()
     assert.equal(await dialog().count(), 0, 'No automatic dialog')
     assert.match(await sidebar().innerText(), /专业版.*Admin.*v1\.2\.3/)
+    assert.match(
+        await sidebar().innerText(),
+        /Gateway.*混合版本/,
+        'Mixed Gateway reports are visible before opening About'
+    )
+    assert.doesNotMatch(await sidebar().innerText(), /dev-local-long-build/)
     assert.match(await sidebar().getAttribute('aria-label'), /有可用更新/)
+    await screenshot('sidebar-mixed-versions')
     assert.equal(summaryCalls, 1, 'One layout owner fetches one Summary')
     assert.equal(updateCalls, 1)
     assert.equal(obsoleteCalls, 0)
@@ -238,6 +245,7 @@ try {
     await page.locator('.ant-layout-sider-collapsed').waitFor()
     assert.equal((await sidebar().innerText()).trim(), '')
     assert.match(await sidebar().getAttribute('aria-label'), /有可用更新/)
+    assert.match(await sidebar().getAttribute('aria-label'), /Gateway.*混合版本/)
     await screenshot('collapsed-update-badge')
     await openAbout()
     await closeAbout()
@@ -256,7 +264,10 @@ try {
             await page.evaluate((config) => window.layoutTest.setConfig(config), { layout, menuMode })
             await page.waitForLoadState('networkidle')
             assert.equal(summaryCalls, before, 'Switching layout does not create another version owner')
-            if (menuMode !== 'top') assert.match(await sidebar().innerText(), /专业版.*Admin.*v1\.2\.3/)
+            if (menuMode !== 'top') {
+                assert.match(await sidebar().innerText(), /专业版.*Admin.*v1\.2\.3/)
+                assert.match(await sidebar().innerText(), /Gateway.*混合版本/)
+            }
             assert.equal(await page.locator('.basic-header .ant-badge-dot').count(), 1)
             await page.locator('.basic-header .anticon-setting').click()
             await page
@@ -281,6 +292,7 @@ try {
         window.layoutTest.setConfig({ layout: 'leftRight', menuMode: 'side' })
     })
     await page.setViewportSize({ width: 390, height: 844 })
+    assert.match(await sidebar().getAttribute('aria-label'), /Gateway.*Mixed versions/)
     await openAbout()
     await dialog()
         .locator('.ant-modal-body')
@@ -376,9 +388,71 @@ try {
         if (status === 429) assert.match(await dialog().getByRole('alert').innerText(), /检查过于频繁/)
     }
     await resetScenario({ ...summaryFixture(), gateway: { status: 'unknown', scope: 'this_admin', groups: [] } })
+    assert.match(await sidebar().innerText(), /Gateway.*未知/)
     await openAbout()
     assert.match(await dialog().innerText(), /当前 Admin 实例/)
     assert.match(await dialog().innerText(), /暂无有效上报/)
+
+    await resetScenario({ ...summaryFixture(), gateway: { status: 'unavailable', scope: 'shared', groups: [] } })
+    assert.match(await sidebar().innerText(), /Gateway.*上报不可用/)
+    assert.doesNotMatch(await sidebar().innerText(), /混合版本/)
+    const singleGateway = summaryFixture()
+    singleGateway.gateway.groups = [singleGateway.gateway.groups[1]]
+    await resetScenario(singleGateway)
+    assert.match(await sidebar().innerText(), /Gateway.*dev-local-long-build-20260912-abcdef0123456789/)
+    assert.doesNotMatch(await sidebar().innerText(), /混合版本/)
+    const gatewayLine = sidebar().locator('.sidebar-version__gateway')
+    assert.equal(
+        await gatewayLine.evaluate(
+            (element) =>
+                element.scrollWidth > element.clientWidth && getComputedStyle(element).textOverflow === 'ellipsis'
+        ),
+        true,
+        'A long single Gateway version is ellipsized within the fixed sidebar'
+    )
+    assert.ok((await sidebar().boundingBox()).width <= originalBox.width + 1)
+    await screenshot('sidebar-long-gateway')
+
+    const coldUpdates = updatesFixture()
+    coldUpdates.components = coldUpdates.components.map((item) => ({
+        ...item,
+        latest: undefined,
+        state: 'unchecked',
+        source: {
+            status: 'unchecked',
+            stale: false,
+            last_attempt: '0001-01-01T00:00:00Z',
+            last_success: '0001-01-01T00:00:00Z',
+        },
+    }))
+    for (const [locale, label] of [
+        ['zh-cn', '尚未检查'],
+        ['en-us', 'Not checked yet'],
+    ]) {
+        await resetScenario(summaryFixture(), coldUpdates)
+        await page.evaluate((value) => window.layoutTest.setLocale(value), locale)
+        await openAbout()
+        assert.equal(
+            await dialog().locator('.system-about__component').getByText(label, { exact: true }).count(),
+            3,
+            'Each cold component must show the explicit unchecked state'
+        )
+        assert.equal(await page.locator('.ant-badge-dot').count(), 0)
+        assert.equal(await dialog().getByRole('link').count(), 0)
+        assert.equal(
+            await dialog()
+                .getByRole('button', { name: /复制升级指引|Copy upgrade guidance/ })
+                .count(),
+            0
+        )
+        assert.doesNotMatch(
+            await dialog().innerText(),
+            /暂无法判断|Cannot determine|有可用更新|Update available|brew upgrade|app\.about\./
+        )
+        assert.equal(checkCalls, 0, 'Opening a cold snapshot must not trigger an external check')
+        await dialog().locator('.system-about__component').first().scrollIntoViewIfNeeded()
+        await screenshot(`about-unchecked-${locale}`)
+    }
 
     const standalone = {
         ...summaryFixture(),
@@ -400,6 +474,7 @@ try {
     await resetScenario(standalone, standaloneUpdates)
     await openAbout()
     assert.match(await sidebar().innerText(), /单机版 v2\.0\.0/)
+    assert.doesNotMatch(await sidebar().innerText(), /Gateway/)
     assert.doesNotMatch(await dialog().innerText(), /Gateway|Admin v1\.2\.3/)
     assert.match(await dialog().innerText(), /brew update\nbrew upgrade tokenlive/)
     assert.match(await dialog().innerText(), /仅当.*Homebrew services.*手动.*重启.*请求/)
@@ -443,6 +518,7 @@ try {
     await reload()
     await openAbout()
     assert.match(await sidebar().innerText(), /前端构建/)
+    assert.doesNotMatch(await sidebar().innerText(), /Gateway/)
     assert.match(await dialog().innerText(), /前端构建信息.*不代表运行中的服务版本/s)
     assert.doesNotMatch(await dialog().innerText(), /专业版|Admin v1\.2\.3|检查更新|v1\.3\.0/)
     assert.deepEqual(errors, [])

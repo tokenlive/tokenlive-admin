@@ -15,6 +15,11 @@
                     v-if="!collapsed"
                     class="sidebar-version__text">
                     <span class="sidebar-version__number">{{ version }}</span>
+                    <span
+                        v-if="gatewaySummary"
+                        class="sidebar-version__gateway">
+                        {{ gatewaySummary }}
+                    </span>
                 </span>
                 <a-badge
                     :dot="hasUpdate"
@@ -34,6 +39,7 @@ import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
     version: { type: String, required: true },
+    gatewaySummary: { type: String, default: '' },
     hasUpdate: { type: Boolean, default: false },
     collapsed: { type: Boolean, default: false },
     theme: { type: String, default: 'dark' },
@@ -42,7 +48,8 @@ defineEmits(['about'])
 const { token } = antTheme.useToken()
 const { t } = useI18n()
 const accessibleLabel = computed(
-    () => `${t('app.about.title')} · ${props.version}${props.hasUpdate ? ` · ${t('app.about.updateAvailable')}` : ''}`
+    () =>
+        `${t('app.about.title')} · ${props.version}${props.gatewaySummary ? ` · ${props.gatewaySummary}` : ''}${props.hasUpdate ? ` · ${t('app.about.updateAvailable')}` : ''}`
 )
 </script>
 
@@ -94,15 +101,19 @@ const accessibleLabel = computed(
 
     &__text {
         display: flex;
-        align-items: baseline;
-        gap: 8px;
+        flex-direction: column;
+        gap: 2px;
         min-width: 0;
         white-space: nowrap;
     }
 
-    &__number {
+    &__number,
+    &__gateway {
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    &__number {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
 

@@ -60,6 +60,9 @@ func checkerOptions(cfg config.UpdateCheckConfig) (updatecheck.Options, error) {
 		}
 		cfg.IntervalSeconds = seconds
 	}
+	if cfg.IntervalSeconds <= 0 {
+		return updatecheck.Options{}, fmt.Errorf("update check interval seconds must be positive")
+	}
 	options := updatecheck.Options{Enabled: cfg.Enabled}
 	for _, item := range []struct {
 		name    string

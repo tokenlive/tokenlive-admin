@@ -228,6 +228,7 @@ const knownStates = new Set([
     'stale',
     'unknown',
     'unavailable',
+    'unchecked',
     'checking',
 ])
 
