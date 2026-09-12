@@ -10,11 +10,13 @@ import (
 
 	"github.com/tokenlive/tokenlive-admin/internal/bootstrap"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
+	"github.com/tokenlive/tokenlive-admin/pkg/productversion"
 	"github.com/urfave/cli/v2"
 )
 
 // The function defines a CLI command to start a server with various flags and options, including the
 // ability to run as a daemon.
+// The optional arguments are version and build kind; legacy callers default to dev.
 func StartCmd(version ...string) *cli.Command {
 	return &cli.Command{
 		Name:  "start",
@@ -48,9 +50,13 @@ func StartCmd(version ...string) *cli.Command {
 			workDir := c.String("workdir")
 			staticDir := c.String("static")
 			configs := c.String("config")
-			ver := ""
-			if len(version) > 0 {
+			ver := "dev"
+			if len(version) > 0 && version[0] != "" {
 				ver = version[0]
+			}
+			kind := "dev"
+			if len(version) > 1 {
+				kind = version[1]
 			}
 
 			if c.Bool("daemon") {
@@ -100,6 +106,11 @@ func StartCmd(version ...string) *cli.Command {
 				Configs:   configs,
 				StaticDir: staticDir,
 				Version:   ver,
+				Identity: &productversion.Identity{
+					Edition:        "professional",
+					InstallChannel: "release",
+					Build:          productversion.Build{Version: ver, Kind: kind},
+				},
 			})
 			if err != nil {
 				fmt.Printf("failed to start service: %s \n", err.Error())

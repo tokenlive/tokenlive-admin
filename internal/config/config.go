@@ -5,19 +5,21 @@ import (
 
 	"github.com/tokenlive/tokenlive-admin/pkg/encoding/json"
 	"github.com/tokenlive/tokenlive-admin/pkg/logging"
+	"github.com/tokenlive/tokenlive-admin/pkg/productversion"
 )
 
 type Config struct {
-	Logger     logging.LoggerConfig
-	General    General
-	Storage    Storage
-	Middleware Middleware
-	Util       Util
-	Dictionary Dictionary
-	Portal     PortalConfig
-	Gateway    GatewayConfig
-	OAuth      OAuthConfig
-	Sync       Sync
+	RuntimeIdentity productversion.Identity `json:"-" toml:"-"`
+	Logger          logging.LoggerConfig
+	General         General
+	Storage         Storage
+	Middleware      Middleware
+	Util            Util
+	Dictionary      Dictionary
+	Portal          PortalConfig
+	Gateway         GatewayConfig
+	OAuth           OAuthConfig
+	Sync            Sync
 }
 
 type Sync struct {
@@ -63,10 +65,10 @@ type General struct {
 	DisableSwagger     bool
 	DisablePrintConfig bool
 	DefaultLoginPwd    string `default:"21232f297a57a5a743894a0e4a801fc3"` // MD5(admin)
-	WorkDir        string // From command arguments
-	MenuFile       string // From schema.Menus (JSON/YAML)
-	PolicySeedFile string // Initial policy templates (JSON), created only when absent
-	DenyOperateMenu bool
+	WorkDir            string // From command arguments
+	MenuFile           string // From schema.Menus (JSON/YAML)
+	PolicySeedFile     string // Initial policy templates (JSON), created only when absent
+	DenyOperateMenu    bool
 	HTTP               struct {
 		Addr            string `default:":8040"`
 		ShutdownTimeout int    `default:"10"` // seconds

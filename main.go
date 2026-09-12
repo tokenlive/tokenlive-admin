@@ -7,8 +7,9 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// Usage: go build -ldflags "-X main.VERSION=x.x.x"
-var VERSION = "v1.0.0"
+// Usage: go build -ldflags "-X main.VERSION=x.x.x -X main.BUILD_KIND=release"
+var VERSION = "dev"
+var BUILD_KIND = "dev"
 
 // @title tokenlive-admin
 // @version v1.0.0
@@ -24,7 +25,7 @@ func main() {
 	app.Version = VERSION
 	app.Usage = "An admin control center for tokelvie."
 	app.Commands = []*cli.Command{
-		cmd.StartCmd(VERSION),
+		cmd.StartCmd(VERSION, BUILD_KIND),
 		cmd.StopCmd(),
 		cmd.VersionCmd(VERSION),
 	}

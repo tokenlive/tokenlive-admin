@@ -12,15 +12,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tokenlive/tokenlive-admin/internal/bootstrap"
+	"github.com/tokenlive/tokenlive-admin/pkg/productversion"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
 // Options configures admin embed startup.
 type Options struct {
-	WorkDir   string // default "configs"
-	Configs   string // relative to WorkDir, default "dev"
-	StaticDir string // SPA directory; empty skips static middleware
-	Version   string // optional version override
+	WorkDir   string                   // default "configs"
+	Configs   string                   // relative to WorkDir, default "dev"
+	StaticDir string                   // SPA directory; empty skips static middleware
+	Version   string                   // optional version override
+	Identity  *productversion.Identity // trusted host identity; overrides Version
 
 	// Engine, if non-nil, is used for Register (host-owned). New does not listen.
 	Engine *gin.Engine
@@ -67,6 +69,7 @@ func New(ctx context.Context, opt Options) (*App, error) {
 		Configs:   opt.Configs,
 		StaticDir: opt.StaticDir,
 		Version:   opt.Version,
+		Identity:  opt.Identity,
 	})
 	if err != nil {
 		return nil, err

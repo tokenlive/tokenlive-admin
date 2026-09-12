@@ -12,25 +12,27 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/utility/prom"
 	"github.com/tokenlive/tokenlive-admin/internal/wirex"
 	"github.com/tokenlive/tokenlive-admin/pkg/logging"
+	"github.com/tokenlive/tokenlive-admin/pkg/productversion"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"go.uber.org/zap"
 )
 
 // RunConfig defines the config for run command.
 type RunConfig struct {
-	WorkDir   string // Working directory
-	Configs   string // Directory or files (multiple separated by commas)
-	StaticDir string // Static files directory
-	Version   string // Optional version override
+	WorkDir   string                   // Working directory
+	Configs   string                   // Directory or files (multiple separated by commas)
+	StaticDir string                   // Static files directory
+	Version   string                   // Optional version override
+	Identity  *productversion.Identity // Trusted executable or embedding host identity
 }
 
 // Runtime holds an initialized admin stack without listening.
 // Used by adminapp embed facade and by Run (CLI).
 type Runtime struct {
-	Injector       *wirex.Injector
-	CleanInjector  func()
-	CleanLogger    func()
-	Ctx            context.Context
+	Injector      *wirex.Injector
+	CleanInjector func()
+	CleanLogger   func()
+	Ctx           context.Context
 }
 
 // Init loads config, logger, wire injector, mods Init, and prometheus.
@@ -39,9 +41,8 @@ func Init(ctx context.Context, runCfg RunConfig) (*Runtime, error) {
 	workDir := runCfg.WorkDir
 	staticDir := runCfg.StaticDir
 	config.MustLoad(workDir, strings.Split(runCfg.Configs, ",")...)
-	if runCfg.Version != "" {
-		config.C.General.Version = runCfg.Version
-	}
+	config.C.RuntimeIdentity = productversion.ResolveIdentity(runCfg.Identity, runCfg.Version)
+	config.C.General.Version = config.C.RuntimeIdentity.Build.Version
 	config.C.General.WorkDir = workDir
 	config.C.Middleware.Static.Dir = staticDir
 	config.C.Print()
