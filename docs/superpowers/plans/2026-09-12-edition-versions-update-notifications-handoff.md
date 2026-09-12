@@ -6,7 +6,7 @@
 
 本地实施与验收完成：13 项任务通过逐项审查，整项审查发现的 3 项 Important 和 2 项 Minor 均已修复；最终独立复审 F1–F5 全部 ADDRESSED，没有新增问题。代码具备本次功能的技术集成条件，但不等于已经发布或部署。
 
-尚未合回原项目、推送、打 tag、发布、安装或重启服务。四个隔离工作区全部保留；Standalone 按仓库规则保持未暂存、未提交。
+2026-09-12 经用户进一步明确授权，四仓库已快进合回各自本地 `main`，Standalone 已提交。尚未推送、打 tag、发布、安装或重启服务。隔离工作区和过程记录全部保留。
 
 ## 已交付能力
 
@@ -27,10 +27,24 @@
 | --- | --- | --- |
 | Admin | `/private/tmp/tokenlive-edition-work.e9cKUC/admin` | 最终代码提交 `8b03698c81515dd8935ad57ff2c985bf72b2cb07`；交付文档另有提交 |
 | Gateway | `/private/tmp/tokenlive-edition-work.e9cKUC/gateway` | `4ccd4b007974033585312dc7d234956b72e2879a` |
-| Standalone | `/private/tmp/tokenlive-edition-work.e9cKUC/standalone` | 基线 `bed7691c98d783e0e9417b49cd836611dd9dbbeb`；18 个已审查的修改/新增文件未暂存、未提交 |
+| Standalone | `/private/tmp/tokenlive-edition-work.e9cKUC/standalone` | 18 个已审查文件提交为 `cdab01310f880202f96173a2c763c17fe39083eb`，已合入 main |
 | Deploy | `/private/tmp/tokenlive-edition-work.e9cKUC/deploy` | `5e5050b904a8de18df62d1f460d9970877d695db` |
 
-原始 Admin 的 BasicHeader 暂存 blob 为 `035131b0882ef0e2de8beb2f1a1b02a86390d452`，保持不变；原目录的计划/设计文档暂存和 ModelDetail 暂存/工作区改动也未触碰。后续集成必须逐块保留用户内容，不能用隔离目录的整文件覆盖原始 BasicHeader。
+Admin 集成前的四项暂存内容完整保存在专用 stash `88d0aa767f7e7128d48d0cf9284ecd42921473f6` 和 `/private/tmp/tokenlive-main-integration.cW14ZF/admin-staged-all.patch`；原有 `abc` stash `6d6ff1b860856896906b13547b3eabc0cacfd7af` 未变。
+
+`ModelDetail.vue` 原样恢复为暂存，blob 仍为 `f256bed01ff70653d6e02249668d752d8a3c3cdf`。`BasicHeader.vue` 保留用户设置按钮的位置和 tooltip，并合并新功能的 badge/无障碍标签，格式化后仍保持暂存，blob 为 `790fb02d63c01f83578bf37d0861da76b588aaa4`。这两项用户改动未纳入功能提交。原暂存计划/设计文档已由功能分支中的完成版承接，旧快照保留在备份中。
+
+## 本地 main 集成后复验
+
+从 `/Users/chenzhiguo/Projects/tokenlive-{admin,gateway,standalone,deploy}` 的实际 main 工作区运行，结果均通过：
+
+- Admin 五个版本相关包竞态测试及 adminapp/bootstrap；Gateway reporter/bootstrap/server 竞态测试。
+- Standalone 使用临时联合图指向三个 main 目录，真实 sender→Admin 竞态集成及 main/assemble 测试通过；22 项脚本测试通过。
+- Deploy 27 项脚本测试、原有 Shell 回归和语法检查通过。
+- 前端 39 项 Node 测试、生产构建、BasicHeader Prettier 检查通过；既有模块/MockTimers/chunk 警告仍保留。
+- 完整浏览器矩阵在保留用户两项暂存改动的工作区通过，涵盖六种布局和版本权限/状态/复制等行为；临时服务器已停止。
+
+复验不使用实际业务配置或服务。临时联合图 `/private/tmp/tokenlive-main-integration.cW14ZF/go.work` 没有提交，仍不能代替已发布依赖验证。合并备份、详细记录和截图位于 `/private/tmp/tokenlive-main-integration.cW14ZF`。没有拉取远端新提交；此次仅集成已审核的本地功能分支。
 
 ## 验证证据
 
@@ -76,4 +90,4 @@
 - `final-fix-report.md`：真实 RED/GREEN、修复提交、完整验证；
 - `final-rereview-report.md`：五项全部关闭、无新增问题。
 
-过程记录与未提交的 Standalone 变更均保留，不删除工作区。后续合并、提交 Standalone 或发布须由用户单独明确选择。
+过程记录和全部隔离工作区保留，不删除备份。Standalone 提交和四仓库本地合并已按后续授权完成；远端推送、发布、安装及服务操作仍须用户另行明确授权。

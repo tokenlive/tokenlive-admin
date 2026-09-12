@@ -12,6 +12,8 @@
 
 **执行状态（2026-09-12）：**13 项任务及最终整项审查发现的 5 项问题均已完成，独立复审无未解决问题，提交后的隔离环境回归通过。以下勾选表示本地实施步骤已有证据，不表示已发布、已合入原项目或真实部署已通过。交付结果见[交付记录](2026-09-12-edition-versions-update-notifications-handoff.md)，完整过程保留在本工作区 `.superpowers/sdd/2026-09-12-edition-versions-update-notifications/progress.md`。
 
+**后续集成（2026-09-12）：**用户进一步明确同意合回各仓库 main 并提交 Standalone。四仓库已完成本地快进合并，Standalone 提交 `cdab01310f880202f96173a2c763c17fe39083eb`；合并后的实际项目目录已完成 Go、脚本、前端及浏览器回归。下文“不提交/不合并”是此前实施阶段的边界记录，现由这次明确授权完成本地集成；仍未推送、发布、安装或重启。Admin 原有 BasicHeader/ModelDetail 改动保留暂存，备份见交付记录。
+
 ## Global Constraints
 
 - 自动检查：启动后异步检查一次，此后每 6 小时检查，周期可配置。

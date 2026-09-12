@@ -1,6 +1,6 @@
 # 单机版与专业版版本展示及升级提醒
 
-状态：2026-09-12 已完成 13 项实现任务、逐项审查、整体审查修复及独立复审；隔离环境验证通过。尚未合入原项目、发布或部署；发布依赖和真实 Docker 环境验证仍是独立门槛。详见[交付记录](../plans/2026-09-12-edition-versions-update-notifications-handoff.md)。
+状态：2026-09-12 已完成 13 项实现任务、逐项审查、整体审查修复及独立复审；经用户确认，四仓库均已合入本地 main，Standalone 已提交，合并后隔离测试通过。尚未推送、发布或部署；发布依赖和真实 Docker 环境验证仍是独立门槛。详见[交付记录](../plans/2026-09-12-edition-versions-update-notifications-handoff.md)。
 
 本文定义运行中的版本身份、更新判断、权限和网关版本上报，不提供自动安装或升级编排。领域术语见 [CONTEXT.md](../../../CONTEXT.md)，决策理由见 [ADR-0005](../../adr/0005-edition-version-boundaries.md) 和 [ADR-0006](../../adr/0006-server-side-update-check-isolation.md)。
 
