@@ -31,6 +31,7 @@ import (
 	api3 "github.com/tokenlive/tokenlive-admin/internal/mods/space/api"
 	biz5 "github.com/tokenlive/tokenlive-admin/internal/mods/space/biz"
 	dal5 "github.com/tokenlive/tokenlive-admin/internal/mods/space/dal"
+	"github.com/tokenlive/tokenlive-admin/internal/mods/systemversion"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
@@ -252,6 +253,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		Trans:             trans,
 		Cache:             cacher,
 		ProviderDAL:       provider,
+		EndpointDAL:       endpoint,
 		DataPermissionBIZ: bizDataPermission,
 		ConfigRedisSync:   configRedisSync,
 		AuditLogBIZ:       bizAuditLog,
@@ -300,14 +302,6 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		PolicyTaggingDAL:      policyTagging,
 		ModelDAL:              model,
 	}
-	bizPolicyCircuitBreak := &biz4.PolicyCircuitBreak{
-		Trans:                 trans,
-		PolicyCircuitBreakDAL: policyCircuitBreak,
-		PolicyRedisSync:       policyRedisSync,
-		ModelDAL:              model,
-		DataPermissionDAL:     dataPermission,
-		AuditLogBIZ:           bizAuditLog,
-	}
 	bizPolicyInvocation := &biz4.PolicyInvocation{
 		Trans:               trans,
 		PolicyInvocationDAL: policyInvocation,
@@ -315,6 +309,14 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		ModelDAL:            model,
 		DataPermissionDAL:   dataPermission,
 		AuditLogBIZ:         bizAuditLog,
+	}
+	bizPolicyCircuitBreak := &biz4.PolicyCircuitBreak{
+		Trans:                 trans,
+		PolicyCircuitBreakDAL: policyCircuitBreak,
+		PolicyRedisSync:       policyRedisSync,
+		ModelDAL:              model,
+		DataPermissionDAL:     dataPermission,
+		AuditLogBIZ:           bizAuditLog,
 	}
 	bizModel := &biz3.Model{
 		Trans:                 trans,
@@ -529,13 +531,25 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		CleanupTask:   cleanupTask,
 		Hub:           wsHub,
 	}
+	service, cleanup4, err := systemversion.ProvideService(ctx, redisClient)
+	if err != nil {
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	systemVersion := &systemversion.SystemVersion{
+		Service: service,
+		RBAC:    rbacRBAC,
+	}
 	modsMods := &mods.Mods{
-		RBAC:      rbacRBAC,
-		Resource:  resourceResource,
-		Space:     spaceSpace,
-		Policy:    policyPolicy,
-		Dashboard: dashboardDashboard,
-		Ops:       opsOps,
+		RBAC:          rbacRBAC,
+		Resource:      resourceResource,
+		Space:         spaceSpace,
+		Policy:        policyPolicy,
+		Dashboard:     dashboardDashboard,
+		Ops:           opsOps,
+		SystemVersion: systemVersion,
 	}
 	injector := &Injector{
 		DB:    db,
@@ -544,6 +558,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		M:     modsMods,
 	}
 	return injector, func() {
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()

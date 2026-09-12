@@ -11,6 +11,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/space"
+	"github.com/tokenlive/tokenlive-admin/internal/mods/systemversion"
 )
 
 const (
@@ -26,15 +27,17 @@ var Set = wire.NewSet(
 	policy.Set,
 	dashboard.Set,
 	ops.Set,
+	systemversion.Set,
 )
 
 type Mods struct {
-	RBAC      *rbac.RBAC
-	Resource  *resource.Resource
-	Space     *space.Space
-	Policy    *policy.Policy
-	Dashboard *dashboard.Dashboard
-	Ops       *ops.Ops
+	RBAC          *rbac.RBAC
+	Resource      *resource.Resource
+	Space         *space.Space
+	Policy        *policy.Policy
+	Dashboard     *dashboard.Dashboard
+	Ops           *ops.Ops
+	SystemVersion *systemversion.SystemVersion
 }
 
 func (a *Mods) Init(ctx context.Context) error {
@@ -54,6 +57,9 @@ func (a *Mods) Init(ctx context.Context) error {
 		return err
 	}
 	if err := a.Ops.Init(ctx); err != nil {
+		return err
+	}
+	if err := a.SystemVersion.Init(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -87,10 +93,16 @@ func (a *Mods) RegisterRouters(ctx context.Context, e *gin.Engine) error {
 	if err := a.Ops.RegisterV1Routers(ctx, v1); err != nil {
 		return err
 	}
+	if err := a.SystemVersion.RegisterV1Routers(ctx, v1); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (a *Mods) Release(ctx context.Context) error {
+	if err := a.SystemVersion.Release(ctx); err != nil {
+		return err
+	}
 	if err := a.RBAC.Release(ctx); err != nil {
 		return err
 	}

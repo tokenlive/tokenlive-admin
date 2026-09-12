@@ -18,6 +18,7 @@ type Config struct {
 	Dictionary      Dictionary
 	Portal          PortalConfig
 	Gateway         GatewayConfig
+	UpdateCheck     UpdateCheckConfig
 	OAuth           OAuthConfig
 	Sync            Sync
 }
@@ -33,7 +34,15 @@ type PortalConfig struct {
 }
 
 type GatewayConfig struct {
-	APIKeyPepper string
+	APIKeyPepper     string
+	VersionNamespace string `default:"default"`
+}
+
+type UpdateCheckConfig struct {
+	Enabled         bool `default:"true"`
+	IntervalSeconds int  `default:"21600"`
+	TimeoutSeconds  int  `default:"5"`
+	CooldownSeconds int  `default:"60"`
 }
 
 type OAuthConfig struct {
