@@ -1,6 +1,6 @@
 # 单机版与专业版版本展示及升级提醒
 
-状态：九轮设计决策已确认，本文待整体审阅；尚未实施。
+状态：2026-09-12 已完成 13 项实现任务、逐项审查、整体审查修复及独立复审；隔离环境验证通过。尚未合入原项目、发布或部署；发布依赖和真实 Docker 环境验证仍是独立门槛。详见[交付记录](../plans/2026-09-12-edition-versions-update-notifications-handoff.md)。
 
 本文定义运行中的版本身份、更新判断、权限和网关版本上报，不提供自动安装或升级编排。领域术语见 [CONTEXT.md](../../../CONTEXT.md)，决策理由见 [ADR-0005](../../adr/0005-edition-version-boundaries.md) 和 [ADR-0006](../../adr/0006-server-side-update-check-isolation.md)。
 
@@ -57,7 +57,7 @@
 
 ### 3.2 版本比较
 
-候选选择的细化规则纳入本文整体审阅：Homebrew 以安装源当前 Formula 版本为唯一候选；专业版以对应发布源给出的最新正式 Release（latest）为候选，不遍历历史自行选取语义版本最大值，也不自行按日期排序替换发布源的推荐。候选不满足下面的稳定版条件时，本次没有合法候选，不回退到历史发行来宣称可以升级。
+已确认的候选选择规则：Homebrew 以安装源当前 Formula 版本为唯一候选；专业版以对应发布源给出的最新正式 Release（latest）为候选，不遍历历史自行选取语义版本最大值，也不自行按日期排序替换发布源的推荐。候选不满足下面的稳定版条件时，本次没有合法候选，不回退到历史发行来宣称可以升级。
 
 - 仅正式稳定版可作为目标；同时过滤发布元数据中的草稿、预发布标记和版本号中的 alpha、beta、rc 等预发布信息。
 - 采用语义版本比较，允许常见的前导 `v`；不得进行字符串排序或仅按发布日期判断升级关系。
@@ -241,7 +241,7 @@ brew services restart tokenlive
 
 ## 11. 已核对的代码入口
 
-以下是当前实现的阅读入口，而非已完成的功能：
+以下是版本功能及其原有集成边界的代码阅读入口；实际验收结果与限制见实施计划的执行记录：
 
 - Admin 身份传递：`adminapp/app.go`、`internal/bootstrap/bootstrap.go`。
 - 现有基础版本接口：`internal/mods/rbac/schema/login.go`、`internal/mods/rbac/biz/login.biz.go`。
