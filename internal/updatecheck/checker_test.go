@@ -37,6 +37,50 @@ func TestDisabledNeverCallsSource(t *testing.T) {
 	}
 }
 
+func TestDisabledCheckerLifecycleCancellationPrecedesDisabled(t *testing.T) {
+	for _, scenario := range []string{"closed", "parent_canceled", "parent_deadline"} {
+		t.Run(scenario, func(t *testing.T) {
+			parent, cancel := context.WithCancel(context.Background())
+			if scenario == "parent_deadline" {
+				cancel()
+				parent, cancel = context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+			}
+			defer cancel()
+			var calls atomic.Int32
+			c, err := NewChecker(parent, Options{Enabled: false}, map[string]Source{
+				"admin": sourceFunc(func(context.Context) (Candidate, error) {
+					calls.Add(1)
+					return Candidate{}, ErrNoCandidate
+				}),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer c.Close()
+			switch scenario {
+			case "closed":
+				c.Close()
+			case "parent_canceled":
+				cancel()
+			}
+			c.Start()
+			wantErr := error(context.Canceled)
+			if scenario == "parent_deadline" {
+				wantErr = context.DeadlineExceeded
+			}
+			for _, manual := range []bool{true, false} {
+				result, err := c.Check(context.Background(), manual)
+				if !errors.Is(err, wantErr) {
+					t.Errorf("manual=%v: check err = %v, want %v", manual, err, wantErr)
+				}
+				if result.Enabled || result.Sources["admin"].Status != "disabled" || calls.Load() != 0 {
+					t.Fatalf("lifecycle error changed disabled state: %+v, calls = %d", result, calls.Load())
+				}
+			}
+		})
+	}
+}
+
 // These doubles replace external requests, not the checker's scheduling/state.
 type checkerClock struct {
 	mu  sync.Mutex

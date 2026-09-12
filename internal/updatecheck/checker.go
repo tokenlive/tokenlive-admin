@@ -114,15 +114,15 @@ func (c *Checker) schedule() {
 func (c *Checker) Check(ctx context.Context, manual bool) (CheckResult, error) {
 	c.mu.Lock()
 	now := c.opts.Now()
-	if !c.opts.Enabled {
-		result := c.snapshotLocked(now)
-		c.mu.Unlock()
-		return result, ErrDisabled
-	}
 	if err := c.ctx.Err(); err != nil {
 		result := c.snapshotLocked(now)
 		c.mu.Unlock()
 		return result, err
+	}
+	if !c.opts.Enabled {
+		result := c.snapshotLocked(now)
+		c.mu.Unlock()
+		return result, ErrDisabled
 	}
 	if err := ctx.Err(); err != nil {
 		result := c.snapshotLocked(now)
