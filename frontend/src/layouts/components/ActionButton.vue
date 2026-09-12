@@ -45,11 +45,9 @@ function handleClick() {
     }
 
     :deep(.ant-badge) {
-        position: absolute;
-        right: 0;
-        top: 0;
-        transform: translate(50%, 0);
-        margin: 0;
+        display: inline-flex;
+        align-items: center;
+        line-height: 1;
     }
 }
 </style>
