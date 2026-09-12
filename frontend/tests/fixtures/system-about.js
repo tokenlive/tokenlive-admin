@@ -20,7 +20,8 @@ app.component('x-breadcrumb', Breadcrumb)
 
 const appStore = useAppStore()
 appStore.config.multiTab = false
-useUserStore().userInfo = { name: 'Admin' }
+// A root-like display name must never grant update-management capability.
+useUserStore().userInfo = { name: 'root' }
 const menuItems = Array.from({ length: 30 }, (_, i) => ({
     name: `menu-${i}`,
     path: '/demo',

@@ -91,8 +91,14 @@
                         </template>
                     </action-button>
                 </a-tooltip>
-                <action-button @click="handleConfig">
-                    <setting-outlined></setting-outlined>
+                <action-button
+                    :aria-label="`${$t('app.setting.pagestyle')}${hasUpdate ? ` · ${$t('app.about.updateAvailable')}` : ''}`"
+                    @click="handleConfig">
+                    <a-badge
+                        :dot="hasUpdate"
+                        :title="hasUpdate ? $t('app.about.updateAvailable') : undefined">
+                        <setting-outlined></setting-outlined>
+                    </a-badge>
                 </action-button>
                 <a-dropdown :trigger="['hover']">
                     <action-button :style="{ height: '44px' }">
@@ -179,6 +185,7 @@ defineOptions({
  * @property {string} theme 主题【light=亮色，dark=暗色】
  */
 const props = defineProps({
+    hasUpdate: { type: Boolean, default: false },
     theme: {
         type: String,
     },

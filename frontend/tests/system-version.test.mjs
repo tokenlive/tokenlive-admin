@@ -127,3 +127,29 @@ test('standalone copies only the package and empty Gateway groups remain unknown
     assert.match(copyVersionText({ ...summary, gateway: { groups: [] } }), /Gateway: unknown$/)
     assert.equal(copyVersionText(null), 'TokenLive Unknown · Version unknown\nChannel: unknown\nBuild: unknown')
 })
+
+test('optional labels localize identity and copy while keeping versions and default callers unchanged', () => {
+    const labels = {
+        professional: '专业版',
+        standalone: '单机版',
+        unknown: '未知',
+        version: '版本',
+        channel: '安装渠道',
+        build: '构建类型',
+        separator: '：',
+        channelValues: { release: '发行包', homebrew: 'Homebrew', unknown: '未知' },
+        buildValues: { release: '正式构建', dev: '开发构建', unknown: '未知' },
+    }
+    assert.equal(formatIdentity(identity, labels), '专业版 · Admin v1.2.3')
+    assert.equal(
+        formatIdentity({ edition: 'standalone', build: { version: '原始+build.1' } }, labels),
+        '单机版 原始+build.1'
+    )
+    assert.equal(formatIdentity(null, labels), '未知 · 版本 未知')
+    assert.equal(
+        copyVersionText(summary, labels),
+        'TokenLive 专业版 · Admin v1.2.3\n安装渠道：发行包\n构建类型：正式构建\nGateway v1.0.0 (正式构建) × 2\nGateway dev-local (开发构建) × 1'
+    )
+    assert.equal(copyVersionText(null, labels), 'TokenLive 未知 · 版本 未知\n安装渠道：未知\n构建类型：未知')
+    assert.equal(formatIdentity(identity), 'Professional · Admin v1.2.3')
+})

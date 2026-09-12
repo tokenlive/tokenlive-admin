@@ -4,20 +4,23 @@
         :class="[`sidebar-version--${theme}`, { 'sidebar-version--collapsed': collapsed }]">
         <a-tooltip
             placement="right"
-            :title="collapsed ? `${$t('app.about.title')} · ${version}` : undefined">
+            :title="collapsed ? accessibleLabel : undefined">
             <button
                 type="button"
                 class="sidebar-version__button"
-                :aria-label="`${$t('app.about.title')} · ${version}`"
+                :aria-label="accessibleLabel"
                 aria-haspopup="dialog"
                 @click="$emit('about')">
                 <span
                     v-if="!collapsed"
                     class="sidebar-version__text">
-                    <span>{{ $t('app.about.version') }}</span>
                     <span class="sidebar-version__number">{{ version }}</span>
                 </span>
-                <info-circle-outlined aria-hidden="true" />
+                <a-badge
+                    :dot="hasUpdate"
+                    :title="hasUpdate ? $t('app.about.updateAvailable') : undefined">
+                    <info-circle-outlined aria-hidden="true" />
+                </a-badge>
             </button>
         </a-tooltip>
     </div>
@@ -26,14 +29,21 @@
 <script setup>
 import { InfoCircleOutlined } from '@ant-design/icons-vue'
 import { theme as antTheme } from 'ant-design-vue'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-defineProps({
+const props = defineProps({
     version: { type: String, required: true },
+    hasUpdate: { type: Boolean, default: false },
     collapsed: { type: Boolean, default: false },
     theme: { type: String, default: 'dark' },
 })
 defineEmits(['about'])
 const { token } = antTheme.useToken()
+const { t } = useI18n()
+const accessibleLabel = computed(
+    () => `${t('app.about.title')} · ${props.version}${props.hasUpdate ? ` · ${t('app.about.updateAvailable')}` : ''}`
+)
 </script>
 
 <style lang="less" scoped>
@@ -76,7 +86,7 @@ const { token } = antTheme.useToken()
             outline-offset: -2px;
         }
 
-        > .anticon {
+        > .ant-badge {
             flex-shrink: 0;
             font-size: 14px;
         }

@@ -8,33 +8,37 @@ export function hasAvailableUpdate(summary, updates) {
     )
 }
 
-export function formatIdentity(identity) {
-    const version = identity?.build?.version || 'unknown'
+export function formatIdentity(identity, labels = {}) {
+    const version = identity?.build?.version || labels.unknown || 'unknown'
     switch (identity?.edition) {
         case 'standalone':
-            return `Standalone ${version}`
+            return `${labels.standalone || 'Standalone'} ${version}`
         case 'professional':
-            return `Professional · Admin ${version}`
+            return `${labels.professional || 'Professional'} · Admin ${version}`
         default:
-            return `Unknown · Version ${version}`
+            return `${labels.unknown || 'Unknown'} · ${labels.version || 'Version'} ${version}`
     }
 }
 
-export function copyVersionText(summary) {
+export function copyVersionText(summary, labels = {}) {
     const identity = summary?.identity
+    const separator = labels.separator || ': '
+    const valueLabel = (value, values) => (values ? values[value] || labels.unknown || 'unknown' : value || 'unknown')
     const lines = [
-        `TokenLive ${formatIdentity(identity)}`,
-        `Channel: ${identity?.install_channel || 'unknown'}`,
-        `Build: ${identity?.build?.kind || 'unknown'}`,
+        `TokenLive ${formatIdentity(identity, labels)}`,
+        `${labels.channel || 'Channel'}${separator}${valueLabel(identity?.install_channel, labels.channelValues)}`,
+        `${labels.build || 'Build'}${separator}${valueLabel(identity?.build?.kind, labels.buildValues)}`,
     ]
     if (identity?.edition === 'professional') {
         const groups = summary.gateway?.groups
         if (Array.isArray(groups) && groups.length) {
             for (const group of groups) {
-                lines.push(`Gateway ${group.version || 'unknown'} (${group.build_kind || 'unknown'}) × ${group.count}`)
+                lines.push(
+                    `Gateway ${group.version || labels.unknown || 'unknown'} (${valueLabel(group.build_kind, labels.buildValues)}) × ${group.count}`
+                )
             }
         } else {
-            lines.push('Gateway: unknown')
+            lines.push(`Gateway${separator}${labels.unknown || 'unknown'}`)
         }
     }
     return lines.join('\n')

@@ -6,6 +6,7 @@
                 <!-- 侧边菜单 -->
                 <template v-if="config.menuMode === 'side'">
                     <basic-header
+                        :has-update="hasUpdate"
                         :theme="config.headerTheme"
                         @config="$refs.configDialogRef.handleOpen()">
                         <template #left>
@@ -26,6 +27,7 @@
                             <template #footer="{ collapsed }">
                                 <sidebar-version
                                     :version="displayVersion"
+                                    :has-update="hasUpdate"
                                     :collapsed="collapsed"
                                     :theme="config.sideTheme"
                                     @about="aboutOpen = true" />
@@ -41,6 +43,7 @@
                 <!-- 混合菜单 -->
                 <template v-if="config.menuMode === 'mix'">
                     <basic-header
+                        :has-update="hasUpdate"
                         :theme="config.headerTheme"
                         @config="$refs.configDialogRef.handleOpen()">
                         <template #left>
@@ -65,6 +68,7 @@
                                 <template #footer="{ collapsed }">
                                     <sidebar-version
                                         :version="displayVersion"
+                                        :has-update="hasUpdate"
                                         :collapsed="collapsed"
                                         :theme="config.sideTheme"
                                         @about="aboutOpen = true" />
@@ -98,6 +102,7 @@
                         <template #footer="{ collapsed }">
                             <sidebar-version
                                 :version="displayVersion"
+                                :has-update="hasUpdate"
                                 :collapsed="collapsed"
                                 :theme="config.sideTheme"
                                 @about="aboutOpen = true" />
@@ -105,6 +110,7 @@
                     </basic-side>
                     <a-layout>
                         <basic-header
+                            :has-update="hasUpdate"
                             :theme="config.headerTheme"
                             @config="$refs.configDialogRef.handleOpen()">
                             <template #left>
@@ -132,6 +138,7 @@
                         <template #footer="{ collapsed }">
                             <sidebar-version
                                 :version="displayVersion"
+                                :has-update="hasUpdate"
                                 :collapsed="collapsed"
                                 :theme="config.sideTheme"
                                 @about="aboutOpen = true" />
@@ -139,6 +146,7 @@
                     </basic-side>
                     <a-layout>
                         <basic-header
+                            :has-update="hasUpdate"
                             :theme="config.headerTheme"
                             @config="$refs.configDialogRef.handleOpen()">
                             <basic-menu
@@ -155,6 +163,7 @@
             <!-- 顶部菜单，不区分布局方式 -->
             <template v-if="config.menuMode === 'top'">
                 <basic-header
+                    :has-update="hasUpdate"
                     :theme="config.headerTheme"
                     @config="$refs.configDialogRef.handleOpen()">
                     <template #left>
@@ -176,13 +185,22 @@
         @about="aboutOpen = true"></config-dialog>
     <system-about-dialog
         v-model:open="aboutOpen"
-        :version="displayVersion" />
+        :summary="summary"
+        :updates="updates"
+        :fallback-version="fallbackVersion"
+        :checking="checking"
+        :retry-after-seconds="retryAfterSeconds"
+        :error="error"
+        :labels="versionLabels"
+        @check="check" />
 </template>
 
 <script setup>
 import { storeToRefs } from 'pinia'
-import { onMounted, ref } from 'vue'
-import apis from '@/apis'
+import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useSystemVersion } from '@/composables/useSystemVersion'
+import { formatIdentity, hasAvailableUpdate } from '@/utils/system-version'
 import { useAppStore } from '@/store'
 import useMultiTab from './hooks/useMultiTab'
 import useMenu from './hooks/useMenu'
@@ -208,18 +226,36 @@ const { config } = storeToRefs(appStore)
 
 const configDialogRef = ref()
 const aboutOpen = ref(false)
-const displayVersion = ref(__APP_INFO__.version)
-
-onMounted(async () => {
-    try {
-        const res = await apis.pub.getVersion()
-        const version = res?.data?.version || res?.version
-        if (typeof version === 'string' && version.trim()) {
-            displayVersion.value = version.trim()
-        }
-    } catch {
-        // Keep the build-time version available when the public API is unreachable.
-    }
+const { t } = useI18n()
+// All menu layouts and About share this one cache-reading owner.
+const { summary, updates, fallbackVersion, checking, error, retryAfterSeconds, load, check } = useSystemVersion()
+const versionLabels = computed(() => ({
+    professional: t('app.about.edition.professional'),
+    standalone: t('app.about.edition.standalone'),
+    unknown: t('app.about.unknown'),
+    version: t('app.about.version'),
+    channel: t('app.about.channel'),
+    build: t('app.about.build'),
+    separator: t('app.about.labelSeparator'),
+    channelValues: {
+        release: t('app.about.channel.release'),
+        homebrew: t('app.about.channel.homebrew'),
+        unknown: t('app.about.unknown'),
+    },
+    buildValues: {
+        release: t('app.about.build.release'),
+        dev: t('app.about.build.dev'),
+        unknown: t('app.about.unknown'),
+    },
+}))
+const displayVersion = computed(() =>
+    summary.value
+        ? formatIdentity(summary.value.identity, versionLabels.value)
+        : t('app.about.frontendBuildShort', { version: fallbackVersion.value })
+)
+const hasUpdate = computed(() => hasAvailableUpdate(summary.value, updates.value))
+watch(aboutOpen, (open) => {
+    if (open) void load()
 })
 </script>
 
