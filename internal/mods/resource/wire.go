@@ -11,7 +11,10 @@ import (
 var Set = wire.NewSet(
 	wire.Struct(new(Resource), "*"),
 	wire.Struct(new(dal.Provider), "*"),
-	wire.Struct(new(biz.Provider), "*"),
+	// Preserve baseline Provider wiring. EndpointDAL must remain excluded until
+	// overlapping-key replacements stop re-matching previously changed endpoints;
+	// fixing that update algorithm is separate from version-status wiring.
+	wire.Struct(new(biz.Provider), "Trans", "Cache", "ProviderDAL", "DataPermissionBIZ", "ConfigRedisSync", "AuditLogBIZ"),
 	wire.Struct(new(api.Provider), "*"),
 	wire.Struct(new(dal.Endpoint), "*"),
 	wire.Struct(new(biz.Endpoint), "*"),

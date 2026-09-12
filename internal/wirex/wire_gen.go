@@ -253,7 +253,6 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		Trans:             trans,
 		Cache:             cacher,
 		ProviderDAL:       provider,
-		EndpointDAL:       endpoint,
 		DataPermissionBIZ: bizDataPermission,
 		ConfigRedisSync:   configRedisSync,
 		AuditLogBIZ:       bizAuditLog,
