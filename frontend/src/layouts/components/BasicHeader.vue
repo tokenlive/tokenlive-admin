@@ -91,15 +91,6 @@
                         </template>
                     </action-button>
                 </a-tooltip>
-                <action-button
-                    :aria-label="`${$t('app.setting.pagestyle')}${hasUpdate ? ` · ${$t('app.about.updateAvailable')}` : ''}`"
-                    @click="handleConfig">
-                    <a-badge
-                        :dot="hasUpdate"
-                        :title="hasUpdate ? $t('app.about.updateAvailable') : undefined">
-                        <setting-outlined></setting-outlined>
-                    </a-badge>
-                </action-button>
                 <a-dropdown :trigger="['hover']">
                     <action-button :style="{ height: '44px' }">
                         <translation-outlined />
@@ -120,6 +111,18 @@
                 <a-tooltip title="GitHub">
                     <action-button @click="handleGithub">
                         <github-outlined />
+                    </action-button>
+                </a-tooltip>
+
+                <a-tooltip :title="$t('app.setting.pagestyle')">
+                    <action-button
+                        :aria-label="`${$t('app.setting.pagestyle')}${hasUpdate ? ` · ${$t('app.about.updateAvailable')}` : ''}`"
+                        @click="handleConfig">
+                        <a-badge
+                            :dot="hasUpdate"
+                            :title="hasUpdate ? $t('app.about.updateAvailable') : undefined">
+                            <setting-outlined></setting-outlined>
+                        </a-badge>
                     </action-button>
                 </a-tooltip>
 

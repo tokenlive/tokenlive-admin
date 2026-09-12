@@ -5,34 +5,83 @@
         <div class="model-detail">
             <!-- 基本信息 -->
             <a-card
-                :title="$t('pages.model.detail.basicInfo')"
                 class="info-card"
                 :bordered="false">
-                <template #extra>
-                    <a-space>
-                        <a-button
-                            type="text"
-                            size="small"
-                            @click="basicInfoCollapsed = !basicInfoCollapsed">
-                            <template #icon>
-                                <down-outlined v-if="basicInfoCollapsed" />
-                                <up-outlined v-else />
+                <template #title>
+                    <div
+                        class="info-card-title"
+                        @click="toggleBasicInfo">
+                        <span class="info-card-title__text">{{ $t('pages.model.detail.basicInfo') }}</span>
+                        <div class="model-pulse-rail">
+                            <template v-if="hasRecentUsage">
+                                <EndpointStatusStrip :points="modelStatusPoints" />
+                                <div class="model-pulse-rail__stats">
+                                    <span class="model-pulse-rail__stat">
+                                        <span class="model-pulse-rail__stat-label">{{
+                                            $t('pages.endpoint.recent_status.success')
+                                        }}</span>
+                                        <span class="model-pulse-rail__stat-value">{{
+                                            formatPulseCount(pulseStats.success)
+                                        }}</span>
+                                    </span>
+                                    <span class="model-pulse-rail__stat">
+                                        <span class="model-pulse-rail__stat-label">{{
+                                            $t('pages.endpoint.recent_status.fail')
+                                        }}</span>
+                                        <span
+                                            class="model-pulse-rail__stat-value"
+                                            :class="{ 'is-alert': pulseStats.fail > 0 }">
+                                            {{ formatPulseCount(pulseStats.fail) }}
+                                        </span>
+                                    </span>
+                                    <span
+                                        v-if="pulseStats.ttft > 0"
+                                        class="model-pulse-rail__stat">
+                                        <span class="model-pulse-rail__stat-label">{{
+                                            $t('pages.endpoint.recent_status.ttft')
+                                        }}</span>
+                                        <span class="model-pulse-rail__stat-value is-metric">{{
+                                            formatPulseTtft(pulseStats.ttft)
+                                        }}</span>
+                                    </span>
+                                    <span
+                                        v-if="pulseStats.otps > 0"
+                                        class="model-pulse-rail__stat">
+                                        <span class="model-pulse-rail__stat-label">{{
+                                            $t('pages.endpoint.recent_status.otps')
+                                        }}</span>
+                                        <span class="model-pulse-rail__stat-value is-metric">{{
+                                            formatPulseOtps(pulseStats.otps)
+                                        }}</span>
+                                    </span>
+                                </div>
                             </template>
+                            <span
+                                v-else
+                                class="model-pulse-rail__empty">
+                                {{ $t('pages.model.recent_status.empty') }}
+                            </span>
+                        </div>
+                        <span class="info-card-toggle">
+                            <down-outlined v-if="basicInfoCollapsed" />
+                            <up-outlined v-else />
                             {{
                                 basicInfoCollapsed
                                     ? $t('component.tagSelect.expand')
                                     : $t('component.tagSelect.collapse')
                             }}
-                        </a-button>
-                        <a-button
-                            type="primary"
-                            ghost
-                            size="small"
-                            @click="handleEditModel">
-                            <template #icon><edit-outlined /></template>
-                            {{ $t('common.edit') }}
-                        </a-button>
-                    </a-space>
+                        </span>
+                    </div>
+                </template>
+                <template #extra>
+                    <a-button
+                        type="primary"
+                        ghost
+                        size="small"
+                        @click.stop="handleEditModel">
+                        <template #icon><edit-outlined /></template>
+                        {{ $t('common.edit') }}
+                    </a-button>
                 </template>
                 <template v-if="!basicInfoCollapsed">
                     <a-card-grid style="width: 25%; text-align: center">
@@ -150,64 +199,6 @@
                         </div>
                     </a-card-grid>
                 </template>
-            </a-card>
-
-            <a-card
-                class="pulse-card"
-                :bordered="false">
-                <div
-                    class="model-pulse-rail"
-                    :class="pulseToneClass">
-                    <span class="model-pulse-rail__label">{{ $t('pages.model.recent_status') }}</span>
-                    <template v-if="hasRecentUsage">
-                        <EndpointStatusStrip :points="modelStatusPoints" />
-                        <div class="model-pulse-rail__stats">
-                            <span class="model-pulse-rail__stat">
-                                <span class="model-pulse-rail__stat-label">{{
-                                    $t('pages.endpoint.recent_status.success')
-                                }}</span>
-                                <span class="model-pulse-rail__stat-value">{{
-                                    formatPulseCount(pulseStats.success)
-                                }}</span>
-                            </span>
-                            <span class="model-pulse-rail__stat">
-                                <span class="model-pulse-rail__stat-label">{{
-                                    $t('pages.endpoint.recent_status.fail')
-                                }}</span>
-                                <span
-                                    class="model-pulse-rail__stat-value"
-                                    :class="{ 'is-alert': pulseStats.fail > 0 }">
-                                    {{ formatPulseCount(pulseStats.fail) }}
-                                </span>
-                            </span>
-                            <span
-                                v-if="pulseStats.ttft > 0"
-                                class="model-pulse-rail__stat">
-                                <span class="model-pulse-rail__stat-label">{{
-                                    $t('pages.endpoint.recent_status.ttft')
-                                }}</span>
-                                <span class="model-pulse-rail__stat-value is-metric">{{
-                                    formatPulseTtft(pulseStats.ttft)
-                                }}</span>
-                            </span>
-                            <span
-                                v-if="pulseStats.otps > 0"
-                                class="model-pulse-rail__stat">
-                                <span class="model-pulse-rail__stat-label">{{
-                                    $t('pages.endpoint.recent_status.otps')
-                                }}</span>
-                                <span class="model-pulse-rail__stat-value is-metric">{{
-                                    formatPulseOtps(pulseStats.otps)
-                                }}</span>
-                            </span>
-                        </div>
-                    </template>
-                    <span
-                        v-else
-                        class="model-pulse-rail__empty">
-                        {{ $t('pages.model.recent_status.empty') }}
-                    </span>
-                </div>
             </a-card>
 
             <!-- Tab 区域 -->
@@ -815,6 +806,10 @@ const modelData = ref({})
 const activeTab = ref(route.query.tab === 'monitor' ? 'monitor' : 'endpoint')
 const basicInfoCollapsed = ref(false)
 
+function toggleBasicInfo() {
+    basicInfoCollapsed.value = !basicInfoCollapsed.value
+}
+
 const modelStatusPoints = computed(() => modelData.value.status_points || [])
 const hasRecentUsage = computed(() =>
     modelStatusPoints.value.some((point) => Number(point?.success_count) > 0 || Number(point?.fail_count) > 0)
@@ -849,12 +844,6 @@ const pulseStats = computed(() => {
         ttft: ttftWeight > 0 ? ttftWeighted / ttftWeight : 0,
         otps: otpsWeight > 0 ? otpsWeighted / otpsWeight : 0,
     }
-})
-const pulseToneClass = computed(() => {
-    if (!hasRecentUsage.value) return 'is-idle'
-    if (pulseStats.value.fail > 0 && pulseStats.value.success === 0) return 'is-fail'
-    if (pulseStats.value.fail > 0) return 'is-mixed'
-    return 'is-ok'
 })
 
 function formatPulseCount(val) {
@@ -1789,8 +1778,51 @@ function handleRemoveMember({ id }) {
     flex: none;
     margin-bottom: 16px;
 
+    :deep(.ant-card-head) {
+        min-height: 48px;
+    }
+
     :deep(.ant-card-head-title) {
+        overflow: hidden;
+        padding: 0;
         font-size: 14px;
+        cursor: pointer;
+    }
+
+    :deep(.ant-card-extra) {
+        margin-left: 12px;
+        padding: 0;
+    }
+
+    .info-card-title {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        width: 100%;
+        min-height: 48px;
+        min-width: 0;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .info-card-title__text {
+        flex: none;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 22px;
+        white-space: nowrap;
+    }
+
+    .info-card-toggle {
+        display: inline-flex;
+        align-items: center;
+        flex: none;
+        gap: 4px;
+        margin-left: auto;
+        font-size: 14px;
+        line-height: 22px;
+        white-space: nowrap;
+        opacity: 0.65;
     }
 
     :deep(.ant-card-grid) {
@@ -1873,35 +1905,21 @@ function handleRemoveMember({ id }) {
     }
 }
 
-.pulse-card {
-    flex: none;
-    margin-bottom: 16px;
-
-    :deep(.ant-card-body) {
-        padding: 10px 16px;
-    }
-}
-
 .model-pulse-rail {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
+    flex: 1;
+    flex-wrap: nowrap;
     gap: 14px;
-    min-height: 28px;
+    min-height: 22px;
     min-width: 0;
-}
-
-.model-pulse-rail__label {
-    flex: none;
-    font-size: 12px;
-    line-height: 18px;
-    opacity: 0.45;
+    overflow: hidden;
 }
 
 .model-pulse-rail__stats {
     display: flex;
     align-items: baseline;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 12px 18px;
     min-width: 0;
 }
@@ -1941,21 +1959,6 @@ function handleRemoveMember({ id }) {
     font-size: 13px;
     line-height: 20px;
     opacity: 0.45;
-}
-
-.model-pulse-rail.is-ok .model-pulse-rail__label {
-    color: #389e0d;
-    opacity: 0.85;
-}
-
-.model-pulse-rail.is-mixed .model-pulse-rail__label {
-    color: #d46b08;
-    opacity: 0.85;
-}
-
-.model-pulse-rail.is-fail .model-pulse-rail__label {
-    color: #cf1322;
-    opacity: 0.85;
 }
 
 .detail-card {
