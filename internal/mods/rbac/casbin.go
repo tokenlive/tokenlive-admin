@@ -34,6 +34,9 @@ type Casbinx struct {
 }
 
 func (a *Casbinx) GetEnforcer() *casbin.Enforcer {
+	if a == nil || a.enforcer == nil {
+		return nil
+	}
 	if v := a.enforcer.Load(); v != nil {
 		return v.(*casbin.Enforcer)
 	}

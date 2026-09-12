@@ -201,6 +201,22 @@ definitions:
       status:
         type: string
     type: object
+  productversion.Build:
+    properties:
+      kind:
+        type: string
+      version:
+        type: string
+    type: object
+  productversion.Identity:
+    properties:
+      build:
+        $ref: '#/definitions/productversion.Build'
+      edition:
+        type: string
+      install_channel:
+        type: string
+    type: object
   schema.AuditLog:
     properties:
       action:
@@ -2546,6 +2562,28 @@ definitions:
       user_id:
         type: string
     type: object
+  updatecheck.Candidate:
+    properties:
+      release_url:
+        type: string
+      version:
+        type: string
+    type: object
+  updatecheck.SourceState:
+    properties:
+      candidate:
+        $ref: '#/definitions/updatecheck.Candidate'
+      error_code:
+        type: string
+      last_attempt:
+        type: string
+      last_success:
+        type: string
+      stale:
+        type: boolean
+      status:
+        type: string
+    type: object
   util.ResponseResult:
     properties:
       data: {}
@@ -2554,6 +2592,74 @@ definitions:
       success:
         type: boolean
       total:
+        type: integer
+    type: object
+  versionregistry.Group:
+    properties:
+      build_kind:
+        type: string
+      count:
+        type: integer
+      version:
+        type: string
+    type: object
+  versionregistry.Node:
+    properties:
+      build_kind:
+        type: string
+      instance_id:
+        type: string
+      namespace:
+        type: string
+      schema_version:
+        type: integer
+      version:
+        type: string
+    type: object
+  versionstatus.ComponentView:
+    properties:
+      component:
+        type: string
+      count:
+        type: integer
+      current:
+        type: string
+      latest:
+        type: string
+      source:
+        $ref: '#/definitions/updatecheck.SourceState'
+      state:
+        type: string
+    type: object
+  versionstatus.GatewayView:
+    properties:
+      groups:
+        items:
+          $ref: '#/definitions/versionregistry.Group'
+        type: array
+      scope:
+        type: string
+      status:
+        type: string
+    type: object
+  versionstatus.Summary:
+    properties:
+      can_manage_updates:
+        type: boolean
+      gateway:
+        $ref: '#/definitions/versionstatus.GatewayView'
+      identity:
+        $ref: '#/definitions/productversion.Identity'
+    type: object
+  versionstatus.Updates:
+    properties:
+      components:
+        items:
+          $ref: '#/definitions/versionstatus.ComponentView'
+        type: array
+      enabled:
+        type: boolean
+      retry_after_seconds:
         type: integer
     type: object
 info:
@@ -2864,6 +2970,35 @@ paths:
       summary: Update current user info
       tags:
       - LoginAPI
+  /api/v1/current/version:
+    get:
+      description: Requires login, but not update-management permission. Contains
+        no update targets or node identities.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/versionstatus.Summary'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Current local version and aggregated Gateway builds
+      tags:
+      - SystemVersion
   /api/v1/dashboard/circuit-breakers:
     get:
       responses:
@@ -3300,6 +3435,51 @@ paths:
       summary: Test endpoint connectivity (draft configuration)
       tags:
       - EndpointAPI
+  /api/v1/gateway/version:
+    post:
+      consumes:
+      - application/json
+      description: Separate deployment-token boundary; no user JWT. Requires a configured
+        GATEWAY_SYNC_TOKEN, an exact X-Sync-Token match and a valid report in the
+        configured namespace. Reports expire after three minutes.
+      parameters:
+      - description: Deployment synchronization token
+        in: header
+        name: X-Sync-Token
+        required: true
+        type: string
+      - description: Gateway report (maximum 4096 bytes)
+        in: body
+        name: node
+        required: true
+        schema:
+          $ref: '#/definitions/versionregistry.Node'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      summary: Receive a Gateway version report
+      tags:
+      - SystemVersion
   /api/v1/loggers:
     get:
       parameters:
@@ -7497,6 +7677,95 @@ paths:
       summary: Get all authorized model IDs of the tenant
       tags:
       - TenantModelAPI
+  /api/v1/system/updates:
+    get:
+      description: Requires the POST /api/v1/system/updates/check capability. Does
+        not contact update sources.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/versionstatus.Updates'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Read cached update results
+      tags:
+      - SystemVersion
+  /api/v1/system/updates/check:
+    post:
+      description: Requires update-management permission. Disabled and cooldown requests
+        do not contact sources; they return success=false with the current Updates
+        in data.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/versionstatus.Updates'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+        "409":
+          description: update_check_disabled
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/versionstatus.Updates'
+              type: object
+        "429":
+          description: update_check_cooldown
+          headers:
+            Retry-After:
+              description: Seconds until manual checks are permitted
+              type: integer
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/versionstatus.Updates'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/util.ResponseResult'
+      security:
+      - ApiKeyAuth: []
+      summary: Check for stable version updates
+      tags:
+      - SystemVersion
   /api/v1/tenant-models/bindings:
     post:
       parameters:

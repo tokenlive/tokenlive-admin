@@ -19,7 +19,10 @@ func (a *SystemVersion) Init(ctx context.Context) error {
 }
 
 func (a *SystemVersion) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) error {
-	// HTTP handlers and authorization are added by the API integration task.
+	v1.GET("current/version", a.CurrentVersion)
+	v1.GET("system/updates", a.Updates)
+	v1.POST("system/updates/check", a.Check)
+	v1.POST("gateway/version", a.Report)
 	return nil
 }
 

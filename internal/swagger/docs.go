@@ -521,6 +521,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/current/version": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Requires login, but not update-management permission. Contains no update targets or node identities.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SystemVersion"
+                ],
+                "summary": "Current local version and aggregated Gateway builds",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/versionstatus.Summary"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/dashboard/circuit-breakers": {
             "get": {
                 "security": [
@@ -1249,6 +1298,71 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/gateway/version": {
+            "post": {
+                "description": "Separate deployment-token boundary; no user JWT. Requires a configured GATEWAY_SYNC_TOKEN, an exact X-Sync-Token match and a valid report in the configured namespace. Reports expire after three minutes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SystemVersion"
+                ],
+                "summary": "Receive a Gateway version report",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment synchronization token",
+                        "name": "X-Sync-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Gateway report (maximum 4096 bytes)",
+                        "name": "node",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/versionregistry.Node"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
                         "schema": {
                             "$ref": "#/definitions/util.ResponseResult"
                         }
@@ -8173,6 +8287,158 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/system/updates": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Requires the POST /api/v1/system/updates/check capability. Does not contact update sources.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SystemVersion"
+                ],
+                "summary": "Read cached update results",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/versionstatus.Updates"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system/updates/check": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Requires update-management permission. Disabled and cooldown requests do not contact sources; they return success=false with the current Updates in data.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SystemVersion"
+                ],
+                "summary": "Check for stable version updates",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/versionstatus.Updates"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "409": {
+                        "description": "update_check_disabled",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/versionstatus.Updates"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "429": {
+                        "description": "update_check_cooldown",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/versionstatus.Updates"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "type": "integer",
+                                "description": "Seconds until manual checks are permitted"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/tenant-models/bindings": {
             "post": {
                 "security": [
@@ -9671,6 +9937,31 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "productversion.Build": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "productversion.Identity": {
+            "type": "object",
+            "properties": {
+                "build": {
+                    "$ref": "#/definitions/productversion.Build"
+                },
+                "edition": {
+                    "type": "string"
+                },
+                "install_channel": {
                     "type": "string"
                 }
             }
@@ -13018,6 +13309,40 @@ const docTemplate = `{
                 }
             }
         },
+        "updatecheck.Candidate": {
+            "type": "object",
+            "properties": {
+                "release_url": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "updatecheck.SourceState": {
+            "type": "object",
+            "properties": {
+                "candidate": {
+                    "$ref": "#/definitions/updatecheck.Candidate"
+                },
+                "error_code": {
+                    "type": "string"
+                },
+                "last_attempt": {
+                    "type": "string"
+                },
+                "last_success": {
+                    "type": "string"
+                },
+                "stale": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "util.ResponseResult": {
             "type": "object",
             "properties": {
@@ -13029,6 +13354,111 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "versionregistry.Group": {
+            "type": "object",
+            "properties": {
+                "build_kind": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "versionregistry.Node": {
+            "type": "object",
+            "properties": {
+                "build_kind": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "schema_version": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "versionstatus.ComponentView": {
+            "type": "object",
+            "properties": {
+                "component": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "current": {
+                    "type": "string"
+                },
+                "latest": {
+                    "type": "string"
+                },
+                "source": {
+                    "$ref": "#/definitions/updatecheck.SourceState"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "versionstatus.GatewayView": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/versionregistry.Group"
+                    }
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "versionstatus.Summary": {
+            "type": "object",
+            "properties": {
+                "can_manage_updates": {
+                    "type": "boolean"
+                },
+                "gateway": {
+                    "$ref": "#/definitions/versionstatus.GatewayView"
+                },
+                "identity": {
+                    "$ref": "#/definitions/productversion.Identity"
+                }
+            }
+        },
+        "versionstatus.Updates": {
+            "type": "object",
+            "properties": {
+                "components": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/versionstatus.ComponentView"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "retry_after_seconds": {
                     "type": "integer"
                 }
             }

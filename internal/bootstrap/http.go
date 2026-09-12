@@ -196,11 +196,20 @@ func useHTTPMiddlewares(_ context.Context, e *gin.Engine, injector *wirex.Inject
 		MaxOutputResponseBodyLen: config.C.Middleware.Logger.MaxOutputResponseBodyLen,
 	}))
 
-	e.Use(middleware.CopyBodyWithConfig(middleware.CopyBodyConfig{
+	copyBody := middleware.CopyBodyWithConfig(middleware.CopyBodyConfig{
 		AllowedPathPrefixes: allowedPrefixes,
 		SkippedPathPrefixes: config.C.Middleware.CopyBody.SkippedPathPrefixes,
 		MaxContentLen:       config.C.Middleware.CopyBody.MaxContentLen,
-	}))
+	})
+	e.Use(func(c *gin.Context) {
+		// This receiver owns its 4 KiB bound and authenticates before reading.
+		// Do not first buffer/decompress it using the general 32 MiB body path.
+		if isGatewayVersionReport(c) {
+			c.Next()
+			return
+		}
+		copyBody(c)
+	})
 
 	e.Use(middleware.AuthWithConfig(middleware.AuthConfig{
 		AllowedPathPrefixes: allowedPrefixes,
@@ -208,6 +217,7 @@ func useHTTPMiddlewares(_ context.Context, e *gin.Engine, injector *wirex.Inject
 		ParseUserID:         injector.M.RBAC.LoginAPI.LoginBIZ.ParseUserID,
 		RootID:              config.C.General.Root.ID,
 		RootUsername:        config.C.General.Root.Username,
+		Skipper:             isGatewayVersionReport,
 	}))
 
 	e.Use(middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
@@ -235,7 +245,15 @@ func useHTTPMiddlewares(_ context.Context, e *gin.Engine, injector *wirex.Inject
 		SkippedPathPrefixes: config.C.Middleware.Casbin.SkippedPathPrefixes,
 		Skipper: func(c *gin.Context) bool {
 			if config.C.Middleware.Casbin.Disable ||
-				util.FromIsRootUser(c.Request.Context()) {
+				util.FromIsRootUser(c.Request.Context()) ||
+				isGatewayVersionReport(c) {
+				return true
+			}
+			// Login still applies. Results use the handler's canonical POST
+			// capability instead of requiring a second, independent GET grant.
+			if c.Request.Method == http.MethodGet &&
+				(c.Request.URL.Path == "/api/v1/current/version" ||
+					c.Request.URL.Path == "/api/v1/system/updates") {
 				return true
 			}
 			return false
@@ -253,4 +271,8 @@ func useHTTPMiddlewares(_ context.Context, e *gin.Engine, injector *wirex.Inject
 	}
 
 	return nil
+}
+
+func isGatewayVersionReport(c *gin.Context) bool {
+	return c.Request.Method == http.MethodPost && c.Request.URL.Path == "/api/v1/gateway/version"
 }
