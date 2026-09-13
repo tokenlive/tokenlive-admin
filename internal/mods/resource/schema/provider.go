@@ -29,6 +29,7 @@ type Provider struct {
 	UpdatedAt   time.Time       `json:"updated_at" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
 	Deleted     string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_provider_code,priority:2;comment:逻辑删除标识;"`
 	DeletedAt   *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
+	StatusPoints []StatusPoint  `json:"status_points" gorm:"-"` // Recent status points
 }
 
 func (p *Provider) TableName() string {

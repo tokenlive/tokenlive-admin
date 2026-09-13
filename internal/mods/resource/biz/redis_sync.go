@@ -28,6 +28,7 @@ type ResolvedEndpoint struct {
 	Description        string            `json:"description,omitempty"`
 	RealModel          string            `json:"real_model"`
 	ProviderName       string            `json:"provider_name"`
+	ProviderCode       string            `json:"provider_code,omitempty"`
 	ProviderProtocol   string            `json:"provider_protocol"`
 	APIKey             string            `json:"api_key"`
 	URL                string            `json:"url"`
@@ -255,6 +256,7 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 					Description:        ep.Description,
 					RealModel:          realModel,
 					ProviderName:       ep.Provider.Name,
+					ProviderCode:       ep.Provider.Code,
 					ProviderProtocol:   protocol,
 					APIKey:             apiKey,
 					URL:                ep.URL,

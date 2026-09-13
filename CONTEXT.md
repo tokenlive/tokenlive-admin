@@ -82,6 +82,36 @@ AI 模型的上游服务商或自定义接入端点，例如 OpenAI、Azure Open
 **Space (空间)**:
 资源隔离的逻辑边界，用于在团队场景下隔离供应商、模型和策略的归属范围。
 
+### 可观测
+
+**Upstream Call (上游调用)**:
+网关向某一个 Endpoint 发起的一次实际请求尝试。一次用户请求在发生故障转移时会产生多次上游调用，每次调用各自归属于该 Endpoint 所属的 Provider。
+_Avoid_: 把一次用户请求等同于一次上游调用 — 两者在故障转移场景下数量不同。
+
+**Upstream Call Success Rate (上游调用成功率)**:
+打给某个 Provider 的 **Upstream Call** 中成功的比例。故障转移走掉的失败尝试计入分母与失败数，因此它会低于用户侧观察到的成功率。用于衡量 Provider Health。
+_Avoid_: 与 Request Success Rate 混用或互相对比 — 两者分母不同。
+
+**Request Success Rate (请求成功率)**:
+网关最终返回给调用方的用户请求中成功的比例。故障转移后成功的请求计为成功。用于衡量业务可用性，Dashboard 与模型详情页使用此口径。
+_Avoid_: 用它评估某个上游供应商的可靠性 — 故障会被故障转移掩盖。
+
+**Provider Health (供应商健康)**:
+从"上游依赖可靠性"视角看一个 Provider 的状态，关注它当前能否正常服务：端点可用性、熔断状态、配额余量、鉴权有效性。区别于业务量视角的用量统计。
+_Avoid_: 用请求量、Token 消耗、费用等业务量指标代表供应商健康。
+
+**Provider Recent Status (供应商最近使用状态)**:
+展示供应商在过去 100 分钟内的 **Upstream Call** 健康度。以 10 个 10 分钟切片作为颜色方块呈现（绿=全成功、橙=部分失败、红=全失败、浅灰=无调用）。严格遵循上游调用口径，故障转移产生的多次调用分别计入对应供应商。
+_Avoid_: 将其与业务请求成功率混淆；或在此处跨模型混杂计算平均 TTFT/OTPS。
+
+**Circuit Breaker Open (熔断打开)**:
+网关判定某个 Endpoint 或服务不可用后将其摘除的运行时状态，由网关写入缓存、Admin 只读展示。
+_Avoid_: 与熔断策略（policy_circuit_break）的配置混为一谈 — 前者是运行时状态，后者是触发规则。
+
+**Event (治理事件)**:
+网关上报的策略执行事件记录（熔断、限流、调用失败、故障转移、重试错误等 7 类）。事件按名称快照归属到 Provider，不携带上游 HTTP 状态码。
+_Avoid_: 把 `rate_limit` 事件理解为上游返回的 429 — 它指的是本平台限流策略命中。
+
 ### 治理策略
 
 **Policy (治理策略)**:
@@ -125,6 +155,8 @@ _Avoid_: 将策略种子视为每次启动强制同步的系统配置；与菜�
 - **Model Policy** 属于一个 **Model**，权限跟随该 **Model**
 - **Policy Binding** 将 **Model Policy** 应用到 (tenant_code, user_id, model_code) 等维度组合上
 - 一个 **Model** 挂载到一个 **Provider**，并有多个 **Endpoint**
+- 一次用户请求可产生多次 **Upstream Call**，每次归属于被调用 **Endpoint** 所属的 **Provider**
+- **Provider Health** 由其名下所有 **Endpoint** 的 **Upstream Call** 结果与 **Circuit Breaker Open** 状态共同体现
 
 ## Example dialogue
 
@@ -137,3 +169,4 @@ _Avoid_: 将策略种子视为每次启动强制同步的系统配置；与菜�
 ## Flagged ambiguities
 
 - `policy_binding.user_id` 在公共平台场景下，需要能查询到 Portal 用户 — Admin 策略绑定页面如何获取 Portal 用户列表待定。
+- 网关上报与聚合的供应商标识（`RequestMetric.Provider`、`event_log.provider_name`、`aigw:status:provider:{code}`）：已在 ADR-0009 中正式统一定义为以 Provider `code`（唯一编码）为主标识，并通过 `ResolvedEndpoint.ProviderCode` 完成端到端穿透。

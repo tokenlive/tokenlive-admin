@@ -10,10 +10,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
 	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
@@ -21,7 +23,10 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/cachex"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
+	"github.com/tokenlive/tokenlive-admin/pkg/logging"
+	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
+	"go.uber.org/zap"
 )
 
 // Provider business logic layer
@@ -33,6 +38,7 @@ type Provider struct {
 	DataPermissionBIZ *DataPermission
 	ConfigRedisSync   *ConfigRedisSync
 	AuditLogBIZ       *opsBiz.AuditLog
+	RedisClient       *redis.Client
 }
 
 func (p *Provider) Query(ctx context.Context, params schema.ProviderQueryParam) (*schema.ProviderQueryResult, error) {
@@ -47,6 +53,9 @@ func (p *Provider) Query(ctx context.Context, params schema.ProviderQueryParam) 
 	})
 	if err != nil {
 		return nil, err
+	}
+	if len(result.Data) > 0 {
+		p.fillProvidersStatusPoints(ctx, result.Data)
 	}
 	return result, nil
 }
@@ -69,6 +78,7 @@ func (p *Provider) Get(ctx context.Context, id string) (*schema.Provider, error)
 		}
 	}
 
+	p.fillProvidersStatusPoints(ctx, []*schema.Provider{provider})
 	return provider, nil
 }
 
@@ -1289,3 +1299,126 @@ func MergeOAuthAccountHeader(headers map[string]string, provider *schema.Provide
 	headers["Chatgpt-Account-Id"] = strings.TrimSpace(cred.AccountID)
 	return headers
 }
+
+func (p *Provider) fillProvidersStatusPoints(ctx context.Context, providers []*schema.Provider) {
+	if len(providers) == 0 {
+		return
+	}
+
+	currentMin := time.Now().Unix() / 60
+	numProviders := len(providers)
+	numMinutes := 100
+	keysPerMinute := 2
+	numKeys := numProviders * numMinutes * keysPerMinute
+	keys := make([]string, numKeys)
+
+	idx := 0
+	for _, prov := range providers {
+		for i := 0; i < numMinutes; i++ {
+			minute := currentMin - int64(numMinutes-1-i)
+			keys[idx] = fmt.Sprintf("aigw:status:provider:%s:%d:s", prov.Code, minute)
+			keys[idx+1] = fmt.Sprintf("aigw:status:provider:%s:%d:f", prov.Code, minute)
+			idx += keysPerMinute
+		}
+	}
+
+	var values []interface{}
+	var err error
+	if p.RedisClient != nil {
+		batchSize := 500
+		values = make([]interface{}, 0, len(keys))
+		for i := 0; i < len(keys); i += batchSize {
+			end := i + batchSize
+			if end > len(keys) {
+				end = len(keys)
+			}
+			batchKeys := keys[i:end]
+			batchValues, batchErr := p.RedisClient.MGet(ctx, batchKeys...).Result()
+			if batchErr != nil {
+				err = batchErr
+				break
+			}
+			values = append(values, batchValues...)
+		}
+		if err != nil {
+			logging.Context(ctx).Error("Failed to MGet provider status points from Redis", zap.Error(err))
+		}
+	} else {
+		// 从内存获取
+		values = make([]interface{}, len(keys))
+		idx = 0
+		for _, prov := range providers {
+			for i := 0; i < numMinutes; i++ {
+				minute := currentMin - int64(numMinutes-1-i)
+				perf := metrics.GlobalStore.GetProviderMinutePerf(prov.Code, minute)
+				if perf.Requests == 0 && prov.Name != "" && prov.Name != prov.Code {
+					perf = metrics.GlobalStore.GetProviderMinutePerf(prov.Name, minute)
+				}
+				if perf.Success > 0 {
+					values[idx] = strconv.FormatInt(perf.Success, 10)
+				}
+				if perf.Fail > 0 {
+					values[idx+1] = strconv.FormatInt(perf.Fail, 10)
+				}
+				idx += keysPerMinute
+			}
+		}
+	}
+
+	idx = 0
+	for _, prov := range providers {
+		perMinute := make([]schema.EndpointMinutePerf, numMinutes)
+
+		if err == nil && len(values) == numKeys {
+			hasAny := false
+			for i := 0; i < numMinutes; i++ {
+				sVal := parseRedisInt(values[idx+i*keysPerMinute])
+				fVal := parseRedisInt(values[idx+i*keysPerMinute+1])
+				if sVal > 0 || fVal > 0 {
+					hasAny = true
+				}
+				perMinute[i] = schema.EndpointMinutePerf{
+					Success: sVal,
+					Fail:    fVal,
+				}
+			}
+
+			// 兼容回退：如果以 code 查询全为 0 且 name != code，且 RedisClient != nil，尝试以 name 作为 key 再拉一次
+			if !hasAny && prov.Name != "" && prov.Name != prov.Code && p.RedisClient != nil {
+				fallbackKeys := make([]string, numMinutes*keysPerMinute)
+				for i := 0; i < numMinutes; i++ {
+					minute := currentMin - int64(numMinutes-1-i)
+					fallbackKeys[i*keysPerMinute] = fmt.Sprintf("aigw:status:provider:%s:%d:s", prov.Name, minute)
+					fallbackKeys[i*keysPerMinute+1] = fmt.Sprintf("aigw:status:provider:%s:%d:f", prov.Name, minute)
+				}
+				if fbValues, fbErr := p.RedisClient.MGet(ctx, fallbackKeys...).Result(); fbErr == nil && len(fbValues) == len(fallbackKeys) {
+					for i := 0; i < numMinutes; i++ {
+						perMinute[i] = schema.EndpointMinutePerf{
+							Success: parseRedisInt(fbValues[i*keysPerMinute]),
+							Fail:    parseRedisInt(fbValues[i*keysPerMinute+1]),
+						}
+					}
+				}
+			}
+			idx += numMinutes * keysPerMinute
+		}
+
+		points := make([]schema.StatusPoint, 10)
+		for pIdx := 0; pIdx < 10; pIdx++ {
+			start := pIdx * 10
+			end := start + 10
+			if end > len(perMinute) {
+				end = len(perMinute)
+			}
+			startSec := (currentMin - int64(numMinutes-1-pIdx*10)) * 60
+			endSec := (currentMin - int64(numMinutes-1-(pIdx*10+9)) + 1) * 60
+			points[pIdx] = schema.AggregateEndpointStatusPoint(
+				perMinute[start:end],
+				time.Unix(startSec, 0).Format("15:04"),
+				time.Unix(endSec, 0).Format("15:04"),
+			)
+		}
+		prov.StatusPoints = points
+	}
+}
+

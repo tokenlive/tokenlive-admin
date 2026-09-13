@@ -87,6 +87,11 @@
                                 }}
                             </a-tag>
                         </template>
+                        <template v-if="'recent_status' === column.key">
+                            <EndpointStatusStrip
+                                :points="record.status_points || []"
+                                :show-perf="false" />
+                        </template>
                         <template v-if="'protocol' === column.key">
                             <a-tag
                                 v-if="record.protocol"
@@ -149,6 +154,7 @@ import { useAppStore } from '@/store'
 import EditDialog from './ProviderEditDialog.vue'
 import FetchModelsDrawer from './ProviderFetchModelsDrawer.vue'
 import ImportMappingDialog from './ProviderImportMappingDialog.vue'
+import EndpointStatusStrip from '@/components/EndpointStatusStrip.vue'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ImportOutlined } from '@ant-design/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -178,6 +184,7 @@ const columns = [
     },
     { title: t('pages.provider.form.protocol'), dataIndex: 'protocol', key: 'protocol', width: 180 },
     { title: t('pages.provider.form.enabled'), key: 'enabled', width: 100 },
+    { title: t('pages.provider.recent_status'), key: 'recent_status', width: 180 },
     {
         title: t('pages.provider.form.url'),
         dataIndex: 'url',

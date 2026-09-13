@@ -19,8 +19,10 @@ func TestMemoryStoreRecordsEndpointPerfOnWinningEndpointOnly(t *testing.T) {
 		TTFTMs:       180,
 		DurationMs:   2000,
 		Attempts: []struct {
-			EndpointID string `json:"endpoint_id"`
-			Success    bool   `json:"success"`
+			EndpointID   string `json:"endpoint_id"`
+			Provider     string `json:"provider,omitempty"`
+			ProviderCode string `json:"provider_code,omitempty"`
+			Success      bool   `json:"success"`
 		}{
 			{EndpointID: "ep-1", Success: false},
 			{EndpointID: "ep-2", Success: true},
@@ -166,4 +168,55 @@ func TestMemoryStoreRecordsSuccessfulRequestUsageAndAvailability(t *testing.T) {
 	assert.Equal(t, int64(100), daily.InputTokens)
 	assert.Equal(t, int64(20), daily.OutputTokens)
 	assert.Equal(t, 0.25, daily.Cost)
+}
+
+// 故障转移场景下，失败的上游调用只计入失败数，请求级指标（token/费用/TTFT/时长）
+// 归属到成功返回响应的那个供应商。回归 ADR-0008 的上游调用口径。
+func TestMemoryStoreAttributesRequestMetricsToSuccessfulAttemptProvider(t *testing.T) {
+	store := NewMemoryStore()
+	now := time.Now()
+	store.Record(RequestMetric{
+		Time:         now.Unix(),
+		Model:        "gpt-4",
+		Success:      true,
+		InputTokens:  10,
+		OutputTokens: 30,
+		Cost:         0.25,
+		TTFTMs:       120,
+		DurationMs:   2000,
+		Attempts: []struct {
+			EndpointID   string `json:"endpoint_id"`
+			Provider     string `json:"provider,omitempty"`
+			ProviderCode string `json:"provider_code,omitempty"`
+			Success      bool   `json:"success"`
+		}{
+			{EndpointID: "ep-a", ProviderCode: "prov-a", Success: false},
+			{EndpointID: "ep-b", ProviderCode: "prov-b", Success: true},
+		},
+	})
+
+	minute := now.Unix() / 60
+
+	// 失败方：只记一次失败的上游调用，不分摊 token 与费用。
+	failed := store.AggregateProviderMinutePerf("prov-a", minute, minute)
+	assert.Equal(t, int64(1), failed.Requests)
+	assert.Equal(t, int64(1), failed.Fail)
+	assert.Equal(t, int64(0), failed.Success)
+	assert.Equal(t, int64(0), failed.OutputTokens)
+	assert.Equal(t, float64(0), failed.Cost)
+	assert.Equal(t, int64(0), failed.TTFTCount)
+
+	// 成功方：承载全量请求级指标，供应商 KPI 卡依赖这些字段。
+	succeeded := store.AggregateProviderMinutePerf("prov-b", minute, minute)
+	assert.Equal(t, int64(1), succeeded.Requests)
+	assert.Equal(t, int64(1), succeeded.Success)
+	assert.Equal(t, int64(10), succeeded.InputTokens)
+	assert.Equal(t, int64(30), succeeded.OutputTokens)
+	assert.Equal(t, 0.25, succeeded.Cost)
+	assert.Equal(t, int64(120), succeeded.TTFTSum)
+	assert.Equal(t, int64(1), succeeded.TTFTCount)
+	assert.Equal(t, int64(2000), succeeded.LatencySumMs)
+	assert.Equal(t, int64(1), succeeded.LatencyCount)
+	assert.Equal(t, int64(30), succeeded.Output)
+	assert.Equal(t, int64(2000), succeeded.DurationMs)
 }

@@ -58,6 +58,15 @@ func (a *EventLog) Query(ctx context.Context, params schema.EventQueryParam, opt
 	if v := params.ProviderName; v != "" {
 		db = db.Where("provider_name LIKE ?", "%"+v+"%")
 	}
+	// 按供应商精确过滤：优先匹配网关上报的 provider_id，并回退到名称匹配，
+	// 因为历史记录的 provider_id 为空。详见 ADR-0007。
+	if v := params.ProviderRef; v != "" {
+		if fallback := params.ProviderNameFallback; fallback != "" {
+			db = db.Where("provider_id = ? OR (provider_id = '' AND provider_name = ?)", v, fallback)
+		} else {
+			db = db.Where("provider_id = ?", v)
+		}
+	}
 	if v := params.EndpointID; v != "" {
 		db = db.Where("endpoint_id = ?", v)
 	}

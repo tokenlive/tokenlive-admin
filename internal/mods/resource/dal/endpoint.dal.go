@@ -146,9 +146,12 @@ func (e *Endpoint) QueryEndpointsByModelID(ctx context.Context, modelID string) 
 }
 
 // QueryEndpointsByProviderID queries active endpoints by Provider ID.
+// Model 需要预加载：供应商详情页的监控标签要用 model_code 去按模型拉取端点流量趋势
+// （trends 的 group_by=endpoint 依赖 model 参数确定端点集合）。
 func (e *Endpoint) QueryEndpointsByProviderID(ctx context.Context, providerID string) (schema.Endpoints, error) {
 	var list schema.Endpoints
 	db := GetEndpointDB(ctx, e.DB).
+		Preload("Model").
 		Where("provider_id = ?", providerID).
 		Order("priority ASC, weight DESC")
 	if err := db.Find(&list).Error; err != nil {

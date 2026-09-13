@@ -687,8 +687,10 @@ func TestGetTrendsEndpointFallsBackToMemory(t *testing.T) {
 		Model:   modelCode,
 		Success: true,
 		Attempts: []struct {
-			EndpointID string `json:"endpoint_id"`
-			Success    bool   `json:"success"`
+			EndpointID   string `json:"endpoint_id"`
+			Provider     string `json:"provider,omitempty"`
+			ProviderCode string `json:"provider_code,omitempty"`
+			Success      bool   `json:"success"`
 		}{
 			{EndpointID: endpointID, Success: true},
 			{EndpointID: endpointID, Success: false},

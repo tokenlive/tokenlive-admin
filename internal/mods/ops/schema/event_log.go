@@ -27,6 +27,10 @@ type EventLog struct {
 	EndpointID   string    `json:"endpoint_id" gorm:"size:20;not null;default:'';index:idx_el_endpoint;comment:Endpoint ID;"`
 	EndpointCode string    `json:"endpoint_code" gorm:"size:128;not null;default:'';index:idx_el_endpoint_code;comment:Endpoint code;"`
 	ProviderName string    `json:"provider_name" gorm:"size:128;not null;default:'';comment:Provider name;"`
+	// ProviderID 由网关上报。网关尚未发送此字段，因此现存记录一律为空，
+	// 查询侧需回退到 ProviderName 匹配。不回填历史数据——按当前 name→id
+	// 映射回填会给改过名的供应商写入错误归属。详见 ADR-0007。
+	ProviderID string `json:"provider_id" gorm:"size:20;not null;default:'';index:idx_el_provider_id;comment:Provider ID (网关上报，历史数据为空);"`
 	PolicyID     string    `json:"policy_id" gorm:"size:20;not null;default:'';index:idx_el_policy;comment:Policy ID;"`
 	PolicyName   string    `json:"policy_name" gorm:"size:128;not null;default:'';comment:Policy name;"`
 	Threshold    *float64  `json:"threshold" gorm:"type:decimal(10,2);comment:Threshold value;"`
@@ -49,6 +53,12 @@ type EventQueryParam struct {
 	TenantCode   string `form:"tenant_code"`   // Filter by tenant code
 	ModelCode    string `form:"model_code"`    // Filter by model code
 	ProviderName string `form:"provider_name"` // Filter by provider name
+	// ProviderRef 按供应商过滤：接受 provider id 或 code。
+	// 匹配 provider_id 列，并回退到 provider_name 列（历史数据无 provider_id）。
+	ProviderRef string `form:"provider_ref"`
+	// ProviderNameFallback 与 ProviderRef 配套：供应商的当前名称，
+	// 用于匹配 provider_id 为空的历史记录。
+	ProviderNameFallback string `form:"provider_name_fallback"`
 	EndpointID   string `form:"endpoint_id"`   // Filter by endpoint ID
 	EndpointCode string `form:"endpoint_code"` // Filter by endpoint code
 	PolicyID     string `form:"policy_id"`     // Filter by policy ID

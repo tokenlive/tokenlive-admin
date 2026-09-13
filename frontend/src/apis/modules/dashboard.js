@@ -17,6 +17,9 @@ export const getModelPerformanceTrends = (params) =>
 // 获取模型使用排行（支持排序，默认 Top 10）
 export const getModelRanking = (params) => request.basic.get('/api/v1/dashboard/model-ranking', params)
 
+// 获取供应商上游健康排行（支持排序，默认 Top 10；时间范围上限 7 天）
+export const getProviderRanking = (params) => request.basic.get('/api/v1/dashboard/provider-ranking', params)
+
 // 一键全量同步数据库配置至 Redis 缓存
 export const syncRedis = () => request.basic.post('/api/v1/dashboard/sync-redis')
 

@@ -48,6 +48,9 @@ type Dashboard struct {
 	prometheusAvail   bool
 	prometheusMu      sync.RWMutex
 	prometheusLastChk time.Time
+	providerLabelOK   bool
+	providerLabelMu   sync.RWMutex
+	providerLabelChk  time.Time
 	cacheMu           sync.RWMutex
 	cacheMap          map[string]cacheVal
 }

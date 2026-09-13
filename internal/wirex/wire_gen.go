@@ -256,6 +256,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		DataPermissionBIZ: bizDataPermission,
 		ConfigRedisSync:   configRedisSync,
 		AuditLogBIZ:       bizAuditLog,
+		RedisClient:       redisClient,
 	}
 	apiProvider := &api2.Provider{
 		ProviderBIZ: bizProvider,

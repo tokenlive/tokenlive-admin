@@ -12,6 +12,73 @@
                         class="info-card-title"
                         @click="toggleBasicInfo">
                         <span class="info-card-title__text">{{ $t('pages.provider.detail.basicInfo') }}</span>
+                        <div class="provider-pulse-rail">
+                            <template v-if="hasRecentUsage">
+                                <!-- 状态切片随 Provider.Get 一并返回（ADR-0009），不额外发请求。
+                                     跨模型聚合的 TTFT/OTPS 缺乏可比性，故关闭性能展示。 -->
+                                <EndpointStatusStrip
+                                    :points="providerStatusPoints"
+                                    :show-perf="false" />
+                                <div class="provider-pulse-rail__stats">
+                                    <span class="provider-pulse-rail__stat">
+                                        <span class="provider-pulse-rail__stat-label">{{
+                                            $t('pages.endpoint.recent_status.success')
+                                        }}</span>
+                                        <span class="provider-pulse-rail__stat-value">{{
+                                            formatPulseCount(pulseStats.success)
+                                        }}</span>
+                                    </span>
+                                    <span class="provider-pulse-rail__stat">
+                                        <span class="provider-pulse-rail__stat-label">{{
+                                            $t('pages.endpoint.recent_status.fail')
+                                        }}</span>
+                                        <span
+                                            class="provider-pulse-rail__stat-value"
+                                            :class="{ 'is-alert': pulseStats.fail > 0 }">
+                                            {{ formatPulseCount(pulseStats.fail) }}
+                                        </span>
+                                    </span>
+                                    <a-tooltip :title="$t('pages.provider.detail.health.successRate.hint')">
+                                        <span class="provider-pulse-rail__stat">
+                                            <span class="provider-pulse-rail__stat-label is-hint">{{
+                                                $t('pages.provider.detail.health.successRate.short')
+                                            }}</span>
+                                            <span
+                                                class="provider-pulse-rail__stat-value"
+                                                :class="healthRateClass">
+                                                {{ healthSuccessRateText }}
+                                            </span>
+                                        </span>
+                                    </a-tooltip>
+                                    <span class="provider-pulse-rail__stat">
+                                        <span class="provider-pulse-rail__stat-label">{{
+                                            $t('pages.provider.detail.health.endpoints')
+                                        }}</span>
+                                        <span class="provider-pulse-rail__stat-value">
+                                            <span :class="healthEndpointClass">{{ healthUpEndpoints }}</span>
+                                            <span class="provider-pulse-rail__stat-total"
+                                                >/ {{ healthTotalEndpoints }}</span
+                                            >
+                                        </span>
+                                    </span>
+                                    <span
+                                        v-if="healthBreakerCount > 0"
+                                        class="provider-pulse-rail__stat">
+                                        <span class="provider-pulse-rail__stat-label">{{
+                                            $t('pages.provider.detail.health.breakers')
+                                        }}</span>
+                                        <span class="provider-pulse-rail__stat-value is-alert">
+                                            {{ healthBreakerCount }}
+                                        </span>
+                                    </span>
+                                </div>
+                            </template>
+                            <span
+                                v-else
+                                class="provider-pulse-rail__empty">
+                                {{ $t('pages.provider.recent_status.empty') }}
+                            </span>
+                        </div>
                         <span class="info-card-toggle">
                             <down-outlined v-if="basicInfoCollapsed" />
                             <up-outlined v-else />
@@ -228,9 +295,23 @@
                         key="endpoint"
                         :tab="$t('pages.provider.detail.tab.endpoint')" />
                     <a-tab-pane
+                        key="monitor"
+                        :tab="$t('pages.provider.detail.tab.monitor')" />
+                    <a-tab-pane
                         key="member"
                         :tab="$t('pages.provider.detail.tab.member')" />
                 </a-tabs>
+
+                <!-- 监控信息 Tab 内容 -->
+                <div
+                    v-if="activeTab === 'monitor'"
+                    class="tab-content tab-content--scroll">
+                    <ProviderMonitorTab
+                        :provider-id="providerId"
+                        :provider-code="providerData.code"
+                        :provider-name="providerData.name"
+                        :active="activeTab === 'monitor'" />
+                </div>
 
                 <!-- 端点管理 Tab 内容 -->
                 <div
@@ -498,6 +579,7 @@ import EndpointEditDialog from './EndpointEditDialog.vue'
 import EndpointStatusStrip from '@/components/EndpointStatusStrip.vue'
 import ProviderEditDialog from './ProviderEditDialog.vue'
 import ProviderMemberEditDialog from './ProviderMemberEditDialog.vue'
+import ProviderMonitorTab from './ProviderMonitorTab.vue'
 import FetchModelsDrawer from './ProviderFetchModelsDrawer.vue'
 import ImportMappingDialog from './ProviderImportMappingDialog.vue'
 import { getProviderProtocolLabel } from '@/enums/provider'
@@ -675,7 +757,8 @@ const memberColumns = [
 ]
 
 onMounted(() => {
-    loadProviderDetail()
+    // 健康条需要 provider code 作为指标聚合键，必须等详情加载完再拉。
+    loadProviderDetail().then(loadProviderHealth)
     loadModelOptions()
     loadProviderOptions()
     loadEndpointList()
@@ -691,12 +774,14 @@ watch(
             providerData.value = {}
             endpointListData.value = []
             memberListData.value = []
+            healthRanking.value = null
+            healthBreakers.value = []
 
             endpointPagination.current = 1
             memberPagination.current = 1
 
             // 重新加载
-            loadProviderDetail()
+            loadProviderDetail().then(loadProviderHealth)
             loadModelOptions()
             loadProviderOptions()
             loadEndpointList()
@@ -995,6 +1080,80 @@ function onEndpointTableChange({ current, pageSize }) {
     loadEndpointList()
 }
 
+// ---- 健康总览条 ----
+// 顶部三个信号回答：有多少端点在服役、有多少被摘除、服役的跑得怎么样。
+const healthRanking = ref(null)
+const healthBreakers = ref([])
+
+const healthTotalEndpoints = computed(() => endpointListData.value.length)
+
+// Provider.Get 随详情一并返回的 100 分钟状态切片（ADR-0009）。
+const providerStatusPoints = computed(() => providerData.value.status_points || [])
+
+const hasRecentUsage = computed(() =>
+    providerStatusPoints.value.some((point) => Number(point?.success_count) > 0 || Number(point?.fail_count) > 0)
+)
+
+// 汇总 100 分钟切片为总成功/失败数，与模型详情页的脉冲条口径一致。
+// 这里不聚合 TTFT/OTPS——供应商下跨模型的性能指标缺乏可比性。
+const pulseStats = computed(() => {
+    let success = 0
+    let fail = 0
+    for (const point of providerStatusPoints.value) {
+        success += Number(point?.success_count) || 0
+        fail += Number(point?.fail_count) || 0
+    }
+    return { success, fail }
+})
+
+function formatPulseCount(val) {
+    const num = Number(val)
+    if (!Number.isFinite(num)) return '0'
+    return num.toLocaleString('en-US')
+}
+
+const healthBreakerCount = computed(() => {
+    const ownIds = new Set(endpointListData.value.map((ep) => ep.id))
+    return (healthBreakers.value || []).filter(
+        (item) => item.provider_id === providerId.value || (item.id && ownIds.has(item.id))
+    ).length
+})
+
+const healthUpEndpoints = computed(() => Math.max(0, healthTotalEndpoints.value - healthBreakerCount.value))
+
+const healthEndpointClass = computed(() => {
+    if (healthTotalEndpoints.value === 0) return ''
+    return healthUpEndpoints.value === healthTotalEndpoints.value ? 'is-healthy' : 'is-danger'
+})
+
+const healthSuccessRateText = computed(() => {
+    const kpi = healthRanking.value
+    if (!kpi || !kpi.upstream_call_count) return '--'
+    return Number(kpi.upstream_call_success_rate).toFixed(1) + '%'
+})
+
+const healthRateClass = computed(() => {
+    const kpi = healthRanking.value
+    if (!kpi || !kpi.upstream_call_count) return ''
+    const rate = Number(kpi.upstream_call_success_rate)
+    if (rate >= 99) return 'is-healthy'
+    if (rate >= 95) return 'is-warning'
+    return 'is-danger'
+})
+
+async function loadProviderHealth() {
+    const providerRef = providerData.value.code || providerId.value
+    if (!providerRef) return
+    const [rankingRes, breakerRes] = await Promise.all([
+        apis.dashboard
+            .getProviderRanking({ provider: providerRef, time_range: '1h', limit: 1 })
+            .catch(() => ({ data: [] })),
+        apis.dashboard.getCircuitBreakers().catch(() => ({ data: [] })),
+    ])
+    healthRanking.value = (rankingRes.data || [])[0] || null
+    healthBreakers.value = breakerRes.data || []
+}
+
 const testingEndpoints = ref({})
 
 async function handleTestEndpoint(record) {
@@ -1163,7 +1322,7 @@ function handleRemoveMember({ id }) {
     .info-card-title {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 16px;
         width: 100%;
         min-height: 48px;
         min-width: 0;
@@ -1258,6 +1417,79 @@ function handleRemoveMember({ id }) {
                 0 1px 0 0 rgba(255, 255, 255, 0.08);
         }
     }
+}
+
+.provider-pulse-rail {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    flex-wrap: nowrap;
+    gap: 14px;
+    min-height: 22px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.provider-pulse-rail__stats {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: nowrap;
+    gap: 12px 18px;
+    min-width: 0;
+}
+
+.provider-pulse-rail__stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
+.provider-pulse-rail__stat-label {
+    font-size: 11px;
+    line-height: 16px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.45;
+
+    &.is-hint {
+        cursor: help;
+        border-bottom: 1px dashed currentcolor;
+    }
+}
+
+.provider-pulse-rail__stat-value {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 18px;
+    font-variant-numeric: tabular-nums;
+
+    &.is-healthy,
+    .is-healthy {
+        color: #23c7b7;
+    }
+
+    &.is-warning {
+        color: #ffb020;
+    }
+
+    &.is-alert,
+    &.is-danger,
+    .is-danger {
+        color: #f5222d;
+    }
+}
+
+.provider-pulse-rail__stat-total {
+    margin-left: 2px;
+    font-weight: 400;
+    opacity: 0.45;
+}
+
+.provider-pulse-rail__empty {
+    font-size: 13px;
+    line-height: 20px;
+    opacity: 0.45;
 }
 
 .quota-card {

@@ -66,6 +66,38 @@ func TestEndpointQueryByProviderIncludesDisabledActiveEndpoints(t *testing.T) {
 	require.ElementsMatch(t, []string{"endpoint-enabled", "endpoint-disabled"}, []string{result[0].ID, result[1].ID})
 }
 
+// 供应商详情页的监控标签需要 model_code 才能按模型拉取端点流量趋势；
+// 缺少 Preload 时 Model 为 nil，图表会静默空白而非报错。
+func TestEndpointQueryByProviderPreloadsModel(t *testing.T) {
+	db := newEndpointQueryTestDB(t)
+	biz := newEndpointQueryTestBiz(db)
+
+	require.NoError(t, db.Create(&schema.Model{
+		ID:        "model-1",
+		ModelCode: "gpt-4",
+		ModelName: "GPT-4",
+		Deleted:   "0",
+		CreatedAt: time.Now(),
+	}).Error)
+	require.NoError(t, db.Create(&schema.Endpoint{
+		ID:         "endpoint-1",
+		Code:       "endpoint-1-code",
+		ModelID:    "model-1",
+		ProviderID: "provider-1",
+		URL:        "https://example.test",
+		Enabled:    1,
+		Deleted:    "0",
+		CreatedAt:  time.Now(),
+	}).Error)
+
+	result, err := biz.QueryEndpointsByProviderID(context.Background(), "provider-1")
+
+	require.NoError(t, err)
+	require.Len(t, result, 1)
+	require.NotNil(t, result[0].Model, "Model 未预加载，监控标签的端点流量图会空白")
+	require.Equal(t, "gpt-4", result[0].Model.ModelCode)
+}
+
 func newEndpointQueryTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
@@ -74,6 +106,7 @@ func newEndpointQueryTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(
 		&schema.Endpoint{},
+		&schema.Model{},
 		&schema.DataPermission{},
 		&opsSchema.AuditLog{},
 	))

@@ -22,8 +22,10 @@ type RequestMetric struct {
 	TTFTMs              int64   `json:"ttft_ms,omitempty"`
 	DurationMs          int64   `json:"duration_ms,omitempty"`
 	Attempts            []struct {
-		EndpointID string `json:"endpoint_id"`
-		Success    bool   `json:"success"`
+		EndpointID   string `json:"endpoint_id"`
+		Provider     string `json:"provider,omitempty"`
+		ProviderCode string `json:"provider_code,omitempty"`
+		Success      bool   `json:"success"`
 	} `json:"attempts"`
 }
 
@@ -138,25 +140,55 @@ func (s *MemoryStore) Record(m RequestMetric) {
 	if m.Model != "" {
 		recordRequest(getOrCreateDimension(s.modelPerf, m.Model, minute), m)
 	}
-	if m.Provider != "" {
+	if m.Provider != "" && len(m.Attempts) == 0 {
 		recordRequest(getOrCreateDimension(s.providerPerf, m.Provider, minute), m)
 	}
 
 	for _, attempt := range m.Attempts {
-		if attempt.EndpointID == "" {
-			continue
-		}
-		if m.Model != "" {
-			if s.modelEndpoints[m.Model] == nil {
-				s.modelEndpoints[m.Model] = make(map[string]bool)
+		if attempt.EndpointID != "" {
+			if m.Model != "" {
+				if s.modelEndpoints[m.Model] == nil {
+					s.modelEndpoints[m.Model] = make(map[string]bool)
+				}
+				s.modelEndpoints[m.Model][attempt.EndpointID] = true
 			}
-			s.modelEndpoints[m.Model][attempt.EndpointID] = true
+			perf := getOrCreateDimension(s.endpointPerf, attempt.EndpointID, minute)
+			if attempt.Success {
+				perf.Success++
+			} else {
+				perf.Fail++
+			}
 		}
-		perf := getOrCreateDimension(s.endpointPerf, attempt.EndpointID, minute)
-		if attempt.Success {
-			perf.Success++
-		} else {
-			perf.Fail++
+		prov := attempt.ProviderCode
+		if prov == "" {
+			prov = attempt.Provider
+		}
+		if prov != "" {
+			perf := getOrCreateDimension(s.providerPerf, prov, minute)
+			perf.Requests++
+			if attempt.Success {
+				perf.Success++
+				// 请求级指标（token/费用/TTFT/时长）只有成功返回响应的那次
+				// 上游调用才产生，归属到该 attempt 所属的供应商。失败尝试无响应体，
+				// 只计入上游调用的失败数。
+				perf.InputTokens += m.InputTokens
+				perf.OutputTokens += m.OutputTokens
+				perf.Cost += m.Cost
+				if m.TTFTMs > 0 {
+					perf.TTFTSum += m.TTFTMs
+					perf.TTFTCount++
+				}
+				if m.DurationMs > 0 {
+					perf.LatencySumMs += m.DurationMs
+					perf.LatencyCount++
+				}
+				if m.OutputTokens > 0 && m.DurationMs > 0 {
+					perf.Output += m.OutputTokens
+					perf.DurationMs += m.DurationMs
+				}
+			} else {
+				perf.Fail++
+			}
 		}
 	}
 
@@ -339,6 +371,12 @@ func (s *MemoryStore) GetProviderNames() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return dimensionKeys(s.providerPerf)
+}
+
+func (s *MemoryStore) AggregateProviderMinutePerf(provider string, startMinute, endMinute int64) EndpointMinutePerf {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return aggregateMinutes(s.providerPerf[provider], startMinute, endMinute)
 }
 
 func (s *MemoryStore) GetEndpointStatus(endpointID string, minute int64) (int64, int64) {
