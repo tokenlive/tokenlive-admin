@@ -1592,6 +1592,11 @@ function handleRemoveMember({ id }) {
     flex-direction: column;
 }
 
+.tab-content--scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
 .tab-toolbar {
     display: flex;
     justify-content: space-between;
