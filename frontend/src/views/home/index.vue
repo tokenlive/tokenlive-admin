@@ -584,6 +584,7 @@
                                 class="dashboard-ranking-table"
                                 :data-source="modelRanking"
                                 :columns="columns"
+                                :custom-row="modelRankingRowProps"
                                 :pagination="false"
                                 size="middle"
                                 row-key="model_code"
@@ -593,8 +594,7 @@
                                     <template v-if="column.key === 'model_name'">
                                         <div>
                                             <span
-                                                style="font-weight: 600; color: var(--color-primary); cursor: pointer"
-                                                @click="goToModel(record.model_id)">
+                                                style="font-weight: 600; color: var(--color-primary); cursor: pointer">
                                                 {{ record.model_name }}
                                             </span>
                                         </div>
@@ -628,11 +628,7 @@
                                                     <div>P99: {{ formatLatency(record.p99_latency_ms) }}</div>
                                                 </div>
                                             </template>
-                                            <span
-                                                style="
-                                                    cursor: help;
-                                                    border-bottom: 1px dashed var(--color-text-tertiary);
-                                                ">
+                                            <span style="border-bottom: 1px dashed var(--color-text-tertiary)">
                                                 {{ formatLatency(record.avg_latency_ms) }}
                                             </span>
                                         </a-tooltip>
@@ -646,11 +642,7 @@
                                                     <div>P99: {{ formatLatency(record.p99_ttft_ms) }}</div>
                                                 </div>
                                             </template>
-                                            <span
-                                                style="
-                                                    cursor: help;
-                                                    border-bottom: 1px dashed var(--color-text-tertiary);
-                                                ">
+                                            <span style="border-bottom: 1px dashed var(--color-text-tertiary)">
                                                 {{ formatLatency(record.avg_ttft_ms) }}
                                             </span>
                                         </a-tooltip>
@@ -1693,6 +1685,13 @@ function goTo(path) {
 
 function goToModel(modelId) {
     router.push({ name: 'modelDetail', params: { id: modelId }, query: { tab: 'monitor' } })
+}
+
+function modelRankingRowProps(record) {
+    return {
+        onClick: () => goToModel(record.model_id),
+        style: { cursor: 'pointer' },
+    }
 }
 </script>
 
