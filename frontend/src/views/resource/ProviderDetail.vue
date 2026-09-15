@@ -572,6 +572,7 @@ import {
 import apis from '@/apis'
 import { config } from '@/config'
 import { formatUtcDateTime } from '@/utils/util'
+import { countProviderEndpointHealth } from '@/utils/providerEndpointHealth'
 import { useTableAutoScrollY } from '@/hooks'
 import { useAppStore } from '@/store'
 import { useI18n } from 'vue-i18n'
@@ -1085,7 +1086,10 @@ function onEndpointTableChange({ current, pageSize }) {
 const healthRanking = ref(null)
 const healthBreakers = ref([])
 
-const healthTotalEndpoints = computed(() => endpointListData.value.length)
+const endpointHealth = computed(() =>
+    countProviderEndpointHealth(endpointListData.value, healthBreakers.value, providerId.value)
+)
+const healthTotalEndpoints = computed(() => endpointHealth.value.total)
 
 // Provider.Get 随详情一并返回的 100 分钟状态切片（ADR-0009）。
 const providerStatusPoints = computed(() => providerData.value.status_points || [])
@@ -1112,14 +1116,9 @@ function formatPulseCount(val) {
     return num.toLocaleString('en-US')
 }
 
-const healthBreakerCount = computed(() => {
-    const ownIds = new Set(endpointListData.value.map((ep) => ep.id))
-    return (healthBreakers.value || []).filter(
-        (item) => item.provider_id === providerId.value || (item.id && ownIds.has(item.id))
-    ).length
-})
+const healthBreakerCount = computed(() => endpointHealth.value.breakerCount)
 
-const healthUpEndpoints = computed(() => Math.max(0, healthTotalEndpoints.value - healthBreakerCount.value))
+const healthUpEndpoints = computed(() => endpointHealth.value.up)
 
 const healthEndpointClass = computed(() => {
     if (healthTotalEndpoints.value === 0) return ''
