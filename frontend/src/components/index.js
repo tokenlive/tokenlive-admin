@@ -20,6 +20,7 @@ import UploadImage from './Upload/UploadImage.vue'
 import UploadInput from './Upload/UploadInput.vue'
 import Scrollbar from './Scrollbar/Scrollbar.vue'
 import Cascader from './Cascader/Cascader.vue'
+import AnimatedNumber from './AnimatedNumber/AnimatedNumber.vue'
 import { setupLoadingDirective } from './Loading/directive'
 
 const componentList = [
@@ -43,7 +44,10 @@ const componentList = [
     UploadInput,
     Scrollbar,
     Cascader,
+    AnimatedNumber,
 ]
+
+export const animatedNumber = AnimatedNumber
 
 export const loading = Loading
 export const preview = Preview

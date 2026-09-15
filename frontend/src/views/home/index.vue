@@ -84,7 +84,7 @@
                     hoverable>
                     <div class="telemetry-title">{{ $t('pages.dashboard.metrics.daily_requests') }}</div>
                     <div class="telemetry-value">
-                        {{ metrics.dailyRequests.toLocaleString() }}
+                        <animated-number :value="metrics.dailyRequests" />
                         <span class="telemetry-unit">{{ $t('pages.dashboard.units.requests') }}</span>
                     </div>
                     <div class="telemetry-footer">{{ $t('pages.dashboard.metrics.daily_requests.footer') }}</div>
@@ -104,7 +104,9 @@
                         <span class="pulse-indicator"></span>
                     </div>
                     <div class="telemetry-value">
-                        {{ metrics.qps.toFixed(2) }}
+                        <animated-number
+                            :value="metrics.qps"
+                            :precision="2" />
                         <span class="telemetry-unit">req/s</span>
                     </div>
                     <div class="telemetry-footer">{{ $t('pages.dashboard.metrics.qps.footer') }}</div>
@@ -121,7 +123,9 @@
                     hoverable>
                     <div class="telemetry-title">{{ $t('pages.dashboard.metrics.tokens') }}</div>
                     <div class="telemetry-value">
-                        {{ formatTokens(metrics.dailyPromptTokens + metrics.dailyCompletionTokens) }}
+                        <animated-number
+                            :value="metrics.dailyPromptTokens + metrics.dailyCompletionTokens"
+                            :formatter="formatTokens" />
                         <span class="telemetry-unit">{{ $t('pages.dashboard.units.tokens') }}</span>
                     </div>
                     <div class="telemetry-footer">
@@ -141,7 +145,9 @@
                     hoverable>
                     <div class="telemetry-title">{{ $t('pages.dashboard.metrics.cost') }}</div>
                     <div class="telemetry-value">
-                        {{ metrics.dailyCost.toFixed(4) }}
+                        <animated-number
+                            :value="metrics.dailyCost"
+                            :precision="4" />
                         <span class="telemetry-unit">{{ $t('pages.dashboard.units.cost') }}</span>
                     </div>
                     <div class="telemetry-footer">
@@ -161,7 +167,10 @@
                     hoverable>
                     <div class="telemetry-title">{{ $t('pages.dashboard.metrics.avg_latency') }}</div>
                     <div class="telemetry-value">
-                        {{ formatLatency(metrics.avgLatency) }}
+                        <animated-number
+                            :value="metrics.avgLatency"
+                            :formatter="formatLatencyNumber" />
+                        <span class="telemetry-unit">s</span>
                     </div>
                     <div class="telemetry-footer">{{ $t('pages.dashboard.metrics.avg_latency.footer') }}</div>
                 </a-card>
@@ -178,7 +187,10 @@
                     hoverable>
                     <div class="telemetry-title">{{ $t('pages.dashboard.metrics.avg_ttft') }}</div>
                     <div class="telemetry-value">
-                        {{ formatLatency(metrics.avgTTFT) }}
+                        <animated-number
+                            :value="metrics.avgTTFT"
+                            :formatter="formatLatencyNumber" />
+                        <span class="telemetry-unit">s</span>
                     </div>
                     <div class="telemetry-footer">{{ $t('pages.dashboard.metrics.avg_ttft.footer') }}</div>
                 </a-card>
@@ -883,6 +895,7 @@ import {
 } from '@ant-design/icons-vue'
 import apis from '@/apis'
 import { formatTokens } from '@/utils/util'
+import AnimatedNumber from '@/components/AnimatedNumber/AnimatedNumber.vue'
 
 defineOptions({
     name: 'home',
@@ -1009,6 +1022,13 @@ async function handleRankingSortChange() {
 function formatLatency(ms) {
     if (!ms || ms === 0) return 'N/A'
     return (ms / 1000).toFixed(2) + 's'
+}
+
+// 格式化延迟纯数值（毫秒转秒，保留2位小数）
+function formatLatencyNumber(ms) {
+    const num = Number(ms)
+    if (!Number.isFinite(num) || num <= 0) return '0.00'
+    return (num / 1000).toFixed(2)
 }
 
 function formatOtps(val) {
