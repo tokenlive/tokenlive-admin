@@ -667,6 +667,10 @@
             </a-col>
         </a-row>
 
+        <APIKeyUsageRanking
+            v-if="canViewAPIKeyUsage"
+            :authorized="canViewAPIKeyUsage" />
+
         <!-- 第四行：策略分布与资产汇总 -->
         <a-row
             :gutter="16"
@@ -888,6 +892,7 @@ import {
 import apis from '@/apis'
 import { formatTokens } from '@/utils/util'
 import AnimatedNumber from '@/components/AnimatedNumber/AnimatedNumber.vue'
+import APIKeyUsageRanking from './components/APIKeyUsageRanking.vue'
 
 defineOptions({
     name: 'home',
@@ -898,6 +903,9 @@ const { t } = useI18n()
 const appStore = useAppStore()
 
 const userStore = useUserStore()
+const canViewAPIKeyUsage = computed(
+    () => userStore.isLogin && userStore.userInfoVerified && userStore.userInfo?.is_root === true
+)
 
 const timer = ref(null)
 const firstLoading = ref(true)
