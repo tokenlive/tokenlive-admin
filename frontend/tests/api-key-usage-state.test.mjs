@@ -14,12 +14,18 @@ const ready = (requests = 1) => ({
 })
 const deferred = () => {
     let resolve
-    const promise = new Promise((done) => { resolve = done })
+    const promise = new Promise((done) => {
+        resolve = done
+    })
     return { promise, resolve }
 }
-const controllerFor = (load) => createAPIKeyUsageController({
-    load, onChange: () => {}, setTimeoutFn: () => 1, clearTimeoutFn: () => {},
-})
+const controllerFor = (load) =>
+    createAPIKeyUsageController({
+        load,
+        onChange: () => {},
+        setTimeoutFn: () => 1,
+        clearTimeoutFn: () => {},
+    })
 const activate = (controller) => {
     controller.setActive(true)
     controller.setVisible(true)
@@ -29,7 +35,10 @@ const activate = (controller) => {
 
 test('requires authorized, active and visible before loading and coalesces refresh', async () => {
     let calls = 0
-    const controller = controllerFor(async () => { calls++; return ready() })
+    const controller = controllerFor(async () => {
+        calls++
+        return ready()
+    })
     controller.setVisible(true)
     controller.setActive(true)
     await controller.refresh()
@@ -79,7 +88,11 @@ test('slow old response cannot overwrite a changed filter', async () => {
     controller.dispose()
 })
 
-for (const failure of [{ response: { status: 401 } }, { response: { status: 403 } }, { usageAuthenticationFailure: true }]) {
+for (const failure of [
+    { response: { status: 401 } },
+    { response: { status: 403 } },
+    { usageAuthenticationFailure: true },
+]) {
     test(`authorization failure ${JSON.stringify(failure)} clears every cached result and stops polling`, async () => {
         let fail = false
         let calls = 0
@@ -131,7 +144,10 @@ test('refreshes after 30 seconds, pauses hidden/inactive, and resumes without du
     t.mock.timers.enable({ apis: ['setTimeout'] })
     let calls = 0
     const controller = createAPIKeyUsageController({
-        load: async () => { calls++; return ready() },
+        load: async () => {
+            calls++
+            return ready()
+        },
         onChange: () => {},
     })
     await activate(controller)

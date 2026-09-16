@@ -27,7 +27,7 @@
 - Admin 不自动建库、建表、迁移、写入或删除 ClickHouse 数据。
 - API、日志和前端不得收到完整 Key、完整 `api_key_hash` 或连接凭据。
 - 每次提交前对本任务新增或修改的 Go 文件运行 gofmt；前端 `.vue`、`.js` 文件按项目配置运行 Prettier。
-- 当前轮次只编写计划，以下命令、代码和提交均为获得实施授权后的步骤，不是已执行记录。
+- 用户已于 2026-09-16 授权在当前会话、当前目录和 `main` 原地实现，不使用子代理或独立 worktree。以下保留原实施步骤，实际结果见文末执行记录。
 
 ---
 
@@ -206,7 +206,7 @@ func (*APIKeyUsage) Query(c *gin.Context)
 - Consumes: 现有 `config.C.Storage`；Gateway 已有 `access_logs` 表结构。
 - Produces: 上述 `schema` 契约；`dal.NewClickHouseReader(config.ClickHouseConfig) (*ClickHouseReader, func())`；Reader 的 `Enabled()`、`Read()` 方法。
 
-- [ ] **Step 1：先添加参数、窗口、SQL 及关闭状态的失败测试。**
+- [x] **Step 1：先添加参数、窗口、SQL 及关闭状态的失败测试。**
 
 ```go
 // package schema
@@ -253,13 +253,13 @@ func TestCandidateSQLDoesNotTruncateBeforeIdentityResolution(t *testing.T) {
 
 补充配置打印测试：给新配置的密码设置测试字符串，断言 `Config.String()` 不包含该字符串，且原配置密码未被修改。
 
-- [ ] **Step 2：运行并确认因新增类型／函数缺失而失败。**
+- [x] **Step 2：运行并确认因新增类型／函数缺失而失败。**
 
 Run: `go test ./internal/config ./internal/mods/dashboard/schema ./internal/mods/dashboard/dal -count=1`
 
 Expected: 新包或新增符号尚不存在；记录实际失败，不把已有环境故障当作 RED。
 
-- [ ] **Step 3：实现配置与预聚合查询。**
+- [x] **Step 3：实现配置与预聚合查询。**
 
 执行依赖命令时只引入已选定版本，不使用 `@latest`：
 
@@ -335,11 +335,11 @@ QueryTimeoutSeconds = 5
 
 执行 `ParseQuery` 时区分参数缺省与显式空字符串；校验三个白名单。`ResolveWindow` 的今日边界由传入 `end.Location()` 计算，其他窗口用 1h／6h／24h／7×24h 回溯。
 
-- [ ] **Step 4：重复 Step 2 并验证全部 PASS。**
+- [x] **Step 4：重复 Step 2 并验证全部 PASS。**
 
 额外覆盖 `Read` 连接错误、Scan 错误、金额字符串解析错误、取消和超时；通过最小查询接口注入假 Rows，接口只需 `Query`、`Next`、`Scan`、`Err`、`Close`，不要模拟整个 ClickHouse 客户端。
 
-- [ ] **Step 5：提交本任务文件。**
+- [x] **Step 5：提交本任务文件。**
 
 ```bash
 git add -- internal/config/clickhouse.go internal/config/clickhouse_test.go internal/config/config.go configs/dev/server.toml go.mod go.sum internal/mods/dashboard/schema/api_key_usage.go internal/mods/dashboard/schema/api_key_usage_test.go internal/mods/dashboard/dal/api_key_usage.go internal/mods/dashboard/dal/api_key_usage_test.go
@@ -360,7 +360,7 @@ git commit -m "feat: add optional read-only API key usage source"
 - `PortalKeys` 精确签名：`ListWorkspaceAPIKeys(context.Context, string) ([]opsbiz.PortalWorkspaceAPIKey, error)`。
 - 纯逻辑函数：`CanonicalKeys([]schema.Candidate, map[schema.KeyRef]string) schema.Resolution`。第二个参数只能包含已被管理库／Portal 验证的无 Hash ID 到规范标识的映射。
 
-- [ ] **Step 1：添加 Hash 优先、冲突、缺失及已删除元数据的失败测试。**
+- [x] **Step 1：添加 Hash 优先、冲突、缺失及已删除元数据的失败测试。**
 
 ```go
 func TestCanonicalKeysNeverUsesMaskedDisplay(t *testing.T) {
@@ -381,11 +381,11 @@ func TestCanonicalKeysNeverUsesMaskedDisplay(t *testing.T) {
 
 元数据测试使用临时 SQLite 文件与 `httptest.Server`，创建一个停用 Key、一条带删除标记的 Key、一条日志有 Hash 但管理表已无记录的 Key；要求三者分别为 `disabled`、`deleted`、`unknown`，且后一项为 `metadata_status=unavailable`。对插入的测试数据用 `t.Cleanup` 按明确 ID 删除，再关闭临时数据库。
 
-- [ ] **Step 2：运行新测试并确认 RED。**
+- [x] **Step 2：运行新测试并确认 RED。**
 
 Run: `go test ./internal/mods/dashboard/biz -run 'TestCanonical|TestIdentity|TestMetadata' -count=1`
 
-- [ ] **Step 3：实现规范标识及有界元数据解析。**
+- [x] **Step 3：实现规范标识及有界元数据解析。**
 
 ```go
 func CanonicalKeys(rows []schema.Candidate, verified map[schema.KeyRef]string) schema.Resolution {
@@ -420,11 +420,11 @@ func CanonicalKeys(rows []schema.Candidate, verified map[schema.KeyRef]string) s
 
 不要修改现有 Key 删除方法来实现历史统计；记录已经物理消失时，仍通过 Hash 保留用量，并降级名称和状态。不要在日志中打印候选、完整 Hash 或数据库 Key。
 
-- [ ] **Step 4：重复 Step 2 并扩充通过矩阵。**
+- [x] **Step 4：重复 Step 2 并扩充通过矩阵。**
 
 必须包含 Portal 未配置／超时、不同来源相同 ID、同工作空间重复验证合并、租户换 Key、数据库表前缀、错误后缓存可恢复、并发不超过 4、无 Portal 的企业内部部署。
 
-- [ ] **Step 5：提交本任务四个文件。**
+- [x] **Step 5：提交本任务四个文件。**
 
 ```bash
 git add -- internal/mods/dashboard/biz/api_key_identity.go internal/mods/dashboard/biz/api_key_identity_test.go internal/mods/dashboard/biz/api_key_metadata.go internal/mods/dashboard/biz/api_key_metadata_test.go
@@ -443,7 +443,7 @@ git commit -m "feat: resolve usage key identity and historical metadata"
 - Consumes: Task 1 Reader、Task 2 Resolver、固定契约中的 Query／Window。
 - Produces: `Aggregate`、`APIKeyUsageService.Query`；给 Task 4 返回公开 `Response`。
 
-- [ ] **Step 1：添加“先合并再 Top N”和“分母包含未知”测试。**
+- [x] **Step 1：添加“先合并再 Top N”和“分母包含未知”测试。**
 
 ```go
 func TestAggregateIncludesUnattributedInDenominator(t *testing.T) {
@@ -475,11 +475,11 @@ func TestAggregateCountsCachedTokensOnlyAsDetail(t *testing.T) {
 
 再构造 51 个 Key，其中同一规范 Key 拆成两个候选，各自不足 Top 10、相加后进入 Top 10；验证它实际入榜。缓存测试使用可推进的 `now` 函数，不使用真实 sleep。
 
-- [ ] **Step 2：运行并确认 RED。**
+- [x] **Step 2：运行并确认 RED。**
 
 Run: `go test ./internal/mods/dashboard/biz -run 'TestAggregate|TestUsageService|TestUsageCache' -count=1`
 
-- [ ] **Step 3：实现累加、排序、公开响应转换。**
+- [x] **Step 3：实现累加、排序、公开响应转换。**
 
 ```go
 func (t *Totals) Add(other Totals) {
@@ -521,7 +521,7 @@ sort.Slice(groups, func(i, j int) bool {
 
 金额始终 `decimal.Decimal` 累加与排序，返回 `.String()`；成功率和占比最后计算，分母为零时 TokenShare 为 nil。`Unattributed` 使用同一 All 分母。`state=disabled` 的 Window／Summary／GeneratedAt／Unattributed 均为 nil，Items／Warnings 是空数组。
 
-- [ ] **Step 4：实现并测试缓存与取消。**
+- [x] **Step 4：实现并测试缓存与取消。**
 
 缓存逻辑放入独立文件：
 
@@ -538,7 +538,7 @@ type usageCacheEntry struct {
 
 测试：两个并发请求只 Read 一次；不同筛选不共用结果；过期与午夜重查；一个等待者取消另一个仍成功；服务关闭／查询超时无资源泄漏；修改返回对象不污染缓存；错误恢复后重新查询。
 
-- [ ] **Step 5：验证并提交。**
+- [x] **Step 5：验证并提交。**
 
 Run: `go test -race ./internal/mods/dashboard/schema ./internal/mods/dashboard/biz -count=1`
 
@@ -565,7 +565,7 @@ git commit -m "feat: aggregate API key usage with complete totals"
 - Produces: `GET /api/v1/dashboard/api-key-ranking`；当前用户响应 `is_root: boolean`。
 - Provider 签名：`ProvideUsageReader() (*dal.ClickHouseReader, func())`、`ProvideUsageResolver(*gorm.DB) *biz.IdentityResolver`、`ProvideUsageService(*dal.ClickHouseReader, *biz.IdentityResolver) *biz.APIKeyUsageService`、`ProvideUsageAPI(*biz.APIKeyUsageService) *api.APIKeyUsage`。
 
-- [ ] **Step 1：添加先鉴权后查询的失败测试。**
+- [x] **Step 1：添加先鉴权后查询的失败测试。**
 
 ```go
 type usageQueryFunc func(context.Context, schema.Query) (*schema.Response, error)
@@ -590,11 +590,11 @@ func TestUsageAPINonRootNeverQueries(t *testing.T) {
 
 另测 Root 使用 `util.NewIsRootUser` 的上下文获得响应；非法参数 400；Reader 错误 503；disabled 200；缓存命中仍不能绕过 Root。通过 `json.Marshal` 断言响应中没有测试完整 Key 和 Hash。
 
-- [ ] **Step 2：运行并确认 RED。**
+- [x] **Step 2：运行并确认 RED。**
 
 Run: `go test ./internal/mods/dashboard/... ./internal/mods/rbac/biz -run 'TestUsageAPI|TestUsageProvider|TestRegisterV1RoutersIncludesAPIKey|TestCurrentUserRoot' -count=1`
 
-- [ ] **Step 3：实现 API 和当前用户身份标志。**
+- [x] **Step 3：实现 API 和当前用户身份标志。**
 
 ```go
 func (a *APIKeyUsage) Query(c *gin.Context) {
@@ -621,7 +621,7 @@ func (a *APIKeyUsage) Query(c *gin.Context) {
 
 在 `schema.User` 增加 `IsRoot bool`，标签为 `json:"is_root" gorm:"-"`。只在 `Login.GetUserInfo` 的 Root 分支设为 true；普通用户明确 false。不能在 UserForm 增加可写入权限标志，不新增数据库字段，也不依赖用户名为 admin 或 ID 字面值为 root。
 
-- [ ] **Step 4：接线并重新生成依赖。**
+- [x] **Step 4：接线并重新生成依赖。**
 
 在模块 Dashboard 增加独立 `APIKeyUsageAPI *api.APIKeyUsage` 字段，注册：
 
@@ -639,7 +639,7 @@ go test ./internal/mods/dashboard/... ./internal/mods/rbac/biz ./internal/wirex 
 
 现有 `internal/wirex/provider_wiring_test.go` 必须通过。测试 disabled 和临时连接故障均不阻止 Injector 构造与关闭。
 
-- [ ] **Step 5：提交本任务文件。**
+- [x] **Step 5：提交本任务文件。**
 
 ```bash
 git add -- internal/mods/dashboard/api/api_key_usage.api.go internal/mods/dashboard/api/api_key_usage.api_test.go internal/mods/dashboard/providers.go internal/mods/dashboard/providers_test.go internal/mods/dashboard/main.go internal/mods/dashboard/main_test.go internal/mods/dashboard/wire.go internal/wirex/wire_gen.go internal/mods/rbac/schema/user.go internal/mods/rbac/biz/login.biz.go internal/mods/rbac/biz/login_root_identity_test.go
@@ -660,7 +660,7 @@ git commit -m "feat: expose root-only API key usage ranking"
 - Consumes: API 契约、现有 user store 的 token／hasRefreshToken／refreshAccessToken／invalidateLocalSession。
 - Produces: `createAPIKeyUsageLoader({ send, getSession, refreshAccessToken, invalidateLocalSession })`，返回 `load(params, { signal } = {})`；API 导出 `getAPIKeyRanking(params, options)`，返回解包后的 Response，不返回 Axios 外壳。
 
-- [ ] **Step 1：添加 503 不登出、不弹提示和一次 401 恢复测试。**
+- [x] **Step 1：添加 503 不登出、不弹提示和一次 401 恢复测试。**
 
 ```javascript
 import test from 'node:test'
@@ -683,11 +683,11 @@ test('503 preserves the session and propagates a local error', async () => {
 })
 ```
 
-- [ ] **Step 2：运行并确认 RED。**
+- [x] **Step 2：运行并确认 RED。**
 
 Run（frontend）：`node --test tests/api-key-usage-request.test.mjs`
 
-- [ ] **Step 3：实现可注入 Loader，绑定现有会话协调器。**
+- [x] **Step 3：实现可注入 Loader，绑定现有会话协调器。**
 
 ```javascript
 export function createAPIKeyUsageLoader({ send, getSession, refreshAccessToken, invalidateLocalSession }) {
@@ -724,14 +724,14 @@ export function createAPIKeyUsageLoader({ send, getSession, refreshAccessToken, 
 
 通过 `dashboard.js` re-export `getAPIKeyRanking`，不改其他 API 的 `request.basic` 行为。测试 refresh 自己失败、没有 refresh token、403、取消、重试后仍 401、重试 Authorization 使用新 token，且发送次数不超过 2。
 
-- [ ] **Step 4：格式化并验证。**
+- [x] **Step 4：格式化并验证。**
 
 ```bash
 npx prettier --config .prettierrc --write src/utils/api-key-usage-request.js src/apis/modules/api-key-usage.js src/apis/modules/dashboard.js
 node --test tests/api-key-usage-request.test.mjs tests/session.test.mjs tests/system-version-data.test.mjs
 ```
 
-- [ ] **Step 5：提交。**
+- [x] **Step 5：提交。**
 
 ```bash
 git add -- frontend/src/utils/api-key-usage-request.js frontend/src/apis/modules/api-key-usage.js frontend/src/apis/modules/dashboard.js frontend/tests/api-key-usage-request.test.mjs
@@ -754,7 +754,7 @@ git commit -m "feat: isolate usage requests from global dashboard errors"
 - State 字段固定为 `phase`、`data`、`stale`、`error`、`query`；phase 为 `idle/loading/ready/empty/disabled/error/forbidden`。
 - Vue 接口：`useAPIKeyUsage(authorized)`，参数为 boolean ref；返回 `state`、`query`、`setQuery`、`refresh`。
 
-- [ ] **Step 1：添加默认不请求和同条件保留数据的失败测试。**
+- [x] **Step 1：添加默认不请求和同条件保留数据的失败测试。**
 
 ```javascript
 test('does not load until authorized, active and visible', async () => {
@@ -778,11 +778,11 @@ test('does not load until authorized, active and visible', async () => {
 
 使用可控 Promise 测试：首次成功；同条件 503 后 data 不变且 stale=true；切换条件后 503 不显示旧 data；更早 Promise 后完成不能覆盖新条件。测试文件从新模块导入 Controller，`test` 与 `assert` 分别来自 `node:test` 和 `node:assert/strict`。
 
-- [ ] **Step 2：运行并确认 RED。**
+- [x] **Step 2：运行并确认 RED。**
 
 Run（frontend）：`node --test tests/api-key-usage-state.test.mjs tests/api-key-usage-data.test.mjs`
 
-- [ ] **Step 3：实现状态机和条件缓存。**
+- [x] **Step 3：实现状态机和条件缓存。**
 
 ```javascript
 const defaultQuery = { time_range: 'today', sort_by: 'tokens', limit: 10 }
@@ -807,7 +807,7 @@ const queryKey = query => JSON.stringify([query.time_range, query.sort_by, query
 
 金额不在 Controller 内转换为 Number。用 `data.generated_at` 和 `data.window` 展示成功数据时间，不以尝试刷新时间冒充更新时间。
 
-- [ ] **Step 4：桥接 Vue 和用户身份。**
+- [x] **Step 4：桥接 Vue 和用户身份。**
 
 在 user store 新增不持久化的 `userInfoVerified: false`。`getUserInfo` 成功后设为 true，失败设为 false；退出和账号切换清回 false，不能信任 localStorage 中保存的 Root 标志。
 
@@ -821,7 +821,7 @@ const canViewAPIKeyUsage = computed(
 
 行为测试仿照仓库已有 `system-version-data.test.mjs` 使用真实 Vue renderer 和替换的网络传输；测试 Node 假时钟推进 29,999ms 无请求、30,000ms 触发下一次，以及 keep-alive 失活／恢复、取消和监听清理。
 
-- [ ] **Step 5：格式化、验证与提交。**
+- [x] **Step 5：格式化、验证与提交。**
 
 ```bash
 npx prettier --config .prettierrc --write src/utils/api-key-usage-state.js src/composables/useAPIKeyUsage.js src/store/modules/user.js
@@ -847,7 +847,7 @@ git commit -m "feat: add visibility-aware API key usage refresh"
 - Consumes: `useAPIKeyUsage(authorized)`、schema Response。
 - Produces: `APIKeyUsageRanking` 组件，必需 prop 为 `authorized: boolean`；无点击事件输出。
 
-- [ ] **Step 1：添加组件及首页集成失败测试。**
+- [x] **Step 1：添加组件及首页集成失败测试。**
 
 ```javascript
 test('home places usage ranking after model ranking and gates it by verified Root', async () => {
@@ -870,11 +870,11 @@ test('ranking is not a navigation surface', async () => {
 
 测试使用 `node:test`、`node:assert/strict`、`node:fs/promises`。同时检查所有渲染文案键在两种语言中存在；保留 Task 6 的真实行为测试，不把源码检查当作生命周期验收。
 
-- [ ] **Step 2：运行并确认 RED。**
+- [x] **Step 2：运行并确认 RED。**
 
 Run（frontend）：`node --test tests/api-key-usage-view.test.mjs`
 
-- [ ] **Step 3：实现独立卡片与七列渲染。**
+- [x] **Step 3：实现独立卡片与七列渲染。**
 
 ```vue
 <script setup>
@@ -941,7 +941,7 @@ Key 单元格显示名称、脱敏片段和可确认状态；同名且相同脱�
 
 时间选择文本复用现有首页对应范围文案；来源和状态按固定枚举补齐逐项翻译，不直接显示英文枚举。
 
-- [ ] **Step 4：格式化、执行视图和行为回归。**
+- [x] **Step 4：格式化、执行视图和行为回归。**
 
 ```bash
 npx prettier --config .prettierrc --write src/views/home/components/APIKeyUsageRanking.vue src/views/home/index.vue src/locales/lang/zh-CN/pages.js src/locales/lang/en-US/pages.js
@@ -949,7 +949,7 @@ node --test tests/api-key-usage-view.test.mjs tests/api-key-usage-data.test.mjs 
 npm run build:prod
 ```
 
-- [ ] **Step 5：提交本任务文件。**
+- [x] **Step 5：提交本任务文件。**
 
 ```bash
 git add -- frontend/src/views/home/components/APIKeyUsageRanking.vue frontend/src/views/home/index.vue frontend/src/locales/lang/zh-CN/pages.js frontend/src/locales/lang/en-US/pages.js frontend/tests/api-key-usage-view.test.mjs
@@ -971,7 +971,7 @@ git commit -m "feat: render root-only API key usage ranking on homepage"
 - Consumes: Tasks 1–7 的完整组件、Reader、API、配置与会话能力。
 - Produces: 独立 ClickHouse 测试、实际浏览器验证记录、配置说明与最终测试证据；不部署到线上。
 
-- [ ] **Step 1：添加隔离 ClickHouse 集成测试。**
+- [x] **Step 1：添加隔离 ClickHouse 集成测试。**
 
 测试仅在 `API_KEY_USAGE_CH_TEST_ADDR` 非空时启用；连接凭据从专用测试环境变量读取，不读取生产 DSN。测试创建带 `api_key_usage_test_` 固定前缀及随机后缀的独立数据库，注册 `t.Cleanup` 删除该精确数据库并关闭连接。数据库名必须通过前缀和字符白名单验证，绝不使用配置中的业务数据库执行 DROP。
 
@@ -1012,7 +1012,7 @@ require.True(t, decimal.RequireFromString("0.3").Equal(all.Cost))
 
 `reader` 由 Task 1 构造器连接本测试创建的独立数据库，`ctx` 使用测试的有界上下文。不能从被测输出反推期望值。没有专用测试环境时明确报告 SKIP，不能声称完成真实 ClickHouse 验证。
 
-- [ ] **Step 2：增加真实组件的浏览器 Fixture 与测试。**
+- [x] **Step 2：增加真实组件的浏览器 Fixture 与测试。**
 
 Fixture 使用 Vite 解析项目别名，导入真实 `APIKeyUsageRanking`、Ant Design Vue、Pinia 和两种语言。初始化已登录的测试 store，`userInfo={is_root:true}`、`userInfoVerified=true`，将组件作为实际 Vue 组件挂载。`?root=0` 将授权改为 false，`?locale=en-US` 切英文；不要复制组件 HTML 来替代被测实现。
 
@@ -1039,7 +1039,7 @@ npm run dev -- --host 127.0.0.1 --port 9211
 
 另一个终端从 frontend 执行 `node tests/api-key-usage.browser.mjs`。若缺少 Playwright 运行时，使用执行环境已有的浏览器验证工具完成同一清单并记录缺少的自动化验证，不为此擅自安装全局依赖。
 
-- [ ] **Step 3：补充只读配置说明。**
+- [x] **Step 3：补充只读配置说明。**
 
 在 `docs/CONFIGURATION.md` 记录 Task 1 的完整配置块、默认关闭、原生端口及 TLS 配对、凭据环境变量、需要已有日志表与 Key 标识列、只读账号的 SELECT 权限、查询超时及三种 UI 状态。
 
@@ -1054,7 +1054,7 @@ npm run dev -- --host 127.0.0.1 --port 9211
 - 查询与元数据缓存可能分别延迟最多 30／60 秒；
 - 上线启用和真实环境性能验证须获得单独授权。
 
-- [ ] **Step 4：执行完整自动化验证与安全检查。**
+- [x] **Step 4：执行完整自动化验证与安全检查。**
 
 仓库根目录：
 
@@ -1076,7 +1076,7 @@ npx prettier --config .prettierrc --check src/utils/api-key-usage-request.js src
 
 检查最终 diff：只有计划内功能文件；Gateway／Portal 无隐式变更；没有生产写入、密钥打印、全局请求错误行为变更或修改现有 Key 删除逻辑。真实 7 天 Top 50 负载若未测，交付时明确标为未验证。
 
-- [ ] **Step 5：提交验证及接入文档，交付证据。**
+- [x] **Step 5：提交验证及接入文档，交付证据。**
 
 ```bash
 git add -- internal/mods/dashboard/dal/api_key_usage_integration_test.go frontend/tests/api-key-usage.browser.mjs frontend/tests/fixtures/api-key-usage.html frontend/tests/fixtures/api-key-usage.js docs/CONFIGURATION.md docs/plans/2026-09-15-api-key-usage-ranking.md
@@ -1101,4 +1101,32 @@ git commit -m "test: verify API key usage ranking and document read-only setup"
 
 默认按 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 执行，每项通过自身 RED／GREEN 与审查再继续。前端和后端可以基于固定契约拆分执行，但不得修改另一任务拥有的文件或在未经授权时主动创建子代理。
 
-计划文档本身完成后先交付用户。用户确定执行方式并授权实施前，不运行本计划中的依赖安装、测试数据写入、业务代码编辑或功能提交命令。
+## 执行记录（2026-09-16）
+
+用户已选择当前会话顺序执行，并明确要求直接修改当前目录；未创建分支或 worktree，未使用子代理，未推送或部署。原有两份未跟踪测试保持原样。
+
+| 任务 | 实际提交／状态 |
+| --- | --- |
+| 1 只读数据源 | `2735860` |
+| 2 身份与历史元数据 | `f4a951d` |
+| 3 全量聚合与缓存 | `b4531a0` |
+| 4 Root API 与依赖接线 | `71bbbaf` |
+| 5 独立前端请求 | `b2d1298` |
+| 6 刷新、会话与可见性 | `80d3138` |
+| 7 首页组件 | `bc4191d` |
+| 8 集成验证与边界修正 | 本次收尾提交；本地验证完成，真实 ClickHouse 测试跳过 |
+
+执行中的验证与调整：
+
+- 基线：相关后端包全部通过；前端 46 项测试通过。
+- 各新增模块先执行失败测试，再实现并验证通过。修复了本次元数据查询链复用导致的表模型残留，未修改现有 Key 删除或计费逻辑。
+- 前端视图测试改为编译真实 Vue SFC、使用实际 Ant Design Vue 组件进行服务端渲染；刷新测试运行实际 Vue 生命周期，不依赖源码字符串推断行为。
+- 新增 `api-key-usage-identity.test.mjs` 验证缓存 Root 不授予权限、迟到的旧账号资料不能覆盖新账号。
+- 追加浏览器失败用例后，补齐首页重新加载时的当前用户验证；在原有登录流程之外不改变全局认证协议。
+- 追加身份冲突回归：冲突历史只保留可靠 Hash 与用量，不从多条冲突信息中任取归属。
+- 浏览器已通过 12 个场景，检查桌面、移动端、暗色英文、无点击、筛选、异常、权限与完整首页挂载。截图为模拟数据，不是线上使用数据。
+- 最终回归：相关 Go 包测试通过，Dashboard 全部子包的 `-race` 检查通过；前端 70 项测试通过；生产构建及本次前端文件的 Prettier 检查通过。
+- 主程序入口 `go build -o /tmp/tokenlive-api-key-usage.y6jfQD/tokenlive-admin .` 通过。额外的 `go build ./...` 因被 Git 忽略的既有 `scratch/db_check.go` 与 `scratch/update_db.go` 都声明 `main` 而失败；这两个六月创建的本地脚本未作修改。
+- 构建仍提示 `useMultiTab` 循环依赖警告，Node 提示项目未声明模块类型；未为本功能改动无关的打包或模块配置。
+- 真实 ClickHouse 集成测试已添加，但因未配置 `API_KEY_USAGE_CH_TEST_ADDR` 明确跳过；真实 7 天 Top 50 查询性能也未验证。
+- ClickHouse 仍默认关闭。维护人员需按 `docs/CONFIGURATION.md` 配置只读连接后自行启用。

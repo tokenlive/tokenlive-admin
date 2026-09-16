@@ -51,6 +51,19 @@ func TestAggregateDoesNotCountCachedTokensTwice(t *testing.T) {
 	require.Equal(t, uint64(80), result.All.Cached)
 }
 
+func TestAggregateConflictingHistoricalOwnersDoNotPickAnArbitraryOwner(t *testing.T) {
+	rows := []schema.Candidate{
+		{Ref: schema.KeyRef{Hash: "a", UserID: "old-owner"}, Totals: schema.Totals{Requests: 1}},
+		{Ref: schema.KeyRef{Hash: "a", UserID: "new-owner"}, Totals: schema.Totals{Requests: 1}},
+		{Ref: schema.KeyRef{Hash: "a", UserID: "third-owner"}, Totals: schema.Totals{Requests: 1}},
+	}
+	result := Aggregate(rows, CanonicalKeys(rows, nil), schema.Query{"today", "tokens", 10})
+	require.Len(t, result.Groups, 1)
+	require.Equal(t, uint64(3), result.Groups[0].Totals.Requests)
+	require.Equal(t, "a", result.Groups[0].Ref.Hash)
+	require.Empty(t, result.Groups[0].Ref.UserID)
+}
+
 type fixtureResolver struct{}
 
 func (fixtureResolver) Resolve(_ context.Context, rows []schema.Candidate) schema.Resolution {

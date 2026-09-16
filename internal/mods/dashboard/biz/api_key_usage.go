@@ -34,9 +34,26 @@ func refOrder(ref schema.KeyRef) string {
 	return string(value)
 }
 
+func refScope(ref schema.KeyRef) string {
+	var kind, id string
+	switch {
+	case ref.WorkspaceID != "":
+		kind, id = "workspace", ref.WorkspaceID
+	case ref.UserID != "":
+		kind, id = "user", ref.UserID
+	case ref.TenantID != "":
+		kind, id = "tenant", ref.TenantID
+	default:
+		return ""
+	}
+	value, _ := json.Marshal([]string{kind, id})
+	return string(value)
+}
+
 func Aggregate(rows []schema.Candidate, resolution schema.Resolution, query schema.Query) Aggregation {
 	result := Aggregation{Groups: []schema.Group{}}
 	groups := map[string]*schema.Group{}
+	conflicts := map[string]bool{}
 	for _, row := range rows {
 		result.All.Add(row.Totals)
 		key := resolution.Keys[row.Ref]
@@ -49,10 +66,18 @@ func Aggregate(rows []schema.Candidate, resolution schema.Resolution, query sche
 			group = &schema.Group{Canonical: key, Ref: row.Ref, Display: row.Display}
 			groups[key] = group
 		} else {
-			// Deterministic, prefer richer ID metadata to an otherwise equivalent
-			// hash-only reference. Never change the credential grouping itself.
-			if refOrder(row.Ref) > refOrder(group.Ref) {
-				group.Ref = row.Ref
+			// Historical identity disagreements must not silently choose an owner.
+			// Keep the hash for reliable current metadata lookup and usage totals.
+			if !conflicts[key] {
+				left, right := refScope(group.Ref), refScope(row.Ref)
+				scopeConflict := left != "" && right != "" && left != right
+				idConflict := group.Ref.KeyID != "" && row.Ref.KeyID != "" && group.Ref.KeyID != row.Ref.KeyID
+				if scopeConflict || idConflict {
+					conflicts[key] = true
+					group.Ref = schema.KeyRef{}
+				} else if refOrder(row.Ref) > refOrder(group.Ref) {
+					group.Ref = row.Ref
+				}
 			}
 			if group.Display == "" || (row.Display != "" && row.Display < group.Display) {
 				group.Display = row.Display

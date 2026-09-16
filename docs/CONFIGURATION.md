@@ -1,5 +1,64 @@
 # 开发环境配置指南
 
+## 首页 API Key 用量排行
+
+首页模型排行下方提供客户端 API Key 用量榜单，仅当前登录的 Root 超级管理员可见。前后端均校验权限；前端在页面重新加载时通过当前用户接口验证 `is_root`，不信任缓存用户名或显示名称。
+
+该功能默认关闭，需要 Gateway 已经向 ClickHouse 的 `access_logs` 写入请求日志。Admin 只读查询，不自动开启 Gateway 落库，不创建、迁移或修改 ClickHouse 表。
+
+在使用的 Admin `server.toml` 添加以下配置（已有段落时修改字段，不重复声明）：
+
+```toml
+[Storage.ClickHouse]
+Enabled = false
+Addr = ["${ADMIN_CLICKHOUSE_ADDR:127.0.0.1:9000}"]
+Database = "${ADMIN_CLICKHOUSE_DATABASE:default}"
+Username = "${ADMIN_CLICKHOUSE_USERNAME:}"
+Password = "${ADMIN_CLICKHOUSE_PASSWORD:}"
+TLS = false
+DialTimeoutSeconds = 3
+QueryTimeoutSeconds = 5
+```
+
+确认只读账号、数据库和表已就绪后，由维护人员显式将 `Enabled` 改为 `true`。此客户端使用 ClickHouse 原生协议，地址应填写部署实际的原生端口，例如未加密的 9000，或配置 TLS 的原生端口；不要填写 HTTP 接口地址。`TLS = true` 时启用证书验证，不跳过 TLS 校验。只读账号仅需目标日志表的 SELECT 权限，凭据通过环境变量注入，不提交明文。
+
+必需日志列包括 `request_id`、`time`、`api_key_hash`、`api_key_id`、`workspace_id`、`user_id`、`tenant_id`、脱敏 `api_key`、`status_code`、四类 Token 与 `cost`。应使用与当前 Gateway `scripts/clickhouse_schema.sql` 一致的 `ReplacingMergeTree` 表。缺列、缺表、连接失败和权限不足均只影响此榜单，不阻止 Admin 启动。
+
+### 统计与归属
+
+- 接口为 `GET /api/v1/dashboard/api-key-ranking`，参数为 `time_range=today|1h|6h|24h|7d`、`sort_by=tokens|request_count|cost`、`limit=10|20|50`。默认值分别为 `today`、`tokens`、`10`。
+- 按 Key Hash 优先区分凭证；没有 Hash 时只使用经过验证的来源及 Key ID。不能恢复的旧日志单列为“无法归属的历史用量”，不会按脱敏片段猜测归属。
+- 同一实际 Key 的用量先合并，再全量排序取 Top N；输入＋输出是 Token 总量，缓存命中和缓存创建仅作为明细，不重复相加。
+- 占比分母包含该时段全部 Key，包括未入榜、已禁用／删除及未归属用量。不同 Key 的同名或相同脱敏片段不影响统计。
+- 请求数按日志去重后计算，不把网关重试次数算成新请求；成功率基于日志记录的最终状态。
+- 费用直接汇总网关记录的十进制数值，不是本功能重新结算的账单。
+- 名称、归属和状态从 Admin 管理库及已有 Portal 工作空间内部接口补充。Portal 不可达、已删除元数据或冲突身份均保留用量，并显示信息不可用；“查不到”不会自动标记为“已删除”。
+- “今日”沿用服务端日界线；界面显示包含时区偏移的窗口与最近成功更新时间。与 Prometheus 首页卡片可能存在落库延迟和采集覆盖差异，不保证逐秒相等。
+
+### 刷新与故障表现
+
+可见且激活的首页每 30 秒刷新，切换范围、排序或条数立即读取；离开首页或页面不可见时暂停。用量结果缓存最多 30 秒，名称和状态缓存最多 60 秒。401／403 或身份验证失败会清除旧榜单，不继续展示跨用户数据。
+
+| 状态 | 页面表现 |
+| --- | --- |
+| 未启用 ClickHouse | 尚未启用 API Key 用量统计 |
+| 查询成功、该窗口没有请求 | 该时段暂无调用 |
+| 查询失败且无同条件历史结果 | 数据暂不可用 |
+| 同条件后台更新失败 | 保留上次成功结果，显示失败提示与原时间 |
+| 元数据部分失败 | 保留用量，提示部分名称或状态不可用 |
+
+切换筛选后不会把旧条件的数据显示在新条件下。该卡片不支持行点击，不提供明文 Key 或 Hash。
+
+### 验证
+
+单元测试不需要真实 ClickHouse。独立集成测试只有设置 `API_KEY_USAGE_CH_TEST_ADDR` 后才执行；可同时设置 `API_KEY_USAGE_CH_TEST_USER` 和 `API_KEY_USAGE_CH_TEST_PASSWORD`。测试账号必须是专用测试环境账号，测试会创建随机名称、固定 `api_key_usage_test_` 前缀的数据库，并在结束后删除该精确数据库：
+
+```bash
+go test ./internal/mods/dashboard/dal -run TestUsageReaderClickHouseIntegration -v -count=1
+```
+
+不要把该环境变量指向生产实例。未设置时测试明确跳过，不能视为真实数据库验证已完成。上线启用、真实 7 天 Top 50 的查询耗时与并发容量，应在获得部署授权后单独验证。
+
 ## 环境变量配置（推荐）
 
 两个项目都支持通过环境变量注入敏感配置，保持配置文件模板化。

@@ -24,24 +24,46 @@ test('real Vue activation and visibility lifecycle controls polling and cleanup'
     doc.visibilityState = 'visible'
     globalThis.document = doc
     let calls = 0
-    globalThis.__usageLoad = async () => { calls++; return { state: 'disabled' } }
+    globalThis.__usageLoad = async () => {
+        calls++
+        return { state: 'disabled' }
+    }
     const authorized = ref(false)
     const shown = ref(true)
     let data
-    const component = { setup() { data = useAPIKeyUsage(authorized); return () => null } }
+    const component = {
+        setup() {
+            data = useAPIKeyUsage(authorized)
+            return () => null
+        },
+    }
     const empty = { render: () => null }
     const renderer = createRenderer({
-        createElement: () => ({}), createComment: () => ({}), createText: () => ({}),
-        insert() {}, remove() {}, setText() {}, setElementText() {}, patchProp() {},
-        parentNode: () => null, nextSibling: () => null,
+        createElement: () => ({}),
+        createComment: () => ({}),
+        createText: () => ({}),
+        insert() {},
+        remove() {},
+        setText() {},
+        setElementText() {},
+        patchProp() {},
+        parentNode: () => null,
+        nextSibling: () => null,
     })
     const app = renderer.createApp({
         render: () => h(KeepAlive, null, { default: () => h(shown.value ? component : empty) }),
     })
     app.mount({})
     let unmounted = false
-    const unmount = () => { if (!unmounted) app.unmount(); unmounted = true }
-    t.after(() => { unmount(); globalThis.document = previous; delete globalThis.__usageLoad })
+    const unmount = () => {
+        if (!unmounted) app.unmount()
+        unmounted = true
+    }
+    t.after(() => {
+        unmount()
+        globalThis.document = previous
+        delete globalThis.__usageLoad
+    })
     await nextTick()
     assert.equal(calls, 0)
     authorized.value = true

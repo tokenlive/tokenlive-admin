@@ -26,10 +26,17 @@ for (const status of [403, 503]) {
         let refreshes = 0
         let invalidations = 0
         const load = createAPIKeyUsageLoader({
-            send: async () => { throw failure },
+            send: async () => {
+                throw failure
+            },
             getSession: () => ({ token: 'token', hasRefreshToken: true }),
-            refreshAccessToken: async () => { refreshes++; return true },
-            invalidateLocalSession: () => { invalidations++ },
+            refreshAccessToken: async () => {
+                refreshes++
+                return true
+            },
+            invalidateLocalSession: () => {
+                invalidations++
+            },
         })
         await assert.rejects(load(query), (error) => error === failure)
         assert.equal(refreshes, 0)
@@ -49,7 +56,11 @@ test('401 retries only once with the refreshed access token', async () => {
             throw failure
         },
         getSession: () => ({ token, hasRefreshToken: true }),
-        refreshAccessToken: async () => { token = 'new'; refreshes++; return true },
+        refreshAccessToken: async () => {
+            token = 'new'
+            refreshes++
+            return true
+        },
     })
     await assert.rejects(load(query), (error) => error === failure)
     assert.equal(calls, 2)
@@ -60,9 +71,14 @@ test('refresh failure marks usage authorization uncertain without invalidating t
     let calls = 0
     const refreshFailure = new Error('temporary refresh outage')
     const load = createAPIKeyUsageLoader({
-        send: async () => { calls++; throw { response: { status: 401 } } },
+        send: async () => {
+            calls++
+            throw { response: { status: 401 } }
+        },
         getSession: () => ({ token: 'old', hasRefreshToken: true }),
-        refreshAccessToken: async () => { throw refreshFailure },
+        refreshAccessToken: async () => {
+            throw refreshFailure
+        },
     })
     await assert.rejects(
         load(query),
@@ -74,9 +90,13 @@ test('refresh failure marks usage authorization uncertain without invalidating t
 test('401 without refresh credentials invalidates only the local session', async () => {
     let invalidations = 0
     const load = createAPIKeyUsageLoader({
-        send: async () => { throw { response: { status: 401 } } },
+        send: async () => {
+            throw { response: { status: 401 } }
+        },
         getSession: () => ({ token: 'old', hasRefreshToken: false }),
-        invalidateLocalSession: () => { invalidations++ },
+        invalidateLocalSession: () => {
+            invalidations++
+        },
     })
     await assert.rejects(load(query), (error) => error.response.status === 401)
     assert.equal(invalidations, 1)
@@ -87,7 +107,9 @@ test('an already cancelled load never calls the transport', async () => {
     controller.abort()
     let calls = 0
     const load = createAPIKeyUsageLoader({
-        send: async () => { calls++ },
+        send: async () => {
+            calls++
+        },
         getSession: () => ({ token: 'token' }),
     })
     await assert.rejects(load(query, { signal: controller.signal }), (error) => error.name === 'AbortError')

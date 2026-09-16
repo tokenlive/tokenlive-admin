@@ -165,7 +165,10 @@ func (r *IdentityResolver) Describe(ctx context.Context, groups []schema.Group) 
 				}
 			}
 		} else if local != nil {
-			if item, ok := local.byHash[group.Ref.Hash]; ok && !local.conflicts[group.Ref.Hash] {
+			if local.conflicts[group.Ref.Hash] {
+				meta = unknownMetadata(schema.Group{Display: group.Display})
+				meta.MetadataStatus = "partial"
+			} else if item, ok := local.byHash[group.Ref.Hash]; ok {
 				meta = item
 			} else if group.Ref.UserID == "" && group.Ref.TenantID != "" {
 				if name, ok := local.tenants[group.Ref.TenantID]; ok {

@@ -906,6 +906,15 @@ const userStore = useUserStore()
 const canViewAPIKeyUsage = computed(
     () => userStore.isLogin && userStore.userInfoVerified && userStore.userInfo?.is_root === true
 )
+// A reload restores display-only cached user data. Re-verify the principal
+// before mounting the cross-tenant usage panel, independently of telemetry.
+onMounted(() => {
+    if (userStore.isLogin && !userStore.userInfoVerified) {
+        userStore.getUserInfo().catch(() => {
+            // Keep the privileged panel hidden when identity cannot be verified.
+        })
+    }
+})
 
 const timer = ref(null)
 const firstLoading = ref(true)

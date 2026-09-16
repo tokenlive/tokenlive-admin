@@ -86,6 +86,22 @@ func TestIdentityAdminIDMustMatchUser(t *testing.T) {
 	require.Empty(t, result.Keys[bad])
 }
 
+func TestMetadataConflictingOwnersRemainExplicitlyUnknown(t *testing.T) {
+	db := metadataDB(t)
+	for _, key := range []rbac.UserAPIKey{
+		{ID: "fixture-a", UserID: "owner-a", Name: "A", APIKey: "shared-fixture-key", Deleted: "fixture-a", Status: 1},
+		{ID: "fixture-b", UserID: "owner-b", Name: "B", APIKey: "shared-fixture-key", Deleted: "0", Status: 1},
+	} {
+		require.NoError(t, db.Create(&key).Error)
+	}
+	resolver := NewIdentityResolver(db, nil, "pepper", time.Now)
+	hash := gatewaykeys.HashAPIKey("shared-fixture-key", "pepper")
+	result := resolver.Describe(context.Background(), []schema.Group{{Canonical: "a", Ref: schema.KeyRef{Hash: hash, UserID: "owner-a"}}})
+	require.Empty(t, result["a"].Owner.ID)
+	require.Equal(t, "partial", result["a"].MetadataStatus)
+	require.Equal(t, "unknown", result["a"].KeyStatus)
+}
+
 func TestMetadataPortalExpiryCachingAndGlobalConcurrencyBound(t *testing.T) {
 	now := time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC)
 	expired := now.Add(-time.Second)

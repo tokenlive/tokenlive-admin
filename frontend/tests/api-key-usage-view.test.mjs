@@ -21,25 +21,43 @@ registerHooks({
     load(url, context, nextLoad) {
         if (url.endsWith('/APIKeyUsageRanking.vue')) {
             const descriptor = parse(readFileSync(new URL(url), 'utf8')).descriptor
-            return { format: 'module', source: compileScript(descriptor, { id: 'usage-view', inlineTemplate: true }).content, shortCircuit: true }
+            return {
+                format: 'module',
+                source: compileScript(descriptor, { id: 'usage-view', inlineTemplate: true }).content,
+                shortCircuit: true,
+            }
         }
         return nextLoad(url, context)
     },
 })
 const { default: Panel } = await import('../src/views/home/components/APIKeyUsageRanking.vue')
 const payload = {
-    state: 'ready', data_source: 'clickhouse',
+    state: 'ready',
+    data_source: 'clickhouse',
     generated_at: '2026-09-16T12:00:00+08:00',
     window: { start: '2026-09-16T00:00:00+08:00', end: '2026-09-16T12:00:00+08:00', timezone: 'UTC+8' },
     summary: { request_count: 4, total_tokens: 100, total_cost: '0.300000001', key_count: 1 },
-    items: [{
-        row_id: 'fixture-row-id', key_name: 'Production Agent', key_display: 'tl_l****abcd',
-        source: 'admin_user', owner: { kind: 'user', id: 'u', name: 'Developer' },
-        key_status: 'disabled', metadata_status: 'ready', request_count: 3, success_rate: 66.67,
-        total_tokens: 70, input_tokens: 50, output_tokens: 20, cached_tokens: 10, cache_creation_tokens: 5,
-        total_cost: '0.300000001', token_share: 70,
-        api_key_hash: 'MUST-NOT-RENDER',
-    }],
+    items: [
+        {
+            row_id: 'fixture-row-id',
+            key_name: 'Production Agent',
+            key_display: 'tl_l****abcd',
+            source: 'admin_user',
+            owner: { kind: 'user', id: 'u', name: 'Developer' },
+            key_status: 'disabled',
+            metadata_status: 'ready',
+            request_count: 3,
+            success_rate: 66.67,
+            total_tokens: 70,
+            input_tokens: 50,
+            output_tokens: 20,
+            cached_tokens: 10,
+            cache_creation_tokens: 5,
+            total_cost: '0.300000001',
+            token_share: 70,
+            api_key_hash: 'MUST-NOT-RENDER',
+        },
+    ],
     unattributed: { request_count: 1, total_tokens: 30, total_cost: '0', token_share: 30 },
     warnings: ['unattributed_usage'],
 }
@@ -47,17 +65,37 @@ const payload = {
 async function render(state, authorized = true, locale = 'zh-ch') {
     globalThis.__usageViewState = {
         query: { time_range: 'today', sort_by: 'tokens', limit: 10 },
-        phase: 'ready', stale: false, error: null, data: payload, ...state,
+        phase: 'ready',
+        stale: false,
+        error: null,
+        data: payload,
+        ...state,
     }
     const app = createSSRApp(Panel, { authorized })
     app.use(antd)
-    app.use(createI18n({ legacy: false, locale, messages: { 'zh-ch': zh, 'en-us': en }, missingWarn: false, fallbackWarn: false }))
+    app.use(
+        createI18n({
+            legacy: false,
+            locale,
+            messages: { 'zh-ch': zh, 'en-us': en },
+            missingWarn: false,
+            fallbackWarn: false,
+        })
+    )
     return renderToString(app)
 }
 
 test('renders real table cells, exact cost, ownership and historical unknown totals', async () => {
     const html = await render({})
-    for (const text of ['API Key 用量排行', 'Production Agent', 'Developer', '已禁用', '0.300000001', '无法归属的历史用量', '70.00%']) {
+    for (const text of [
+        'API Key 用量排行',
+        'Production Agent',
+        'Developer',
+        '已禁用',
+        '0.300000001',
+        '无法归属的历史用量',
+        '70.00%',
+    ]) {
         assert.ok(html.includes(text), text)
     }
     assert.ok(!html.includes('MUST-NOT-RENDER'))
