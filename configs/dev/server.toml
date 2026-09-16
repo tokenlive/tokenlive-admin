@@ -27,6 +27,16 @@ Name = "Admin"
 
 [Storage]
 
+[Storage.ClickHouse]
+Enabled = false
+Addr = ["${ADMIN_CLICKHOUSE_ADDR:127.0.0.1:9000}"]
+Database = "${ADMIN_CLICKHOUSE_DATABASE:default}"
+Username = "${ADMIN_CLICKHOUSE_USERNAME:}"
+Password = "${ADMIN_CLICKHOUSE_PASSWORD:}"
+TLS = false
+DialTimeoutSeconds = 3
+QueryTimeoutSeconds = 5
+
 [Storage.Cache]
 Type = "${STORAGE_CACHE_TYPE:memory}" # memory/badger/redis
 Delimiter = ":"

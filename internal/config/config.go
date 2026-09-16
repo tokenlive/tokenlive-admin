@@ -96,7 +96,8 @@ type General struct {
 }
 
 type Storage struct {
-	Cache struct {
+	ClickHouse ClickHouseConfig
+	Cache      struct {
 		Type      string `default:"memory"` // memory/badger/redis
 		Delimiter string `default:":"`      // delimiter for key
 		Memory    struct {
@@ -184,7 +185,9 @@ func (c *Config) IsDebug() bool {
 }
 
 func (c *Config) String() string {
-	b, err := json.MarshalIndent(c, "", "  ")
+	printable := *c
+	printable.Storage.ClickHouse.Password = "[redacted]"
+	b, err := json.MarshalIndent(printable, "", "  ")
 	if err != nil {
 		panic("Failed to marshal config: " + err.Error())
 	}
