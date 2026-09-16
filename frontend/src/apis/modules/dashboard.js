@@ -1,5 +1,7 @@
 import request from '@/utils/request'
 
+export { getAPIKeyRanking } from './api-key-usage'
+
 // 获取概览数据（合并 QPS + Metrics + CircuitBreakers）
 export const getOverview = () => request.basic.get('/api/v1/dashboard/overview')
 
