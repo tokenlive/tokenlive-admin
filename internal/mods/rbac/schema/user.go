@@ -28,7 +28,8 @@ type User struct {
 	Status    string    `json:"status" gorm:"type:varchar(20);default:null;index:idx_user_status;comment:状态;"`
 	CreatedAt time.Time `json:"created_at" gorm:"type:datetime;default:null;autoCreateTime;comment:创建时间;"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"type:datetime;default:null;autoUpdateTime;comment:更新时间;"`
-	Roles     UserRoles `json:"roles" gorm:"-"` // Roles of user
+	Roles     UserRoles `json:"roles" gorm:"-"`   // Roles of user
+	IsRoot    bool      `json:"is_root" gorm:"-"` // Verified current-principal capability, never persisted
 }
 
 func (a *User) TableName() string {

@@ -8,7 +8,8 @@ import (
 )
 
 type Dashboard struct {
-	DashboardAPI *api.Dashboard
+	DashboardAPI   *api.Dashboard
+	APIKeyUsageAPI *api.APIKeyUsage
 }
 
 func (a *Dashboard) Init(ctx context.Context) error {
@@ -24,6 +25,7 @@ func (a *Dashboard) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) 
 		g.GET("model-performance-trends", a.DashboardAPI.QueryModelPerformanceTrends)
 		g.POST("sync-redis", a.DashboardAPI.SyncRedis)
 		g.GET("model-ranking", a.DashboardAPI.QueryModelRanking)
+		g.GET("api-key-ranking", a.APIKeyUsageAPI.Query)
 		g.GET("provider-ranking", a.DashboardAPI.QueryProviderRanking)
 		g.GET("overview", a.DashboardAPI.QueryOverview)
 		g.GET("ws", a.DashboardAPI.HandleWebSocket)

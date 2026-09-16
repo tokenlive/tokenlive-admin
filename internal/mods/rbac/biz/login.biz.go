@@ -314,14 +314,14 @@ func (a *Login) RefreshTokenWithRefreshToken(ctx context.Context, refreshToken s
 		userTenant = user.Tenant
 	}
 
-		// Keep the existing refresh token valid so multi-device / multi-tab sessions
-		// are not kicked offline when any one of them refreshes.
-		ctx = logging.NewUserID(ctx, userID)
-		logging.Context(ctx).Info("Refresh token success", zap.String("jti", jti))
+	// Keep the existing refresh token valid so multi-device / multi-tab sessions
+	// are not kicked offline when any one of them refreshes.
+	ctx = logging.NewUserID(ctx, userID)
+	logging.Context(ctx).Info("Refresh token success", zap.String("jti", jti))
 
-		// Issue a new access token and a new refresh token (sliding window).
-		// Old refresh tokens remain valid until natural expiry or explicit logout.
-		return a.genLoginResponse(ctx, userID, userTenant, true)
+	// Issue a new access token and a new refresh token (sliding window).
+	// Old refresh tokens remain valid until natural expiry or explicit logout.
+	return a.genLoginResponse(ctx, userID, userTenant, true)
 }
 
 // LogoutWithRefreshToken logs out and revokes both access token and refresh token
@@ -381,6 +381,7 @@ func (a *Login) Logout(ctx context.Context) error {
 func (a *Login) GetUserInfo(ctx context.Context) (*schema.User, error) {
 	if util.FromIsRootUser(ctx) {
 		return &schema.User{
+			IsRoot:   true,
 			ID:       config.C.General.Root.ID,
 			Username: config.C.General.Root.Username,
 			Name:     config.C.General.Root.Name,

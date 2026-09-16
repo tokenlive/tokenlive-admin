@@ -499,8 +499,13 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		RedisClient: redisClient,
 		RedisSync:   configRedisSync,
 	}
+	clickHouseReader, cleanup4 := dashboard.ProvideUsageReader()
+	identityResolver := dashboard.ProvideUsageResolver(db)
+	apiKeyUsageService := dashboard.ProvideUsageService(clickHouseReader, identityResolver)
+	apiKeyUsage := dashboard.ProvideUsageAPI(apiKeyUsageService)
 	dashboardDashboard := &dashboard.Dashboard{
-		DashboardAPI: apiDashboard,
+		DashboardAPI:   apiDashboard,
+		APIKeyUsageAPI: apiKeyUsage,
 	}
 	wsHub := api6.NewWSHub()
 	eventAPI := &api6.EventAPI{
@@ -531,8 +536,9 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		CleanupTask:   cleanupTask,
 		Hub:           wsHub,
 	}
-	service, cleanup4, err := systemversion.ProvideService(ctx, redisClient)
+	service, cleanup5, err := systemversion.ProvideService(ctx, redisClient)
 	if err != nil {
+		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()
@@ -558,6 +564,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		M:     modsMods,
 	}
 	return injector, func() {
+		cleanup5()
 		cleanup4()
 		cleanup3()
 		cleanup2()
