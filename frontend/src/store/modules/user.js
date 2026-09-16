@@ -13,6 +13,7 @@ const refreshCoordinator = createRefreshCoordinator()
 const useUserStore = defineStore('user', {
     state: () => ({
         userInfo: storage.local.getItem(config('storage.userInfo'), null),
+        userInfoVerified: false,
         token: storage.local.getItem(config('storage.token'), ''),
         refreshToken: storage.local.getItem(config('storage.refreshToken'), ''),
         permission: storage.local.getItem(config('storage.permission'), []),
@@ -28,6 +29,7 @@ const useUserStore = defineStore('user', {
          * @returns {Promise<unknown>}
          */
         async applyLoginToken(data) {
+            this.userInfoVerified = false
             const { access_token, refresh_token } = data
             this.token = access_token
             storage.local.setItem(config('storage.token'), access_token)
@@ -164,6 +166,8 @@ const useUserStore = defineStore('user', {
          * 获取用户详情
          */
         getUserInfo() {
+            const requestToken = this.token
+            this.userInfoVerified = false
             return new Promise((resolve, reject) => {
                 ;(async () => {
                     try {
@@ -171,14 +175,20 @@ const useUserStore = defineStore('user', {
                             throw new Error()
                         })
                         const { success, data } = result || {}
+                        if (this.token !== requestToken) {
+                            reject(new Error('Session changed'))
+                            return
+                        }
                         if (config('http.code.success') === success) {
                             this.userInfo = data
+                            this.userInfoVerified = true
                             storage.local.setItem(config('storage.userInfo'), this.userInfo)
                             resolve(result)
                         } else {
                             throw new Error()
                         }
                     } catch (error) {
+                        if (this.token === requestToken) this.userInfoVerified = false
                         reject()
                     }
                 })()
