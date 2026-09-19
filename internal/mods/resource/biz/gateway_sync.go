@@ -501,6 +501,12 @@ func (s *GatewaySync) GetGatewayPolicies(ctx context.Context, modelCode string) 
 			Value: p,
 		})
 	}
+	sort.Slice(policyItems, func(i, j int) bool {
+		if policyItems[i].Scope != policyItems[j].Scope {
+			return policyItems[i].Scope < policyItems[j].Scope
+		}
+		return policyItems[i].Model < policyItems[j].Model
+	})
 
 	c.Set(cacheKey, policyItems, cache.DefaultExpiration)
 	return policyItems, nil
@@ -597,6 +603,10 @@ func (s *GatewaySync) GetGatewayApiKeys(ctx context.Context, apiKey string) ([]H
 			}
 		}
 	}
+
+	sort.Slice(apiKeys, func(i, j int) bool {
+		return apiKeys[i].APIKey < apiKeys[j].APIKey
+	})
 
 	c.Set(cacheKey, apiKeys, cache.DefaultExpiration)
 	return apiKeys, nil
