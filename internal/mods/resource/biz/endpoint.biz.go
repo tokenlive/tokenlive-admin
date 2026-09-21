@@ -229,6 +229,9 @@ func (e *Endpoint) Get(ctx context.Context, id string) (*schema.Endpoint, error)
 
 // Create a new endpoint.
 func (e *Endpoint) Create(ctx context.Context, formItem *schema.EndpointForm) (*schema.Endpoint, error) {
+	if err := rejectSmartEndpoint(ctx, e.ModelDAL, formItem.ModelID); err != nil {
+		return nil, err
+	}
 	// Exists check for duplicate endpoint
 	exists, err := e.EndpointDAL.ExistsDuplicate(ctx, formItem.ModelID, formItem.ProviderID, formItem.URL, formItem.ApiKey, formItem.Protocol, formItem.RealModel, "")
 	if err != nil {
@@ -264,6 +267,9 @@ func (e *Endpoint) Create(ctx context.Context, formItem *schema.EndpointForm) (*
 	}
 
 	err = e.Trans.Exec(ctx, func(ctx context.Context) error {
+		if err := rejectSmartEndpoint(ctx, e.ModelDAL, endpoint.ModelID); err != nil {
+			return err
+		}
 		if err := e.EndpointDAL.Create(ctx, endpoint); err != nil {
 			return err
 		}
@@ -286,6 +292,9 @@ func (e *Endpoint) Create(ctx context.Context, formItem *schema.EndpointForm) (*
 
 // Update the specified endpoint.
 func (e *Endpoint) Update(ctx context.Context, id string, formItem *schema.EndpointForm) error {
+	if err := rejectSmartEndpoint(ctx, e.ModelDAL, formItem.ModelID); err != nil {
+		return err
+	}
 	endpoint, err := e.EndpointDAL.Get(ctx, id)
 	if err != nil {
 		return err
@@ -333,6 +342,9 @@ func (e *Endpoint) Update(ctx context.Context, id string, formItem *schema.Endpo
 	endpoint.UpdatedAt = time.Now()
 
 	err = e.Trans.Exec(ctx, func(ctx context.Context) error {
+		if err := rejectSmartEndpoint(ctx, e.ModelDAL, endpoint.ModelID); err != nil {
+			return err
+		}
 		return e.EndpointDAL.Update(ctx, endpoint)
 	})
 	if err == nil {

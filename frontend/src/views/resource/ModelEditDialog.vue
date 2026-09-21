@@ -10,6 +10,7 @@
             ref="formRef"
             :model="formData"
             :rules="formRules"
+            :disabled="loadingRecord"
             :label-col="{ style: { width: '120px' } }">
             <a-form-item
                 :label="$t('pages.model.form.model_name')"
@@ -18,9 +19,27 @@
             </a-form-item>
 
             <a-form-item
+                :label="$t('pages.model.form.model_type')"
+                name="model_type"
+                :extra="smartTypeBlocked ? $t('pages.model.smart.conversion_blocked') : undefined">
+                <a-radio-group
+                    :value="formData.model_type"
+                    @change="handleModelTypeChange">
+                    <a-radio value="normal">{{ $t('pages.model.type.normal') }}</a-radio>
+                    <a-radio
+                        value="smart"
+                        :disabled="smartTypeBlocked"
+                        >{{ $t('pages.model.type.smart') }}</a-radio
+                    >
+                </a-radio-group>
+            </a-form-item>
+
+            <a-form-item
                 :label="$t('pages.model.form.model_code')"
                 name="model_code">
-                <a-input v-model:value="formData.model_code"></a-input>
+                <a-input
+                    v-model:value="formData.model_code"
+                    :disabled="modal.type === 'edit'"></a-input>
             </a-form-item>
 
             <a-form-item
@@ -45,6 +64,7 @@
                 <a-select
                     v-model:value="formData.request_types"
                     mode="multiple"
+                    :disabled="isSmartModel"
                     :placeholder="$t('pages.model.form.request_types.placeholder')">
                     <a-select-option value="chat_completion">Chat Completion</a-select-option>
                     <a-select-option value="responses">Responses (OpenAI Beta/Compat)</a-select-option>
@@ -149,8 +169,21 @@
                 name="enabled">
                 <a-switch
                     v-model:checked="formData.enabled"
+                    :disabled="enableBlocked"
                     :checked-value="1"
                     :un-checked-value="0" />
+                <p
+                    v-if="enableBlocked"
+                    class="smart-disable-warning">
+                    {{ $t('pages.model.smart.enable_after_config') }}
+                </p>
+                <a-alert
+                    v-if="formData.enabled === 0 && referencedBy.length"
+                    class="smart-disable-warning"
+                    type="warning"
+                    show-icon
+                    :message="$t('pages.model.smart.disable_warning')"
+                    :description="referencedBy.map((model) => model.model_name || model.model_code).join(', ')" />
             </a-form-item>
 
             <a-form-item
@@ -180,6 +213,7 @@
                 <a-button
                     type="primary"
                     :loading="modal.confirmLoading"
+                    :disabled="loadingRecord"
                     @click="handleOk"
                     >{{ okText }}</a-button
                 >
@@ -191,13 +225,13 @@
 <script setup>
 import { cloneDeep } from 'lodash-es'
 import { message } from 'ant-design-vue'
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { config } from '@/config'
 import apis from '@/apis'
 import { useForm, useModal } from '@/hooks'
 import { useI18n } from 'vue-i18n'
 import { initSpaceCode, setCurrentSpaceCode } from '@/utils/spaceStorage'
-import { watch } from 'vue'
+import { buildModelRoutingFields, isModelEnableBlocked, getModelSaveFeedback } from '@/utils/smart-model'
 import {
     CONTEXT_LENGTH_OPTIONS,
     filterContextLengthOption,
@@ -217,6 +251,40 @@ const { formRecord, formData, formRef, formRules, resetForm } = useForm()
 const { t } = useI18n()
 const cancelText = ref(t('button.cancel'))
 const okText = ref(t('button.confirm'))
+const loadingRecord = ref(false)
+const isSmartModel = computed(() => formData.value.model_type === 'smart')
+const referencedBy = computed(() => formRecord.value?.referenced_by || [])
+const smartTypeBlocked = computed(
+    () =>
+        modal.value.type === 'edit' &&
+        formRecord.value?.model_type !== 'smart' &&
+        (Number(formRecord.value?.endpoint_count) > 0 || referencedBy.value.length > 0)
+)
+const enableBlocked = computed(() =>
+    isModelEnableBlocked({
+        ...formData.value,
+        smart_routing_ready:
+            formRecord.value?.model_type === 'smart' &&
+            formRecord.value?.smart_routing_ready === true &&
+            formData.value.space_code === formRecord.value?.space_code,
+    })
+)
+let ordinaryRequestTypes = null
+
+function handleModelTypeChange(event) {
+    const type = event.target.value
+    if (type === 'smart' && smartTypeBlocked.value) return
+    if (type === 'smart') {
+        ordinaryRequestTypes = [...(formData.value.request_types || [])]
+        formData.value.request_types = ['chat_completion']
+        if (formRecord.value?.model_type !== 'smart' || formRecord.value?.smart_routing_ready !== true) {
+            formData.value.enabled = 0
+        }
+    } else {
+        formData.value.request_types = ordinaryRequestTypes || ['chat_completion']
+    }
+    formData.value.model_type = type
+}
 
 watch(
     () => formData.value.space_code,
@@ -290,11 +358,14 @@ formRules.value = {
 }
 
 function handleCreate() {
+    ordinaryRequestTypes = null
+    formRecord.value = {}
     showModal({
         type: 'create',
         title: t('pages.model.add'),
     })
     formData.value.enabled = 1
+    formData.value.model_type = 'normal'
     formData.value.space_code = initSpaceCode(props.spaceOptions)
     formData.value.context_length = toContextLengthSelectValue(1000000)
     formData.value.max_output_tokens = 8192
@@ -308,12 +379,15 @@ function handleCreate() {
 }
 
 async function handleEdit(record = {}) {
+    ordinaryRequestTypes = null
+    loadingRecord.value = true
     showModal({
         type: 'edit',
         title: t('pages.model.edit'),
     })
 
-    const { data, success } = await apis.model.getModel(record.id).catch()
+    const { data, success } = await apis.model.getModel(record.id).catch(() => ({ success: false }))
+    loadingRecord.value = false
     if (!success) {
         message.error(t('component.message.error.request'))
         hideModal()
@@ -337,12 +411,19 @@ async function handleEdit(record = {}) {
     } else if (!data.abilities) {
         data.abilities = []
     }
+    data.model_type = data.model_type || 'normal'
+    if (data.model_type === 'smart') {
+        data.request_types = ['chat_completion']
+    }
     formRecord.value = data
     formData.value = cloneDeep(data)
+    delete formData.value.smart_routing
+    delete formData.value.smart_routing_version
     formData.value.context_length = toContextLengthSelectValue(formData.value.context_length)
 }
 
 function handleOk() {
+    if (loadingRecord.value) return
     formRef.value
         .validateFields()
         .then(async (values) => {
@@ -354,10 +435,11 @@ function handleOk() {
                     values.model_code = values.model_code.trim()
                 }
                 values.context_length = parseContextLength(values.context_length)
+                delete values.smart_routing
+                delete values.smart_routing_version
                 const params = {
                     ...values,
-                    request_types: JSON.stringify(values.request_types || []),
-                    abilities: JSON.stringify(values.abilities || []),
+                    ...buildModelRoutingFields(formData.value, formRecord.value),
                 }
                 if (submitType === 'create') {
                     params.apply_invocation_seed = !!formData.value.apply_invocation_seed
@@ -375,7 +457,10 @@ function handleOk() {
                 hideLoading()
                 if (config('http.code.success') === result?.success) {
                     hideModal()
-                    if (submitType === 'create') {
+                    const feedback = getModelSaveFeedback(result?.data)
+                    if (feedback) {
+                        message.warning([t(`pages.model.smart.${feedback.key}`), ...feedback.warnings].join(' '))
+                    } else if (submitType === 'create') {
                         showCreateResultMessage(result?.data)
                     } else {
                         message.success(t('component.message.success.save'))
@@ -421,6 +506,7 @@ function handleCancel() {
 function onAfterClose() {
     resetForm()
     hideLoading()
+    loadingRecord.value = false
 }
 
 function handleAfterOpenChange(open) {
@@ -440,5 +526,9 @@ defineExpose({
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+.smart-disable-warning {
+    margin-top: 8px;
 }
 </style>

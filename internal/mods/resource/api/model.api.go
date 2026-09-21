@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/biz"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
@@ -102,17 +103,39 @@ func (m *Model) Update(c *gin.Context) {
 	if err := util.ParseJSON(c, item); err != nil {
 		util.ResError(c, err)
 		return
-	} else if err := item.Validate(); err != nil {
-		util.ResError(c, err)
-		return
 	}
 
+	// The business layer merges omitted routing with the locked model before
+	// validating; a basic edit must not be mistaken for clearing the route.
 	err := m.ModelBIZ.Update(ctx, c.Param("id"), item)
 	if err != nil {
 		util.ResError(c, err)
 		return
 	}
-	util.ResOK(c)
+	util.ResSuccess(c, item.Result)
+}
+
+// @Tags ModelAPI
+// @Security ApiKeyAuth
+// @Summary Update a smart model's routing configuration without changing its basic information
+// @Param id path string true "model ID"
+// @Param body body schema.SmartRouting true "Routing configuration and expected version (0 for first save)"
+// @Success 200 {object} util.ResponseResult{data=schema.ModelMutationResult}
+// @Failure 400 {object} util.ResponseResult
+// @Failure 409 {object} util.ResponseResult
+// @Router /api/v1/models/{id}/smart-routing [put]
+func (m *Model) UpdateSmartRouting(c *gin.Context) {
+	item := new(schema.SmartRouting)
+	if err := util.ParseJSON(c, item); err != nil {
+		util.ResError(c, err)
+		return
+	}
+	result, err := m.ModelBIZ.UpdateSmartRouting(c.Request.Context(), c.Param("id"), item)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResSuccess(c, result)
 }
 
 // @Tags ModelAPI
@@ -141,7 +164,7 @@ func (m *Model) UpdateEnabled(c *gin.Context) {
 		util.ResError(c, err)
 		return
 	}
-	util.ResOK(c)
+	util.ResSuccess(c, item.Result)
 }
 
 // @Tags ModelAPI
@@ -156,6 +179,11 @@ func (m *Model) Delete(c *gin.Context) {
 	ctx := c.Request.Context()
 	err := m.ModelBIZ.Delete(ctx, c.Param("id"))
 	if err != nil {
+		var saved *biz.SavedModelSyncError
+		if errors.As(err, &saved) {
+			util.ResSuccess(c, schema.ModelMutationResult{Saved: true, SyncStatus: "failed", Warnings: []string{saved.Error()}})
+			return
+		}
 		util.ResError(c, err)
 		return
 	}

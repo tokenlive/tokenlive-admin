@@ -87,7 +87,14 @@
                     <a-card-grid style="width: 25%; text-align: center">
                         <div class="info-item">
                             <span class="info-label">{{ $t('pages.model.form.model_name') }}</span>
-                            <span class="info-value">{{ modelData.model_name || '--' }}</span>
+                            <span class="info-value">
+                                {{ modelData.model_name || '--' }}
+                                <a-tag
+                                    :color="isSmartModel ? 'purple' : 'default'"
+                                    :title="$t('pages.model.form.model_type')">
+                                    {{ $t(isSmartModel ? 'pages.model.type.smart' : 'pages.model.type.normal') }}
+                                </a-tag>
+                            </span>
                         </div>
                     </a-card-grid>
                     <a-card-grid style="width: 25%; text-align: center">
@@ -209,8 +216,13 @@
                     v-model:activeKey="activeTab"
                     class="detail-tabs">
                     <a-tab-pane
+                        v-if="!isSmartModel"
                         key="endpoint"
                         :tab="$t('pages.model.detail.tab.endpoint')" />
+                    <a-tab-pane
+                        v-else
+                        key="smart_routing"
+                        :tab="$t('pages.model.smart.ranges')" />
                     <a-tab-pane
                         key="alias"
                         :tab="$t('pages.model.detail.tab.alias')" />
@@ -235,14 +247,23 @@
                         :active="activeTab === 'monitor'" />
                 </div>
 
+                <div
+                    v-else-if="isSmartModel && activeTab === 'smart_routing'"
+                    class="tab-content tab-content--scroll">
+                    <smart-routing-editor
+                        :model="modelData"
+                        @saved="loadModelDetail" />
+                </div>
+
                 <!-- 端点管理 Tab 内容 -->
                 <div
-                    v-else-if="activeTab === 'endpoint'"
+                    v-else-if="!isSmartModel && activeTab === 'endpoint'"
                     class="tab-content">
                     <div class="tab-toolbar">
                         <a-button
                             type="primary"
                             ghost
+                            :disabled="!modelData.id"
                             @click="$refs.endpointEditRef.handleCreate()">
                             <template #icon><plus-outlined /></template>
                             {{ $t('pages.endpoint.add') }}
@@ -635,6 +656,7 @@
 
             <!-- 端点编辑弹窗 -->
             <endpoint-edit-dialog
+                v-if="!isSmartModel"
                 ref="endpointEditRef"
                 :provider-options="providerOptions"
                 :model-options="modelOptions"
@@ -764,6 +786,7 @@ import EndpointEditDialog from './EndpointEditDialog.vue'
 import EndpointStatusStrip from '@/components/EndpointStatusStrip.vue'
 import ModelMonitorTab from './ModelMonitorTab.vue'
 import ModelEditDialog from './ModelEditDialog.vue'
+import SmartRoutingEditor from './SmartRoutingEditor.vue'
 import LoadbalanceEditDialog from '@/views/policy/LoadbalanceEditDialog.vue'
 import TagRouteEditDialog from '@/views/policy/TagRouteEditDialog.vue'
 import LimitEditDialog from '@/views/policy/LimitEditDialog.vue'
@@ -803,6 +826,7 @@ const {
 } = useTableAutoScrollY()
 const modelId = ref(route.params.id)
 const modelData = ref({})
+const isSmartModel = computed(() => modelData.value.model_type === 'smart')
 const activeTab = ref(route.query.tab === 'monitor' ? 'monitor' : 'endpoint')
 const basicInfoCollapsed = ref(false)
 
@@ -1189,6 +1213,10 @@ onMounted(() => {
 watch(
     () => route.query.tab,
     (tab) => {
+        if (isSmartModel.value && (tab === 'endpoint' || tab === 'smart_routing')) {
+            activeTab.value = 'smart_routing'
+            return
+        }
         if (tab === 'monitor' || tab === 'endpoint' || tab === 'alias' || tab === 'member' || isPolicyTab(tab)) {
             activeTab.value = tab
         }
@@ -1199,6 +1227,10 @@ watch(
     activeTab,
     (tab) => {
         if (tab === 'endpoint') {
+            if (isSmartModel.value) {
+                activeTab.value = 'smart_routing'
+                return
+            }
             loadEndpointList()
         }
     },
@@ -1276,6 +1308,13 @@ async function loadModelDetail() {
         const { data, success } = await apis.model.getModel(modelId.value)
         if (success) {
             modelData.value = data || {}
+            if (isSmartModel.value && activeTab.value === 'endpoint') {
+                activeTab.value = 'smart_routing'
+            } else if (!isSmartModel.value && activeTab.value === 'smart_routing') {
+                activeTab.value = 'endpoint'
+            } else if (activeTab.value === 'endpoint') {
+                loadEndpointList()
+            }
             loadModelPolicies()
         }
     } catch (error) {
@@ -1602,6 +1641,7 @@ async function loadModelOptions() {
 }
 
 async function loadEndpointList() {
+    if (!modelData.value.id || isSmartModel.value) return
     try {
         endpointLoading.value = true
         const { data, success, total } = await apis.endpoint

@@ -73,7 +73,7 @@ func TestModelUpdate_Success(t *testing.T) {
 
 	updateForm := &schema.ModelForm{
 		ModelName:       "Model New",
-		ModelCode:       "new-model-code",
+		ModelCode:       "old-model-code",
 		SpaceCode:       "default",
 		RequestTypes:    `["chat_completion"]`,
 		ContextLength:   128000,
@@ -87,12 +87,12 @@ func TestModelUpdate_Success(t *testing.T) {
 	updatedModel, err := biz.ModelDAL.Get(ctx, "model-1")
 	require.NoError(t, err)
 	require.NotNil(t, updatedModel)
-	require.Equal(t, "new-model-code", updatedModel.ModelCode)
+	require.Equal(t, "old-model-code", updatedModel.ModelCode)
 	require.Equal(t, "Model New", updatedModel.ModelName)
 	require.Equal(t, "alice", updatedModel.Modifier)
 }
 
-func TestModelUpdate_DuplicateModelCode(t *testing.T) {
+func TestModelUpdate_ImmutableModelCode(t *testing.T) {
 	db := newModelUpdateTestDB(t)
 	biz := newModelUpdateTestBiz(db)
 	ctx := newModelUpdateTestContext()
@@ -106,24 +106,19 @@ func TestModelUpdate_DuplicateModelCode(t *testing.T) {
 		Deleted:   "0",
 	}).Error)
 
-	require.NoError(t, db.Create(&schema.Model{
-		ID:        "model-2",
-		ModelName: "Model Two",
-		ModelCode: "code-2",
-		SpaceCode: "default",
-		CreatedAt: time.Now(),
-		Deleted:   "0",
-	}).Error)
-
 	updateForm := &schema.ModelForm{
-		ModelName: "Model Two",
-		ModelCode: "code-1", // duplicate with model-1
+		ModelName: "Model One",
+		ModelCode: "code-2",
 		SpaceCode: "default",
 	}
 
-	err := biz.Update(ctx, "model-2", updateForm)
+	err := biz.Update(ctx, "model-1", updateForm)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Model code already exists")
+	require.Contains(t, err.Error(), "模型编码创建后不可修改")
+
+	got, err := biz.ModelDAL.Get(ctx, "model-1")
+	require.NoError(t, err)
+	require.Equal(t, "code-1", got.ModelCode)
 }
 
 func TestModelUpdate_DuplicateModelName(t *testing.T) {

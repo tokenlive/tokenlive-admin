@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TokenLive · 智能路由 MVP 时序图</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root { color-scheme: dark; }
+    body { font-family: 'JetBrains Mono', 'PingFang SC', 'Microsoft YaHei', monospace; background: #020617; min-height: 100vh; padding: 32px; color: #f8fafc; }
+    .container { max-width: 1360px; margin: 0 auto; }
+    .header { margin-bottom: 28px; }
+    .eyebrow { font-size: 10px; color: #64748b; letter-spacing: .2em; margin-bottom: 14px; }
+    .header-row { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+    .pulse-dot { width: 11px; height: 11px; background: #22d3ee; border-radius: 50%; animation: pulse 2s infinite; flex-shrink: 0; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+    h1 { font-size: clamp(22px, 2.4vw, 32px); font-weight: 600; letter-spacing: -.04em; }
+    .subtitle { color: #94a3b8; font-size: 12px; margin-left: 25px; line-height: 1.9; }
+    .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0 25px; }
+    .badge { border: 1px solid #26334a; border-radius: 5px; padding: 5px 9px; font-size: 10px; color: #b8c5d7; background: #0b1220; }
+    .badge.cyan { color: #67e8f9; border-color: #164e63; }
+    .badge.amber { color: #fcd34d; border-color: #5c451a; }
+    .diagram-container { background: rgba(15,23,42,.5); border: 1px solid #1e293b; border-radius: 16px; padding: 22px; margin-bottom: 22px; }
+    .section-head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+    .section-num { color: #34d399; background: #052e27; border: 1px solid #145345; padding: 5px 8px; font-size: 11px; border-radius: 5px; }
+    .section-num.orange { color: #fb923c; background: #2b1d16; border-color: #654028; }
+    h2 { font-size: 16px; font-weight: 500; line-height: 1.6; }
+    .section-note { font-size: 10px; color: #94a3b8; line-height: 1.8; margin-top: 4px; }
+    .svg-wrap { overflow-x: auto; border-radius: 8px; background: #080f1d; }
+    svg { display: block; width: 100%; min-width: 1080px; }
+    svg text { font-family: 'JetBrains Mono', 'PingFang SC', 'Microsoft YaHei', monospace; }
+    .life { stroke: #334155; stroke-width: 1; stroke-dasharray: 3 6; opacity: .8; }
+    .call { fill: none; stroke: #34d399; stroke-width: 1.45; }
+    .reply { fill: none; stroke: #94a3b8; stroke-width: 1.15; stroke-dasharray: 5 4; }
+    .secure { fill: none; stroke: #fb7185; stroke-width: 1.3; stroke-dasharray: 4 4; }
+    .event { fill: none; stroke: #fb923c; stroke-width: 1.35; }
+    .alternative { fill: none; stroke: #fbbf24; stroke-width: 1.4; }
+    .component { fill: #f8fafc; font-size: 12px; font-weight: 600; text-anchor: middle; }
+    .sub { fill: #94a3b8; font-size: 8.5px; text-anchor: middle; }
+    .msg { fill: #dbe6f3; font-size: 10px; paint-order: stroke; stroke: #080f1d; stroke-width: 5px; stroke-linejoin: round; }
+    .annotation { fill: #94a3b8; font-size: 8px; paint-order: stroke; stroke: #080f1d; stroke-width: 4px; }
+    .pink { fill: #fda4af; }
+    .gold { fill: #fcd34d; }
+    .muted { fill: #94a3b8; }
+    .frame { fill: none; stroke: #334155; stroke-width: 1; }
+    .frame-title { fill: #cbd5e1; font-size: 9px; font-weight: 600; }
+    .tab-label { font-size: 8px; fill: #e2e8f0; text-anchor: middle; font-weight: 700; letter-spacing: 1px; }
+    .under-note { margin-top: 14px; padding-left: 12px; border-left: 2px solid #334155; color: #94a3b8; font-size: 10px; line-height: 1.9; }
+    .cards { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; margin-top: 24px; }
+    .card { background: rgba(15,23,42,.5); border: 1px solid #1e293b; border-radius: 12px; padding: 20px; }
+    .card-header { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .card-dot.cyan { background: #22d3ee; }
+    .card-dot.amber { background: #fbbf24; }
+    .card-dot.rose { background: #fb7185; }
+    .card h3 { font-size: 13px; font-weight: 600; }
+    .card ul { list-style: none; font-size: 11px; color: #94a3b8; line-height: 1.9; }
+    .card li { margin: 5px 0; padding-left: 12px; position: relative; }
+    .card li::before { content: '·'; color: #64748b; position: absolute; left: 0; }
+    .card strong { font-weight: 500; color: #dbe6f3; }
+    .footer { margin-top: 22px; padding: 14px 0; border-top: 1px solid #172033; display: flex; justify-content: space-between; gap: 12px; color: #64748b; font-size: 9px; line-height: 1.8; }
+    .toolbar { display: flex; gap: .5rem; margin-left: auto; flex-shrink: 0; align-items: center; }
+    .toolbar-toggle { background: transparent; border: none; color: #64748b; cursor: pointer; font-size: 1.5rem; line-height: 1; padding: .25rem .5rem; border-radius: .375rem; transition: color .2s,background .2s; }
+    .toolbar-toggle:hover { color: #94a3b8; background: rgba(30,41,59,.5); }
+    .toolbar-actions { display: none; gap: .5rem; }
+    .toolbar.expanded .toolbar-actions { display: flex; }
+    .toolbar-actions button { background: rgba(30,41,59,.8); border: 1px solid #334155; color: #94a3b8; padding: .375rem .75rem; border-radius: .375rem; font-family: inherit; font-size: .75rem; cursor: pointer; white-space: nowrap; }
+    .toolbar-actions button:hover { background: rgba(51,65,85,.8); color: white; }
+    @media (max-width: 800px) { body { padding: 20px; } .cards { grid-template-columns: 1fr; } .diagram-container { padding: 16px; } .toolbar.expanded { flex-wrap: wrap; } .footer { flex-direction: column; } }
+    @media (prefers-reduced-motion: reduce) { .pulse-dot { animation: none; } }
+    @media print { body { background: #020617; padding: 1rem; } .toolbar { display: none !important; } }
+  </style>
+</head>
+<body>
+  <main class="container" id="report-container">
+    <header class="header">
+      <p class="eyebrow">TOKENLIVE / SMART ROUTING / SEQUENCE</p>
+      <div class="header-row">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        <h1>智能路由 MVP · 时序图</h1>
+        <div class="toolbar">
+          <div class="toolbar-actions">
+            <button onclick="copyAsImage(this)">📋 Copy</button>
+            <button onclick="downloadPNG(this)">🖼️ PNG</button>
+            <button onclick="downloadPDF(this)">📄 PDF</button>
+          </div>
+          <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="导出选项" aria-label="导出选项">⋯</button>
+        </div>
+      </div>
+      <p class="subtitle">一个复合模型编码，对应一次受控选模；在现有 Admin 与 Gateway 中完成，无新增独立服务。</p>
+      <div class="badges">
+        <span class="badge cyan">文本 · 非流式 Chat Completions</span>
+        <span class="badge">0–100 整数评分 · 区间完整覆盖</span>
+        <span class="badge">裁决与回答上下文隔离</span>
+        <span class="badge amber">真实模型效果待实测</span>
+      </div>
+    </header>
+
+    <section class="diagram-container" aria-labelledby="config-heading">
+      <div class="section-head">
+        <span class="section-num orange">01</span>
+        <div>
+          <h2 id="config-heading">配置准备与下发</h2>
+          <p class="section-note">管理操作触发，不是每次聊天请求都执行。三种配置交付方式互为替代，不是依次经过的三个服务。</p>
+        </div>
+      </div>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 1100 440" role="img" aria-labelledby="config-title config-desc">
+          <title id="config-title">Admin 复合模型配置保存与 Gateway 刷新时序</title>
+          <desc id="config-desc">管理员保存配置，Admin 校验区间及引用，事务写入数据库并发布运行时配置，返回保存和同步状态。Gateway 通过 Redis 轮询、HTTP 拉取或嵌入式刷新获取完整版本快照。</desc>
+          <defs>
+            <pattern id="c-grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern>
+            <marker id="c-call" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0 0L8 3.5L0 7Z" fill="#34d399"/></marker>
+            <marker id="c-return" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0 0L8 3.5L0 7" fill="none" stroke="#94a3b8"/></marker>
+            <marker id="c-event" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0 0L8 3.5L0 7Z" fill="#fb923c"/></marker>
+          </defs>
+          <rect width="1100" height="440" fill="url(#c-grid)"/>
+          <g class="life">
+            <path d="M80 91V415"/><path d="M305 91V415"/><path d="M530 91V415"/><path d="M755 91V415"/><path d="M980 91V415"/>
+          </g>
+          <!-- Arrows are painted before opaque participant boxes and labels. -->
+          <g marker-end="url(#c-call)" class="call">
+            <path d="M80 127H305"/>
+            <path d="M305 154H337V179H305"/>
+            <path d="M305 212H530"/>
+          </g>
+          <g marker-end="url(#c-return)" class="reply">
+            <path d="M530 244H305"/>
+            <path d="M755 307H305"/>
+            <path d="M305 337H80"/>
+          </g>
+          <g marker-end="url(#c-event)" class="event">
+            <path d="M305 276H755"/>
+            <path d="M980 369H755"/>
+            <path d="M755 405H980"/>
+          </g>
+          <g>
+            <rect x="12" y="30" width="136" height="60" rx="6" fill="#0f172a"/>
+            <rect x="12" y="30" width="136" height="60" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+            <text x="80" y="54" class="component">管理员</text><text x="80" y="73" class="sub">现有模型配置界面</text>
+            <rect x="237" y="30" width="136" height="60" rx="6" fill="#0f172a"/>
+            <rect x="237" y="30" width="136" height="60" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+            <text x="305" y="54" class="component">Admin</text><text x="305" y="73" class="sub">模型管理 API / 业务层</text>
+            <rect x="462" y="30" width="136" height="60" rx="6" fill="#0f172a"/>
+            <rect x="462" y="30" width="136" height="60" rx="6" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1.5"/>
+            <text x="530" y="54" class="component">数据库</text><text x="530" y="73" class="sub">模型 + 路由配置 + 版本</text>
+            <rect x="687" y="30" width="136" height="60" rx="6" fill="#0f172a"/>
+            <rect x="687" y="30" width="136" height="60" rx="6" fill="rgba(251,146,60,.15)" stroke="#fb923c" stroke-width="1.5"/>
+            <text x="755" y="54" class="component">配置交付面</text><text x="755" y="73" class="sub">Redis / HTTP / 嵌入快照</text>
+            <rect x="912" y="30" width="136" height="60" rx="6" fill="#0f172a"/>
+            <rect x="912" y="30" width="136" height="60" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+            <text x="980" y="54" class="component">Gateway</text><text x="980" y="73" class="sub">ConfigManager / 缓存</text>
+          </g>
+          <g class="msg">
+            <text x="192" y="116" text-anchor="middle">保存复合模型 / 裁决器 / 分段</text>
+            <text x="350" y="165">区间全覆盖、无重叠；引用与权限校验</text>
+            <text x="418" y="201" text-anchor="middle">事务保存 + 并发版本保护</text>
+            <text x="418" y="235" text-anchor="middle" class="muted">提交成功</text>
+            <text x="530" y="265" text-anchor="middle">发布 / 生成完整运行时配置</text>
+            <text x="530" y="298" text-anchor="middle" class="muted">交付状态（失败可重试）</text>
+            <text x="192" y="329" text-anchor="middle">saved + sync_status</text>
+            <text x="868" y="358" text-anchor="middle">轮询 / 拉取 / 嵌入式刷新</text>
+            <text x="868" y="394" text-anchor="middle">替换完整版本快照</text>
+          </g>
+        </svg>
+      </div>
+      <p class="under-note">DB 保存成功 ≠ Gateway 已同步成功。改名、启停、删除同样走配置维护与缓存撤销；图中省略重试恢复细节。HTTP / 嵌入快照由数据库生成，Redis 路径原子更新运行时文档与刷新版本。</p>
+    </section>
+
+    <section class="diagram-container" aria-labelledby="request-heading">
+      <div class="section-head">
+        <span class="section-num">02</span>
+        <div>
+          <h2 id="request-heading">单次请求：裁决 → 选模 → 执行 → 返回</h2>
+          <p class="section-note">POST /v1/chat/completions · model=复合模型编码 · stream=false。列是逻辑职责，不代表新增部署服务。</p>
+        </div>
+      </div>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 1100 1748" role="img" aria-labelledby="runtime-title runtime-desc">
+          <title id="runtime-title">TokenLive 智能路由请求时序，包含裁决异常和目标模型升级</title>
+          <desc id="runtime-desc">请求解析后固定配置版本并执行入站检查。SmartRouter 在独立上下文中调用裁决模型，验证整数评分并选中唯一档位；裁决失败使用最高档可用候选。每个目标单独检查权限与硬额度，复用已有端点调用链。目标失败仅向高档升级，硬额度拒绝、不可重试错误或取消则结束。最后核销配额、记录路由日志，并只返回最终答案与答案用量。</desc>
+          <defs>
+            <pattern id="r-grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern>
+            <marker id="r-call" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0 0L8 3.5L0 7Z" fill="#34d399"/></marker>
+            <marker id="r-return" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0 0L8 3.5L0 7" fill="none" stroke="#94a3b8"/></marker>
+            <marker id="r-security" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0 0L8 3.5L0 7Z" fill="#fb7185"/></marker>
+            <marker id="r-alt" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto"><path d="M0 0L8 3.5L0 7Z" fill="#fbbf24"/></marker>
+          </defs>
+          <rect width="1100" height="1748" fill="url(#r-grid)"/>
+          <g class="life">
+            <path d="M70 98V1625"/><path d="M220 98V1625"/><path d="M370 98V1625"/>
+            <path d="M525 98V1625"/><path d="M680 98V1625"/><path d="M845 98V1625"/><path d="M1010 98V1625"/>
+          </g>
+          <!-- Normal requests and returns. -->
+          <g class="call" marker-end="url(#r-call)">
+            <path d="M70 137H220"/>
+            <path d="M220 177H370"/>
+            <path d="M370 216H525"/>
+            <path d="M370 277H400V302H370"/>
+            <path d="M220 458H370"/>
+            <path d="M370 603H680"/>
+            <path d="M370 782H400V806H370"/>
+            <path d="M370 1104H845"/>
+            <path d="M845 1138H880V1162H845"/>
+            <path d="M845 1193H1010"/>
+            <path d="M220 1561H250V1582H220"/>
+          </g>
+          <g class="reply" marker-end="url(#r-return)">
+            <path d="M525 250H370"/>
+            <path d="M370 338H220"/>
+            <path d="M525 417H220"/>
+            <path d="M525 567H370"/>
+            <path d="M680 643H370"/>
+            <path d="M525 706H370"/>
+            <path d="M525 1063H370"/>
+            <path d="M1010 1230H845"/>
+            <path d="M845 1267H370"/>
+            <path d="M370 1430H220"/>
+            <path d="M525 1535H220"/>
+            <path d="M220 1610H70"/>
+          </g>
+          <g class="secure" marker-end="url(#r-security)">
+            <path d="M220 381H525"/>
+            <path d="M370 531H525"/>
+            <path d="M370 680H525"/>
+            <path d="M370 1025H525"/>
+            <path d="M370 1310H525"/>
+            <path d="M220 1496H525"/>
+          </g>
+          <g class="alternative" marker-end="url(#r-alt)">
+            <path d="M370 860H400V889H370"/>
+          </g>
+
+          <!-- Opaque underlay masks lifelines and arrows behind translucent headers. -->
+          <g>
+            <rect x="8" y="36" width="124" height="60" rx="6" fill="#0f172a"/>
+            <rect x="8" y="36" width="124" height="60" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+            <text x="70" y="60" class="component">调用方</text><text x="70" y="79" class="sub">现有 API 客户端</text>
+            <rect x="158" y="36" width="124" height="60" rx="6" fill="#0f172a"/>
+            <rect x="158" y="36" width="124" height="60" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+            <text x="220" y="60" class="component">Gateway</text><text x="220" y="79" class="sub">Engine · 请求入口</text>
+            <rect x="308" y="36" width="124" height="60" rx="6" fill="#0f172a"/>
+            <rect x="308" y="36" width="124" height="60" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+            <text x="370" y="60" class="component">智能路由</text><text x="370" y="79" class="sub">SmartRouter</text>
+            <rect x="463" y="36" width="124" height="60" rx="6" fill="#0f172a"/>
+            <rect x="463" y="36" width="124" height="60" rx="6" fill="rgba(136,19,55,.4)" stroke="#fb7185" stroke-width="1.5"/>
+            <text x="525" y="60" class="component">配置与治理</text><text x="525" y="79" class="sub">Config / Auth / Quota</text>
+            <rect x="618" y="36" width="124" height="60" rx="6" fill="#0f172a"/>
+            <rect x="618" y="36" width="124" height="60" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/>
+            <text x="680" y="60" class="component">裁决模型</text><text x="680" y="79" class="sub">普通模型 · 独立调用</text>
+            <rect x="783" y="36" width="124" height="60" rx="6" fill="#0f172a"/>
+            <rect x="783" y="36" width="124" height="60" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+            <text x="845" y="60" class="component">目标调用链</text><text x="845" y="79" class="sub">Cluster / Provider</text>
+            <rect x="948" y="36" width="124" height="60" rx="6" fill="#0f172a"/>
+            <rect x="948" y="36" width="124" height="60" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/>
+            <text x="1010" y="60" class="component">子模型池</text><text x="1010" y="79" class="sub">配置的能力档位</text>
+          </g>
+
+          <!-- Preparation and inbound guards. -->
+          <g class="msg">
+            <text x="145" y="126" text-anchor="middle">请求复合模型</text>
+            <text x="295" y="166" text-anchor="middle">Prepare</text>
+            <text x="447" y="205" text-anchor="middle">读取配置快照</text>
+            <text x="447" y="241" text-anchor="middle" class="muted">类型 / 区间 / 裁决器</text>
+            <text x="416" y="288">协议与输入检查</text>
+            <text x="416" y="309" class="annotation">本请求固定 version，不受后续刷新影响</text>
+            <text x="295" y="329" text-anchor="middle" class="muted">准备完成</text>
+            <text x="372" y="370" text-anchor="middle" class="pink">请求鉴权 / 权限 / 余额 / 请求级预占</text>
+            <text x="372" y="407" text-anchor="middle" class="muted">通过；拒绝则释放已预占资源并结束</text>
+            <text x="295" y="447" text-anchor="middle">Invoke</text>
+          </g>
+          <rect x="780" y="178" width="281" height="94" rx="6" fill="#0f172a" stroke="#334155"/>
+          <text x="798" y="200" class="frame-title">入口边界</text>
+          <text x="798" y="222" class="annotation">流式 / 多模态 / 工具 / 其他协议：</text>
+          <text x="798" y="240" class="annotation">MVP 在任何模型推理前明确拒绝。</text>
+          <text x="798" y="258" class="annotation">普通模型不进入智能裁决分支。</text>
+
+          <!-- Judge frame. -->
+          <rect x="310" y="485" width="425" height="235" rx="6" class="frame"/>
+          <rect x="310" y="485" width="64" height="23" rx="4" fill="#152333" stroke="#334155"/>
+          <text x="342" y="500" class="tab-label">JUDGE</text>
+          <text x="389" y="500" class="frame-title">隔离上下文 · 最多一次推理</text>
+          <text x="447" y="520" text-anchor="middle" class="msg pink">裁决权限与限流</text>
+          <text x="447" y="557" text-anchor="middle" class="msg muted">通过</text>
+          <text x="525" y="591" text-anchor="middle" class="msg">完整对话 + 固定评分标准</text>
+          <text x="525" y="634" text-anchor="middle" class="msg muted">score / uncertain / usage</text>
+          <text x="447" y="672" text-anchor="middle" class="msg pink">核销裁决配额</text>
+          <text x="447" y="698" text-anchor="middle" class="msg muted">完成</text>
+          <text x="560" y="697" class="annotation">随后严格校验评分，usage 独立保存</text>
+          <rect x="780" y="509" width="281" height="174" rx="6" fill="#0f172a" stroke="#334155"/>
+          <text x="798" y="532" class="frame-title">裁决不是回答</text>
+          <text x="798" y="554" class="annotation">参考完整消息历史，不只看最后一句。</text>
+          <text x="798" y="576" class="annotation">请求内容作为数据，不作为评分指令。</text>
+          <text x="798" y="598" class="annotation">裁决也复用 Provider / Invoker；此处折叠。</text>
+          <text x="798" y="620" class="annotation">不递归调用 Gateway 公网入口。</text>
+          <text x="798" y="642" class="annotation">不向上游传递调用方凭证。</text>
+          <text x="798" y="664" class="annotation">输入 / 输出 / 超时均有上限。</text>
+
+          <!-- Exact match and judge-failure alternatives. -->
+          <rect x="310" y="735" width="751" height="181" rx="6" fill="none" stroke="#806127" stroke-width="1"/>
+          <rect x="310" y="735" width="52" height="23" rx="4" fill="#342918" stroke="#806127"/>
+          <text x="336" y="750" class="tab-label">ALT</text>
+          <text x="378" y="750" class="frame-title gold">依据裁决结果选定起始档位</text>
+          <text x="417" y="778" class="msg">[评分有效] 0–100 整数 → 唯一区间 → 命中子模型</text>
+          <text x="417" y="802" class="annotation">示例：[0,40) / [40,75) / [75,100]；无需未命中默认模型</text>
+          <path d="M310 821H1061" stroke="#806127" stroke-width="1" stroke-dasharray="6 4"/>
+          <text x="417" y="853" class="msg gold">[裁决异常] 超时 / 非法结果 / 输入超限 / 不确定 / 不可用</text>
+          <text x="417" y="878" class="msg gold">选择最高档兼容、授权且可用的候选；score = null</text>
+          <text x="417" y="899" class="annotation">一旦调用该候选后仍失败，则返回错误，不继续降档。</text>
+
+          <rect x="310" y="933" width="751" height="37" rx="6" fill="rgba(136,19,55,.16)" stroke="#9f3655" stroke-dasharray="4 4"/>
+          <text x="329" y="956" class="msg pink">BREAK：硬额度拒绝、客户端取消、不可重试错误 → 终止；不能靠升级绕过</text>
+
+          <!-- Candidate loop. -->
+          <rect x="310" y="985" width="751" height="402" rx="6" class="frame"/>
+          <rect x="310" y="985" width="52" height="23" rx="4" fill="#152333" stroke="#334155"/>
+          <text x="336" y="1000" class="tab-label">LOOP</text>
+          <text x="378" y="1000" class="frame-title">目标候选 · 普通匹配路径仅从命中档位向上</text>
+          <text x="447" y="1018" text-anchor="middle" class="msg pink">目标权限 / 能力 / 配额</text>
+          <text x="447" y="1053" text-anchor="middle" class="msg muted">通过</text>
+          <text x="606" y="1093" text-anchor="middle" class="msg">执行所选子模型 · 原始任务不截断</text>
+          <text x="891" y="1137" class="msg">端点选择 / 重试</text>
+          <text x="891" y="1157" class="annotation">能力、熔断、负载均衡</text>
+          <text x="927" y="1182" text-anchor="middle" class="msg">模型推理</text>
+          <text x="927" y="1220" text-anchor="middle" class="msg muted">答案 / usage 或错误</text>
+          <text x="607" y="1257" text-anchor="middle" class="msg muted">返回执行结果与端点状态</text>
+          <text x="447" y="1299" text-anchor="middle" class="msg pink">按原预占桶核销本次配额</text>
+          <text x="568" y="1317" class="annotation">不重复进行用户结算；失败尝试正确释放</text>
+          <path d="M329 1339H1042" stroke="#26334a"/>
+          <text x="329" y="1360" class="msg">成功 → 跳出；可重试不可用 → 下一高档；候选耗尽 → 错误</text>
+          <text x="329" y="1378" class="annotation">无权限 / 不兼容候选被跳过；模型去重、重试受限；升级不重新裁决。</text>
+
+          <!-- Final outward response. -->
+          <text x="295" y="1420" text-anchor="middle" class="msg muted">答案或错误</text>
+          <text x="440" y="1434" class="annotation">保留复合模型身份与实际执行模型；裁决用量不混入答案用量</text>
+          <text x="372" y="1484" text-anchor="middle" class="msg pink">外层出站一次：现有用户结算 + 请求级核销</text>
+          <text x="372" y="1525" text-anchor="middle" class="msg muted">完成</text>
+          <text x="267" y="1566" class="msg">路由日志 / 指标</text>
+          <text x="145" y="1599" text-anchor="middle" class="msg">标准答案 / 明确错误</text>
+          <rect x="615" y="1445" width="446" height="128" rx="6" fill="#0f172a" stroke="#334155"/>
+          <text x="634" y="1468" class="frame-title">可观测，但不泄露原始对话</text>
+          <text x="634" y="1490" class="annotation">配置/模板版本 · 可空评分 · 原命中模型 · 实际执行模型</text>
+          <text x="634" y="1512" class="annotation">升级链与原因 · 裁决耗时 · 总耗时 · 独立裁决 usage</text>
+          <text x="634" y="1534" class="annotation">诊断信息留在日志，不把裁决结果当作用户答案返回。</text>
+          <text x="634" y="1556" class="annotation">费用承担规则不属于本次技术 MVP 的决策范围。</text>
+
+          <!-- Legend is outside every control frame and note box. -->
+          <path d="M32 1650H1068" stroke="#26334a"/>
+          <text x="32" y="1675" fill="#cbd5e1" font-size="9" font-weight="600">图例</text>
+          <path d="M90 1672H127" class="call" marker-end="url(#r-call)"/>
+          <text x="138" y="1676" fill="#94a3b8" font-size="8">调用 / 动作</text>
+          <path d="M273 1672H310" class="reply" marker-end="url(#r-return)"/>
+          <text x="322" y="1676" fill="#94a3b8" font-size="8">返回</text>
+          <path d="M414 1672H451" class="secure" marker-end="url(#r-security)"/>
+          <text x="463" y="1676" fill="#94a3b8" font-size="8">权限 / 额度</text>
+          <path d="M595 1672H632" class="alternative" marker-end="url(#r-alt)"/>
+          <text x="644" y="1676" fill="#94a3b8" font-size="8">异常选模</text>
+          <path d="M783 1659V1682" class="life"/>
+          <text x="800" y="1676" fill="#94a3b8" font-size="8">逻辑参与者生命线</text>
+          <text x="32" y="1710" fill="#64748b" font-size="8">ALT / LOOP / BREAK 是控制逻辑，不是新增服务。主图展示允许通过的路径，终止条件以玫红提示统一标注。</text>
+          <text x="32" y="1730" fill="#64748b" font-size="8">裁决模型可与某个子模型复用同一普通模型；不同的是调用上下文、权限检查与用量记录。</text>
+        </svg>
+      </div>
+    </section>
+
+    <section class="cards" aria-label="关键约束">
+      <article class="card">
+        <div class="card-header"><span class="card-dot cyan"></span><h3>配置不变量</h3></div>
+        <ul>
+          <li>至少两个不同的普通子模型，不允许复合嵌套。</li>
+          <li><strong>0–100 全覆盖、无重叠</strong>；只有最后一段含上界 100。</li>
+          <li>区间决定正常命中，不另设“未命中默认模型”。</li>
+          <li>请求固定配置版本，更新不打断在途请求。</li>
+        </ul>
+      </article>
+      <article class="card">
+        <div class="card-header"><span class="card-dot amber"></span><h3>两种异常，不同处理</h3></div>
+        <ul>
+          <li>裁决失败：选择最高档可用候选，<strong>评分为空</strong>。</li>
+          <li>目标失败：先端点重试，再尝试更高档。</li>
+          <li>禁止降档、重复裁决和无限重试。</li>
+          <li>硬额度、取消、不可重试错误不能被升级绕过。</li>
+        </ul>
+      </article>
+      <article class="card">
+        <div class="card-header"><span class="card-dot rose"></span><h3>隔离与验证边界</h3></div>
+        <ul>
+          <li>原请求元数据用于治理匹配，上游传输凭证隔离。</li>
+          <li>裁决 usage 独立；每笔配额按原桶核销。</li>
+          <li>MVP 仅文本、非流式 Chat Completions。</li>
+          <li><strong>机制已验证，真实模型裁决效果待实测。</strong></li>
+        </ul>
+      </article>
+    </section>
+    <footer class="footer">
+      <span>TokenLive · Admin + Gateway · smart-routing-mvp · 2026-09-17</span>
+      <span>依据当前实现绘制 · 静态图离线可读 · 导出需加载固定版本 CDN 组件</span>
+    </footer>
+  </main>
+  <script>
+    async function copyAsImage(btn) {
+      const orig = btn.textContent;
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        btn.textContent = '✓ Copied!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+    async function downloadPNG(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const link = document.createElement('a');
+        link.download = 'smart-routing-sequence.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        btn.textContent = '✓ Done!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+    async function downloadPDF(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const orientation = canvas.width > canvas.height ? 'landscape' : 'portrait';
+        const pdf = new jsPDF({ orientation, unit: 'px', format: [canvas.width, canvas.height], hotfixes: ['px_scaling'] });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save('smart-routing-sequence.pdf');
+        btn.textContent = '✓ Done!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+  </script>
+</body>
+</html>

@@ -88,6 +88,17 @@
                                     @click="handleCopy(record.model_code)" />
                             </a-tooltip>
                         </template>
+                        <template v-if="'model_type' === column.key">
+                            <a-tag :color="record.model_type === 'smart' ? 'purple' : 'default'">
+                                {{
+                                    $t(
+                                        record.model_type === 'smart'
+                                            ? 'pages.model.type.smart'
+                                            : 'pages.model.type.normal'
+                                    )
+                                }}
+                            </a-tag>
+                        </template>
                         <template v-if="'enabled' === column.key">
                             <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
                                 {{
@@ -111,12 +122,17 @@
                                     <edit-outlined />
                                 </a-tooltip>
                             </x-action-button>
-                            <x-action-button @click="handleToggleEnabled(record)">
+                            <x-action-button
+                                :aria-disabled="isModelEnableBlocked(record)"
+                                :class="{ 'model-enable-blocked': isModelEnableBlocked(record) }"
+                                @click="handleToggleEnabled(record)">
                                 <a-tooltip>
                                     <template #title>{{
-                                        record.enabled === 1
-                                            ? $t('pages.endpoint.disable')
-                                            : $t('pages.endpoint.enable')
+                                        isModelEnableBlocked(record)
+                                            ? $t('pages.model.smart.enable_after_config')
+                                            : record.enabled === 1
+                                              ? $t('pages.endpoint.disable')
+                                              : $t('pages.endpoint.enable')
                                     }}</template>
                                     <poweroff-outlined :style="{ color: record.enabled === 1 ? '#faad14' : '#52c41a' }"
                                 /></a-tooltip>
@@ -167,6 +183,7 @@ import {
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { initSpaceCode, setCurrentSpaceCode } from '@/utils/spaceStorage'
+import { getModelSaveFeedback, isModelEnableBlocked } from '@/utils/smart-model'
 
 defineOptions({
     name: 'modelList',
@@ -195,6 +212,7 @@ const columns = [
         },
         sorter: (a, b) => (a.model_code || '').localeCompare(b.model_code || ''),
     },
+    { title: t('pages.model.form.model_type'), key: 'model_type', width: 150 },
     { title: t('pages.model.recent_status'), key: 'recent_status', width: 180 },
     { title: t('pages.model.form.owner'), dataIndex: 'owner', width: 120 },
     { title: t('pages.model.form.enabled'), key: 'enabled', width: 80 },
@@ -284,9 +302,14 @@ function handleRemove({ id, model_name }) {
             okType: 'danger',
             onOk: async () => {
                 try {
-                    const { success } = await apis.model.delModel(id)
+                    const { success, data } = await apis.model.delModel(id)
                     if (config('http.code.success') === success) {
-                        message.success(t('component.message.success.delete'))
+                        const feedback = getModelSaveFeedback(data, { deleted: true })
+                        if (feedback) {
+                            message.warning([t(`pages.model.smart.${feedback.key}`), ...feedback.warnings].join(' '))
+                        } else {
+                            message.success(t('component.message.success.delete'))
+                        }
                         await getPageList()
                     }
                 } catch (error) {
@@ -340,22 +363,43 @@ function handleSync({ id, model_name }) {
 
 const togglingModels = ref({})
 
-async function handleToggleEnabled(record) {
-    if (togglingModels.value[record.id]) return
+function handleToggleEnabled(record) {
+    if (isModelEnableBlocked(record)) {
+        message.warning(t('pages.model.smart.enable_after_config'))
+        return
+    }
+    if (record.enabled === 1 && record.referenced_by?.length) {
+        Modal.confirm({
+            title: t('pages.model.smart.disable_warning'),
+            content: record.referenced_by.map((model) => model.model_name || model.model_code).join(', '),
+            okText: t('button.confirm'),
+            cancelText: t('button.cancel'),
+            onOk: () => toggleEnabled(record),
+        })
+        return
+    }
+    return toggleEnabled(record)
+}
+
+async function toggleEnabled(record) {
+    if (togglingModels.value[record.id] || isModelEnableBlocked(record)) return
     const nextEnabled = record.enabled === 1 ? 0 : 1
     togglingModels.value[record.id] = true
     try {
-        const { success } = await apis.model.toggleModelEnabled(record.id, { enabled: nextEnabled }).catch(() => {
-            throw new Error()
-        })
+        const { success, data } = await apis.model.toggleModelEnabled(record.id, { enabled: nextEnabled })
         if (config('http.code.success') === success) {
-            message.success(
-                nextEnabled === 1 ? t('pages.endpoint.enable.success') : t('pages.endpoint.disable.success')
-            )
+            const feedback = getModelSaveFeedback(data)
+            if (feedback) {
+                message.warning([t(`pages.model.smart.${feedback.key}`), ...feedback.warnings].join(' '))
+            } else {
+                message.success(
+                    nextEnabled === 1 ? t('pages.endpoint.enable.success') : t('pages.endpoint.disable.success')
+                )
+            }
             await getPageList()
         }
     } catch (error) {
-        // ignore, error already handled by interceptor
+        message.error(error?.response?.data?.error?.detail || error?.message || t('component.message.error.request'))
     } finally {
         togglingModels.value[record.id] = false
     }
@@ -425,6 +469,11 @@ onUnmounted(() => {
 
 <style lang="less" scoped>
 @import '@/styles/variables.less';
+
+.model-enable-blocked {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
 
 // 模型名称链接 - 添加平滑过渡
 :deep(.ant-table-tbody) {

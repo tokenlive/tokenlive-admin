@@ -14,29 +14,34 @@ import (
 
 // Model defines the LLM model from user's perspective.
 type Model struct {
-	ID                 string          `json:"id" gorm:"type:char(20);primaryKey;comment:主键ID (XID);"`
-	ModelName          string          `json:"model_name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_model_name;comment:模型名称;"`
-	ModelCode          string          `json:"model_code" gorm:"type:varchar(64);not null;uniqueIndex:uniq_model_code_deleted,priority:1;comment:模型唯一编码;"`
-	SpaceCode          string          `json:"space_code" gorm:"type:varchar(255);not null;comment:模型空间编码;"`
-	RequestTypes       string          `json:"request_types" gorm:"type:json;default:null;comment:模型支持的请求类型，如 [\"chat_completion\", \"embedding\"];"`
-	ContextLength      int             `json:"context_length" gorm:"type:bigint;not null;default:128000;comment:最大上下文窗口（Tokens）;"`
-	MaxOutputTokens    int             `json:"max_output_tokens" gorm:"type:bigint;not null;default:8192;comment:最大输出Token;"`
-	Owner              string          `json:"owner,omitempty" gorm:"type:varchar(64);default:null;comment:模型所属企业/厂商，如 OpenAI, Google, DeepSeek;"`
-	Abilities          string          `json:"abilities" gorm:"type:json;default:null;comment:能力列表,如:流式输出,工具调用,思维链,结构化输出等;"`
-	Enabled            int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
-	InputPrice         float64         `json:"input_price" gorm:"type:decimal(10,6);not null;default:3.000000;comment:输入价格（元/百万 Tokens）;"`
-	OutputPrice        float64         `json:"output_price" gorm:"type:decimal(10,6);not null;default:10.000000;comment:输出价格（元/百万 Tokens）;"`
-	CachedPrice        float64         `json:"cached_price" gorm:"type:decimal(10,6);not null;default:1.000000;comment:缓存命中价格（元/百万 Tokens）;"`
-	CacheCreationPrice float64         `json:"cache_creation_price" gorm:"type:decimal(10,6);not null;default:3.000000;comment:缓存创建价格（元/百万 Tokens）;"`
-	Description        string          `json:"description" gorm:"type:varchar(255);default:null;comment:备注描述;"`
-	Extra              *string         `json:"extra,omitempty" gorm:"type:json;default:null;comment:其他信息;"`
-	Creator            string          `json:"creator" gorm:"type:varchar(255);default:null;comment:创建者;"`
-	Modifier           string          `json:"modifier" gorm:"type:varchar(255);default:null;comment:修改者;"`
-	CreatedAt          time.Time       `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
-	UpdatedAt          time.Time       `json:"updated_at" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
-	StatusPoints       []StatusPoint   `json:"status_points" gorm:"-"` // Recent status points
-	Deleted            string          `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_model_code_deleted,priority:2;comment:逻辑删除标识;"`
-	DeletedAt          *gorm.DeletedAt `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
+	ID                 string           `json:"id" gorm:"type:char(20);primaryKey;comment:主键ID (XID);"`
+	ModelName          string           `json:"model_name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_model_name;comment:模型名称;"`
+	ModelCode          string           `json:"model_code" gorm:"type:varchar(64);not null;uniqueIndex:uniq_model_code_deleted,priority:1;comment:模型唯一编码;"`
+	ModelType          string           `json:"model_type" gorm:"type:varchar(16);not null;default:normal"`
+	SmartRouting       *SmartRouting    `json:"smart_routing" gorm:"serializer:json;type:json;default:null"`
+	SmartRoutingReady  bool             `json:"smart_routing_ready" gorm:"-"`
+	SpaceCode          string           `json:"space_code" gorm:"type:varchar(255);not null;comment:模型空间编码;"`
+	RequestTypes       string           `json:"request_types" gorm:"type:json;default:null;comment:模型支持的请求类型，如 [\"chat_completion\", \"embedding\"];"`
+	ContextLength      int              `json:"context_length" gorm:"type:bigint;not null;default:128000;comment:最大上下文窗口（Tokens）;"`
+	MaxOutputTokens    int              `json:"max_output_tokens" gorm:"type:bigint;not null;default:8192;comment:最大输出Token;"`
+	Owner              string           `json:"owner,omitempty" gorm:"type:varchar(64);default:null;comment:模型所属企业/厂商，如 OpenAI, Google, DeepSeek;"`
+	Abilities          string           `json:"abilities" gorm:"type:json;default:null;comment:能力列表,如:流式输出,工具调用,思维链,结构化输出等;"`
+	Enabled            int              `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
+	InputPrice         float64          `json:"input_price" gorm:"type:decimal(10,6);not null;default:3.000000;comment:输入价格（元/百万 Tokens）;"`
+	OutputPrice        float64          `json:"output_price" gorm:"type:decimal(10,6);not null;default:10.000000;comment:输出价格（元/百万 Tokens）;"`
+	CachedPrice        float64          `json:"cached_price" gorm:"type:decimal(10,6);not null;default:1.000000;comment:缓存命中价格（元/百万 Tokens）;"`
+	CacheCreationPrice float64          `json:"cache_creation_price" gorm:"type:decimal(10,6);not null;default:3.000000;comment:缓存创建价格（元/百万 Tokens）;"`
+	Description        string           `json:"description" gorm:"type:varchar(255);default:null;comment:备注描述;"`
+	Extra              *string          `json:"extra,omitempty" gorm:"type:json;default:null;comment:其他信息;"`
+	Creator            string           `json:"creator" gorm:"type:varchar(255);default:null;comment:创建者;"`
+	Modifier           string           `json:"modifier" gorm:"type:varchar(255);default:null;comment:修改者;"`
+	CreatedAt          time.Time        `json:"created_at" gorm:"type:timestamp;not null;default:CURRENT_TIMESTAMP;autoCreateTime;comment:创建时间;"`
+	UpdatedAt          time.Time        `json:"updated_at" gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoUpdateTime;comment:更新时间;"`
+	StatusPoints       []StatusPoint    `json:"status_points" gorm:"-"` // Recent status points
+	ReferencedBy       []ModelReference `json:"referenced_by,omitempty" gorm:"-"`
+	EndpointCount      int64            `json:"endpoint_count" gorm:"-"`
+	Deleted            string           `json:"-" gorm:"type:varchar(20);not null;default:'0';uniqueIndex:uniq_model_code_deleted,priority:2;comment:逻辑删除标识;"`
+	DeletedAt          *gorm.DeletedAt  `json:"-" gorm:"type:datetime;default:null;comment:逻辑删除时间;"`
 }
 
 func (m *Model) TableName() string {
@@ -49,6 +54,8 @@ type ModelQueryParam struct {
 	LikeName  string `form:"model_name"` // Model name (like)
 	ModelCode string `form:"model_code"` // Model code (exact)
 	SpaceCode string `form:"space_code"` // Space code
+	ModelType string `form:"model_type"`
+	Enabled   *int   `form:"enabled"`
 }
 
 // ModelQueryOptions defines the query options for Model.
@@ -67,23 +74,27 @@ type Models []*Model
 
 // ModelForm defines the form for creating/updating a Model.
 type ModelForm struct {
-	ModelName             string  `json:"model_name" binding:"required,max=128"` // Client-facing model name
-	ModelCode             string  `json:"model_code" binding:"required,max=64"`  // Internal model code
-	SpaceCode             string  `json:"space_code" binding:"required,max=255"` // Space code
-	RequestTypes          string  `json:"request_types" binding:"required"`      // Model RequestTypes JSON
-	ContextLength         int     `json:"context_length"`                        // Max context window
-	MaxOutputTokens       int     `json:"max_output_tokens"`                     // Max output tokens
-	Abilities             string  `json:"abilities"`                             // Model Abilities JSON
-	Owner                 string  `json:"owner"`                                 // Model owner
-	Enabled               int     `json:"enabled"`                               // Enable status
-	InputPrice            float64 `json:"input_price"`                           // Input price (CNY/M Tokens)
-	OutputPrice           float64 `json:"output_price"`                          // Output price (CNY/M Tokens)
-	CachedPrice           float64 `json:"cached_price"`                          // Cached price (CNY/M Tokens)
-	CacheCreationPrice    float64 `json:"cache_creation_price"`                  // Cache creation price (CNY/M Tokens)
-	Extra                 *string `json:"extra"`                                 // Extra info
-	Description           string  `json:"description"`                           // Description
-	ApplyInvocationSeed   bool    `json:"apply_invocation_seed"`                 // Copy the recommended invocation seed on create
-	ApplyCircuitBreakSeed bool    `json:"apply_circuit_break_seed"`              // Copy the recommended circuit-break seed on create
+	ModelName             string               `json:"model_name" binding:"required,max=128"` // Client-facing model name
+	ModelCode             string               `json:"model_code" binding:"required,max=64"`  // Internal model code
+	ModelType             string               `json:"model_type"`
+	SmartRouting          *SmartRouting        `json:"smart_routing"`
+	SmartRoutingVersion   *int64               `json:"smart_routing_version,omitempty"`
+	Result                *ModelMutationResult `json:"-" gorm:"-"`
+	SpaceCode             string               `json:"space_code" binding:"required,max=255"` // Space code
+	RequestTypes          string               `json:"request_types" binding:"required"`      // Model RequestTypes JSON
+	ContextLength         int                  `json:"context_length"`                        // Max context window
+	MaxOutputTokens       int                  `json:"max_output_tokens"`                     // Max output tokens
+	Abilities             string               `json:"abilities"`                             // Model Abilities JSON
+	Owner                 string               `json:"owner"`                                 // Model owner
+	Enabled               int                  `json:"enabled"`                               // Enable status
+	InputPrice            float64              `json:"input_price"`                           // Input price (CNY/M Tokens)
+	OutputPrice           float64              `json:"output_price"`                          // Output price (CNY/M Tokens)
+	CachedPrice           float64              `json:"cached_price"`                          // Cached price (CNY/M Tokens)
+	CacheCreationPrice    float64              `json:"cache_creation_price"`                  // Cache creation price (CNY/M Tokens)
+	Extra                 *string              `json:"extra"`                                 // Extra info
+	Description           string               `json:"description"`                           // Description
+	ApplyInvocationSeed   bool                 `json:"apply_invocation_seed"`                 // Copy the recommended invocation seed on create
+	ApplyCircuitBreakSeed bool                 `json:"apply_circuit_break_seed"`              // Copy the recommended circuit-break seed on create
 }
 
 // ModelCreateResult is returned by model create so the client can tell
@@ -92,6 +103,7 @@ type ModelCreateResult struct {
 	*Model
 	AppliedSeeds []string `json:"applied_seeds,omitempty"`
 	SkippedSeeds []string `json:"skipped_seeds,omitempty"`
+	ModelMutationResult
 }
 
 var modelCodePattern = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$`)
@@ -107,12 +119,17 @@ func (m *ModelForm) Validate() error {
 	if !modelCodePattern.MatchString(m.ModelCode) {
 		return errors.BadRequest("", "模型编码只能包含字母、数字、中划线和点号，且首尾不能为中划线或点号")
 	}
-	return nil
+	return m.validateSmartRouting()
 }
 
 func (m *ModelForm) FillTo(model *Model) error {
 	model.ModelName = m.ModelName
 	model.ModelCode = m.ModelCode
+	model.ModelType = m.ModelType
+	if model.ModelType == "" {
+		model.ModelType = ModelTypeNormal
+	}
+	model.SmartRouting = m.SmartRouting
 	model.SpaceCode = m.SpaceCode
 	model.RequestTypes = m.RequestTypes
 	model.ContextLength = m.ContextLength
@@ -138,7 +155,8 @@ func toNilIfEmpty(s *string) *string {
 
 // ModelEnabledForm toggles the enabled status of a model.
 type ModelEnabledForm struct {
-	Enabled int `json:"enabled"` // Enable status: 0-disabled, 1-enabled
+	Enabled int                  `json:"enabled"` // Enable status: 0-disabled, 1-enabled
+	Result  *ModelMutationResult `json:"-"`
 }
 
 func (m *ModelEnabledForm) Validate() error {
