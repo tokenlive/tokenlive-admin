@@ -169,6 +169,8 @@ CREATE TABLE IF NOT EXISTS `model`
     `id`                   CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
     `model_name`           VARCHAR(128)                                           NOT NULL COMMENT '模型名称',
     `model_code`           VARCHAR(64)                                            NOT NULL COMMENT '模型唯一编码',
+    `model_type`           VARCHAR(16)                                            NOT NULL DEFAULT 'normal' COMMENT '模型类型 normal/smart',
+    `smart_routing`        JSON                                                   DEFAULT NULL COMMENT '智能路由配置（稳定模型ID引用）',
     `space_code`           VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '模型空间编码',
     `request_types`        JSON                                                            DEFAULT NULL COMMENT '模型支持的请求类型，如 ["chat_completion", "embedding"]',
     `context_length`       BIGINT                                                 NOT NULL DEFAULT 128000 COMMENT '最大上下文窗口（Tokens）',

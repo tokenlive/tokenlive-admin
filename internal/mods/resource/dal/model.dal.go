@@ -41,6 +41,12 @@ func (m *Model) Query(ctx context.Context, params schema.ModelQueryParam, opts .
 	if v := params.SpaceCode; len(v) > 0 {
 		db = db.Where(tableName+".space_code = ?", v)
 	}
+	if params.ModelType != "" {
+		db = db.Where(tableName+".model_type = ?", params.ModelType)
+	}
+	if params.Enabled != nil {
+		db = db.Where(tableName+".enabled = ?", *params.Enabled)
+	}
 
 	if !util.FromIsRootUser(ctx) {
 		user := util.FromUsername(ctx)
@@ -126,7 +132,7 @@ func (m *Model) Create(ctx context.Context, item *schema.Model) error {
 
 // Update the specified model.
 func (m *Model) Update(ctx context.Context, item *schema.Model) error {
-	result := GetModelDB(ctx, m.DB).Where("id=?", item.ID).Select("*").Omit("created_at").Updates(item)
+	result := GetModelDB(ctx, m.DB).Where("id=?", item.ID).Select("*").Omit("created_at", "model_code").Updates(item)
 	return errors.WithStack(result.Error)
 }
 

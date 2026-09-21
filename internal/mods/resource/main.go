@@ -26,7 +26,7 @@ type Resource struct {
 }
 
 func (a *Resource) AutoMigrate(ctx context.Context) error {
-	return a.DB.AutoMigrate(
+	if err := a.DB.AutoMigrate(
 		new(schema.Provider),
 		new(schema.Endpoint),
 		new(schema.Model),
@@ -35,7 +35,13 @@ func (a *Resource) AutoMigrate(ctx context.Context) error {
 		new(schema.ModelCatalog),
 		new(schema.ModelCatalogI18n),
 		new(schema.ModelPriceVersion),
-	)
+	); err != nil {
+		return err
+	}
+	if a.DB.Migrator().HasColumn(&schema.Model{}, "pending_sync_codes") {
+		return a.DB.Migrator().DropColumn(&schema.Model{}, "pending_sync_codes")
+	}
+	return nil
 }
 
 func (a *Resource) Init(ctx context.Context) error {
@@ -86,6 +92,7 @@ func (a *Resource) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) e
 		models.GET(":id", a.ModelAPI.Get)
 		models.POST("", a.ModelAPI.Create)
 		models.PUT(":id", a.ModelAPI.Update)
+		models.PUT(":id/smart-routing", a.ModelAPI.UpdateSmartRouting)
 		models.PUT(":id/enabled", a.ModelAPI.UpdateEnabled)
 		models.DELETE(":id", a.ModelAPI.Delete)
 		models.GET(":id/endpoints", a.EndpointAPI.QueryEndpointsByModelID)

@@ -20,6 +20,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Model business logic layer
@@ -52,8 +53,16 @@ func (m *Model) Query(ctx context.Context, params schema.ModelQueryParam) (*sche
 
 	if len(result.Data) > 0 {
 		m.fillModelsStatusPoints(ctx, result.Data)
+		for _, model := range result.Data {
+			if err := m.fillModelReferences(ctx, model); err != nil {
+				return nil, err
+			}
+		}
 	}
 
+	for _, model := range result.Data {
+		model.SmartRoutingReady = model.IsSmartRoutingReady()
+	}
 	return result, nil
 }
 
@@ -76,12 +85,19 @@ func (m *Model) Get(ctx context.Context, id string) (*schema.Model, error) {
 	}
 
 	m.fillModelsStatusPoints(ctx, []*schema.Model{model})
+	if err := m.fillModelReferences(ctx, model); err != nil {
+		return nil, err
+	}
+	model.SmartRoutingReady = model.IsSmartRoutingReady()
 
 	return model, nil
 }
 
 // Create a new model.
 func (m *Model) Create(ctx context.Context, formItem *schema.ModelForm) (*schema.ModelCreateResult, error) {
+	if err := formItem.Validate(); err != nil {
+		return nil, err
+	}
 	if exists, err := m.ModelDAL.ExistsByModelCode(ctx, formItem.ModelCode); err != nil {
 		return nil, err
 	} else if exists {
@@ -104,6 +120,9 @@ func (m *Model) Create(ctx context.Context, formItem *schema.ModelForm) (*schema
 	}
 
 	err := m.Trans.Exec(ctx, func(ctx context.Context) error {
+		if err := m.validateSmartModel(ctx, model, nil); err != nil {
+			return err
+		}
 		if err := m.ModelDAL.Create(ctx, model); err != nil {
 			return err
 		}
@@ -112,10 +131,13 @@ func (m *Model) Create(ctx context.Context, formItem *schema.ModelForm) (*schema
 	if err != nil {
 		return nil, err
 	}
-	_ = m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
-	m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, nil, model)
+	syncErr := m.publishModelChange(ctx, model, nil, nil)
+	if m.AuditLogBIZ != nil {
+		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, nil, model)
+	}
 
-	result := &schema.ModelCreateResult{Model: model}
+	result := &schema.ModelCreateResult{Model: model, ModelMutationResult: *m.mutationResult(ctx, model, syncErr)}
+	model.SmartRoutingReady = model.IsSmartRoutingReady()
 	m.applyRecommendedPolicySeeds(ctx, result, formItem)
 	return result, nil
 }
@@ -197,15 +219,26 @@ func (m *Model) Update(ctx context.Context, id string, formItem *schema.ModelFor
 	} else if model == nil {
 		return errors.NotFound("", "Model not found")
 	}
-
-	// Check model_code uniqueness if changed
-	if model.ModelCode != formItem.ModelCode {
-		if exists, err := m.ModelDAL.ExistsByModelCode(ctx, formItem.ModelCode); err != nil {
+	preserveRouting := model.ModelType == schema.ModelTypeSmart &&
+		formItem.ModelType == schema.ModelTypeSmart && formItem.SmartRouting == nil
+	if preserveRouting {
+		formItem.SmartRouting = model.SmartRouting.Clone()
+	}
+	if model.ModelType == schema.ModelTypeSmart || formItem.ModelType == schema.ModelTypeSmart {
+		if err := m.requireModelMutationPermission(ctx, model, 2); err != nil {
 			return err
-		} else if exists {
-			return errors.BadRequest("", "Model code already exists")
 		}
 	}
+	if model.ModelType == schema.ModelTypeSmart && formItem.ModelType != schema.ModelTypeSmart {
+		if formItem.SmartRoutingVersion == nil || *formItem.SmartRoutingVersion != smartRoutingVersion(model.SmartRouting) {
+			return errors.Conflict("", "智能路由配置已更新或缺少原版本，请刷新后重试")
+		}
+	}
+
+	if formItem.ModelCode != "" && formItem.ModelCode != model.ModelCode {
+		return errors.BadRequest("", "模型编码创建后不可修改")
+	}
+	formItem.ModelCode = model.ModelCode
 
 	// Check model_name uniqueness if changed
 	if model.ModelName != formItem.ModelName {
@@ -216,11 +249,11 @@ func (m *Model) Update(ctx context.Context, id string, formItem *schema.ModelFor
 		}
 	}
 
-	originalModelCode := model.ModelCode
-	originalEnabled := model.Enabled
-
 	// Capture before state for audit
 	beforeModel := *model
+	if err := formItem.Validate(); err != nil {
+		return err
+	}
 
 	if err := formItem.FillTo(model); err != nil {
 		return err
@@ -228,27 +261,47 @@ func (m *Model) Update(ctx context.Context, id string, formItem *schema.ModelFor
 	model.Modifier = util.FromUsername(ctx)
 	model.UpdatedAt = time.Now()
 
+	var affected []*schema.Model
 	err = m.Trans.Exec(ctx, func(ctx context.Context) error {
-		return m.ModelDAL.Update(ctx, model)
-	})
-	if err == nil {
-		if m.ConfigRedisSync != nil {
-			if originalModelCode != model.ModelCode {
-				_ = m.ConfigRedisSync.SyncModelCodeChange(ctx, model.ID, originalModelCode, model.ModelCode)
-				_ = m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
-			} else {
-				_ = m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
+		var current schema.Model
+		if err := util.GetDB(ctx, m.ModelDAL.DB).Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND deleted = '0'", id).First(&current).Error; err != nil {
+			return err
+		}
+		if current.ModelType != beforeModel.ModelType ||
+			(current.ModelType == schema.ModelTypeSmart &&
+				smartRoutingVersion(current.SmartRouting) != smartRoutingVersion(beforeModel.SmartRouting)) {
+			return errors.Conflict("", "模型配置已更新，请刷新后重试")
+		}
+		beforeModel = current
+		model.ModelCode = current.ModelCode
+		if preserveRouting {
+			model.SmartRouting = current.SmartRouting.Clone()
+			if model.Enabled == 1 && !model.IsSmartRoutingReady() {
+				return errors.BadRequest("", "请先在模型详情的难度路由区间中保存完整配置，再启用智能模型")
 			}
-
-			// 检查启用状态是否变化
-			if originalEnabled != model.Enabled {
-				if model.Enabled == 0 {
-					_ = m.ConfigRedisSync.SyncModelDisable(ctx, model.ID, model.ModelCode)
-				} else if model.Enabled == 1 {
-					_ = m.ConfigRedisSync.SyncModelEnable(ctx, model.ID, model.ModelCode)
+			// Unchanged routing must not block basic edits or disabling when a
+			// dependency is temporarily unavailable. Revalidate when activating
+			// or changing the model space, both of which affect route validity.
+			if (model.Enabled == 1 && beforeModel.Enabled != 1) || model.SpaceCode != beforeModel.SpaceCode {
+				if err := m.checkSmartModel(ctx, model); err != nil {
+					return err
 				}
 			}
+		} else {
+			if err := m.validateSmartModel(ctx, model, &beforeModel); err != nil {
+				return err
+			}
 		}
+		var err error
+		affected, err = m.bumpSmartReferences(ctx, model, &beforeModel)
+		if err != nil {
+			return err
+		}
+		return m.updateWithSmartVersion(ctx, model, &beforeModel)
+	})
+	if err == nil {
+		formItem.Result = m.mutationResult(ctx, model, m.publishModelChange(ctx, model, &beforeModel, affected))
 
 		if m.AuditLogBIZ != nil {
 			m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, beforeModel, model)
@@ -260,33 +313,52 @@ func (m *Model) Update(ctx context.Context, id string, formItem *schema.ModelFor
 // ToggleEnabled updates only the enabled status of a model and re-syncs Redis.
 // It replicates the enabled-change side effects of Update: SyncModelByCode plus
 // SyncModelEnable/SyncModelDisable (which handle tenant binding relationships).
-// model_code is not changed by a toggle, so no SyncModelCodeChange is needed.
 func (m *Model) ToggleEnabled(ctx context.Context, id string, formItem *schema.ModelEnabledForm) error {
-	model, err := m.ModelDAL.Get(ctx, id)
-	if err != nil {
+	if err := formItem.Validate(); err != nil {
 		return err
-	} else if model == nil {
-		return errors.NotFound("", "Model not found")
 	}
-
-	// No-op if the status is unchanged.
-	if model.Enabled == formItem.Enabled {
-		return nil
-	}
-
-	err = m.Trans.Exec(ctx, func(ctx context.Context) error {
+	var model, beforeModel schema.Model
+	changed := false
+	err := m.Trans.Exec(ctx, func(ctx context.Context) error {
+		if err := dal.GetModelDB(ctx, m.ModelDAL.DB).Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", id).First(&model).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return errors.NotFound("", "Model not found")
+			}
+			return err
+		}
+		if model.ModelType == schema.ModelTypeSmart {
+			if err := m.requireModelMutationPermission(ctx, &model, 2); err != nil {
+				return err
+			}
+			if formItem.Enabled == 1 {
+				if !model.IsSmartRoutingReady() {
+					return errors.BadRequest("", "请先在模型详情的难度路由区间中保存完整配置，再启用智能模型")
+				}
+				if err := m.checkSmartModel(ctx, &model); err != nil {
+					return err
+				}
+			}
+		}
+		beforeModel = model
+		changed = model.Enabled != formItem.Enabled
+		if !changed {
+			return nil
+		}
+		model.Enabled = formItem.Enabled
 		return m.ModelDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
 	})
 	if err == nil {
-		_ = m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
-		if formItem.Enabled == 0 {
-			_ = m.ConfigRedisSync.SyncModelDisable(ctx, model.ID, model.ModelCode)
-		} else {
-			_ = m.ConfigRedisSync.SyncModelEnable(ctx, model.ID, model.ModelCode)
+		if !changed {
+			formItem.Result = m.mutationResult(ctx, &model, nil)
+			return nil
 		}
-		beforeData := map[string]int{"enabled": model.Enabled}
-		afterData := map[string]int{"enabled": formItem.Enabled}
-		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, beforeData, afterData)
+		formItem.Result = m.mutationResult(ctx, &model, m.publishModelChange(ctx, &model, &beforeModel, nil))
+		if m.AuditLogBIZ != nil {
+			beforeData := map[string]int{"enabled": beforeModel.Enabled}
+			afterData := map[string]int{"enabled": formItem.Enabled}
+			m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, beforeData, afterData)
+		}
 	}
 	return err
 }
@@ -299,6 +371,11 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 	} else if model == nil {
 		return errors.NotFound("", "Model not found")
 	}
+	if model.ModelType == schema.ModelTypeSmart {
+		if err := m.requireModelMutationPermission(ctx, model, 4); err != nil {
+			return err
+		}
+	}
 
 	if err := m.ensureModelCanDelete(ctx, model); err != nil {
 		return err
@@ -308,6 +385,16 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 	var policies []modelPolicyCascadeRecord
 	err = m.Trans.Exec(ctx, func(ctx context.Context) error {
 		tx := util.GetDB(ctx, m.ModelDAL.DB)
+		var current schema.Model
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND deleted = '0'", id).First(&current).Error; err != nil {
+			return err
+		}
+		// Creation/edits lock dependency rows too, so no new reference can
+		// appear between this check and the soft deletion.
+		if err := m.ensureModelCanDelete(ctx, &current); err != nil {
+			return err
+		}
 
 		// 提前查出绑定该模型的租户编码，备于后续清理缓存
 		tenantModelTable := config.C.FormatTableName("tenant_model")
@@ -339,14 +426,15 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 		return nil
 	})
 	if err == nil {
-		_ = m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode)
-		// 删除时，同步清理 Redis 相关租户的缓存
-		_ = m.ConfigRedisSync.SyncModelDisable(ctx, model.ID, model.ModelCode, tenantCodes...)
+		syncErr := m.reconcileModelPublication(ctx, model.ID, tenantCodes...)
 		m.syncDeletedModelPolicyDimensions(ctx, model.ModelCode, policies)
 
 		m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeModel, model.ID, model.ModelName, model, nil)
 		for _, policy := range policies {
 			m.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policy.ID, policy.Name, policy, nil)
+		}
+		if syncErr != nil {
+			return &SavedModelSyncError{Cause: syncErr}
 		}
 	}
 	return err
@@ -354,6 +442,13 @@ func (m *Model) Delete(ctx context.Context, id string) error {
 
 func (m *Model) ensureModelCanDelete(ctx context.Context, model *schema.Model) error {
 	db := util.GetDB(ctx, m.ModelDAL.DB)
+	refs, err := smartReferences(ctx, db, model.ID)
+	if err != nil {
+		return err
+	}
+	if len(refs) > 0 {
+		return errors.BadRequest("", "模型已被智能模型引用，请先修改智能路由配置后再删除")
+	}
 
 	checks := []struct {
 		table   string
@@ -618,25 +713,20 @@ func (m *Model) Sync(ctx context.Context, id string) error {
 	} else if model == nil {
 		return errors.NotFound("", "Model not found")
 	}
+	if model.ModelType == schema.ModelTypeSmart {
+		if err := m.requireModelMutationPermission(ctx, model, 2); err != nil {
+			return err
+		}
+	}
 
 	if model.Deleted != "0" {
 		return errors.BadRequest("", "Cannot sync a deleted model")
 	}
 
-	// 1. 同步端点配置及默认费率策略
-	if err := m.ConfigRedisSync.SyncModelByCode(ctx, model.ModelCode); err != nil {
+	// Retry the complete publication, including affected composites, not just
+	// this model's currently named endpoint key.
+	if err := m.reconcileModelPublication(ctx, model.ID); err != nil {
 		return err
-	}
-
-	// 2. 根据启用状态同步租户绑定关系
-	if model.Enabled == 1 {
-		if err := m.ConfigRedisSync.SyncModelEnable(ctx, model.ID, model.ModelCode); err != nil {
-			return err
-		}
-	} else {
-		if err := m.ConfigRedisSync.SyncModelDisable(ctx, model.ID, model.ModelCode); err != nil {
-			return err
-		}
 	}
 
 	// 3. 同步该模型关联的所有治理策略缓存 (包括公共策略和其它限定维度的策略)

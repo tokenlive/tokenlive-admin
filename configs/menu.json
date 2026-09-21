@@ -1238,6 +1238,14 @@
                             },
                             {
                                 "method": "PUT",
+                                "path": "/api/v1/models/{id}/smart-routing"
+                            },
+                            {
+                                "method": "PUT",
+                                "path": "/api/v1/models/{id}/enabled"
+                            },
+                            {
+                                "method": "PUT",
                                 "path": "/api/v1/model-aliases/{id}"
                             },
                             {

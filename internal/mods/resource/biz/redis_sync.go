@@ -14,6 +14,8 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/gatewaykeys"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -63,6 +65,19 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 		util.NotifyConfigChanged(ctx, util.ConfigChangeAll, modelCode)
 		return nil
 	}
+	// Serialize a model's projection with its database mutations. A concurrent
+	// disable/type conversion cannot be undone by an older publisher.
+	if _, inTransaction := util.FromTrans(ctx); !inTransaction {
+		return (&util.Trans{DB: s.ModelDAL.DB}).Exec(ctx, func(ctx context.Context) error {
+			var current schema.Model
+			err := util.GetDB(ctx, s.ModelDAL.DB).Clauses(clause.Locking{Strength: "UPDATE"}).
+				Where("model_code = ? AND deleted = '0'", modelCode).First(&current).Error
+			if err != nil && err != gorm.ErrRecordNotFound {
+				return err
+			}
+			return s.SyncModelByCode(ctx, modelCode)
+		})
+	}
 
 	// 同步模型默认费率策略到 Redis (aigw:policies:model:<model_code> -> "*")
 	if config.C.Sync.Policies {
@@ -81,17 +96,35 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 				}
 
 				policyData, err := json.Marshal(billingPolicy)
-				if err == nil {
-					_ = s.RedisClient.HSet(ctx, policyKey, "*:billing", string(policyData)).Err()
+				if err != nil {
+					return err
+				}
+				if err := s.RedisClient.HSet(ctx, policyKey, "*:billing", string(policyData)).Err(); err != nil {
+					return err
 				}
 			} else {
-				_ = s.RedisClient.Del(ctx, policyKey).Err()
+				if err := s.RedisClient.Del(ctx, policyKey).Err(); err != nil {
+					return err
+				}
 			}
+		} else if err != gorm.ErrRecordNotFound {
+			return err
 		}
 	}
 
 	// 1. Query endpoints associated with the model code, preloading Model and Provider relations.
 	if config.C.Sync.Endpoints {
+		var model schema.Model
+		err := util.GetDB(ctx, s.ModelDAL.DB).Where("model_code = ? AND deleted = '0'", modelCode).First(&model).Error
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+		if err == gorm.ErrRecordNotFound || model.Enabled != 1 {
+			return s.deleteRouting(ctx, modelCode)
+		}
+		if model.ModelType == schema.ModelTypeSmart {
+			return s.publishSmartRouting(ctx, &model)
+		}
 		endpoints, err := s.queryResolvedEndpointsByCode(ctx, modelCode)
 		if err != nil {
 			return err
@@ -102,11 +135,7 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 		// 2. If no active endpoints exist, remove the key and its Hash version
 		// 注意：不调用 incrementVersion，避免重新创建已删除的 version 记录
 		if len(endpoints) == 0 {
-			_ = s.RedisClient.Del(ctx, redisKey).Err()
-			_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, modelCode).Err()
-			ClearGatewayConfigCache()
-			util.NotifyConfigChanged(ctx, util.ConfigChangeAll, modelCode)
-			return nil
+			return s.deleteRouting(ctx, modelCode)
 		}
 
 		// 3. Map to ResolvedEndpoint structures applying inheritance rules
@@ -283,9 +312,7 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 			return err
 		}
 
-		if err := s.RedisClient.Set(ctx, redisKey, string(jsonData), 0).Err(); err != nil {
-			return err
-		}
+		return s.publishRouting(ctx, modelCode, redisKey, RedisKeySmartRoutingPrefix+modelCode, jsonData)
 	}
 
 	// 5. Increment version
@@ -379,10 +406,14 @@ func (s *ConfigRedisSync) SyncAliasesByModelId(ctx context.Context, modelId stri
 		return err
 	}
 	for _, a := range aliases {
+		var err error
 		if enabled == 1 {
-			_ = s.SyncAlias(ctx, a.Alias, modelCode)
+			err = s.SyncAlias(ctx, a.Alias, modelCode)
 		} else {
-			_ = s.DeleteAlias(ctx, a.Alias)
+			err = s.DeleteAlias(ctx, a.Alias)
+		}
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -409,13 +440,17 @@ func (s *ConfigRedisSync) deleteAliasesByModelId(ctx context.Context, modelId st
 	}
 
 	for _, a := range aliases {
-		_ = s.DeleteAlias(ctx, a.Alias)
+		if err := s.DeleteAlias(ctx, a.Alias); err != nil {
+			return err
+		}
 	}
 
 	// 清理反向索引 key
 	if modelCode != "" {
 		reverseKey := RedisKeyConfigModelAliasesPrefix + modelCode
-		_ = s.RedisClient.Del(ctx, reverseKey).Err()
+		if err := s.RedisClient.Del(ctx, reverseKey).Err(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -501,80 +536,12 @@ func (s *ConfigRedisSync) queryResolvedEndpointsByCode(ctx context.Context, mode
 	return list, nil
 }
 
-// SyncModelCodeChange handles updating tenant-related cache keys in Redis when a model's code changes.
-func (s *ConfigRedisSync) SyncModelCodeChange(ctx context.Context, modelID, oldModelCode, newModelCode string) error {
-	if modelID == "" || oldModelCode == "" || newModelCode == "" || oldModelCode == newModelCode {
-		return nil
-	}
-	if s.RedisClient == nil {
-		ClearGatewayConfigCache()
-		util.NotifyConfigChanged(ctx, util.ConfigChangeAll)
-		return nil
-	}
-
-	// 1. 查询所有关联此 modelID 的租户编码
-	var tenantCodes []string
-	tenantModelTable := config.C.FormatTableName("tenant_model")
-	db := util.GetDB(ctx, s.EndpointDAL.DB)
-	err := db.Table(tenantModelTable).
-		Where("model_id = ?", modelID).
-		Pluck("tenant_code", &tenantCodes).Error
-	if err != nil {
-		return err
-	}
-
-	for _, tenantCode := range tenantCodes {
-		// 2. 更新 aigw:tenant:{tenantCode}:models 集合，移除旧 code，写入新 code
-		oldModelsKey := "aigw:tenant:" + tenantCode + ":models"
-		_ = s.RedisClient.SRem(ctx, oldModelsKey, oldModelCode).Err()
-		_ = s.RedisClient.SAdd(ctx, oldModelsKey, newModelCode).Err()
-
-		if config.C.Sync.Endpoints {
-			// 4. 迁移 aigw:tenant:{tenantCode}:model:{modelCode}:endpoints 集合（新）
-			oldEndpointsKey := "aigw:tenant:" + tenantCode + ":model:" + oldModelCode + ":endpoints"
-			newEndpointsKey := "aigw:tenant:" + tenantCode + ":model:" + newModelCode + ":endpoints"
-
-			// 获取并迁移端点白名单
-			epMembers, err := s.RedisClient.SMembers(ctx, oldEndpointsKey).Result()
-			if err == nil && len(epMembers) > 0 {
-				var interfaces []interface{}
-				for _, m := range epMembers {
-					interfaces = append(interfaces, m)
-				}
-				_ = s.RedisClient.SAdd(ctx, newEndpointsKey, interfaces...).Err()
-			}
-			// 删除低端点白名单缓存
-			_ = s.RedisClient.Del(ctx, oldEndpointsKey).Err()
-		}
-	}
-
-	// 5. 更新该模型所有别名的 Redis value 为新 modelCode
-	if s.ModelAliasDAL != nil {
-		aliases, err := s.ModelAliasDAL.ListByModelId(ctx, modelID)
-		if err == nil {
-			for _, a := range aliases {
-				_ = s.SyncAlias(ctx, a.Alias, newModelCode)
-			}
-		}
-	}
-
-	// 5.5 清理旧 modelCode 相关的核心缓存与控制版本字段
-	if config.C.Sync.Endpoints {
-		_ = s.RedisClient.Del(ctx, "aigw:config:endpoints:"+oldModelCode).Err()
-	}
-	if config.C.Sync.Policies {
-		_ = s.RedisClient.Del(ctx, "aigw:policies:model:"+oldModelCode).Err()
-	}
-	_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, oldModelCode).Err()
-	_ = s.RedisClient.Del(ctx, RedisKeyConfigModelAliasesPrefix+oldModelCode).Err()
-
-	ClearGatewayConfigCache()
-	util.NotifyConfigChanged(ctx, util.ConfigChangeAll)
-	return nil
-}
-
 // SyncModelDisable handles removing model code from associated tenants' allowed model sets and deleting provider whitelist caches.
 func (s *ConfigRedisSync) SyncModelDisable(ctx context.Context, modelID, modelCode string, tenantCodes ...string) error {
+	return s.syncModelAvailability(ctx, modelID, modelCode, tenantCodes...)
+}
+
+func (s *ConfigRedisSync) applyModelDisable(ctx context.Context, modelID, modelCode string, tenantCodes ...string) error {
 	if modelID == "" || modelCode == "" {
 		return nil
 	}
@@ -582,6 +549,9 @@ func (s *ConfigRedisSync) SyncModelDisable(ctx context.Context, modelID, modelCo
 		ClearGatewayConfigCache()
 		util.NotifyConfigChanged(ctx, util.ConfigChangeAll, modelCode)
 		return nil
+	}
+	if err := s.deleteRouting(ctx, modelCode); err != nil {
+		return err
 	}
 
 	var resolvedTenants []string
@@ -602,21 +572,29 @@ func (s *ConfigRedisSync) SyncModelDisable(ctx context.Context, modelID, modelCo
 	for _, tenantCode := range resolvedTenants {
 		// 2. 从 aigw:tenant:{tenantCode}:models 集合中移除该 modelCode
 		modelsKey := "aigw:tenant:" + tenantCode + ":models"
-		_ = s.RedisClient.SRem(ctx, modelsKey, modelCode).Err()
+		if err := s.RedisClient.SRem(ctx, modelsKey, modelCode).Err(); err != nil {
+			return err
+		}
 
 		if config.C.Sync.Endpoints {
 			// 4. 删除 endpoints 白名单缓存（新）
 			endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":endpoints"
-			_ = s.RedisClient.Del(ctx, endpointsKey).Err()
+			if err := s.RedisClient.Del(ctx, endpointsKey).Err(); err != nil {
+				return err
+			}
 		}
 	}
 
 	// 5. 清理该模型所有别名的 Redis key
-	_ = s.deleteAliasesByModelId(ctx, modelID)
+	if err := s.deleteAliasesByModelId(ctx, modelID); err != nil {
+		return err
+	}
 
 	// 6. 清理计费策略缓存
 	if config.C.Sync.Policies {
-		_ = s.RedisClient.Del(ctx, "aigw:policies:model:"+modelCode).Err()
+		if err := s.RedisClient.Del(ctx, "aigw:policies:model:"+modelCode).Err(); err != nil {
+			return err
+		}
 	}
 
 	ClearGatewayConfigCache()
@@ -626,6 +604,10 @@ func (s *ConfigRedisSync) SyncModelDisable(ctx context.Context, modelID, modelCo
 
 // SyncModelEnable handles adding model code back to associated tenants' allowed model sets and rebuilding endpoint whitelist caches.
 func (s *ConfigRedisSync) SyncModelEnable(ctx context.Context, modelID, modelCode string) error {
+	return s.syncModelAvailability(ctx, modelID, modelCode)
+}
+
+func (s *ConfigRedisSync) applyModelEnable(ctx context.Context, modelID, modelCode string) error {
 	if modelID == "" || modelCode == "" {
 		return nil
 	}
@@ -652,7 +634,9 @@ func (s *ConfigRedisSync) SyncModelEnable(ctx context.Context, modelID, modelCod
 	for _, tenantCode := range tenantCodes {
 		// 2. 将 modelCode 重新加回到 aigw:tenant:{tenantCode}:models 集合中
 		modelsKey := "aigw:tenant:" + tenantCode + ":models"
-		_ = s.RedisClient.SAdd(ctx, modelsKey, modelCode).Err()
+		if err := s.RedisClient.SAdd(ctx, modelsKey, modelCode).Err(); err != nil {
+			return err
+		}
 
 		if config.C.Sync.Endpoints {
 			// 3. 重新同步该租户此模型的 endpoints 限制白名单（新）
@@ -665,21 +649,28 @@ func (s *ConfigRedisSync) SyncModelEnable(ctx context.Context, modelID, modelCod
 				Where("te.tenant_code = ? AND ep.model_id = ?", tenantCode, modelID).
 				Pluck("te.endpoint_id", &endpointIDs).Error
 
-			if err == nil {
-				_ = s.RedisClient.Del(ctx, endpointsKey).Err()
-				if len(endpointIDs) > 0 {
-					var members []interface{}
-					for _, id := range endpointIDs {
-						members = append(members, id)
-					}
-					_ = s.RedisClient.SAdd(ctx, endpointsKey, members...).Err()
+			if err != nil {
+				return err
+			}
+			if err := s.RedisClient.Del(ctx, endpointsKey).Err(); err != nil {
+				return err
+			}
+			if len(endpointIDs) > 0 {
+				var members []interface{}
+				for _, id := range endpointIDs {
+					members = append(members, id)
+				}
+				if err := s.RedisClient.SAdd(ctx, endpointsKey, members...).Err(); err != nil {
+					return err
 				}
 			}
 		}
 	}
 
 	// 5. 重新同步该模型所有别名的 Redis key
-	_ = s.SyncAliasesByModelId(ctx, modelID, modelCode, 1)
+	if err := s.SyncAliasesByModelId(ctx, modelID, modelCode, 1); err != nil {
+		return err
+	}
 
 	ClearGatewayConfigCache()
 	util.NotifyConfigChanged(ctx, util.ConfigChangeAll, modelCode)
@@ -813,6 +804,9 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 				return err
 			}
 		} else {
+			if err := s.deleteRouting(ctx, m.ModelCode); err != nil {
+				return err
+			}
 			if config.C.Sync.Endpoints {
 				redisKey := "aigw:config:endpoints:" + m.ModelCode
 				_ = s.RedisClient.Del(ctx, redisKey).Err()
@@ -844,6 +838,9 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 		}
 		for _, obsoleteCode := range redisModelCodes {
 			if !activeModelsMap[obsoleteCode] {
+				if err := s.deleteRouting(ctx, obsoleteCode); err != nil {
+					return err
+				}
 				// 从 model_versions 中删除
 				_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, obsoleteCode).Err()
 				// 清除端点和策略

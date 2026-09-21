@@ -2,6 +2,7 @@ package biz
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -27,6 +28,8 @@ type GatewaySync struct {
 var (
 	gatewayConfigCache     *cache.Cache
 	gatewayConfigCacheOnce sync.Once
+	gatewayConfigCacheMu   sync.Mutex
+	gatewayConfigEpoch     uint64
 )
 
 func getGatewayConfigCache() *cache.Cache {
@@ -43,6 +46,9 @@ func init() {
 
 // ClearGatewayConfigCache 主动清除所有网关缓存项
 func ClearGatewayConfigCache() {
+	gatewayConfigCacheMu.Lock()
+	defer gatewayConfigCacheMu.Unlock()
+	gatewayConfigEpoch++
 	getGatewayConfigCache().Flush()
 }
 
@@ -54,8 +60,10 @@ type GatewayConfig struct {
 }
 
 type ModelConfig struct {
-	RequestTypes []string         `json:"request_types"`
-	Endpoints    []EndpointConfig `json:"endpoints"`
+	RequestTypes []string             `json:"request_types"`
+	Endpoints    []EndpointConfig     `json:"endpoints"`
+	ModelType    string               `json:"model_type,omitempty"`
+	SmartRouting *RuntimeSmartRouting `json:"smart_routing,omitempty"`
 }
 
 type ProviderConfig struct {
@@ -122,14 +130,46 @@ func (s *GatewaySync) GetGatewayConfig(ctx context.Context, modelCode string) (*
 	if modelCode != "" {
 		cacheKey = "config:model:" + modelCode
 	}
+	gatewayConfigCacheMu.Lock()
+	epoch := gatewayConfigEpoch
+	cachedValue, found := c.Get(cacheKey)
+	gatewayConfigCacheMu.Unlock()
 
-	if val, found := c.Get(cacheKey); found {
-		if cached, ok := val.(*GatewayConfig); ok {
+	if found {
+		if cached, ok := cachedValue.(*GatewayConfig); ok {
 			return cached, nil
 		}
 	}
 
+	var result *GatewayConfig
+	var err error
+	if _, inTransaction := util.FromTrans(ctx); inTransaction {
+		result, err = s.buildGatewayConfig(ctx, modelCode)
+	} else {
+		err = s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			result, err = s.buildGatewayConfig(util.NewTrans(ctx, tx), modelCode)
+			return err
+		}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	}
+	if err != nil {
+		return nil, err
+	}
+	gatewayConfigCacheMu.Lock()
+	if epoch == gatewayConfigEpoch {
+		c.Set(cacheKey, result, cache.DefaultExpiration)
+	}
+	gatewayConfigCacheMu.Unlock()
+	return result, nil
+}
+
+// Model definitions, resolved reference codes and dependency endpoints must
+// come from one database snapshot; a rename cannot split those reads.
+func (s *GatewaySync) buildGatewayConfig(ctx context.Context, modelCode string) (*GatewayConfig, error) {
 	db := util.GetDB(ctx, s.DB)
+	modelsMap, modelCodes, err := s.smartModelConfigs(ctx, modelCode)
+	if err != nil {
+		return nil, err
+	}
 	endpointTable := config.C.FormatTableName("endpoint")
 	modelTable := config.C.FormatTableName("model")
 	providerTable := config.C.FormatTableName("provider")
@@ -147,16 +187,16 @@ func (s *GatewaySync) GetGatewayConfig(ctx context.Context, modelCode string) (*
 		Where(providerTable + ".deleted = '0'")
 
 	if modelCode != "" {
-		query = query.Where(modelTable+".model_code = ?", modelCode)
+		query = query.Where(modelTable+".model_code IN ?", modelCodes)
 	}
+	query = query.Where(modelTable+".model_type != ?", schema.ModelTypeSmart)
 
 	var dbEndpoints []schema.Endpoint
-	err := query.Order(endpointTable + ".priority ASC, " + endpointTable + ".weight DESC").Find(&dbEndpoints).Error
+	err = query.Order(endpointTable + ".priority ASC, " + endpointTable + ".weight DESC").Find(&dbEndpoints).Error
 	if err != nil {
 		return nil, fmt.Errorf("query endpoints: %w", err)
 	}
 
-	modelsMap := make(map[string]ModelConfig)
 	providersMap := make(map[string]ProviderConfig)
 
 	for _, ep := range dbEndpoints {
@@ -237,6 +277,7 @@ func (s *GatewaySync) GetGatewayConfig(ctx context.Context, modelCode string) (*
 		mCfg, exists := modelsMap[mCode]
 		if !exists {
 			mCfg = ModelConfig{
+				ModelType:    schema.ModelTypeNormal,
 				RequestTypes: apis,
 				Endpoints:    []EndpointConfig{},
 			}
@@ -276,7 +317,6 @@ func (s *GatewaySync) GetGatewayConfig(ctx context.Context, modelCode string) (*
 		Aliases:   aliasesMap,
 	}
 
-	c.Set(cacheKey, result, cache.DefaultExpiration)
 	return result, nil
 }
 

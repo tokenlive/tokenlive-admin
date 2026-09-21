@@ -365,6 +365,56 @@ export default {
     'pages.model.form.model_name': 'Model Name',
     'pages.model.form.model_name.placeholder': 'Please enter the model name',
     'pages.model.form.model_name.required': 'Model name is required!',
+    'pages.model.form.model_type': 'Model Type',
+    'pages.model.type.normal': 'Normal Model',
+    'pages.model.type.smart': 'Smart Model',
+    'pages.model.smart.capabilities': 'MVP supports text-only, non-streaming Chat Completions',
+    'pages.model.smart.references_hint':
+        'Choose enabled normal models in the same space that you can read and that support Chat Completions. Smart models have no direct endpoints.',
+    'pages.model.smart.conversion_blocked':
+        'Remove direct endpoints or references from other smart models before changing to a smart model.',
+    'pages.model.smart.judge': 'Judge Model',
+    'pages.model.smart.judge_limits': 'Judge Limits',
+    'pages.model.smart.timeout': 'Timeout (ms)',
+    'pages.model.smart.input_bytes': 'Input Limit (UTF-8 bytes)',
+    'pages.model.smart.output_tokens': 'Output Limit (tokens)',
+    'pages.model.smart.ranges': 'Difficulty Routing Ranges',
+    'pages.model.smart.range': 'Score Range',
+    'pages.model.smart.split_point': 'Upper Split',
+    'pages.model.smart.target': 'Target Model',
+    'pages.model.smart.split': 'Split Range',
+    'pages.model.smart.merge': 'Merge Next',
+    'pages.model.smart.select_model': 'Select a normal model',
+    'pages.model.smart.ranges_hint':
+        'The first and last boundaries stay at 0 and 100. Editing a split joins adjacent ranges. Only the last range includes its upper bound (100). Select at least two different target models.',
+    'pages.model.smart.version': 'Config version {version}',
+    'pages.model.smart.config_version': 'Config Version',
+    'pages.model.smart.enable_after_config':
+        'Save a complete routing configuration before enabling this model manually. Saving routing does not enable the model.',
+    'pages.model.smart.not_configured': 'Routing configuration is incomplete',
+    'pages.model.smart.configure': 'Configure Routing',
+    'pages.model.smart.empty_hint': 'Configure the judge model, judge limits and difficulty routing ranges.',
+    'pages.model.smart.routing_saved': 'Routing saved. The model enablement state is unchanged.',
+    'pages.model.smart.candidates_load': 'Could not load candidate models. Retry before saving.',
+    'pages.model.smart.retry': 'Retry',
+    'pages.model.smart.not_enough_models':
+        'This space has fewer than two eligible normal models. Create or enable normal Chat Completions models first.',
+    'pages.model.smart.validation.partition':
+        'Integer ranges must cover 0–100 continuously, with no empty ranges, gaps or overlaps.',
+    'pages.model.smart.validation.judge_required': 'Select an available judge model in this space.',
+    'pages.model.smart.validation.target_required': 'Select an available normal model in this space for every range.',
+    'pages.model.smart.validation.distinct_models': 'Select at least two different normal target models.',
+    'pages.model.smart.validation.judge_limits':
+        'Judge timeout, input byte limit and output token limit must be positive integers.',
+    'pages.model.smart.disable_warning':
+        'Disabling this model affects the smart models that reference it. Confirm before continuing.',
+    'pages.model.smart.dependencies_hint':
+        'Disabling a judge or target model affects this smart model. Update its routing configuration first.',
+    'pages.model.smart.sync_failed':
+        'The model was saved, but configuration sync failed. The change is not confirmed active. Retry using Sync Redis Cache in the model list.',
+    'pages.model.smart.saved_with_warnings': 'Model saved. Review the following warnings.',
+    'pages.model.smart.delete_sync_failed':
+        'The model record was deleted, but gateway configuration cleanup failed. The old configuration may still be callable. Retry with a full configuration sync.',
     'pages.model.form.model_code': 'Model Code',
     'pages.model.form.model_code.placeholder': 'Please enter the model code',
     'pages.model.form.model_code.required': 'Model code is required!',
