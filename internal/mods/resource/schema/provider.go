@@ -17,8 +17,8 @@ type Provider struct {
 	Protocol    string          `json:"protocol" gorm:"type:varchar(64);not null;comment:协议类型，决定使用哪个 ProviderFactory;"`
 	URL         string          `json:"url" gorm:"type:varchar(1024);default:null;comment:供应商 API 基础地址;"`
 	AuthType    string          `json:"auth_type" gorm:"type:varchar(64);default:'api_key';comment:认证类型: api_key, oauth_token;"`
-	ApiKeys     json.RawMessage `json:"api_keys,omitempty" gorm:"type:json;default:null;comment:上游API认证密钥列表;"`
-	OAuth       json.RawMessage `json:"oauth,omitempty" gorm:"type:json;default:null;comment:OAuth 凭证(refresh_token/token_endpoint/expires_at);"`
+	ApiKeys     util.RawJSON    `json:"api_keys,omitempty" gorm:"type:json;default:null;comment:上游API认证密钥列表;"`
+	OAuth       util.RawJSON    `json:"oauth,omitempty" gorm:"type:json;default:null;comment:OAuth 凭证(refresh_token/token_endpoint/expires_at);"`
 	LockOwner   string          `json:"-" gorm:"type:varchar(128);default:null;comment:OAuth 刷新分布式锁持有者实例ID;"`
 	LockedUntil *time.Time      `json:"-" gorm:"type:datetime;default:null;comment:OAuth 刷新分布式锁过期时间;"`
 	Enabled     int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
@@ -115,7 +115,7 @@ func (p *ProviderForm) FillTo(provider *Provider) error {
 	provider.URL = p.URL
 	if len(p.ApiKeys) > 0 {
 		b, _ := json.Marshal(p.ApiKeys)
-		provider.ApiKeys = json.RawMessage(b)
+		provider.ApiKeys = util.RawJSON(b)
 	} else {
 		provider.ApiKeys = nil
 	}
@@ -126,7 +126,7 @@ func (p *ProviderForm) FillTo(provider *Provider) error {
 	}
 	if p.OAuth != nil {
 		b, _ := json.Marshal(p.OAuth)
-		provider.OAuth = json.RawMessage(b)
+		provider.OAuth = util.RawJSON(b)
 	} else {
 		provider.OAuth = nil
 	}

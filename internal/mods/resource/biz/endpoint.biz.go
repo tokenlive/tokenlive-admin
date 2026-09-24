@@ -1140,8 +1140,8 @@ func (e *Endpoint) TestByID(ctx context.Context, id string) (*schema.EndpointTes
 		Priority:    endpoint.Priority,
 		Weight:      endpoint.Weight,
 		Enabled:     endpoint.Enabled,
-		Headers:     endpoint.Headers,
-		Metadata:    endpoint.Metadata,
+		Headers:     json.RawMessage(endpoint.Headers),
+		Metadata:    json.RawMessage(endpoint.Metadata),
 		Description: endpoint.Description,
 	}
 

@@ -25,8 +25,8 @@ type Endpoint struct {
 	Priority           int             `json:"priority" gorm:"type:int;not null;default:0;comment:故障转移顺序，数字越小越优先;"`
 	Weight             int             `json:"weight" gorm:"type:int;not null;default:1;comment:负载均衡权重;"`
 	Enabled            int             `json:"enabled" gorm:"type:int;not null;default:0;comment:启用状态: 0-未启用，1-启用;"`
-	Headers            json.RawMessage `json:"headers,omitempty" gorm:"type:json;default:null;comment:自定义请求头，如 {\"X-Custom-Header\": \"value\"};"`
-	Metadata           json.RawMessage `json:"metadata,omitempty" gorm:"type:json;default:null;comment:元数据，用于存储标签等额外信息;"`
+	Headers            util.RawJSON    `json:"headers,omitempty" gorm:"type:json;default:null;comment:自定义请求头，如 {\"X-Custom-Header\": \"value\"};"`
+	Metadata           util.RawJSON    `json:"metadata,omitempty" gorm:"type:json;default:null;comment:元数据，用于存储标签等额外信息;"`
 	InputPrice         *float64        `json:"input_price" gorm:"type:decimal(10,6);default:null;comment:输入价格（元/百万 Tokens），NULL表示继承模型;"`
 	OutputPrice        *float64        `json:"output_price" gorm:"type:decimal(10,6);default:null;comment:输出价格（元/百万 Tokens），NULL表示继承模型;"`
 	CachedPrice        *float64        `json:"cached_price" gorm:"type:decimal(10,6);default:null;comment:缓存命中价格（元/百万 Tokens），NULL表示继承模型;"`
@@ -127,12 +127,12 @@ func (e *EndpointForm) FillTo(endpoint *Endpoint) error {
 	if len(e.Headers) == 0 || string(e.Headers) == "null" {
 		endpoint.Headers = nil
 	} else {
-		endpoint.Headers = e.Headers
+		endpoint.Headers = util.RawJSON(e.Headers)
 	}
 	if len(e.Metadata) == 0 || string(e.Metadata) == "null" {
 		endpoint.Metadata = nil
 	} else {
-		endpoint.Metadata = e.Metadata
+		endpoint.Metadata = util.RawJSON(e.Metadata)
 	}
 	endpoint.InputPrice = e.InputPrice
 	endpoint.OutputPrice = e.OutputPrice

@@ -170,8 +170,8 @@ func (r *TokenRefresher) lockAndRefreshProvider(ctx context.Context, provider sc
 		if err := tx.Table(tableName).
 			Where("id = ? AND lock_owner = ?", provider.ID, r.InstanceID).
 			Updates(map[string]interface{}{
-				"api_keys":     string(apiKeysJSON),
-				"o_auth":       string(oauthJSON),
+				"api_keys":     apiKeysJSON,
+				"o_auth":       oauthJSON,
 				"lock_owner":   gorm.Expr("NULL"),
 				"locked_until": gorm.Expr("NULL"),
 			}).Error; err != nil {
