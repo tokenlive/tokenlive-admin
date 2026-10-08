@@ -25,15 +25,42 @@ func New(identity productversion.Identity, store versionregistry.Store, checker 
 	return &Service{identity: identity, store: store, checker: checker, scope: scope}
 }
 
-func (s *Service) Summary(ctx context.Context, canManage bool) (Summary, error) {
+func (s *Service) Summary(ctx context.Context, canManage, canUpgrade bool) (Summary, error) {
 	gateway, err := s.gateway(ctx)
-	return Summary{Identity: s.identity, Gateway: gateway, CanManageUpdates: canManage}, err
+	summary := Summary{Identity: s.identity, Gateway: gateway, CanManageUpdates: canManage, CanManageUpgrades: canUpgrade}
+	// Upgrade-only roles cannot read /system/updates. Give them the cached
+	// standalone candidate so the page can offer a confirmable target without
+	// granting update-management or contacting a source.
+	if canUpgrade && !canManage && s.identity.Edition == "standalone" {
+		summary.UpgradeCandidate = cachedUpgradeCandidate(s.checker.Snapshot())
+	}
+	return summary, err
+}
+
+// cachedUpgradeCandidate returns a fresh ready standalone candidate, or nil.
+// Stale, failed and in-flight history is not an actionable upgrade target.
+func cachedUpgradeCandidate(state updatecheck.CheckResult) *UpgradeCandidate {
+	if !state.Enabled {
+		return nil
+	}
+	source, ok := state.Sources["standalone"]
+	if !ok || source.Status != "ready" || source.Stale || source.Candidate == nil || source.Candidate.Version == "" {
+		return nil
+	}
+	return &UpgradeCandidate{Version: source.Candidate.Version, ReleaseURL: source.Candidate.ReleaseURL}
 }
 
 // Updates is read-only with respect to external sources. A fresh registry read
 // ensures expired or newly reported Gateway builds immediately affect notices.
 func (s *Service) Updates(ctx context.Context) (Updates, error) {
 	return s.updates(ctx, s.checker.Snapshot())
+}
+
+// Enabled reports the effective online-check state from the checker snapshot.
+// The upgrade flow reuses this single switch: when checks are off, no task
+// that needs external validation or download may be created.
+func (s *Service) Enabled() bool {
+	return s.checker.Snapshot().Enabled
 }
 
 // Check uses the checker's instance-wide manual cooldown and in-flight request.

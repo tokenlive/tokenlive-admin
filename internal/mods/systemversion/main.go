@@ -23,6 +23,10 @@ func (a *SystemVersion) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGro
 	v1.GET("system/updates", a.Updates)
 	v1.POST("system/updates/check", a.Check)
 	v1.POST("gateway/version", a.Report)
+	v1.GET("system/upgrade/capability", a.UpgradeCapability)
+	v1.POST("system/upgrade/prepare", a.UpgradePrepare)
+	v1.POST("system/upgrade/submit", a.UpgradeSubmit)
+	v1.GET("system/upgrade/task", a.UpgradeTask)
 	return nil
 }
 

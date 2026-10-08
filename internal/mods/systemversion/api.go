@@ -1,6 +1,7 @@
 package systemversion
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
@@ -14,6 +15,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/updatecheck"
 	"github.com/tokenlive/tokenlive-admin/internal/versionstatus"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
+	"github.com/tokenlive/tokenlive-admin/pkg/upgradehost"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"github.com/tokenlive/tokenlive-admin/pkg/versionregistry"
 )
@@ -31,7 +33,7 @@ const maxReportBytes = 4 << 10
 // @Failure 500 {object} util.ResponseResult
 // @Router /api/v1/current/version [get]
 func (a *SystemVersion) CurrentVersion(c *gin.Context) {
-	result, err := a.Service.Summary(c.Request.Context(), a.canManage(c.Request.Context()))
+	result, err := a.Service.Summary(c.Request.Context(), a.canManage(c.Request.Context()), a.canUpgrade(c.Request.Context()))
 	if err != nil {
 		util.ResError(c, err)
 		return
@@ -100,6 +102,216 @@ func (a *SystemVersion) authorizeUpdates(c *gin.Context) bool {
 		return false
 	}
 	return true
+}
+
+// hostOrUnsupported returns the registered upgrade host, or nil after having
+// answered with the honest unsupported capability. Independent admin without
+// an embedding host must never fabricate local capability.
+func hostOrUnsupported(c *gin.Context) upgradehost.Host {
+	host := upgradehost.Current()
+	if host == nil {
+		util.ResSuccess(c, upgradehost.Capability{
+			Supported: false,
+			Allowed:   false,
+			Reasons:   []string{upgradehost.ReasonHostUnsupported},
+		})
+		return nil
+	}
+	return host
+}
+
+// UpgradeCapability godoc
+// @Tags SystemVersion
+// @Summary Click-upgrade capability of the embedding host
+// @Description Read-only. Requires update-management or upgrade-execution permission.
+// @Security ApiKeyAuth
+// @Produce json
+// @Success 200 {object} util.ResponseResult{data=upgradehost.Capability}
+// @Failure 401 {object} util.ResponseResult
+// @Failure 403 {object} util.ResponseResult
+// @Failure 500 {object} util.ResponseResult
+// @Router /api/v1/system/upgrade/capability [get]
+func (a *SystemVersion) UpgradeCapability(c *gin.Context) {
+	if !a.canManage(c.Request.Context()) && !a.canUpgrade(c.Request.Context()) {
+		util.ResError(c, errors.Forbidden("", "Version update or upgrade permission required"))
+		return
+	}
+	host := hostOrUnsupported(c)
+	if host == nil {
+		return
+	}
+	capability, err := host.Capability(c.Request.Context())
+	if err != nil {
+		hostError(c, err)
+		return
+	}
+	// Admin owns the check-switch knowledge: with checks off, execution is
+	// honestly reported as not allowed (tasks already running still surface).
+	if capability.Supported && !a.Service.Enabled() {
+		capability.Allowed = false
+		capability.Reasons = append(capability.Reasons, upgradehost.ReasonCheckDisabled)
+	}
+	util.ResSuccess(c, capability)
+}
+
+// checksGate enforces the existing "online checks disabled" semantics for the
+// upgrade flow: no new task that requires external validation or download may
+// be created while checks are off. Tasks already executing are not interrupted.
+func (a *SystemVersion) checksGate(c *gin.Context) bool {
+	if !a.Service.Enabled() {
+		util.ResError(c, errors.Conflict("update_check_disabled", "%s", "Update checks are disabled"))
+		return false
+	}
+	return true
+}
+
+// UpgradePrepare godoc
+// @Tags SystemVersion
+// @Summary Prepare a click upgrade and create a confirmation credential
+// @Description Requires upgrade-execution permission. Validates the target, never installs or restarts. Rejected while online update checks are disabled.
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param body body upgradehost.PrepareRequest true "Target version"
+// @Success 200 {object} util.ResponseResult{data=upgradehost.Preparation}
+// @Failure 401 {object} util.ResponseResult
+// @Failure 403 {object} util.ResponseResult
+// @Failure 409 {object} util.ResponseResult "upgrade_task_conflict | upgrade_target_changed | update_check_disabled"
+// @Failure 500 {object} util.ResponseResult
+// @Router /api/v1/system/upgrade/prepare [post]
+func (a *SystemVersion) UpgradePrepare(c *gin.Context) {
+	if !a.authorizeUpgradeExecution(c) {
+		return
+	}
+	if !a.checksGate(c) {
+		return
+	}
+	host := upgradehost.Current()
+	if host == nil {
+		util.ResError(c, errors.Conflict(upgradehost.ReasonHostUnsupported, "Click upgrade is not supported here"))
+		return
+	}
+	var req upgradehost.PrepareRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		util.ResError(c, errors.BadRequest("", "Invalid prepare request: %s", err.Error()))
+		return
+	}
+	req.Initiator = upgradeInitiator(c.Request.Context())
+	preparation, err := host.Prepare(c.Request.Context(), req)
+	if err != nil {
+		hostError(c, err)
+		return
+	}
+	util.ResSuccess(c, preparation)
+}
+
+// UpgradeSubmit godoc
+// @Tags SystemVersion
+// @Summary Submit a confirmed upgrade task
+// @Description Requires upgrade-execution permission. Re-validates the credential, target and installation, then starts the one-shot task.
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param body body upgradehost.SubmitRequest true "Task confirmation"
+// @Success 200 {object} util.ResponseResult{data=upgradehost.TaskView}
+// @Failure 401 {object} util.ResponseResult
+// @Failure 403 {object} util.ResponseResult
+// @Failure 409 {object} util.ResponseResult "upgrade_task_conflict | upgrade_target_changed | upgrade_confirmation_expired | update_check_disabled"
+// @Failure 500 {object} util.ResponseResult
+// @Router /api/v1/system/upgrade/submit [post]
+func (a *SystemVersion) UpgradeSubmit(c *gin.Context) {
+	if !a.authorizeUpgradeExecution(c) {
+		return
+	}
+	if !a.checksGate(c) {
+		return
+	}
+	host := upgradehost.Current()
+	if host == nil {
+		util.ResError(c, errors.Conflict(upgradehost.ReasonHostUnsupported, "Click upgrade is not supported here"))
+		return
+	}
+	var req upgradehost.SubmitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		util.ResError(c, errors.BadRequest("", "Invalid submit request: %s", err.Error()))
+		return
+	}
+	req.Initiator = upgradeInitiator(c.Request.Context())
+	task, err := host.Submit(c.Request.Context(), req)
+	if err != nil {
+		hostError(c, err)
+		return
+	}
+	util.ResSuccess(c, task)
+}
+
+// UpgradeTask godoc
+// @Tags SystemVersion
+// @Summary Read one persisted upgrade task
+// @Description Requires upgrade-execution permission. Empty id returns the most recent task.
+// @Security ApiKeyAuth
+// @Produce json
+// @Param id query string false "Task ID"
+// @Success 200 {object} util.ResponseResult{data=upgradehost.TaskView}
+// @Failure 401 {object} util.ResponseResult
+// @Failure 403 {object} util.ResponseResult
+// @Failure 500 {object} util.ResponseResult
+// @Router /api/v1/system/upgrade/task [get]
+func (a *SystemVersion) UpgradeTask(c *gin.Context) {
+	if !a.authorizeUpgradeExecution(c) {
+		return
+	}
+	host := upgradehost.Current()
+	if host == nil {
+		util.ResError(c, errors.Conflict(upgradehost.ReasonHostUnsupported, "Click upgrade is not supported here"))
+		return
+	}
+	task, err := host.Task(c.Request.Context(), upgradehost.TaskRequest{TaskID: c.Query("id")})
+	if err != nil {
+		hostError(c, err)
+		return
+	}
+	util.ResSuccess(c, task)
+}
+
+func (a *SystemVersion) authorizeUpgradeExecution(c *gin.Context) bool {
+	if !a.canUpgrade(c.Request.Context()) {
+		util.ResError(c, errors.Forbidden("", "Standalone upgrade execution permission required"))
+		return false
+	}
+	return true
+}
+
+// upgradeInitiator names the authenticated caller for credential binding.
+// Username when available, else the user ID; never a client-supplied value.
+func upgradeInitiator(ctx context.Context) string {
+	if name := util.FromUsername(ctx); name != "" {
+		return name
+	}
+	return util.FromUserID(ctx)
+}
+
+// hostError maps host sentinel errors to stable public error IDs and keeps
+// unexpected host failures as generic server errors.
+func hostError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, upgradehost.ErrTaskConflict):
+		util.ResError(c, errors.Conflict("upgrade_task_conflict", "%s", err.Error()))
+	case errors.Is(err, upgradehost.ErrTargetChanged):
+		util.ResError(c, errors.Conflict("upgrade_target_changed", "%s", err.Error()))
+	case errors.Is(err, upgradehost.ErrConfirmationExpired):
+		util.ResError(c, errors.Conflict("upgrade_confirmation_expired", "%s", err.Error()))
+	case errors.Is(err, upgradehost.ErrInvalidCredential):
+		util.ResError(c, errors.Conflict("upgrade_invalid_credential", "%s", err.Error()))
+	case errors.Is(err, upgradehost.ErrCheckDisabled):
+		util.ResError(c, errors.Conflict("update_check_disabled", "%s", err.Error()))
+	case errors.Is(err, upgradehost.ErrUnsupported):
+		util.ResError(c, errors.Conflict(upgradehost.ReasonHostUnsupported, "%s", err.Error()))
+	case errors.Is(err, upgradehost.ErrNotAllowed):
+		util.ResError(c, errors.Conflict("upgrade_not_allowed", "%s", err.Error()))
+	default:
+		util.ResError(c, err)
+	}
 }
 
 // checkRejected retains the standard error envelope while returning the current

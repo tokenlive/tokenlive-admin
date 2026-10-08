@@ -170,6 +170,131 @@
                     {{ $t('app.about.retryAfter', { seconds: retryAfterSeconds }) }}
                 </p>
             </section>
+            <section
+                v-if="summary?.can_manage_upgrades === true"
+                class="system-about__updates">
+                <div class="system-about__update-heading">
+                    <h3>{{ $t('app.about.upgrade') }}</h3>
+                </div>
+                <!-- Unsupported environment: honest reason, keep manual path. -->
+                <template v-if="upgradeBlocked.length">
+                    <p class="system-about__muted">{{ $t('app.about.upgradeUnsupported') }}</p>
+                    <p
+                        v-for="reason in upgradeBlocked"
+                        :key="reason"
+                        class="system-about__muted">
+                        {{ $t(`app.about.upgradeReason.${reason}`) }}
+                    </p>
+                </template>
+                <!-- Running task: phases only, never fabricated percentages. -->
+                <p
+                    v-else-if="upgradeRunning"
+                    class="system-about__muted"
+                    role="status">
+                    <a-spin
+                        size="small"
+                        class="system-about__upgrade-spin" />
+                    {{ taskStateLabel(upgradeTask) }}
+                    <span v-if="upgradeTask.phase"> · {{ upgradeTask.phase }}</span>
+                </p>
+                <!-- Terminal task: durable result with bounded diagnostics. -->
+                <template v-else-if="upgradeTask">
+                    <p
+                        v-if="upgradeTask.state === 'succeeded'"
+                        role="status"
+                        class="system-about__muted">
+                        {{ $t('app.about.upgradeSucceeded', { version: upgradeTask.target_version || '' }) }}
+                    </p>
+                    <template v-else>
+                        <p
+                            role="alert"
+                            class="system-about__error">
+                            {{ taskStateLabel(upgradeTask) }}
+                            <span v-if="upgradeTask.failure_stage"> · {{ upgradeTask.failure_stage }}</span>
+                        </p>
+                        <p
+                            v-if="upgradeTask.detail"
+                            class="system-about__muted">
+                            {{ upgradeTask.detail }}
+                        </p>
+                        <p
+                            v-if="upgradeTask.state === 'needs_attention'"
+                            class="system-about__muted">
+                            {{ $t('app.about.upgradeNeedsAttention') }}
+                        </p>
+                        <p
+                            v-if="upgradeTask.state !== 'confirmation_expired'"
+                            class="system-about__muted">
+                            {{ $t('app.about.upgradeFailedManual') }}
+                        </p>
+                        <pre
+                            v-if="upgradeTask.state !== 'confirmation_expired'"
+                            class="system-about__commands"
+                            >{{ brewUpgrade }}</pre
+                        >
+                    </template>
+                </template>
+                <!-- Confirmation panel: server-bound credential, double confirm. -->
+                <template v-else-if="upgradePreparation">
+                    <p class="system-about__muted">
+                        {{
+                            $t('app.about.upgradeConfirmDetail', {
+                                current: upgradePreparation.current_version || '',
+                                target: upgradePreparation.target_version || '',
+                            })
+                        }}
+                    </p>
+                    <a
+                        v-if="upgradePreparation.release_url"
+                        :href="upgradePreparation.release_url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >{{ $t('app.about.releaseNotes') }}</a
+                    >
+                    <p class="system-about__muted">{{ $t('app.about.upgradeRestartWarning') }}</p>
+                    <p class="system-about__muted">{{ $t('app.about.upgradeBackupNotice') }}</p>
+                    <div class="system-about__upgrade-actions">
+                        <a-button
+                            size="small"
+                            :loading="props.upgrade?.busy === true"
+                            @click="$emit('upgrade-confirm')"
+                            >{{ $t('app.about.upgradeConfirm') }}</a-button
+                        >
+                        <a-button
+                            size="small"
+                            @click="$emit('upgrade-cancel')"
+                            >{{ $t('app.about.upgradeCancel') }}</a-button
+                        >
+                    </div>
+                </template>
+                <!-- Idle: offer the button only on a provably actionable target. -->
+                <template v-else>
+                    <a-button
+                        v-if="canOfferUpgrade"
+                        type="primary"
+                        size="small"
+                        :loading="props.upgrade?.busy === true"
+                        @click="$emit('upgrade-prepare', standaloneTarget)"
+                        >{{ $t('app.about.upgradeButton') }}</a-button
+                    >
+                    <p
+                        v-else-if="upgradeCap?.supported === true && !upgradeCap?.allowed"
+                        class="system-about__muted">
+                        <span
+                            v-for="reason in upgradeCap.reasons || []"
+                            :key="reason"
+                            class="system-about__upgrade-reason">
+                            {{ $t(`app.about.upgradeReason.${reason}`) }}
+                        </span>
+                    </p>
+                    <p
+                        v-else-if="props.upgrade?.error"
+                        role="alert"
+                        class="system-about__error">
+                        {{ $t('app.about.upgradeUnavailable') }}
+                    </p>
+                </template>
+            </section>
         </div>
     </a-modal>
 </template>
@@ -181,6 +306,7 @@ import { message } from 'ant-design-vue'
 import { CopyOutlined } from '@ant-design/icons-vue'
 import { config } from '@/config'
 import { copyVersionText, formatIdentity, hasAvailableUpdate } from '@/utils/system-version'
+import { TERMINAL_TASK_STATES } from '@/utils/upgrade-state'
 
 const props = defineProps({
     open: { type: Boolean, default: false },
@@ -190,9 +316,10 @@ const props = defineProps({
     checking: { type: Boolean, default: false },
     retryAfterSeconds: { type: Number, default: 0 },
     error: { type: Object, default: null },
+    upgrade: { type: Object, default: null },
     labels: { type: Object, required: true },
 })
-defineEmits(['update:open', 'check'])
+defineEmits(['update:open', 'check', 'upgrade-prepare', 'upgrade-confirm', 'upgrade-cancel'])
 const { t, locale } = useI18n()
 const contentRef = ref(null)
 const hasUpdate = computed(() => hasAvailableUpdate(props.summary, props.updates))
@@ -298,6 +425,54 @@ async function copyVersion() {
         ? copyVersionText(props.summary, props.labels)
         : `${t('app.about.frontendBuildShort', { version: props.fallbackVersion })}\n${t('app.about.frontendBuildNotice')}`
     await copyText(text)
+}
+
+// ---- Click upgrade -------------------------------------------------------
+const upgradeCap = computed(() => props.upgrade?.capability)
+const upgradeTask = computed(() => props.upgrade?.task)
+const upgradeRunning = computed(() => upgradeTask.value && !TERMINAL_TASK_STATES.includes(upgradeTask.value.state))
+const upgradePreparation = computed(() => props.upgrade?.preparation)
+const upgradeBlocked = computed(() => {
+    // No capability data yet (or fetch failed): stay silent, the error branch renders.
+    if (!upgradeCap.value || props.upgrade?.error) return []
+    if (upgradeCap.value.supported === false)
+        return upgradeCap.value.reasons?.length ? upgradeCap.value.reasons : ['host_unsupported']
+    return []
+})
+// Only a fresh, server-proven standalone result offers the button. Update
+// managers read it from the updates snapshot; an upgrade-only role cannot
+// call that API, so the version summary carries the same cached candidate.
+const standaloneTarget = computed(() => {
+    const item = props.updates?.components?.find((entry) => entry.component === 'standalone')
+    if (item?.state === 'available' && item.source?.stale === false && item.latest) return item.latest
+    if (props.summary?.can_manage_updates === true) return ''
+    return props.summary?.upgrade_candidate?.version || ''
+})
+const canOfferUpgrade = computed(
+    () =>
+        upgradeCap.value?.supported === true &&
+        upgradeCap.value?.allowed === true &&
+        standaloneTarget.value !== '' &&
+        !upgradeRunning.value &&
+        !upgradePreparation.value &&
+        (!upgradeTask.value || TERMINAL_TASK_STATES.includes(upgradeTask.value.state))
+)
+const taskStates = new Set([
+    'preparing',
+    'awaiting_confirmation',
+    'queued',
+    'downloading',
+    'installing',
+    'restarting',
+    'verifying',
+    'succeeded',
+    'failed',
+    'needs_attention',
+    'confirmation_expired',
+])
+function taskStateLabel(task) {
+    const state = taskStates.has(task?.state) ? task.state : 'unknown'
+    return t(`app.about.taskState.${state}`)
 }
 async function copyText(text) {
     try {
@@ -457,6 +632,21 @@ async function copyText(text) {
         font-size: 12px;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
+    }
+
+    &__upgrade-actions {
+        display: flex;
+        gap: 8px;
+        margin-block: 8px;
+    }
+
+    &__upgrade-spin {
+        margin-inline-end: 8px;
+        vertical-align: -2px;
+    }
+
+    &__upgrade-reason {
+        display: block;
     }
 }
 </style>

@@ -44,7 +44,7 @@ func TestProviderDefaultsAndConstructionDoesNotFetch(t *testing.T) {
 		t.Fatalf("provider: service=%v cleanup=%v err=%v", service, cleanup != nil, err)
 	}
 	t.Cleanup(cleanup)
-	summary, err := service.Summary(context.Background(), false)
+	summary, err := service.Summary(context.Background(), false, false)
 	if err != nil || summary.Identity != testIdentity("professional", "release") || summary.Gateway.Scope != "this_admin" {
 		t.Fatalf("bad local summary: %+v, %v", summary, err)
 	}
@@ -174,7 +174,7 @@ func TestProviderBorrowsRedisAndUsesNamespace(t *testing.T) {
 	if err != nil || len(nodes) != 1 || nodes[0] != node {
 		t.Fatalf("provider did not use shared Redis namespace: %+v, %v", nodes, err)
 	}
-	summary, err := service.Summary(context.Background(), false)
+	summary, err := service.Summary(context.Background(), false, false)
 	if err != nil || summary.Gateway.Scope != "shared" || summary.Gateway.Status != "observed" {
 		t.Fatalf("Redis scope not represented: %+v, %v", summary, err)
 	}
@@ -207,7 +207,7 @@ func TestProviderInvalidNamespaceDoesNotTouchRedis(t *testing.T) {
 	if err := service.Report(context.Background(), providerNode("default")); err == nil {
 		t.Fatal("invalid namespace accepted an internal report")
 	}
-	summary, err := service.Summary(context.Background(), false)
+	summary, err := service.Summary(context.Background(), false, false)
 	if err != nil || summary.Gateway.Status != "unavailable" || summary.Identity != testIdentity("professional", "release") {
 		t.Fatalf("invalid namespace lost safe local summary: %+v, %v", summary, err)
 	}
@@ -228,7 +228,7 @@ func TestProviderStandaloneHidesSharedGatewayReports(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(cleanup)
-	summary, err := service.Summary(context.Background(), true)
+	summary, err := service.Summary(context.Background(), true, false)
 	if err != nil || summary.Gateway.Status != "not_applicable" || len(summary.Gateway.Groups) != 0 {
 		t.Fatalf("standalone exposed Gateway distribution: %+v, %v", summary, err)
 	}

@@ -19,6 +19,20 @@ type Summary struct {
 	Identity         productversion.Identity `json:"identity"`
 	Gateway          GatewayView             `json:"gateway"`
 	CanManageUpdates bool                    `json:"can_manage_updates"`
+	// CanManageUpgrades is the separate upgrade-execution capability. It is
+	// never implied by CanManageUpdates.
+	CanManageUpgrades bool `json:"can_manage_upgrades"`
+	// UpgradeCandidate is the cached standalone target an upgrade-only role may
+	// confirm. It is filled only when that role lacks update-management access,
+	// and only from a fresh ready candidate. It never contacts update sources.
+	UpgradeCandidate *UpgradeCandidate `json:"upgrade_candidate,omitempty"`
+}
+
+// UpgradeCandidate is the minimum cached target the upgrade page needs when it
+// cannot read the update-management snapshot.
+type UpgradeCandidate struct {
+	Version    string `json:"version"`
+	ReleaseURL string `json:"release_url,omitempty"`
 }
 
 type ComponentView struct {

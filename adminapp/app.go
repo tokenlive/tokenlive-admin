@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/tokenlive/tokenlive-admin/internal/bootstrap"
 	"github.com/tokenlive/tokenlive-admin/pkg/productversion"
+	"github.com/tokenlive/tokenlive-admin/pkg/upgradehost"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
@@ -38,6 +39,10 @@ type Options struct {
 	// OnConfigChanged is invoked after admin mutations that affect gateway runtime.
 	// kind: endpoints | policies | apikeys | all
 	OnConfigChanged util.ConfigChangeListener
+
+	// HostUpgrade, when set, exposes the embedding host's local click-upgrade
+	// capability to authorized admin APIs. Leave nil for standalone admin.
+	HostUpgrade upgradehost.Host
 }
 
 // App is an initialized admin runtime (DB, mods, optional HTTP).
@@ -63,6 +68,7 @@ func New(ctx context.Context, opt Options) (*App, error) {
 	if opt.OnConfigChanged != nil {
 		util.OnConfigChanged(opt.OnConfigChanged)
 	}
+	upgradehost.Register(opt.HostUpgrade)
 
 	rt, err := bootstrap.Init(ctx, bootstrap.RunConfig{
 		WorkDir:   opt.WorkDir,

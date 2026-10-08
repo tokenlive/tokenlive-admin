@@ -39,3 +39,36 @@ func (a *SystemVersion) canManage(ctx context.Context) bool {
 	}
 	return CanManage(false, util.FromUserCache(ctx).RoleIDs, enforcer.Enforce)
 }
+
+// CanUpgrade checks the separate upgrade-execution capability. It is never
+// implied by CanManage: viewing and checking updates does not allow installing.
+func CanUpgrade(root bool, roles []string, enforce func(...interface{}) (bool, error)) bool {
+	if root {
+		return true
+	}
+	if enforce == nil {
+		return false
+	}
+	for _, role := range roles {
+		allowed, err := enforce(role, "/api/v1/system/upgrade/prepare", "POST")
+		if err == nil && allowed {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *SystemVersion) canUpgrade(ctx context.Context) bool {
+	if util.FromIsRootUser(ctx) {
+		return true
+	}
+	// Disabling the global route middleware does not grant this capability.
+	if config.C.Middleware.Casbin.Disable || a.RBAC == nil {
+		return false
+	}
+	enforcer := a.RBAC.Casbinx.GetEnforcer()
+	if enforcer == nil {
+		return false
+	}
+	return CanUpgrade(false, util.FromUserCache(ctx).RoleIDs, enforcer.Enforce)
+}

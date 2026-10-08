@@ -329,6 +329,28 @@ test('cooldown uses elapsed time after resuming a hidden page', async (t) => {
     await state.load()
 })
 
+test('upgrade-only summary keeps upgrade capability and does not fetch updates', async (t) => {
+    const upgradeOnly = {
+        ...summary,
+        can_manage_updates: false,
+        can_manage_upgrades: true,
+        upgrade_candidate: { version: 'v1.3.0', release_url: 'https://example.test/v1.3.0' },
+    }
+    const { state, calls } = mountVersion(t, (config) => {
+        if (config.url.endsWith('/version')) return ok(upgradeOnly)
+        return rejected(403, 'forbidden', null)
+    })
+    await state.load()
+    assert.equal(state.summary.value.can_manage_updates, false)
+    assert.equal(state.summary.value.can_manage_upgrades, true)
+    assert.equal(state.summary.value.upgrade_candidate.version, 'v1.3.0')
+    assert.equal(state.updates.value, null)
+    assert.equal(
+        calls.some(({ url }) => String(url).includes('/updates')),
+        false
+    )
+})
+
 test('capability revocation clears privileged data and ignores an already pending manual response', async (t) => {
     const pending = deferred()
     let allowed = true

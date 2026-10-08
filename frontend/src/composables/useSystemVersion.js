@@ -50,12 +50,23 @@ export function useSystemVersion() {
         retryDeadline.value = 0
     }
 
-    function revokePermission() {
+    function revokeUpdatePermission() {
         permissionEpoch++
         updateRevision++
         clearUpdates()
         error.value = null
-        if (summary.value) summary.value = { ...summary.value, can_manage_updates: false }
+        if (summary.value) {
+            // Losing update-management must not erase a separately granted
+            // upgrade-execution capability. Login loss uses revokePermission.
+            summary.value = { ...summary.value, can_manage_updates: false }
+        }
+    }
+
+    function revokePermission() {
+        revokeUpdatePermission()
+        if (summary.value) {
+            summary.value = { ...summary.value, can_manage_upgrades: false, upgrade_candidate: null }
+        }
     }
 
     function applyUpdates(snapshot) {
@@ -85,7 +96,11 @@ export function useSystemVersion() {
             if (!isCurrent(epoch)) return
             summary.value = nextSummary
             if (nextSummary.can_manage_updates !== true) {
-                revokePermission()
+                // Keep the summary, including can_manage_upgrades. Drop the
+                // update snapshot and invalidate a check already in flight so
+                // its later response cannot restore privileged data.
+                revokeUpdatePermission()
+                summary.value = nextSummary
                 return
             }
             const revision = updateRevision
@@ -96,7 +111,7 @@ export function useSystemVersion() {
                 if (!isCurrent(epoch)) return
                 // A 401/403 always revokes permission, even if a newer check completed.
                 if (isAuthorizationFailure(failure)) {
-                    revokePermission()
+                    revokeUpdatePermission()
                     error.value = failure
                 } else if (revision === updateRevision) {
                     clearUpdates()
@@ -131,7 +146,7 @@ export function useSystemVersion() {
             } catch (failure) {
                 if (!isCurrent(epoch)) return
                 if (isAuthorizationFailure(failure)) {
-                    revokePermission()
+                    revokeUpdatePermission()
                 } else if (hasRejectedSnapshot(failure)) {
                     // R15 retains useful cached state, but remains a failed check.
                     applyUpdates(failure.response.data.data)

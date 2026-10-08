@@ -111,6 +111,53 @@ func TestComposeComparesActiveGatewayGroupsAndKeepsSourceFailuresIndependent(t *
 	}
 }
 
+func TestSummaryUpgradeCandidateIsCachedAndUpgradeOnly(t *testing.T) {
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	store := versionregistry.NewMemoryStore("test", func() time.Time { return now })
+	var calls atomic.Int32
+	sources := map[string]updatecheck.Source{
+		"standalone": sourceFunc(func(context.Context) (updatecheck.Candidate, error) {
+			calls.Add(1)
+			return updatecheck.Candidate{Version: "v1.3.0", ReleaseURL: "https://example.test/v1.3.0"}, nil
+		}),
+	}
+	checker := testChecker(t, updatecheck.Options{Enabled: true, Now: func() time.Time { return now }}, sources)
+	if _, err := checker.Check(context.Background(), false); err != nil {
+		t.Fatal(err)
+	}
+	warmCalls := calls.Load()
+	identity := productversion.Identity{
+		Edition: "standalone", InstallChannel: "homebrew",
+		Build: productversion.Build{Version: "v1.0.0", Kind: "release"},
+	}
+	service := New(identity, store, checker, "this_admin")
+
+	both, err := service.Summary(context.Background(), true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if both.UpgradeCandidate != nil {
+		t.Fatalf("update managers must not receive a second candidate channel: %+v", both.UpgradeCandidate)
+	}
+	only, err := service.Summary(context.Background(), false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if only.UpgradeCandidate == nil || only.UpgradeCandidate.Version != "v1.3.0" {
+		t.Fatalf("upgrade-only summary lost the cached candidate: %+v", only.UpgradeCandidate)
+	}
+	neither, err := service.Summary(context.Background(), false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if neither.UpgradeCandidate != nil {
+		t.Fatal("a role without upgrade permission received a candidate")
+	}
+	if calls.Load() != warmCalls {
+		t.Fatalf("summary contacted the update source: %d calls, want %d", calls.Load(), warmCalls)
+	}
+}
+
 func TestComposeStandaloneHasOnlyOneUnit(t *testing.T) {
 	identity := productversion.Identity{
 		Edition: "standalone", InstallChannel: "homebrew",
@@ -172,7 +219,7 @@ func TestServiceExpiresGatewayNoticesWithoutFetchingAgain(t *testing.T) {
 	if gateway := onlyComponent(t, first, "gateway"); gateway.State != "available" || gateway.Count != 1 {
 		t.Fatalf("active Gateway not compared: %+v", gateway)
 	}
-	summary, err := service.Summary(context.Background(), true)
+	summary, err := service.Summary(context.Background(), true, false)
 	if err != nil || summary.Gateway.Status != "observed" || len(summary.Gateway.Groups) != 1 ||
 		summary.Gateway.Scope != "this_admin" || !summary.CanManageUpdates {
 		t.Fatalf("bad active summary: %+v, %v", summary, err)
@@ -191,7 +238,7 @@ func TestServiceExpiresGatewayNoticesWithoutFetchingAgain(t *testing.T) {
 			t.Fatalf("Gateway expiry erased admin result: %+v", admin)
 		}
 	}
-	summary, err = service.Summary(context.Background(), false)
+	summary, err = service.Summary(context.Background(), false, false)
 	if err != nil || summary.Gateway.Status != "unknown" || len(summary.Gateway.Groups) != 0 || summary.CanManageUpdates {
 		t.Fatalf("expired summary: %+v, %v", summary, err)
 	}
@@ -212,7 +259,7 @@ func TestServiceRegistryFailurePreservesLocalDataWithoutLeakingDiagnostics(t *te
 		}),
 	})
 	service := New(professionalIdentity(), store, checker, "shared")
-	summary, err := service.Summary(context.Background(), false)
+	summary, err := service.Summary(context.Background(), false, false)
 	if err != nil || summary.Identity != professionalIdentity() || summary.Gateway.Status != "unavailable" ||
 		summary.Gateway.Scope != "shared" || summary.Gateway.Groups == nil || len(summary.Gateway.Groups) != 0 {
 		t.Fatalf("registry outage erased local identity or pretended success: %+v, %v", summary, err)
@@ -320,7 +367,7 @@ func TestServiceStandaloneNeverReadsGatewayDistribution(t *testing.T) {
 	}
 	checker := testChecker(t, updatecheck.Options{Enabled: false}, nil)
 	service := New(identity, failingStore{err: errors.New("distribution must not be read")}, checker, "this_admin")
-	summary, err := service.Summary(context.Background(), true)
+	summary, err := service.Summary(context.Background(), true, false)
 	if err != nil || summary.Gateway.Status != "not_applicable" || len(summary.Gateway.Groups) != 0 || summary.Identity != identity {
 		t.Fatalf("standalone exposed Gateway distribution: %+v, %v", summary, err)
 	}
@@ -335,7 +382,7 @@ func TestServiceCancellationIsNotSuccessfulPartialData(t *testing.T) {
 	service := New(professionalIdentity(), versionregistry.NewMemoryStore("test", nil), checker, "this_admin")
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := service.Summary(ctx, false); !errors.Is(err, context.Canceled) {
+	if _, err := service.Summary(ctx, false, false); !errors.Is(err, context.Canceled) {
 		t.Fatalf("summary swallowed cancellation: %v", err)
 	}
 	if _, err := service.Updates(ctx); !errors.Is(err, context.Canceled) {

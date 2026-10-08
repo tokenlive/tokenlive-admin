@@ -195,8 +195,12 @@
         :checking="checking"
         :retry-after-seconds="retryAfterSeconds"
         :error="error"
+        :upgrade="upgrade.state.value"
         :labels="versionLabels"
-        @check="check" />
+        @check="check"
+        @upgrade-prepare="upgrade.controller.prepare"
+        @upgrade-confirm="upgrade.controller.confirm"
+        @upgrade-cancel="upgrade.controller.cancelPreparation" />
 </template>
 
 <script setup>
@@ -204,6 +208,7 @@ import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSystemVersion } from '@/composables/useSystemVersion'
+import { useUpgrade } from '@/composables/useUpgrade'
 import { formatIdentity, hasAvailableUpdate } from '@/utils/system-version'
 import { useAppStore } from '@/store'
 import useMultiTab from './hooks/useMultiTab'
@@ -233,6 +238,10 @@ const aboutOpen = ref(false)
 const { t } = useI18n()
 // All menu layouts and About share this one cache-reading owner.
 const { summary, updates, fallbackVersion, checking, error, retryAfterSeconds, load, check } = useSystemVersion()
+const upgrade = useUpgrade(() => {
+    // A finished upgrade changed local versions: refresh summary and updates.
+    void load()
+})
 const versionLabels = computed(() => ({
     professional: t('app.about.edition.professional'),
     standalone: t('app.about.edition.standalone'),
@@ -268,6 +277,10 @@ const gatewaySummary = computed(() => {
 const hasUpdate = computed(() => hasAvailableUpdate(summary.value, updates.value))
 watch(aboutOpen, (open) => {
     if (open) void load()
+    upgrade.sync(summary.value, open)
+})
+watch(summary, (value) => {
+    upgrade.sync(value, aboutOpen.value)
 })
 </script>
 

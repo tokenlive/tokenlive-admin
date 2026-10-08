@@ -84,7 +84,7 @@ func TestReleaseSnapshotRecomparesLiveMemoryRegistry(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	summary, err := service.Summary(ctx, false)
+	summary, err := service.Summary(ctx, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestReleaseSnapshotRecomparesLiveMemoryRegistry(t *testing.T) {
 		t.Fatalf("release adapter was not used: %+v", updates.Components[1].Source)
 	}
 	now = now.Add(3 * time.Minute)
-	summary, err = service.Summary(ctx, false)
+	summary, err = service.Summary(ctx, false, false)
 	if err != nil || summary.Gateway.Status != "unknown" || len(summary.Gateway.Groups) != 0 {
 		t.Fatalf("expired registry = %+v, error = %v", summary.Gateway, err)
 	}
