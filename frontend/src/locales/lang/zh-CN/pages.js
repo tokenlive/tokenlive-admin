@@ -327,6 +327,11 @@ export default {
     'pages.provider.fetchModels.selectAll': '全选',
     'pages.provider.fetchModels.selected': '已选 {count} / {total} 个模型',
     'pages.provider.fetchModels.empty': '未获取到模型，请检查API地址和密钥',
+    'pages.provider.fetchModels.api_keys_confirm_title': '选择端点绑定的 API 密钥',
+    'pages.provider.fetchModels.api_keys_confirm_desc':
+        '当前供应商配置了 {count} 个 API 密钥。请勾选需要为其创建端点的密钥（每个选中的密钥将为对应模型创建一个严格绑定的端点）：',
+    'pages.provider.fetchModels.api_keys_select_all': '全选',
+    'pages.provider.fetchModels.api_keys_required': '请至少选择一个 API 密钥！',
     'pages.provider.fetchModels.confirm': '确认添加 ({count})',
     'pages.provider.fetchModels.success': '已选择 {count} 个模型',
     'pages.provider.fetchModels.table.model': '模型',

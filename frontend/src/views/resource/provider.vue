@@ -144,8 +144,8 @@
 </template>
 
 <script setup>
-import { message, Modal, Radio } from 'ant-design-vue'
-import { ref, h } from 'vue'
+import { Checkbox, message, Modal } from 'ant-design-vue'
+import { ref, h, computed } from 'vue'
 import apis from '@/apis'
 import { formatUtcDateTime } from '@/utils/util'
 import { config } from '@/config'
@@ -306,11 +306,16 @@ function handleSearch() {
     getPageList()
 }
 
+function maskApiKey(key) {
+    if (!key || key.length <= 8) return key || ''
+    return key.substring(0, 4) + '****' + key.substring(key.length - 4)
+}
+
 function handleFetchModels(record) {
     fetchModelsDrawerRef.value.handleOpen(record)
 }
 
-async function onFetchModelsConfirm({ providerId, space_code, base_url, api_key, api_keys, models }) {
+async function onFetchModelsConfirm({ providerId, space_code, base_url, api_keys, provider_api_keys, models }) {
     if (!models || models.length === 0) return
 
     const provider = listData.value.find((p) => p.id === providerId)
@@ -320,15 +325,34 @@ async function onFetchModelsConfirm({ providerId, space_code, base_url, api_key,
     let keysToCreate = []
 
     if (authType === 'oauth_token') {
-        // OAuth 供应商认证令牌由 provider 级别统一管理，端点无需绑定 api_key，
-        // 每个模型只创建一个端点即可。
+        // OAuth 供应商认证令牌由 provider 级别统一管理，端点无需绑定 api_key
         keysToCreate = ['']
     } else if (Array.isArray(api_keys) && api_keys.length > 1) {
-        const importMode = ref('all')
+        const rawKeyItems =
+            Array.isArray(provider_api_keys) && provider_api_keys.length > 0
+                ? provider_api_keys
+                : Array.isArray(provider?.api_keys) && provider.api_keys.length > 0
+                  ? provider.api_keys
+                  : api_keys
+        const keyItems = rawKeyItems
+            .map((item) => (typeof item === 'string' ? { value: item, description: '' } : item))
+            .filter((item) => item && item.value)
+
+        const selectedKeys = ref(keyItems.map((item) => item.value))
+        const checkAll = computed({
+            get: () => selectedKeys.value.length === keyItems.length,
+            set: (val) => {
+                selectedKeys.value = val ? keyItems.map((item) => item.value) : []
+            },
+        })
+        const indeterminate = computed(
+            () => selectedKeys.value.length > 0 && selectedKeys.value.length < keyItems.length
+        )
+
         try {
             await new Promise((resolve, reject) => {
                 Modal.confirm({
-                    title: t('pages.provider.fetchModels.api_keys_confirm_title', '检测到多个 API 密钥'),
+                    title: t('pages.provider.fetchModels.api_keys_confirm_title', '选择端点绑定的 API 密钥'),
                     width: 600,
                     okText: t('button.confirm', '确认'),
                     cancelText: t('button.cancel', '取消'),
@@ -336,44 +360,70 @@ async function onFetchModelsConfirm({ providerId, space_code, base_url, api_key,
                         return h('div', { style: { marginTop: '12px' } }, [
                             h(
                                 'p',
-                                { style: { marginBottom: '16px', color: 'var(--color-text-secondary)' } },
-                                `当前供应商配置了 ${api_keys.length} 个 API 密钥。请选择端点（Endpoint）创建模式：`
+                                { style: { marginBottom: '12px', color: 'var(--color-text-secondary)' } },
+                                t('pages.provider.fetchModels.api_keys_confirm_desc', { count: keyItems.length })
                             ),
                             h(
-                                Radio.Group,
+                                'div',
                                 {
-                                    value: importMode.value,
-                                    'onUpdate:value': (val) => {
-                                        importMode.value = val
+                                    style: {
+                                        borderBottom: '1px solid var(--color-border-secondary, #f0f0f0)',
+                                        paddingBottom: '8px',
+                                        marginBottom: '12px',
                                     },
                                 },
                                 [
                                     h(
-                                        Radio,
+                                        Checkbox,
                                         {
-                                            value: 'current',
-                                            style: { display: 'block', marginBottom: '8px' },
+                                            checked: checkAll.value,
+                                            indeterminate: indeterminate.value,
+                                            onChange: (e) => {
+                                                checkAll.value = e.target.checked
+                                            },
                                         },
-                                        `仅为当前选择/输入的密钥创建端点（每个模型创建 1 个端点）`
-                                    ),
-                                    h(
-                                        Radio,
-                                        {
-                                            value: 'all',
-                                            style: { display: 'block' },
-                                        },
-                                        `为所有配置的密钥分别创建端点（每个模型创建 ${api_keys.length} 个端点）`
+                                        () => t('pages.provider.fetchModels.api_keys_select_all', '全选')
                                     ),
                                 ]
+                            ),
+                            h(
+                                Checkbox.Group,
+                                {
+                                    value: selectedKeys.value,
+                                    style: { width: '100%', maxHeight: '220px', overflowY: 'auto' },
+                                    'onUpdate:value': (val) => {
+                                        selectedKeys.value = val
+                                    },
+                                },
+                                () =>
+                                    keyItems.map((item) => {
+                                        const masked = maskApiKey(item.value)
+                                        const label = item.description ? `${masked} (${item.description})` : masked
+                                        return h(
+                                            Checkbox,
+                                            {
+                                                value: item.value,
+                                                style: {
+                                                    display: 'flex',
+                                                    marginLeft: 0,
+                                                    marginBottom: '8px',
+                                                    alignItems: 'center',
+                                                },
+                                            },
+                                            () => label
+                                        )
+                                    })
                             ),
                         ])
                     },
                     onOk: () => {
-                        if (importMode.value === 'current') {
-                            keysToCreate = [api_key || '']
-                        } else {
-                            keysToCreate = api_keys
+                        if (!selectedKeys.value || selectedKeys.value.length === 0) {
+                            message.warning(
+                                t('pages.provider.fetchModels.api_keys_required', '请至少选择一个 API 密钥！')
+                            )
+                            return Promise.reject(new Error('NO_KEY_SELECTED'))
                         }
+                        keysToCreate = selectedKeys.value
                         resolve()
                     },
                     onCancel: () => {
@@ -388,13 +438,8 @@ async function onFetchModelsConfirm({ providerId, space_code, base_url, api_key,
             throw err
         }
     } else {
-        if (api_key && (!Array.isArray(api_keys) || !api_keys.includes(api_key))) {
-            keysToCreate = [api_key]
-        } else if (Array.isArray(api_keys) && api_keys.length > 0) {
-            keysToCreate = api_keys
-        } else {
-            keysToCreate = [api_key || '']
-        }
+        // 单 Key 或无 Key：默认不给 endpoint 的 apikey 赋值，留空以继承 Provider 级别的 API Key
+        keysToCreate = ['']
     }
 
     importMappingDialogRef.value.handleOpen({

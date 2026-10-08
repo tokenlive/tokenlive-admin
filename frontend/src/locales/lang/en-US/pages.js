@@ -329,6 +329,11 @@ export default {
     'pages.provider.fetchModels.selectAll': 'Select All',
     'pages.provider.fetchModels.selected': 'Selected {count} / {total} models',
     'pages.provider.fetchModels.empty': 'No models found, please check the API URL and key',
+    'pages.provider.fetchModels.api_keys_confirm_title': 'Select API Keys for Endpoints',
+    'pages.provider.fetchModels.api_keys_confirm_desc':
+        'This provider has {count} API keys configured. Select the keys to create endpoints for (each selected key will create a dedicated endpoint):',
+    'pages.provider.fetchModels.api_keys_select_all': 'Select All',
+    'pages.provider.fetchModels.api_keys_required': 'Please select at least one API key!',
     'pages.provider.fetchModels.confirm': 'Confirm Add ({count})',
     'pages.provider.fetchModels.success': '{count} models selected',
     'pages.provider.fetchModels.table.model': 'Model',

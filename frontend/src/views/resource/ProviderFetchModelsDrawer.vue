@@ -39,31 +39,15 @@
                 :label-col="{ flex: '110px' }"
                 :wrapper-col="{ flex: 'auto' }"
                 :rules="formRules.base_url">
-                <a-input
-                    v-model:value="formData.base_url"
-                    :placeholder="
-                        isCodexProvider
-                            ? 'https://chatgpt.com/backend-api/codex'
-                            : $t('pages.provider.fetchModels.base_url.placeholder')
-                    " />
-            </a-form-item>
-
-            <a-form-item
-                name="api_key"
-                :label="$t('pages.provider.fetchModels.api_key')"
-                :label-col="{ flex: '110px' }"
-                :wrapper-col="{ flex: 'auto' }"
-                style="align-items: center">
-                <a-row
-                    :gutter="8"
-                    align="middle">
+                <a-row :gutter="8">
                     <a-col :span="18">
-                        <a-auto-complete
-                            v-model:value="formData.api_key"
-                            :options="apiKeyOptions"
-                            allow-clear
-                            :placeholder="$t('pages.provider.fetchModels.api_key.placeholder')"
-                            style="width: 100%" />
+                        <a-input
+                            v-model:value="formData.base_url"
+                            :placeholder="
+                                isCodexProvider
+                                    ? 'https://chatgpt.com/backend-api/codex'
+                                    : $t('pages.provider.fetchModels.base_url.placeholder')
+                            " />
                     </a-col>
                     <a-col :span="6">
                         <a-button
@@ -155,13 +139,6 @@ const formRef = ref(null)
 const providerId = ref('')
 const providerApiKeys = ref([])
 
-const apiKeyOptions = computed(() => {
-    return providerApiKeys.value.map((item) => ({
-        value: item.value,
-        label: item.description ? `${maskKey(item.value)} (${item.description})` : maskKey(item.value),
-    }))
-})
-
 const spaceOptions = ref([])
 
 const formData = ref({
@@ -213,11 +190,6 @@ const rowSelection = computed(() => {
         },
     }
 })
-
-function maskKey(key) {
-    if (!key || key.length <= 8) return key
-    return key.substring(0, 4) + '****' + key.substring(key.length - 4)
-}
 
 async function handleFetchModels() {
     try {
@@ -276,6 +248,7 @@ function handleConfirm() {
         base_url: formData.value.base_url,
         api_key: formData.value.api_key,
         api_keys: providerApiKeys.value.map((item) => item.value),
+        provider_api_keys: providerApiKeys.value,
         models: selectedModels.value.map((id) => {
             const model = modelList.value.find((m) => m.id === id)
             return {
