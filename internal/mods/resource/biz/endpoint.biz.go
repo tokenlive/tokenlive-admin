@@ -564,52 +564,32 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 	}
 
 	isCodex := isCodexEndpoint(provider, url, apis)
-	isResponses := false
-	isEmbedding := false
-	isImageGeneration := false
-	for _, cap := range apis {
-		switch cap {
-		case "embedding":
-			isEmbedding = true
-		case "image_generation":
-			isImageGeneration = true
-			isEmbedding = false
-			isResponses = false
-		case "responses":
-			isResponses = true
-			isEmbedding = false
-		case "chat_completion":
-			// Prefer chat_completion over embedding when both exist, unless Codex/responses.
-			if !isCodex && !isResponses {
-				isEmbedding = false
-			}
-		}
-	}
-	// Codex ChatGPT backend only supports the Responses API.
-	if isCodex {
-		isResponses = true
-		isEmbedding = false
-	}
+	probeKind := selectEndpointProbeKind(protocol, apis, isCodex)
 
 	// 4. 构造 HTTP 请求
 	var reqURL string
 	var reqBody []byte
 
-	if isImageGeneration {
+	switch probeKind {
+	case endpointProbeImageGeneration:
 		reqURL, reqBody = buildImageGenerationProbe(url, realModel)
-	} else if isEmbedding {
-		// Embedding 探测
+	case endpointProbeEmbedding:
 		if strings.Contains(url, "/embeddings") {
 			reqURL = url
 		} else {
 			reqURL = strings.TrimRight(url, "/") + "/embeddings"
 		}
-		bodyMap := map[string]interface{}{
+		reqBody, _ = json.Marshal(map[string]interface{}{
 			"model": realModel,
 			"input": "ping",
+		})
+	case endpointProbeJoyCode:
+		var err error
+		reqURL, reqBody, err = buildJoyCodeProbe(url, realModel, apis)
+		if err != nil {
+			return nil, err
 		}
-		reqBody, _ = json.Marshal(bodyMap)
-	} else if isResponses || isCodex {
+	case endpointProbeResponses:
 		// OpenAI Responses / Codex backend 探测
 		if strings.Contains(url, "/responses") {
 			reqURL = url
@@ -639,72 +619,34 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			bodyMap["max_output_tokens"] = 16
 		}
 		reqBody, _ = json.Marshal(bodyMap)
-	} else {
-		// Chat Completions 探测
-		if protocol == "anthropic" {
-			if strings.Contains(url, "/messages") {
-				reqURL = url
-			} else {
-				reqURL = strings.TrimRight(url, "/") + "/messages"
-			}
-			bodyMap := map[string]interface{}{
-				"model":      realModel,
-				"messages":   []map[string]string{{"role": "user", "content": "ping"}},
-				"max_tokens": 1,
-				"stream":     false,
-			}
-			reqBody, _ = json.Marshal(bodyMap)
-		} else if protocol == "joycode" {
-			base := url
-			if base == "" || base == "http://joycode-api-saas.jd.com" {
-				base = "https://api-ai.jd.com"
-			}
-			isAnt := strings.Contains(strings.ToLower(realModel), "claude")
-			if strings.HasPrefix(base, "https://") {
-				var err error
-				if isAnt {
-					reqURL, err = signJoyCodeGatewayURL(base, "anthropic_completions")
-				} else {
-					reqURL, err = signJoyCodeGatewayURL(base, "chat_completions")
-				}
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				if isAnt {
-					reqURL = strings.TrimRight(base, "/") + "/api/saas/anthropic/v1/messages"
-				} else {
-					reqURL = strings.TrimRight(base, "/") + "/api/saas/openai/v2/chat/completions"
-				}
-			}
-			bodyMap := map[string]interface{}{
-				"model":         realModel,
-				"messages":      []map[string]string{{"role": "user", "content": "ping"}},
-				"max_tokens":    1,
-				"stream":        false,
-				"client":        "JoyCodeIDE",
-				"clientVersion": "3.8.61",
-			}
-			reqBody, _ = json.Marshal(bodyMap)
+	case endpointProbeAnthropic:
+		if strings.Contains(url, "/messages") {
+			reqURL = url
 		} else {
-			// 默认 openai 兼容协议
-			if strings.Contains(url, "/chat/completions") {
-				reqURL = url
-			} else {
-				reqURL = strings.TrimRight(url, "/") + "/chat/completions"
-			}
-			bodyMap := map[string]interface{}{
-				"model":      realModel,
-				"messages":   []map[string]string{{"role": "user", "content": "ping"}},
-				"max_tokens": 1,
-				"stream":     false,
-			}
-			reqBody, _ = json.Marshal(bodyMap)
+			reqURL = strings.TrimRight(url, "/") + "/messages"
 		}
+		reqBody, _ = json.Marshal(map[string]interface{}{
+			"model":      realModel,
+			"messages":   []map[string]string{{"role": "user", "content": "ping"}},
+			"max_tokens": 1,
+			"stream":     false,
+		})
+	default:
+		if strings.Contains(url, "/chat/completions") {
+			reqURL = url
+		} else {
+			reqURL = strings.TrimRight(url, "/") + "/chat/completions"
+		}
+		reqBody, _ = json.Marshal(map[string]interface{}{
+			"model":      realModel,
+			"messages":   []map[string]string{{"role": "user", "content": "ping"}},
+			"max_tokens": 1,
+			"stream":     false,
+		})
 	}
 
 	// 图片生成通常显著慢于文本/向量探测，给予更长的首个结果等待时间。
-	testCtx, cancel := context.WithTimeout(ctx, endpointProbeTimeout(isImageGeneration))
+	testCtx, cancel := context.WithTimeout(ctx, endpointProbeTimeout(probeKind == endpointProbeImageGeneration))
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(testCtx, http.MethodPost, reqURL, bytes.NewBuffer(reqBody))
@@ -788,7 +730,7 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 	}
 
 	// 7. 处理响应结果
-	if isImageGeneration {
+	if probeKind == endpointProbeImageGeneration {
 		if resp.StatusCode != http.StatusOK {
 			return &schema.EndpointTestResult{
 				Success:   false,
@@ -812,7 +754,7 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			Detail:    "图片生成成功",
 		}, nil
 
-	} else if isEmbedding {
+	} else if probeKind == endpointProbeEmbedding {
 		// 校验 Embedding
 		var embResp struct {
 			Data []struct {
@@ -864,7 +806,10 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			Detail:    "Embedding 向量获取成功",
 		}, nil
 
-	} else if isResponses || isCodex {
+	} else if probeKind == endpointProbeJoyCode {
+		return evaluateJoyCodeTestResult(resp.StatusCode, latency, bodyBytes, rawDetail, realModel)
+
+	} else if probeKind == endpointProbeResponses || isCodex {
 		return evaluateResponsesTestResult(resp.StatusCode, latency, bodyBytes, rawDetail, isCodex)
 
 	} else if protocol == "anthropic" {
@@ -914,107 +859,6 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			Message:   "测试连接成功",
 			Detail:    detailText,
 		}, nil
-
-	} else if protocol == "joycode" {
-		// 校验 JoyCode (根据模型分流解析响应)
-		isAnt := strings.Contains(strings.ToLower(realModel), "claude")
-		if isAnt {
-			var antResp struct {
-				Content []struct {
-					Text string `json:"text"`
-				} `json:"content"`
-				Error *struct {
-					Type    string `json:"type"`
-					Message string `json:"message"`
-				} `json:"error"`
-			}
-			_ = json.Unmarshal(bodyBytes, &antResp)
-
-			if resp.StatusCode != http.StatusOK {
-				errMsg := fmt.Sprintf("JoyCode 上游返回错误状态码: %d", resp.StatusCode)
-				if antResp.Error != nil && antResp.Error.Message != "" {
-					errMsg = fmt.Sprintf("JoyCode 上游返回错误状态码: %d (%s)", resp.StatusCode, antResp.Error.Message)
-				}
-				return &schema.EndpointTestResult{
-					Success:   false,
-					LatencyMs: latency,
-					Message:   errMsg,
-					Detail:    rawDetail,
-				}, nil
-			}
-
-			if antResp.Error != nil {
-				return &schema.EndpointTestResult{
-					Success:   false,
-					LatencyMs: latency,
-					Message:   fmt.Sprintf("JoyCode Anthropic 上游返回业务报错: %s", antResp.Error.Message),
-					Detail:    rawDetail,
-				}, nil
-			}
-
-			detailText := "连接成功 (未返回文本内容)"
-			if len(antResp.Content) > 0 {
-				detailText = antResp.Content[0].Text
-			}
-
-			return &schema.EndpointTestResult{
-				Success:   true,
-				LatencyMs: latency,
-				Message:   "测试连接成功",
-				Detail:    detailText,
-			}, nil
-		} else {
-			var oaResp struct {
-				Choices []struct {
-					Message struct {
-						Content string `json:"content"`
-					} `json:"message"`
-				} `json:"choices"`
-				Error *struct {
-					Message string `json:"message"`
-					Type    string `json:"type"`
-				} `json:"error"`
-			}
-			_ = json.Unmarshal(bodyBytes, &oaResp)
-
-			if resp.StatusCode != http.StatusOK {
-				errMsg := fmt.Sprintf("JoyCode 上游返回错误状态码: %d", resp.StatusCode)
-				if oaResp.Error != nil && oaResp.Error.Message != "" {
-					errMsg = fmt.Sprintf("JoyCode 上游返回错误状态码: %d (%s)", resp.StatusCode, oaResp.Error.Message)
-				}
-				return &schema.EndpointTestResult{
-					Success:   false,
-					LatencyMs: latency,
-					Message:   errMsg,
-					Detail:    rawDetail,
-				}, nil
-			}
-
-			if oaResp.Error != nil {
-				return &schema.EndpointTestResult{
-					Success:   false,
-					LatencyMs: latency,
-					Message:   fmt.Sprintf("JoyCode 上游返回业务报错: %s", oaResp.Error.Message),
-					Detail:    rawDetail,
-				}, nil
-			}
-
-			if len(oaResp.Choices) == 0 {
-				return &schema.EndpointTestResult{
-					Success:   false,
-					LatencyMs: latency,
-					Message:   "JoyCode 上游响应不符合 OpenAI 规范 (未获取到 Choices 数组)",
-					Detail:    rawDetail,
-				}, nil
-			}
-
-			return &schema.EndpointTestResult{
-				Success:   true,
-				LatencyMs: latency,
-				Message:   "测试连接成功",
-				Detail:    oaResp.Choices[0].Message.Content,
-			}, nil
-		}
 
 	} else {
 		// 校验 OpenAI Chat
@@ -1070,6 +914,320 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			Detail:    oaResp.Choices[0].Message.Content,
 		}, nil
 	}
+}
+
+type endpointProbeKind int
+
+const (
+	endpointProbeChat endpointProbeKind = iota
+	endpointProbeResponses
+	endpointProbeAnthropic
+	endpointProbeJoyCode
+	endpointProbeEmbedding
+	endpointProbeImageGeneration
+)
+
+func selectEndpointProbeKind(protocol string, requestTypes []string, isCodex bool) endpointProbeKind {
+	if isCodex {
+		return endpointProbeResponses
+	}
+	if protocol == "joycode" {
+		return endpointProbeJoyCode
+	}
+
+	hasEmbedding := false
+	hasResponses := false
+	hasMessages := false
+	hasChat := false
+	for _, cap := range requestTypes {
+		switch strings.TrimSpace(cap) {
+		case "image_generation":
+			return endpointProbeImageGeneration
+		case "embedding":
+			hasEmbedding = true
+		case "responses":
+			hasResponses = true
+		case "messages":
+			hasMessages = true
+		case "chat_completion":
+			hasChat = true
+		}
+	}
+	if hasEmbedding && !hasResponses && !hasMessages && !hasChat {
+		return endpointProbeEmbedding
+	}
+	if protocol == "anthropic" || (hasMessages && !hasChat && !hasResponses) {
+		return endpointProbeAnthropic
+	}
+	if hasResponses && !hasChat {
+		return endpointProbeResponses
+	}
+	return endpointProbeChat
+}
+
+func buildJoyCodeProbe(baseURL, model string, requestTypes []string) (string, []byte, error) {
+	base := strings.TrimSpace(baseURL)
+	if base == "" || base == "http://joycode-api-saas.jd.com" {
+		base = "https://api-ai.jd.com"
+	}
+	base = strings.TrimRight(base, "/")
+
+	hasResponses := false
+	hasChat := false
+	for _, cap := range requestTypes {
+		switch strings.TrimSpace(cap) {
+		case "responses":
+			hasResponses = true
+		case "chat_completion":
+			hasChat = true
+		}
+	}
+
+	// Match the gateway JoyCode invoker: Claude models always hit anthropic_completions.
+	// Responses-only non-Claude endpoints hit responses_completions; messages-only ones
+	// still authenticate through chat_completions after protocol translation.
+	functionID := "chat_completions"
+	path := "/api/saas/openai/v2/chat/completions"
+	useAnthropic := strings.Contains(strings.ToLower(model), "claude")
+	if useAnthropic {
+		functionID = "anthropic_completions"
+		path = "/api/saas/anthropic/v1/messages"
+	} else if hasResponses && !hasChat {
+		functionID = "responses_completions"
+		path = "/api/saas/openai/v2/responses/completions"
+	}
+
+	var reqURL string
+	if strings.HasPrefix(base, "https://") {
+		signed, err := signJoyCodeGatewayURL(base, functionID)
+		if err != nil {
+			return "", nil, err
+		}
+		reqURL = signed
+	} else {
+		reqURL = base + path
+	}
+
+	var body map[string]interface{}
+	if functionID == "responses_completions" {
+		body = map[string]interface{}{
+			"model": model,
+			"input": []map[string]interface{}{
+				{
+					"role": "user",
+					"content": []map[string]string{
+						{"type": "input_text", "text": "ping"},
+					},
+				},
+			},
+			"stream":            false,
+			"store":             false,
+			"max_output_tokens": 16,
+			"client":            "JoyCodeIDE",
+			"clientVersion":     "3.8.61",
+		}
+	} else {
+		body = map[string]interface{}{
+			"model":         model,
+			"messages":      []map[string]string{{"role": "user", "content": "ping"}},
+			"max_tokens":    1,
+			"stream":        false,
+			"client":        "JoyCodeIDE",
+			"clientVersion": "3.8.61",
+		}
+	}
+	reqBody, _ := json.Marshal(body)
+	return reqURL, reqBody, nil
+}
+
+func evaluateJoyCodeTestResult(statusCode int, latency int64, bodyBytes []byte, rawDetail, model string) (*schema.EndpointTestResult, error) {
+	if msg := joyCodeLoginFailureMessage(bodyBytes); msg != "" {
+		return &schema.EndpointTestResult{
+			Success:   false,
+			LatencyMs: latency,
+			Message:   msg,
+			Detail:    rawDetail,
+		}, nil
+	}
+
+	isAnt := strings.Contains(strings.ToLower(model), "claude")
+	if isAnt {
+		var antResp struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+			Error *struct {
+				Type    string `json:"type"`
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		_ = json.Unmarshal(bodyBytes, &antResp)
+		if statusCode != http.StatusOK {
+			errMsg := fmt.Sprintf("JoyCode 上游返回错误状态码: %d", statusCode)
+			if antResp.Error != nil && antResp.Error.Message != "" {
+				errMsg = fmt.Sprintf("JoyCode 上游返回错误状态码: %d (%s)", statusCode, antResp.Error.Message)
+			}
+			return &schema.EndpointTestResult{
+				Success:   false,
+				LatencyMs: latency,
+				Message:   errMsg,
+				Detail:    rawDetail,
+			}, nil
+		}
+		if antResp.Error != nil {
+			return &schema.EndpointTestResult{
+				Success:   false,
+				LatencyMs: latency,
+				Message:   fmt.Sprintf("JoyCode Anthropic 上游返回业务报错: %s", antResp.Error.Message),
+				Detail:    rawDetail,
+			}, nil
+		}
+		detailText := "连接成功 (未返回文本内容)"
+		if len(antResp.Content) > 0 {
+			detailText = antResp.Content[0].Text
+		}
+		return &schema.EndpointTestResult{
+			Success:   true,
+			LatencyMs: latency,
+			Message:   "测试连接成功",
+			Detail:    detailText,
+		}, nil
+	}
+
+	var envelope struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+		Output []struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"output"`
+		Status string `json:"status"`
+		Error  *struct {
+			Message string `json:"message"`
+			Type    string `json:"type"`
+		} `json:"error"`
+		Code    interface{} `json:"code"`
+		Msg     string      `json:"msg"`
+		Message string      `json:"message"`
+	}
+	_ = json.Unmarshal(bodyBytes, &envelope)
+
+	if statusCode != http.StatusOK {
+		errMsg := fmt.Sprintf("JoyCode 上游返回错误状态码: %d", statusCode)
+		if envelope.Error != nil && envelope.Error.Message != "" {
+			errMsg = fmt.Sprintf("JoyCode 上游返回错误状态码: %d (%s)", statusCode, envelope.Error.Message)
+		} else if envelope.Msg != "" {
+			errMsg = fmt.Sprintf("JoyCode 上游返回错误状态码: %d (%s)", statusCode, envelope.Msg)
+		} else if envelope.Message != "" {
+			errMsg = fmt.Sprintf("JoyCode 上游返回错误状态码: %d (%s)", statusCode, envelope.Message)
+		}
+		return &schema.EndpointTestResult{
+			Success:   false,
+			LatencyMs: latency,
+			Message:   errMsg,
+			Detail:    rawDetail,
+		}, nil
+	}
+	if envelope.Error != nil && strings.TrimSpace(envelope.Error.Message) != "" {
+		return &schema.EndpointTestResult{
+			Success:   false,
+			LatencyMs: latency,
+			Message:   fmt.Sprintf("JoyCode 上游返回业务报错: %s", envelope.Error.Message),
+			Detail:    rawDetail,
+		}, nil
+	}
+	if !joyCodeBusinessCodeOK(envelope.Code) {
+		errMsg := envelope.Msg
+		if errMsg == "" {
+			errMsg = envelope.Message
+		}
+		if errMsg == "" {
+			errMsg = "JoyCode 登录状态无效"
+		}
+		return &schema.EndpointTestResult{
+			Success:   false,
+			LatencyMs: latency,
+			Message:   fmt.Sprintf("JoyCode 上游返回业务报错 (%v): %s", envelope.Code, errMsg),
+			Detail:    rawDetail,
+		}, nil
+	}
+	if len(envelope.Choices) > 0 {
+		return &schema.EndpointTestResult{
+			Success:   true,
+			LatencyMs: latency,
+			Message:   "测试连接成功",
+			Detail:    envelope.Choices[0].Message.Content,
+		}, nil
+	}
+	if text := firstResponsesTextFromRaw(bodyBytes); text != "" || strings.EqualFold(envelope.Status, "completed") || len(envelope.Output) > 0 {
+		detail := text
+		if detail == "" {
+			detail = "Responses 连接成功"
+		}
+		return &schema.EndpointTestResult{
+			Success:   true,
+			LatencyMs: latency,
+			Message:   "测试连接成功",
+			Detail:    detail,
+		}, nil
+	}
+	return &schema.EndpointTestResult{
+		Success:   false,
+		LatencyMs: latency,
+		Message:   "JoyCode 上游响应不符合预期 (未获取到模型输出，可能已失去登录状态)",
+		Detail:    rawDetail,
+	}, nil
+}
+
+func joyCodeLoginFailureMessage(body []byte) string {
+	text := strings.ToLower(string(body))
+	markers := []string{
+		"未登录",
+		"登录失效",
+		"登录已失效",
+		"登录过期",
+		"登陆失效",
+		"login expired",
+		"not login",
+		"not logged",
+		"invalid ptkey",
+		"ptkey expired",
+		"ptkey invalid",
+	}
+	for _, marker := range markers {
+		if strings.Contains(text, marker) {
+			return "JoyCode 登录状态已失效"
+		}
+	}
+	return ""
+}
+
+func joyCodeBusinessCodeOK(code interface{}) bool {
+	if code == nil {
+		return true
+	}
+	switch val := code.(type) {
+	case float64:
+		return val == 0 || val == 200
+	case string:
+		return val == "" || val == "0" || val == "200"
+	case json.Number:
+		return val == "0" || val == "200"
+	default:
+		return false
+	}
+}
+
+func firstResponsesTextFromRaw(body []byte) string {
+	var respAPI responsesAPIProbe
+	if err := json.Unmarshal(body, &respAPI); err != nil {
+		return ""
+	}
+	return firstResponsesText(&respAPI)
 }
 
 func buildImageGenerationProbe(baseURL, model string) (string, []byte) {
