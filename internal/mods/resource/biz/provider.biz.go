@@ -23,6 +23,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/cachex"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/logging"
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
@@ -1268,38 +1269,6 @@ func generateStateKey() string {
 	return base64.RawURLEncoding.EncodeToString(token)
 }
 
-// MergeOAuthAccountHeader injects Chatgpt-Account-Id for oauth_token endpoints when
-// the provider OAuth credential carries an account_id. Existing header values win.
-func MergeOAuthAccountHeader(headers map[string]string, provider *schema.Provider, authType string) map[string]string {
-	if provider == nil {
-		return headers
-	}
-	if authType == "" {
-		authType = provider.AuthType
-	}
-	if authType != "oauth_token" {
-		return headers
-	}
-	cred := provider.GetOAuth()
-	if cred == nil || strings.TrimSpace(cred.AccountID) == "" {
-		return headers
-	}
-	if headers == nil {
-		headers = make(map[string]string)
-	}
-	if _, exists := headers["Chatgpt-Account-Id"]; exists {
-		return headers
-	}
-	// Case-insensitive check for an already-configured account header.
-	for k := range headers {
-		if strings.EqualFold(k, "Chatgpt-Account-Id") {
-			return headers
-		}
-	}
-	headers["Chatgpt-Account-Id"] = strings.TrimSpace(cred.AccountID)
-	return headers
-}
-
 func (p *Provider) fillProvidersStatusPoints(ctx context.Context, providers []*schema.Provider) {
 	if len(providers) == 0 {
 		return
@@ -1316,8 +1285,8 @@ func (p *Provider) fillProvidersStatusPoints(ctx context.Context, providers []*s
 	for _, prov := range providers {
 		for i := 0; i < numMinutes; i++ {
 			minute := currentMin - int64(numMinutes-1-i)
-			keys[idx] = fmt.Sprintf("aigw:status:provider:%s:%d:s", prov.Code, minute)
-			keys[idx+1] = fmt.Sprintf("aigw:status:provider:%s:%d:f", prov.Code, minute)
+			keys[idx] = gatewaycontract.Keys.Status.Provider(prov.Code, minute, gatewaycontract.MetricSuccess)
+			keys[idx+1] = gatewaycontract.Keys.Status.Provider(prov.Code, minute, gatewaycontract.MetricFailure)
 			idx += keysPerMinute
 		}
 	}
@@ -1388,8 +1357,8 @@ func (p *Provider) fillProvidersStatusPoints(ctx context.Context, providers []*s
 				fallbackKeys := make([]string, numMinutes*keysPerMinute)
 				for i := 0; i < numMinutes; i++ {
 					minute := currentMin - int64(numMinutes-1-i)
-					fallbackKeys[i*keysPerMinute] = fmt.Sprintf("aigw:status:provider:%s:%d:s", prov.Name, minute)
-					fallbackKeys[i*keysPerMinute+1] = fmt.Sprintf("aigw:status:provider:%s:%d:f", prov.Name, minute)
+					fallbackKeys[i*keysPerMinute] = gatewaycontract.Keys.Status.Provider(prov.Name, minute, gatewaycontract.MetricSuccess)
+					fallbackKeys[i*keysPerMinute+1] = gatewaycontract.Keys.Status.Provider(prov.Name, minute, gatewaycontract.MetricFailure)
 				}
 				if fbValues, fbErr := p.RedisClient.MGet(ctx, fallbackKeys...).Result(); fbErr == nil && len(fbValues) == len(fallbackKeys) {
 					for i := 0; i < numMinutes; i++ {
@@ -1421,4 +1390,3 @@ func (p *Provider) fillProvidersStatusPoints(ctx context.Context, providers []*s
 		prov.StatusPoints = points
 	}
 }
-

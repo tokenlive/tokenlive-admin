@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
-	"github.com/tokenlive/tokenlive-admin/pkg/gatewaykeys"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 )
 
 func TestAPIKeyRuntimeRedisKeyUsesHashWhenPepperConfigured(t *testing.T) {
@@ -13,9 +13,9 @@ func TestAPIKeyRuntimeRedisKeyUsesHashWhenPepperConfigured(t *testing.T) {
 	config.C.Gateway.APIKeyPepper = "pepper"
 
 	apiKey := "tl_live_example"
-	keyHash := gatewaykeys.HashAPIKey(apiKey, "pepper")
+	keyHash := gatewaycontract.HashAPIKey(apiKey, "pepper")
 	got := apiKeyRuntimeRedisKey(apiKey)
-	want := gatewaykeys.RedisKeyAPIKeyHash(keyHash)
+	want := gatewaycontract.Keys.APIKey.Hash(keyHash)
 	if got != want {
 		t.Fatalf("apiKeyRuntimeRedisKey() = %q, want %q", got, want)
 	}
@@ -28,7 +28,7 @@ func TestAPIKeyRuntimeRedisKeyUsesHashWithoutPepper(t *testing.T) {
 
 	apiKey := "tl_live_example"
 	got := apiKeyRuntimeRedisKey(apiKey)
-	want := gatewaykeys.RedisKeyAPIKeyHash(gatewaykeys.HashAPIKey(apiKey, ""))
+	want := gatewaycontract.Keys.APIKey.Hash(gatewaycontract.HashAPIKey(apiKey, ""))
 	if got != want {
 		t.Fatalf("apiKeyRuntimeRedisKey() = %q, want %q", got, want)
 	}

@@ -12,42 +12,15 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
-	"github.com/tokenlive/tokenlive-admin/pkg/gatewaykeys"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-const (
-	RedisKeyConfigModelVersions      = "aigw:config:model_versions"
-	RedisKeyConfigAliasPrefix        = "aigw:config:alias:"
-	RedisKeyConfigModelAliasesPrefix = "aigw:config:model_aliases:"
-)
-
-type ResolvedEndpoint struct {
-	ID                 string            `json:"id,omitempty"`
-	Code               string            `json:"code,omitempty"`
-	Description        string            `json:"description,omitempty"`
-	RealModel          string            `json:"real_model"`
-	ProviderName       string            `json:"provider_name"`
-	ProviderCode       string            `json:"provider_code,omitempty"`
-	ProviderProtocol   string            `json:"provider_protocol"`
-	APIKey             string            `json:"api_key"`
-	URL                string            `json:"url"`
-	Timeout            int64             `json:"timeout"` // 毫秒
-	MaxRetries         int               `json:"max_retries"`
-	Priority           int               `json:"priority"`
-	Weight             int               `json:"weight"`
-	Headers            map[string]string `json:"headers,omitempty"`
-	Metadata           map[string]string `json:"metadata,omitempty"`
-	RequestTypes       []string          `json:"request_types,omitempty"`
-	ContextLength      int64             `json:"context_length,omitempty"`
-	MaxOutputTokens    int64             `json:"max_output_tokens,omitempty"`
-	InputPrice         *float64          `json:"input_price,omitempty"`
-	OutputPrice        *float64          `json:"output_price,omitempty"`
-	CachedPrice        *float64          `json:"cached_price,omitempty"`
-	CacheCreationPrice *float64          `json:"cache_creation_price,omitempty"`
-}
+// ResolvedEndpoint is the Redis routing document. Callers outside this package
+// keep compiling against the old name.
+type ResolvedEndpoint = gatewaycontract.ResolvedEndpoint
 
 type ConfigRedisSync struct {
 	RedisClient   *redis.Client
@@ -84,22 +57,23 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 		var model schema.Model
 		db := util.GetDB(ctx, s.ModelDAL.DB)
 		err := db.Where("model_code = ? AND deleted = '0'", modelCode).First(&model).Error
-		policyKey := "aigw:policies:model:" + modelCode
+		policyKey := gatewaycontract.Keys.Policies.Model(modelCode)
 		if err == nil {
 			if model.Enabled == 1 {
-				// 独立计费配置序列化，直接写入 *:billing 字段，不干扰治理策略 "*" 字段
+				// 独立计费配置序列化，直接写入 *:billing 字段，不干扰治理策略 "*" 字段。
+				// 零值也要写出去，所以这里保持 map 而不是结构体。
 				billingPolicy := map[string]interface{}{
-					"input_price":          model.InputPrice,
-					"output_price":         model.OutputPrice,
-					"cached_price":         model.CachedPrice,
-					"cache_creation_price": model.CacheCreationPrice,
+					gatewaycontract.PriceInput:         model.InputPrice,
+					gatewaycontract.PriceOutput:        model.OutputPrice,
+					gatewaycontract.PriceCached:        model.CachedPrice,
+					gatewaycontract.PriceCacheCreation: model.CacheCreationPrice,
 				}
 
 				policyData, err := json.Marshal(billingPolicy)
 				if err != nil {
 					return err
 				}
-				if err := s.RedisClient.HSet(ctx, policyKey, "*:billing", string(policyData)).Err(); err != nil {
+				if err := s.RedisClient.HSet(ctx, policyKey, gatewaycontract.FieldBilling, string(policyData)).Err(); err != nil {
 					return err
 				}
 			} else {
@@ -130,7 +104,7 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 			return err
 		}
 
-		redisKey := "aigw:config:endpoints:" + modelCode
+		redisKey := gatewaycontract.Keys.Config.Endpoints(modelCode)
 
 		// 2. If no active endpoints exist, remove the key and its Hash version
 		// 注意：不调用 incrementVersion，避免重新创建已删除的 version 记录
@@ -145,18 +119,21 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 				continue
 			}
 
-			// Inheritance: API Keys
-			// - oauth_token: OAuth 凭证是 provider 级身份，强制读 provider，忽略 endpoint 覆盖。
-			// - api_key: 保留 endpoint > provider 的手动覆盖能力。
-			var apiKeys []string
-			if ep.AuthType != "oauth_token" && ep.ApiKey != "" {
-				apiKeys = []string{ep.ApiKey}
-			} else {
-				items := ep.Provider.GetApiKeys()
-				for _, item := range items {
-					apiKeys = append(apiKeys, item.Value)
-				}
+			var headersMap map[string]string
+			if len(ep.Headers) > 0 {
+				_ = json.Unmarshal(ep.Headers, &headersMap)
 			}
+			// 空 key 仍发布一条端点。这是 Redis 路径自己的选择，解析函数不替它决定。
+			call := ResolveCall(CallInput{
+				EndpointRealModel: ep.RealModel,
+				ModelCode:         ep.Model.ModelCode,
+				AuthType:          ep.AuthType,
+				EndpointAPIKey:    ep.ApiKey,
+				ProviderAPIKeys:   providerAPIKeyValues(ep.Provider),
+				Headers:           headersMap,
+				OAuthAccountID:    providerOAuthAccountID(ep.Provider),
+			})
+			apiKeys := call.APIKeys
 			if len(apiKeys) == 0 {
 				apiKeys = []string{""}
 			}
@@ -229,17 +206,7 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 				}
 			}
 
-			realModel := ep.RealModel
-			if realModel == "" {
-				realModel = ep.Model.ModelCode
-			}
-
-			var headersMap map[string]string
-			if len(ep.Headers) > 0 {
-				_ = json.Unmarshal(ep.Headers, &headersMap)
-			}
-			// Codex OAuth: inject Chatgpt-Account-Id from provider.oauth.account_id at sync time.
-			headersMap = MergeOAuthAccountHeader(headersMap, ep.Provider, ep.AuthType)
+			headersMap = call.Headers
 
 			var apis []string
 			if ep.Model != nil && ep.Model.RequestTypes != "" {
@@ -283,7 +250,7 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 					ID:                 ep.ID,
 					Code:               ep.Code,
 					Description:        ep.Description,
-					RealModel:          realModel,
+					RealModel:          call.RealModel,
 					ProviderName:       ep.Provider.Name,
 					ProviderCode:       ep.Provider.Code,
 					ProviderProtocol:   protocol,
@@ -312,7 +279,7 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 			return err
 		}
 
-		return s.publishRouting(ctx, modelCode, redisKey, RedisKeySmartRoutingPrefix+modelCode, jsonData)
+		return s.publishRouting(ctx, modelCode, redisKey, gatewaycontract.Keys.Config.SmartRouting(modelCode), jsonData)
 	}
 
 	// 5. Increment version
@@ -347,13 +314,13 @@ func (s *ConfigRedisSync) SyncAlias(ctx context.Context, alias string, modelCode
 		return nil
 	}
 	// 1. 正向映射：alias → modelCode
-	key := RedisKeyConfigAliasPrefix + alias
+	key := gatewaycontract.Keys.Config.Alias(alias)
 	if err := s.RedisClient.Set(ctx, key, modelCode, 0).Err(); err != nil {
 		return err
 	}
 
 	// 2. 反向索引：modelCode → Set[aliases]
-	reverseKey := RedisKeyConfigModelAliasesPrefix + modelCode
+	reverseKey := gatewaycontract.Keys.Config.ModelAliases(modelCode)
 	err := s.RedisClient.SAdd(ctx, reverseKey, alias).Err()
 	if err == nil {
 		ClearGatewayConfigCache()
@@ -374,11 +341,11 @@ func (s *ConfigRedisSync) DeleteAlias(ctx context.Context, alias string) error {
 	}
 
 	// 1. 先获取 alias 对应的 modelCode（用于更新反向索引）
-	key := RedisKeyConfigAliasPrefix + alias
+	key := gatewaycontract.Keys.Config.Alias(alias)
 	modelCode, err := s.RedisClient.Get(ctx, key).Result()
 	if err == nil && modelCode != "" {
 		// 2. 从反向索引中移除
-		reverseKey := RedisKeyConfigModelAliasesPrefix + modelCode
+		reverseKey := gatewaycontract.Keys.Config.ModelAliases(modelCode)
 		_ = s.RedisClient.SRem(ctx, reverseKey, alias).Err()
 	}
 
@@ -447,7 +414,7 @@ func (s *ConfigRedisSync) deleteAliasesByModelId(ctx context.Context, modelId st
 
 	// 清理反向索引 key
 	if modelCode != "" {
-		reverseKey := RedisKeyConfigModelAliasesPrefix + modelCode
+		reverseKey := gatewaycontract.Keys.Config.ModelAliases(modelCode)
 		if err := s.RedisClient.Del(ctx, reverseKey).Err(); err != nil {
 			return err
 		}
@@ -502,7 +469,7 @@ func (s *ConfigRedisSync) incrementVersion(ctx context.Context, modelCode string
 		util.NotifyConfigChanged(ctx, util.ConfigChangeEndpoints, modelCode)
 		return nil
 	}
-	err := s.RedisClient.HIncrBy(ctx, RedisKeyConfigModelVersions, modelCode, 1).Err()
+	err := s.RedisClient.HIncrBy(ctx, gatewaycontract.Keys.Config.ModelVersions(), modelCode, 1).Err()
 	if err == nil {
 		util.NotifyConfigChanged(ctx, util.ConfigChangeEndpoints, modelCode)
 	}
@@ -571,14 +538,14 @@ func (s *ConfigRedisSync) applyModelDisable(ctx context.Context, modelID, modelC
 
 	for _, tenantCode := range resolvedTenants {
 		// 2. 从 aigw:tenant:{tenantCode}:models 集合中移除该 modelCode
-		modelsKey := "aigw:tenant:" + tenantCode + ":models"
+		modelsKey := gatewaycontract.Keys.Tenant.Models(tenantCode)
 		if err := s.RedisClient.SRem(ctx, modelsKey, modelCode).Err(); err != nil {
 			return err
 		}
 
 		if config.C.Sync.Endpoints {
 			// 4. 删除 endpoints 白名单缓存（新）
-			endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":endpoints"
+			endpointsKey := gatewaycontract.Keys.Tenant.Endpoints(tenantCode, modelCode)
 			if err := s.RedisClient.Del(ctx, endpointsKey).Err(); err != nil {
 				return err
 			}
@@ -592,7 +559,7 @@ func (s *ConfigRedisSync) applyModelDisable(ctx context.Context, modelID, modelC
 
 	// 6. 清理计费策略缓存
 	if config.C.Sync.Policies {
-		if err := s.RedisClient.Del(ctx, "aigw:policies:model:"+modelCode).Err(); err != nil {
+		if err := s.RedisClient.Del(ctx, gatewaycontract.Keys.Policies.Model(modelCode)).Err(); err != nil {
 			return err
 		}
 	}
@@ -633,14 +600,14 @@ func (s *ConfigRedisSync) applyModelEnable(ctx context.Context, modelID, modelCo
 
 	for _, tenantCode := range tenantCodes {
 		// 2. 将 modelCode 重新加回到 aigw:tenant:{tenantCode}:models 集合中
-		modelsKey := "aigw:tenant:" + tenantCode + ":models"
+		modelsKey := gatewaycontract.Keys.Tenant.Models(tenantCode)
 		if err := s.RedisClient.SAdd(ctx, modelsKey, modelCode).Err(); err != nil {
 			return err
 		}
 
 		if config.C.Sync.Endpoints {
 			// 3. 重新同步该租户此模型的 endpoints 限制白名单（新）
-			endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":endpoints"
+			endpointsKey := gatewaycontract.Keys.Tenant.Endpoints(tenantCode, modelCode)
 
 			var endpointIDs []string
 			err = db.Table(tenantEndpointTable+" AS te").
@@ -734,12 +701,12 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 	endpointTable := config.C.FormatTableName("endpoint")
 
 	for _, tenantCode := range tenantCodes {
-		modelsKey := "aigw:tenant:" + tenantCode + ":models"
+		modelsKey := gatewaycontract.Keys.Tenant.Models(tenantCode)
 		allowedModels := tenantToModels[tenantCode]
 
 		if len(allowedModels) > 0 {
 			// 原子替换 models 集合：先写入 tmp，再 Rename 覆盖
-			tmpModelsKey := modelsKey + ":tmp"
+			tmpModelsKey := gatewaycontract.Keys.Tenant.Temp(modelsKey)
 			_ = s.RedisClient.Del(ctx, tmpModelsKey).Err()
 
 			var members []interface{}
@@ -762,7 +729,7 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 			for _, m := range models {
 				if m.Enabled == 1 {
 					// 同步 endpoints 白名单（新）
-					endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + m.ModelCode + ":endpoints"
+					endpointsKey := gatewaycontract.Keys.Tenant.Endpoints(tenantCode, m.ModelCode)
 
 					var endpointIDs []string
 					err = db.Table(tenantEndpointTable+" AS te").
@@ -774,7 +741,7 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 					if err == nil {
 						if len(endpointIDs) > 0 {
 							// 原子替换 endpoints 集合
-							tmpEndpointsKey := endpointsKey + ":tmp"
+							tmpEndpointsKey := gatewaycontract.Keys.Tenant.Temp(endpointsKey)
 							_ = s.RedisClient.Del(ctx, tmpEndpointsKey).Err()
 
 							var members []interface{}
@@ -808,21 +775,21 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 				return err
 			}
 			if config.C.Sync.Endpoints {
-				redisKey := "aigw:config:endpoints:" + m.ModelCode
+				redisKey := gatewaycontract.Keys.Config.Endpoints(m.ModelCode)
 				_ = s.RedisClient.Del(ctx, redisKey).Err()
 			}
-			_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, m.ModelCode).Err()
+			_ = s.RedisClient.HDel(ctx, gatewaycontract.Keys.Config.ModelVersions(), m.ModelCode).Err()
 			if config.C.Sync.Policies {
-				_ = s.RedisClient.Del(ctx, "aigw:policies:model:"+m.ModelCode).Err()
+				_ = s.RedisClient.Del(ctx, gatewaycontract.Keys.Policies.Model(m.ModelCode)).Err()
 			}
 
 			// 物理清理各租户中被禁用模型的授权与 endpoints 缓存
 			for _, tenantCode := range tenantCodes {
-				modelsKey := "aigw:tenant:" + tenantCode + ":models"
+				modelsKey := gatewaycontract.Keys.Tenant.Models(tenantCode)
 				_ = s.RedisClient.SRem(ctx, modelsKey, m.ModelCode).Err()
 
 				if config.C.Sync.Endpoints {
-					endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + m.ModelCode + ":endpoints"
+					endpointsKey := gatewaycontract.Keys.Tenant.Endpoints(tenantCode, m.ModelCode)
 					_ = s.RedisClient.Del(ctx, endpointsKey).Err()
 				}
 			}
@@ -830,7 +797,7 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 	}
 
 	// 6.5. 清理 Redis 中存在但数据库中已不存在的废弃模型缓存
-	redisModelCodes, err := s.RedisClient.HKeys(ctx, RedisKeyConfigModelVersions).Result()
+	redisModelCodes, err := s.RedisClient.HKeys(ctx, gatewaycontract.Keys.Config.ModelVersions()).Result()
 	if err == nil && len(redisModelCodes) > 0 {
 		activeModelsMap := make(map[string]bool)
 		for _, m := range models {
@@ -842,25 +809,25 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 					return err
 				}
 				// 从 model_versions 中删除
-				_ = s.RedisClient.HDel(ctx, RedisKeyConfigModelVersions, obsoleteCode).Err()
+				_ = s.RedisClient.HDel(ctx, gatewaycontract.Keys.Config.ModelVersions(), obsoleteCode).Err()
 				// 清除端点和策略
 				if config.C.Sync.Endpoints {
-					_ = s.RedisClient.Del(ctx, "aigw:config:endpoints:"+obsoleteCode).Err()
+					_ = s.RedisClient.Del(ctx, gatewaycontract.Keys.Config.Endpoints(obsoleteCode)).Err()
 				}
 				if config.C.Sync.Policies {
-					_ = s.RedisClient.Del(ctx, "aigw:policies:model:"+obsoleteCode).Err()
+					_ = s.RedisClient.Del(ctx, gatewaycontract.Keys.Policies.Model(obsoleteCode)).Err()
 				}
 				// 清理各租户的关联授权
 				for _, tenantCode := range tenantCodes {
-					modelsKey := "aigw:tenant:" + tenantCode + ":models"
+					modelsKey := gatewaycontract.Keys.Tenant.Models(tenantCode)
 					_ = s.RedisClient.SRem(ctx, modelsKey, obsoleteCode).Err()
 					if config.C.Sync.Endpoints {
-						endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + obsoleteCode + ":endpoints"
+						endpointsKey := gatewaycontract.Keys.Tenant.Endpoints(tenantCode, obsoleteCode)
 						_ = s.RedisClient.Del(ctx, endpointsKey).Err()
 					}
 				}
 				// 清理反向别名索引
-				_ = s.RedisClient.Del(ctx, RedisKeyConfigModelAliasesPrefix+obsoleteCode).Err()
+				_ = s.RedisClient.Del(ctx, gatewaycontract.Keys.Config.ModelAliases(obsoleteCode)).Err()
 			}
 		}
 	}
@@ -963,8 +930,8 @@ func (s *ConfigRedisSync) SyncAllToRedis(ctx context.Context) error {
 }
 
 func runtimeAPIKeyRedisKey(apiKey string) string {
-	keyHash := gatewaykeys.HashAPIKey(apiKey, config.C.Gateway.APIKeyPepper)
-	return gatewaykeys.RedisKeyAPIKeyHash(keyHash)
+	keyHash := gatewaycontract.HashAPIKey(apiKey, config.C.Gateway.APIKeyPepper)
+	return gatewaycontract.Keys.APIKey.Hash(keyHash)
 }
 
 func runtimeAPIKeyRedisKeys(apiKey string) []string {

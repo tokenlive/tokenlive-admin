@@ -6,25 +6,15 @@ import (
 
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
 )
 
 // RuntimeSmartRouting is shared by HTTP, embedded snapshots and Redis.
-type RuntimeSmartRouting struct {
-	Version              int64               `json:"version"`
-	JudgeModel           string              `json:"judge_model"`
-	JudgeTimeoutMS       int                 `json:"judge_timeout_ms"`
-	JudgeMaxInputBytes   int                 `json:"judge_max_input_bytes"`
-	JudgeMaxOutputTokens int                 `json:"judge_max_output_tokens"`
-	Ranges               []RuntimeSmartRange `json:"ranges"`
-}
+type RuntimeSmartRouting = gatewaycontract.RuntimeSmartRouting
 
-type RuntimeSmartRange struct {
-	Min   int    `json:"min"`
-	Max   int    `json:"max"`
-	Model string `json:"model"`
-}
+type RuntimeSmartRange = gatewaycontract.RuntimeSmartRange
 
 func resolveSmartRuntime(ctx context.Context, db *gorm.DB, model *schema.Model) (*RuntimeSmartRouting, error) {
 	if model.SmartRouting == nil || model.SmartRouting.Version < 1 {

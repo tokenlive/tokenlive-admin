@@ -11,6 +11,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
 )
@@ -74,29 +75,29 @@ func TestSmartRedisPublicationDisableDeleteAndConversion(t *testing.T) {
 	b.ConfigRedisSync = sync
 	seedSmartEndpoints(t, db)
 	model := createSmartFixture(t, b, ctx)
-	raw, err := server.Get("aigw:config:smart_routing:smart")
+	raw, err := server.Get(gatewaycontract.Keys.Config.SmartRouting("smart"))
 	require.NoError(t, err)
 	require.JSONEq(t, `{"version":1,"judge_model":"a","judge_timeout_ms":5000,"judge_max_input_bytes":65536,"judge_max_output_tokens":256,"ranges":[{"min":0,"max":40,"model":"a"},{"min":40,"max":100,"model":"b"}]}`, raw)
-	require.NotEmpty(t, server.HGet(RedisKeyConfigModelVersions, "smart"))
-	require.False(t, server.Exists("aigw:config:endpoints:smart"))
+	require.NotEmpty(t, server.HGet(gatewaycontract.Keys.Config.ModelVersions(), "smart"))
+	require.False(t, server.Exists(gatewaycontract.Keys.Config.Endpoints("smart")))
 
 	disable := &schema.ModelEnabledForm{Enabled: 0}
 	require.NoError(t, b.ToggleEnabled(ctx, model.ID, disable))
-	require.False(t, server.Exists("aigw:config:smart_routing:smart"))
-	require.Empty(t, server.HGet(RedisKeyConfigModelVersions, "smart"))
+	require.False(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
+	require.Empty(t, server.HGet(gatewaycontract.Keys.Config.ModelVersions(), "smart"))
 	require.NoError(t, b.ToggleEnabled(ctx, model.ID, &schema.ModelEnabledForm{Enabled: 1}))
-	require.True(t, server.Exists("aigw:config:smart_routing:smart"))
+	require.True(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
 	normal := &schema.ModelForm{ModelCode: "smart", ModelName: "Smart", SpaceCode: "default", Enabled: 1, RequestTypes: `["chat_completion"]`}
 	version := int64(1)
 	normal.SmartRoutingVersion = &version
 	require.NoError(t, b.Update(ctx, model.ID, normal))
-	require.False(t, server.Exists("aigw:config:smart_routing:smart"))
+	require.False(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
 	f := smartForm()
 	require.NoError(t, b.Update(ctx, model.ID, f))
-	require.True(t, server.Exists("aigw:config:smart_routing:smart"))
+	require.True(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
 	require.NoError(t, b.Delete(ctx, model.ID))
-	require.False(t, server.Exists("aigw:config:smart_routing:smart"))
-	require.Empty(t, server.HGet(RedisKeyConfigModelVersions, "smart"))
+	require.False(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
+	require.Empty(t, server.HGet(gatewaycontract.Keys.Config.ModelVersions(), "smart"))
 }
 
 func TestSmartSavedPublicationFailureIsObservableAndRetryable(t *testing.T) {
@@ -112,8 +113,8 @@ func TestSmartSavedPublicationFailureIsObservableAndRetryable(t *testing.T) {
 	require.NotNil(t, result.Model)
 	server.SetError("")
 	require.NoError(t, b.Sync(ctx, result.ID))
-	require.True(t, server.Exists("aigw:config:smart_routing:smart"))
-	raw, err := server.Get("aigw:config:smart_routing:smart")
+	require.True(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
+	raw, err := server.Get(gatewaycontract.Keys.Config.SmartRouting("smart"))
 	require.NoError(t, err)
 	require.Contains(t, raw, `"version":1`)
 }
@@ -129,8 +130,8 @@ func TestSmartPublishNotifiesOnlyAfterCompleteRuntimeVersion(t *testing.T) {
 		for _, code := range codes {
 			if code == "smart" {
 				sawPublished = true
-				require.True(t, server.Exists("aigw:config:smart_routing:smart"))
-				require.NotEmpty(t, server.HGet(RedisKeyConfigModelVersions, "smart"))
+				require.True(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
+				require.NotEmpty(t, server.HGet(gatewaycontract.Keys.Config.ModelVersions(), "smart"))
 			}
 		}
 	})
@@ -142,9 +143,9 @@ func TestSmartRedisRejectedGenerationDoesNotWriteHalfConfiguration(t *testing.T)
 	db, b, ctx := smartFixture(t)
 	sync, server := smartRedisFixture(t, db)
 	model := createSmartFixture(t, b, ctx)
-	server.Set(RedisKeyConfigModelVersions, "wrong-type")
+	server.Set(gatewaycontract.Keys.Config.ModelVersions(), "wrong-type")
 	require.Error(t, sync.SyncModelByCode(ctx, model.ModelCode))
-	require.False(t, server.Exists("aigw:config:smart_routing:smart"))
+	require.False(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
 }
 
 func TestSmartDeletePublicationFailureIsReturnedAfterDatabaseCommit(t *testing.T) {
@@ -160,7 +161,7 @@ func TestSmartDeletePublicationFailureIsReturnedAfterDatabaseCommit(t *testing.T
 	require.Nil(t, got, "database deletion already committed")
 	// A deleted model must remain synchronizable by its recorded code.
 	require.NoError(t, sync.SyncModelByCode(ctx, model.ModelCode))
-	require.False(t, server.Exists("aigw:config:smart_routing:smart"))
+	require.False(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
 }
 
 func TestSmartLatePublicationCannotOverwriteNewerRuntime(t *testing.T) {
@@ -173,7 +174,7 @@ func TestSmartLatePublicationCannotOverwriteNewerRuntime(t *testing.T) {
 	form.SmartRouting.Ranges[0].Max, form.SmartRouting.Ranges[1].Min = 70, 70
 	require.NoError(t, b.Update(ctx, old.ID, form))
 	require.Error(t, sync.publishSmartRouting(ctx, old), "an older concurrent save must not supersede the newer published version")
-	raw, err := server.Get("aigw:config:smart_routing:smart")
+	raw, err := server.Get(gatewaycontract.Keys.Config.SmartRouting("smart"))
 	require.NoError(t, err)
 	require.Contains(t, raw, `"version":2`)
 	require.Contains(t, raw, `"max":70`)
@@ -186,6 +187,6 @@ func TestSmartLatePublicationCannotReactivateDisabledModel(t *testing.T) {
 	old := createSmartFixture(t, b, ctx)
 	require.NoError(t, b.ToggleEnabled(ctx, old.ID, &schema.ModelEnabledForm{Enabled: 0}))
 	require.Error(t, sync.publishSmartRouting(ctx, old))
-	require.False(t, server.Exists("aigw:config:smart_routing:smart"))
-	require.Empty(t, server.HGet(RedisKeyConfigModelVersions, "smart"))
+	require.False(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
+	require.Empty(t, server.HGet(gatewaycontract.Keys.Config.ModelVersions(), "smart"))
 }

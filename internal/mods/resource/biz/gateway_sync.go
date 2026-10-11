@@ -236,28 +236,27 @@ func (s *GatewaySync) buildGatewayConfig(ctx context.Context, modelCode string) 
 		}
 		apis = normalizeRequestTypesForProtocol(ep.Protocol, apis)
 
-		realModel := ep.RealModel
-		if realModel == "" {
-			realModel = mCode
-		}
-
 		authType := ep.AuthType
 		if authType == "" {
 			authType = "api_key"
 		}
 
-		// API Key inheritance:
-		// - oauth_token: OAuth 凭证是 provider 级身份，强制读 provider，忽略 endpoint 覆盖。
-		// - api_key: 保留 endpoint > provider 的手动覆盖能力。
-		endpointKey := ep.ApiKey
-		if authType == "oauth_token" || endpointKey == "" {
-			if keys := ep.Provider.GetApiKeys(); len(keys) > 0 {
-				endpointKey = keys[0].Value
-			}
+		// HTTP 拉取一个端点只带一把 key。解析函数返回全部，这里自己取第一把。
+		call := ResolveCall(CallInput{
+			EndpointRealModel: ep.RealModel,
+			ModelCode:         mCode,
+			AuthType:          authType,
+			EndpointAPIKey:    ep.ApiKey,
+			ProviderAPIKeys:   providerAPIKeyValues(ep.Provider),
+			Headers:           headersMap,
+			OAuthAccountID:    providerOAuthAccountID(ep.Provider),
+		})
+		endpointKey := ""
+		if len(call.APIKeys) > 0 {
+			endpointKey = call.APIKeys[0]
 		}
-
-		// Codex OAuth: inject Chatgpt-Account-Id from provider.oauth.account_id at sync time.
-		headersMap = MergeOAuthAccountHeader(headersMap, ep.Provider, authType)
+		realModel := call.RealModel
+		headersMap = call.Headers
 
 		epCfg := EndpointConfig{
 			ID:        ep.ID,

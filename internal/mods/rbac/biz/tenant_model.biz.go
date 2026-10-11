@@ -9,6 +9,7 @@ import (
 	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
@@ -81,7 +82,7 @@ func (a *TenantModel) SaveBindings(ctx context.Context, tenantCode string, model
 
 	// 5. 同步至 Redis: aigw:tenant:{tenantCode}:models
 	if a.RedisClient != nil {
-		redisKey := "aigw:tenant:" + tenantCode + ":models"
+		redisKey := gatewaycontract.Keys.Tenant.Models(tenantCode)
 
 		if len(modelIDs) == 0 {
 			// 若为空，代表该租户未绑定任何模型，直接清理

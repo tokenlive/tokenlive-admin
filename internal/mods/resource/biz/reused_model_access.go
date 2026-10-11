@@ -7,6 +7,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm/clause"
 )
@@ -46,8 +47,8 @@ func (s *ConfigRedisSync) reconcileReusedModelAccess(ctx context.Context, owner 
 	}
 	// Include cached grants with no remaining DB binding as well as endpoint
 	// restrictions whose membership key is already absent.
-	const prefix = "aigw:tenant:"
-	for _, suffix := range []string{":models", ":model:" + owner.ModelCode + ":endpoints"} {
+	prefix := gatewaycontract.Keys.Tenant.Prefix()
+	for _, suffix := range []string{gatewaycontract.Keys.Tenant.ModelsSuffix(), gatewaycontract.Keys.Tenant.EndpointsSuffix(owner.ModelCode)} {
 		iter := s.RedisClient.Scan(ctx, 0, prefix+"*"+suffix, 100).Iterator()
 		for iter.Next(ctx) {
 			key := iter.Val()
@@ -78,8 +79,8 @@ func (s *ConfigRedisSync) reconcileReusedModelAccess(ctx context.Context, owner 
 			args = append(args, id)
 		}
 		if _, err := reconcileReusedModelAccessScript.Run(ctx, s.RedisClient, []string{
-			prefix + tenant + ":models",
-			prefix + tenant + ":model:" + owner.ModelCode + ":endpoints",
+			gatewaycontract.Keys.Tenant.Models(tenant),
+			gatewaycontract.Keys.Tenant.Endpoints(tenant, owner.ModelCode),
 		}, args...).Result(); err != nil {
 			return err
 		}

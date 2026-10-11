@@ -13,7 +13,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/dashboard/schema"
 	opsbiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
 	rbac "github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
-	"github.com/tokenlive/tokenlive-admin/pkg/gatewaykeys"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -52,10 +52,10 @@ func TestMetadataIncludesDeletedDisabledAndMissingWithoutGuessing(t *testing.T) 
 	require.NoError(t, db.Create(&rbac.Tenant{ID: "fixture-tenant", Code: "acme", Name: "Acme", APIKey: "fixture-tenant-secret", Status: rbac.TenantStatusActivated}).Error)
 	resolver := NewIdentityResolver(db, nil, "pepper", time.Now)
 	groups := []schema.Group{
-		{Canonical: "disabled", Ref: schema.KeyRef{Hash: gatewaykeys.HashAPIKey("fixture-disabled-secret", "pepper")}},
-		{Canonical: "deleted", Ref: schema.KeyRef{Hash: gatewaykeys.HashAPIKey("fixture-deleted-secret", "pepper")}},
+		{Canonical: "disabled", Ref: schema.KeyRef{Hash: gatewaycontract.HashAPIKey("fixture-disabled-secret", "pepper")}},
+		{Canonical: "deleted", Ref: schema.KeyRef{Hash: gatewaycontract.HashAPIKey("fixture-deleted-secret", "pepper")}},
 		{Canonical: "missing", Ref: schema.KeyRef{Hash: "missing", UserID: "former-user"}},
-		{Canonical: "tenant", Ref: schema.KeyRef{Hash: gatewaykeys.HashAPIKey("fixture-tenant-secret", "pepper")}},
+		{Canonical: "tenant", Ref: schema.KeyRef{Hash: gatewaycontract.HashAPIKey("fixture-tenant-secret", "pepper")}},
 		{Canonical: "rotated", Ref: schema.KeyRef{Hash: "old-tenant-hash", TenantID: "acme"}},
 	}
 	meta := resolver.Describe(context.Background(), groups)
@@ -82,7 +82,7 @@ func TestIdentityAdminIDMustMatchUser(t *testing.T) {
 	good := schema.KeyRef{KeyID: "fixture-key", UserID: "fixture-user"}
 	bad := schema.KeyRef{KeyID: "fixture-key", UserID: "another"}
 	result := resolver.Resolve(context.Background(), []schema.Candidate{{Ref: good}, {Ref: bad}})
-	require.Equal(t, "h:"+gatewaykeys.HashAPIKey("fixture-secret", "pepper"), result.Keys[good])
+	require.Equal(t, "h:"+gatewaycontract.HashAPIKey("fixture-secret", "pepper"), result.Keys[good])
 	require.Empty(t, result.Keys[bad])
 }
 
@@ -95,7 +95,7 @@ func TestMetadataConflictingOwnersRemainExplicitlyUnknown(t *testing.T) {
 		require.NoError(t, db.Create(&key).Error)
 	}
 	resolver := NewIdentityResolver(db, nil, "pepper", time.Now)
-	hash := gatewaykeys.HashAPIKey("shared-fixture-key", "pepper")
+	hash := gatewaycontract.HashAPIKey("shared-fixture-key", "pepper")
 	result := resolver.Describe(context.Background(), []schema.Group{{Canonical: "a", Ref: schema.KeyRef{Hash: hash, UserID: "owner-a"}}})
 	require.Empty(t, result["a"].Owner.ID)
 	require.Equal(t, "partial", result["a"].MetadataStatus)

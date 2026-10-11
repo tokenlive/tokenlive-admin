@@ -3,7 +3,6 @@ package biz
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -12,6 +11,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	resourceDal "github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/logging"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"go.uber.org/zap"
@@ -95,7 +95,7 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 				_ = s.RedisClient.Del(ctx, redisKey).Err()
 			}
 			util.ClearGatewayConfigCache()
-			_ = s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err()
+			_ = s.RedisClient.Publish(ctx, gatewaycontract.Keys.Channel.PolicyUpdate(), gatewaycontract.PurgePayload).Err()
 			util.NotifyConfigChanged(ctx, util.ConfigChangePolicies)
 		}
 		action = "skip_template_cleanup"
@@ -107,7 +107,7 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		err := s.RedisClient.HDel(ctx, redisKey, redisField).Err()
 		if err == nil {
 			util.ClearGatewayConfigCache()
-			if pubErr := s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err(); pubErr != nil {
+			if pubErr := s.RedisClient.Publish(ctx, gatewaycontract.Keys.Channel.PolicyUpdate(), gatewaycontract.PurgePayload).Err(); pubErr != nil {
 				policyRedisSyncLogger(ctx).Warn("Failed to publish policy update notification to redis channel", zap.Error(pubErr))
 			}
 			util.NotifyConfigChanged(ctx, util.ConfigChangePolicies, modelCode)
@@ -227,7 +227,7 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 		err := s.RedisClient.HDel(ctx, redisKey, redisField).Err()
 		if err == nil {
 			util.ClearGatewayConfigCache()
-			if pubErr := s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err(); pubErr != nil {
+			if pubErr := s.RedisClient.Publish(ctx, gatewaycontract.Keys.Channel.PolicyUpdate(), gatewaycontract.PurgePayload).Err(); pubErr != nil {
 				policyRedisSyncLogger(ctx).Warn("Failed to publish policy update notification to redis channel", zap.Error(pubErr))
 			}
 			util.NotifyConfigChanged(ctx, util.ConfigChangePolicies, modelCode)
@@ -245,7 +245,7 @@ func (s *PolicyRedisSync) SyncDimension(ctx context.Context, tenantCode, userID,
 	err = s.RedisClient.HSet(ctx, redisKey, redisField, string(jsonData)).Err()
 	if err == nil {
 		util.ClearGatewayConfigCache()
-		if pubErr := s.RedisClient.Publish(ctx, "aigw:channel:policy_update", "purge").Err(); pubErr != nil {
+		if pubErr := s.RedisClient.Publish(ctx, gatewaycontract.Keys.Channel.PolicyUpdate(), gatewaycontract.PurgePayload).Err(); pubErr != nil {
 			policyRedisSyncLogger(ctx).Warn("Failed to publish policy update notification to redis channel", zap.Error(pubErr))
 		}
 		util.NotifyConfigChanged(ctx, util.ConfigChangePolicies, modelCode)
@@ -304,20 +304,18 @@ func (s *PolicyRedisSync) SyncPolicyChange(ctx context.Context, scopeType, scope
 }
 
 func resolveRedisKeyAndField(tenantCode, userID, modelCode string) (string, string, bool) {
+	field := gatewaycontract.FieldAll
+	if modelCode != "" && modelCode != "*" {
+		field = modelCode
+	}
 	if userID != "" {
-		if modelCode != "" && modelCode != "*" {
-			return fmt.Sprintf("aigw:policies:user:%s", userID), modelCode, true
-		}
-		return fmt.Sprintf("aigw:policies:user:%s", userID), "*", true
+		return gatewaycontract.Keys.Policies.User(userID), field, true
 	}
 	if tenantCode != "" {
-		if modelCode != "" && modelCode != "*" {
-			return fmt.Sprintf("aigw:policies:tenant:%s", tenantCode), modelCode, true
-		}
-		return fmt.Sprintf("aigw:policies:tenant:%s", tenantCode), "*", true
+		return gatewaycontract.Keys.Policies.Tenant(tenantCode), field, true
 	}
 	if modelCode != "" && modelCode != "*" {
-		return fmt.Sprintf("aigw:policies:model:%s", modelCode), "*", true
+		return gatewaycontract.Keys.Policies.Model(modelCode), gatewaycontract.FieldAll, true
 	}
 	return "", "", false
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
@@ -74,8 +75,8 @@ func (a *TenantEndpoint) SaveEndpoints(ctx context.Context, tenantCode, modelID 
 
 	// 4. 事务执行成功，同步至 Redis
 	if a.RedisClient != nil && config.C.Sync.Endpoints {
-		endpointsKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":endpoints"
-		providersKey := "aigw:tenant:" + tenantCode + ":model:" + modelCode + ":providers"
+		endpointsKey := gatewaycontract.Keys.Tenant.Endpoints(tenantCode, modelCode)
+		providersKey := gatewaycontract.Keys.Tenant.Providers(tenantCode, modelCode)
 
 		if len(endpointIDs) == 0 {
 			// 若为空，代表该模型的所有端点皆允许使用，清理白名单以支持"全放通"语义

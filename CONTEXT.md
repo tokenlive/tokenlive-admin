@@ -108,6 +108,10 @@ _Avoid_: 将其与业务请求成功率混淆；或在此处跨模型混杂计�
 网关判定某个 Endpoint 或服务不可用后将其摘除的运行时状态，由网关写入缓存、Admin 只读展示。
 _Avoid_: 与熔断策略（policy_circuit_break）的配置混为一谈 — 前者是运行时状态，后者是触发规则。
 
+**Gateway Runtime Contract (网关运行时契约)**:
+Admin 写入、Gateway 读取的那一组 Redis 文档与 key。它不是 Gateway 通过 HTTP 从 Admin 拉取的那一组配置。
+_Avoid_: 把 Redis 推送文档和 HTTP 拉取文档当成同一份契约的两种写法。
+
 **Event (治理事件)**:
 网关上报的策略执行事件记录（熔断、限流、调用失败、故障转移、重试错误等 7 类）。事件按名称快照归属到 Provider，不携带上游 HTTP 状态码。
 _Avoid_: 把 `rate_limit` 事件理解为上游返回的 429 — 它指的是本平台限流策略命中。

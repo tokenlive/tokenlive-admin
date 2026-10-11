@@ -13,6 +13,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
@@ -166,8 +167,8 @@ func (a *Tenant) Update(ctx context.Context, id string, formItem *schema.TenantF
 
 	// 如果租户 Code 发生变更，且 Redis 可用，则迁移 models、providers 和 endpoints 的 Redis 键
 	if a.RedisClient != nil && oldCode != tenant.Code {
-		oldModelsKey := "aigw:tenant:" + oldCode + ":models"
-		newModelsKey := "aigw:tenant:" + tenant.Code + ":models"
+		oldModelsKey := gatewaycontract.Keys.Tenant.Models(oldCode)
+		newModelsKey := gatewaycontract.Keys.Tenant.Models(tenant.Code)
 
 		// 1. 迁移 aigw:tenant:{oldCode}:models
 		exists, err := a.RedisClient.Exists(ctx, oldModelsKey).Result()
@@ -190,8 +191,8 @@ func (a *Tenant) Update(ctx context.Context, id string, formItem *schema.TenantF
 			if err == nil {
 				for _, modelCode := range modelCodes {
 					// 迁移 endpoints key（新）
-					oldEndpointsKey := "aigw:tenant:" + oldCode + ":model:" + modelCode + ":endpoints"
-					newEndpointsKey := "aigw:tenant:" + tenant.Code + ":model:" + modelCode + ":endpoints"
+					oldEndpointsKey := gatewaycontract.Keys.Tenant.Endpoints(oldCode, modelCode)
+					newEndpointsKey := gatewaycontract.Keys.Tenant.Endpoints(tenant.Code, modelCode)
 
 					existsEndpoints, err := a.RedisClient.Exists(ctx, oldEndpointsKey).Result()
 					if err == nil && existsEndpoints > 0 {

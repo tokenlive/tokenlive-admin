@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
@@ -186,16 +187,16 @@ func TestSmartDraftIsNotPublishedUntilExplicitEnable(t *testing.T) {
 	seedSmartEndpoints(t, db)
 	model, err := b.Create(ctx, draftSmartForm())
 	require.NoError(t, err)
-	require.False(t, server.Exists("aigw:config:smart_routing:smart"))
+	require.False(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
 	export := &GatewaySync{DB: db}
 	config, err := export.GetGatewayConfig(ctx, "")
 	require.NoError(t, err)
 	require.NotContains(t, config.Models, "smart")
 	_, err = b.UpdateSmartRouting(ctx, model.ID, smartForm().SmartRouting)
 	require.NoError(t, err)
-	require.False(t, server.Exists("aigw:config:smart_routing:smart"))
+	require.False(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
 	require.NoError(t, b.ToggleEnabled(ctx, model.ID, &schema.ModelEnabledForm{Enabled: 1}))
-	require.True(t, server.Exists("aigw:config:smart_routing:smart"))
+	require.True(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
 	config, err = export.GetGatewayConfig(ctx, "")
 	require.NoError(t, err)
 	require.Contains(t, config.Models, "smart")

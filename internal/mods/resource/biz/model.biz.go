@@ -15,6 +15,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/logging"
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
@@ -596,12 +597,12 @@ func (m *Model) fillModelsStatusPoints(ctx context.Context, models []*schema.Mod
 	for _, model := range models {
 		for i := 0; i < numMinutes; i++ {
 			minute := currentMin - int64(numMinutes-1-i)
-			keys[idx] = fmt.Sprintf("aigw:status:model:%s:%d:s", model.ModelCode, minute)
-			keys[idx+1] = fmt.Sprintf("aigw:status:model:%s:%d:f", model.ModelCode, minute)
-			keys[idx+2] = fmt.Sprintf("aigw:status:model:%s:%d:ttft_sum", model.ModelCode, minute)
-			keys[idx+3] = fmt.Sprintf("aigw:status:model:%s:%d:ttft_cnt", model.ModelCode, minute)
-			keys[idx+4] = fmt.Sprintf("aigw:status:model:%s:%d:out", model.ModelCode, minute)
-			keys[idx+5] = fmt.Sprintf("aigw:status:model:%s:%d:dur_ms", model.ModelCode, minute)
+			keys[idx] = gatewaycontract.Keys.Status.Model(model.ModelCode, minute, gatewaycontract.MetricSuccess)
+			keys[idx+1] = gatewaycontract.Keys.Status.Model(model.ModelCode, minute, gatewaycontract.MetricFailure)
+			keys[idx+2] = gatewaycontract.Keys.Status.Model(model.ModelCode, minute, gatewaycontract.MetricTTFTSum)
+			keys[idx+3] = gatewaycontract.Keys.Status.Model(model.ModelCode, minute, gatewaycontract.MetricTTFTCount)
+			keys[idx+4] = gatewaycontract.Keys.Status.Model(model.ModelCode, minute, gatewaycontract.MetricOutputTokens)
+			keys[idx+5] = gatewaycontract.Keys.Status.Model(model.ModelCode, minute, gatewaycontract.MetricDurationMs)
 			idx += keysPerMinute
 		}
 	}

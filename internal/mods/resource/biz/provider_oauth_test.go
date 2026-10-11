@@ -46,30 +46,6 @@ func TestParseCodexIDTokenClaims(t *testing.T) {
 	}
 }
 
-func TestMergeOAuthAccountHeader(t *testing.T) {
-	provider := &schema.Provider{AuthType: "oauth_token"}
-	cred, _ := json.Marshal(schema.OAuthCredential{AccountID: "acct-1"})
-	provider.OAuth = cred
-
-	headers := MergeOAuthAccountHeader(nil, provider, "oauth_token")
-	if headers["Chatgpt-Account-Id"] != "acct-1" {
-		t.Fatalf("expected injected header, got %#v", headers)
-	}
-
-	// Existing header should win.
-	existing := map[string]string{"Chatgpt-Account-Id": "manual"}
-	headers = MergeOAuthAccountHeader(existing, provider, "oauth_token")
-	if headers["Chatgpt-Account-Id"] != "manual" {
-		t.Fatalf("expected existing header preserved, got %#v", headers)
-	}
-
-	// Non-oauth auth should not inject.
-	headers = MergeOAuthAccountHeader(nil, provider, "api_key")
-	if len(headers) != 0 {
-		t.Fatalf("expected no headers for api_key, got %#v", headers)
-	}
-}
-
 func TestGeneratePKCECodes(t *testing.T) {
 	codes, err := generatePKCECodes()
 	if err != nil {
@@ -174,7 +150,7 @@ func TestParseCodexTokenClaimsSubscriptionUntil(t *testing.T) {
 	payload := map[string]any{
 		"email": "u@example.com",
 		"https://api.openai.com/auth": map[string]any{
-			"chatgpt_account_id": "acct-1",
+			"chatgpt_account_id":                "acct-1",
 			"chatgpt_subscription_active_until": 1787856068,
 		},
 	}

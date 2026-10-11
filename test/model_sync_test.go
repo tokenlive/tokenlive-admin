@@ -11,6 +11,7 @@ import (
 	policySchema "github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	rbacSchema "github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
 	modelSchema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
@@ -68,13 +69,13 @@ func TestModelSync_OnCodeChange(t *testing.T) {
 	defer rdb.Close()
 
 	// Check if old model code is in tenant models set
-	tenantModelsKey := "aigw:tenant:" + tenant.Code + ":models"
+	tenantModelsKey := gatewaycontract.Keys.Tenant.Models(tenant.Code)
 	isMember, err := rdb.SIsMember(ctx, tenantModelsKey, "m-sync-old").Result()
 	assert.NoError(err)
 	assert.True(isMember)
 
 	// Write mock providers to tenant-model providers whitelist in Redis
-	oldProvidersKey := "aigw:tenant:" + tenant.Code + ":model:m-sync-old:providers"
+	oldProvidersKey := gatewaycontract.Keys.Tenant.Providers(tenant.Code, "m-sync-old")
 	err = rdb.SAdd(ctx, oldProvidersKey, "openai-official", "anthropic-official").Err()
 	assert.NoError(err)
 
@@ -99,7 +100,7 @@ func TestModelSync_OnCodeChange(t *testing.T) {
 	assert.Equal(int64(0), existsOld)
 
 	// - newProvidersKey should be created with the migrated members
-	newProvidersKey := "aigw:tenant:" + tenant.Code + ":model:m-sync-new:providers"
+	newProvidersKey := gatewaycontract.Keys.Tenant.Providers(tenant.Code, "m-sync-new")
 	members, err := rdb.SMembers(ctx, newProvidersKey).Result()
 	assert.NoError(err)
 	assert.Len(members, 2)
@@ -166,16 +167,16 @@ func TestTenantSync_OnCodeChange(t *testing.T) {
 	defer rdb.Close()
 
 	// Verify old tenant models key exists
-	oldModelsKey := "aigw:tenant:t-code-old:models"
-	newModelsKey := "aigw:tenant:t-code-new:models"
+	oldModelsKey := gatewaycontract.Keys.Tenant.Models("t-code-old")
+	newModelsKey := gatewaycontract.Keys.Tenant.Models("t-code-new")
 
 	isMemberOld, err := rdb.SIsMember(ctx, oldModelsKey, "m-tenant-sync-code").Result()
 	assert.NoError(err)
 	assert.True(isMemberOld)
 
 	// Setup mock provider whitelist for old tenant
-	oldProvidersKey := "aigw:tenant:t-code-old:model:m-tenant-sync-code:providers"
-	newProvidersKey := "aigw:tenant:t-code-new:model:m-tenant-sync-code:providers"
+	oldProvidersKey := gatewaycontract.Keys.Tenant.Providers("t-code-old", "m-tenant-sync-code")
+	newProvidersKey := gatewaycontract.Keys.Tenant.Providers("t-code-new", "m-tenant-sync-code")
 	err = rdb.SAdd(ctx, oldProvidersKey, "mock-provider").Err()
 	assert.NoError(err)
 
@@ -268,12 +269,12 @@ func TestModelSync_OnDelete(t *testing.T) {
 	})
 	defer rdb.Close()
 
-	tenantModelsKey := "aigw:tenant:" + tenant.Code + ":models"
+	tenantModelsKey := gatewaycontract.Keys.Tenant.Models(tenant.Code)
 	isMember, err := rdb.SIsMember(ctx, tenantModelsKey, "m-del-test-code").Result()
 	assert.NoError(err)
 	assert.True(isMember)
 
-	providersKey := "aigw:tenant:" + tenant.Code + ":model:m-del-test-code:providers"
+	providersKey := gatewaycontract.Keys.Tenant.Providers(tenant.Code, "m-del-test-code")
 	err = rdb.SAdd(ctx, providersKey, "mock").Err()
 	assert.NoError(err)
 
@@ -345,12 +346,12 @@ func TestModelSync_OnDisable(t *testing.T) {
 	})
 	defer rdb.Close()
 
-	tenantModelsKey := "aigw:tenant:" + tenant.Code + ":models"
+	tenantModelsKey := gatewaycontract.Keys.Tenant.Models(tenant.Code)
 	isMember, err := rdb.SIsMember(ctx, tenantModelsKey, "m-dis-test-code").Result()
 	assert.NoError(err)
 	assert.True(isMember)
 
-	providersKey := "aigw:tenant:" + tenant.Code + ":model:m-dis-test-code:providers"
+	providersKey := gatewaycontract.Keys.Tenant.Providers(tenant.Code, "m-dis-test-code")
 	err = rdb.SAdd(ctx, providersKey, "mock").Err()
 	assert.NoError(err)
 
@@ -519,26 +520,26 @@ func TestModelSync_ObsoleteCacheCleanup(t *testing.T) {
 	obsoleteModelCode := "m-obsolete-test-code"
 
 	// A. 写入 aigw:config:model_versions
-	err := rdb.HSet(ctx, "aigw:config:model_versions", obsoleteModelCode, "100").Err()
+	err := rdb.HSet(ctx, gatewaycontract.Keys.Config.ModelVersions(), obsoleteModelCode, "100").Err()
 	assert.NoError(t, err)
 
 	// B. 写入独立端点与费率配置
-	err = rdb.Set(ctx, "aigw:config:endpoints:"+obsoleteModelCode, "junk-endpoint-data", 0).Err()
+	err = rdb.Set(ctx, gatewaycontract.Keys.Config.Endpoints(obsoleteModelCode), "junk-endpoint-data", 0).Err()
 	assert.NoError(t, err)
-	err = rdb.Set(ctx, "aigw:policies:model:"+obsoleteModelCode, "junk-policy-data", 0).Err()
+	err = rdb.Set(ctx, gatewaycontract.Keys.Policies.Model(obsoleteModelCode), "junk-policy-data", 0).Err()
 	assert.NoError(t, err)
 
 	// C. 写入租户关联缓存
 	testTenantCode := "t-obsolete-test-tenant"
-	tenantModelsKey := "aigw:tenant:" + testTenantCode + ":models"
+	tenantModelsKey := gatewaycontract.Keys.Tenant.Models(testTenantCode)
 	err = rdb.SAdd(ctx, tenantModelsKey, obsoleteModelCode).Err()
 	assert.NoError(t, err)
-	tenantEndpointsKey := "aigw:tenant:" + testTenantCode + ":model:" + obsoleteModelCode + ":endpoints"
+	tenantEndpointsKey := gatewaycontract.Keys.Tenant.Endpoints(testTenantCode, obsoleteModelCode)
 	err = rdb.Set(ctx, tenantEndpointsKey, "junk-endpoints", 0).Err()
 	assert.NoError(t, err)
 
 	// D. 写入反向别名缓存
-	reverseAliasKey := "aigw:config:model_aliases:" + obsoleteModelCode
+	reverseAliasKey := gatewaycontract.Keys.Config.ModelAliases(obsoleteModelCode)
 	err = rdb.Set(ctx, reverseAliasKey, "junk-alias", 0).Err()
 	assert.NoError(t, err)
 
@@ -549,16 +550,16 @@ func TestModelSync_ObsoleteCacheCleanup(t *testing.T) {
 
 	// 4. 验证废弃模型的缓存已被完全清除
 	// A. model_versions 中不再包含该 field
-	existsInVersions, err := rdb.HExists(ctx, "aigw:config:model_versions", obsoleteModelCode).Result()
+	existsInVersions, err := rdb.HExists(ctx, gatewaycontract.Keys.Config.ModelVersions(), obsoleteModelCode).Result()
 	assert.NoError(t, err)
 	assert.False(t, existsInVersions)
 
 	// B. 独立端点和费率配置已删除
-	existsEndpoints, err := rdb.Exists(ctx, "aigw:config:endpoints:"+obsoleteModelCode).Result()
+	existsEndpoints, err := rdb.Exists(ctx, gatewaycontract.Keys.Config.Endpoints(obsoleteModelCode)).Result()
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), existsEndpoints)
 
-	existsPolicies, err := rdb.Exists(ctx, "aigw:policies:model:"+obsoleteModelCode).Result()
+	existsPolicies, err := rdb.Exists(ctx, gatewaycontract.Keys.Policies.Model(obsoleteModelCode)).Result()
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), existsPolicies)
 

@@ -2,7 +2,6 @@ package biz
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 )
 
@@ -27,8 +27,8 @@ func TestFillProvidersStatusPoints_Redis(t *testing.T) {
 
 	// Set 5 successes and 2 failures at 5 minutes ago for provider "openai"
 	targetMin := currentMin - 5
-	s.Set(fmt.Sprintf("aigw:status:provider:openai:%d:s", targetMin), "5")
-	s.Set(fmt.Sprintf("aigw:status:provider:openai:%d:f", targetMin), "2")
+	s.Set(gatewaycontract.Keys.Status.Provider("openai", targetMin, gatewaycontract.MetricSuccess), "5")
+	s.Set(gatewaycontract.Keys.Status.Provider("openai", targetMin, gatewaycontract.MetricFailure), "2")
 
 	providers := []*schema.Provider{
 		{
@@ -60,8 +60,8 @@ func TestFillProvidersStatusPoints_RedisFallbackToName(t *testing.T) {
 
 	// Set data under Name "Azure-OpenAI" instead of Code "azure"
 	targetMin := currentMin - 3
-	s.Set(fmt.Sprintf("aigw:status:provider:Azure-OpenAI:%d:s", targetMin), "8")
-	s.Set(fmt.Sprintf("aigw:status:provider:Azure-OpenAI:%d:f", targetMin), "1")
+	s.Set(gatewaycontract.Keys.Status.Provider("Azure-OpenAI", targetMin, gatewaycontract.MetricSuccess), "8")
+	s.Set(gatewaycontract.Keys.Status.Provider("Azure-OpenAI", targetMin, gatewaycontract.MetricFailure), "1")
 
 	providers := []*schema.Provider{
 		{

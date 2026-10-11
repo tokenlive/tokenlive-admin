@@ -24,6 +24,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/logging"
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
@@ -80,12 +81,12 @@ func (e *Endpoint) fillEndpointsStatusPoints(ctx context.Context, endpoints []*s
 	for _, ep := range endpoints {
 		for i := 0; i < numMinutes; i++ {
 			minute := currentMin - int64(numMinutes-1-i)
-			keys[idx] = fmt.Sprintf("aigw:status:endpoint:%s:%d:s", ep.ID, minute)
-			keys[idx+1] = fmt.Sprintf("aigw:status:endpoint:%s:%d:f", ep.ID, minute)
-			keys[idx+2] = fmt.Sprintf("aigw:status:endpoint:%s:%d:ttft_sum", ep.ID, minute)
-			keys[idx+3] = fmt.Sprintf("aigw:status:endpoint:%s:%d:ttft_cnt", ep.ID, minute)
-			keys[idx+4] = fmt.Sprintf("aigw:status:endpoint:%s:%d:out", ep.ID, minute)
-			keys[idx+5] = fmt.Sprintf("aigw:status:endpoint:%s:%d:dur_ms", ep.ID, minute)
+			keys[idx] = gatewaycontract.Keys.Status.Endpoint(ep.ID, minute, gatewaycontract.MetricSuccess)
+			keys[idx+1] = gatewaycontract.Keys.Status.Endpoint(ep.ID, minute, gatewaycontract.MetricFailure)
+			keys[idx+2] = gatewaycontract.Keys.Status.Endpoint(ep.ID, minute, gatewaycontract.MetricTTFTSum)
+			keys[idx+3] = gatewaycontract.Keys.Status.Endpoint(ep.ID, minute, gatewaycontract.MetricTTFTCount)
+			keys[idx+4] = gatewaycontract.Keys.Status.Endpoint(ep.ID, minute, gatewaycontract.MetricOutputTokens)
+			keys[idx+5] = gatewaycontract.Keys.Status.Endpoint(ep.ID, minute, gatewaycontract.MetricDurationMs)
 			idx += keysPerMinute
 		}
 	}
@@ -530,22 +531,26 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 		}
 	}
 
-	// 认证信息：oauth_token 类型忽略端点自身的旧 api_key 快照，强制使用 provider 级别的最新 token；
-	// 其余类型允许端点 api_key 覆盖 provider 级别。
-	var apiKey string
-	if authType != "oauth_token" && formItem.ApiKey != "" {
-		apiKey = formItem.ApiKey
-	} else {
-		keys := provider.GetApiKeys()
-		if len(keys) > 0 {
-			apiKey = keys[0].Value
-		}
+	// 探活只用第一把 key。解析函数返回全部，取哪一把由探活自己决定。
+	customHeaders := map[string]string{}
+	if len(formItem.Headers) > 0 && string(formItem.Headers) != "null" {
+		_ = json.Unmarshal(formItem.Headers, &customHeaders)
 	}
-
-	realModel := formItem.RealModel
-	if realModel == "" {
-		realModel = model.ModelCode
+	probe := ResolveCall(CallInput{
+		EndpointRealModel: formItem.RealModel,
+		ModelCode:         model.ModelCode,
+		AuthType:          authType,
+		EndpointAPIKey:    formItem.ApiKey,
+		ProviderAPIKeys:   providerAPIKeyValues(provider),
+		Headers:           customHeaders,
+		OAuthAccountID:    providerOAuthAccountID(provider),
+	})
+	apiKey := ""
+	if len(probe.APIKeys) > 0 {
+		apiKey = probe.APIKeys[0]
 	}
+	realModel := probe.RealModel
+	customHeaders = probe.Headers
 
 	protocol := formItem.Protocol
 	if protocol == "" {
@@ -693,13 +698,6 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 		req.Header.Set("Accept", "text/event-stream")
 	}
 
-	// 解析自定义 Header 并注入
-	customHeaders := map[string]string{}
-	if len(formItem.Headers) > 0 && string(formItem.Headers) != "null" {
-		_ = json.Unmarshal(formItem.Headers, &customHeaders)
-	}
-	// Codex OAuth: inject Chatgpt-Account-Id from provider.oauth when testing.
-	customHeaders = MergeOAuthAccountHeader(customHeaders, provider, authType)
 	for k, v := range customHeaders {
 		req.Header.Set(k, v)
 	}

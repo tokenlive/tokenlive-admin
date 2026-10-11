@@ -13,7 +13,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
-	"github.com/tokenlive/tokenlive-admin/pkg/gatewaykeys"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
@@ -221,7 +221,7 @@ func (a *UserAPIKey) Delete(ctx context.Context, id string) error {
 	if a.RedisClient != nil {
 		util.ClearGatewayConfigCache()
 		_ = a.RedisClient.Del(ctx, apiKeyRuntimeRedisKeys(apiKey.APIKey)...).Err()
-		_ = a.RedisClient.Publish(ctx, "aigw:channel:apikey_update", "purge").Err()
+		_ = a.RedisClient.Publish(ctx, gatewaycontract.Keys.Channel.APIKeyUpdate(), gatewaycontract.PurgePayload).Err()
 	}
 	util.NotifyConfigChanged(ctx, util.ConfigChangeAPIKeys)
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypeAPIKey, apiKey.ID, apiKey.Name, apiKey, nil)
@@ -262,7 +262,7 @@ func (a *UserAPIKey) syncToRedis(ctx context.Context, apiKey *schema.UserAPIKey)
 		util.ClearGatewayConfigCache()
 		err := a.RedisClient.Del(ctx, apiKeyRuntimeRedisKeys(apiKey.APIKey)...).Err()
 		if err == nil {
-			_ = a.RedisClient.Publish(ctx, "aigw:channel:apikey_update", "purge").Err()
+			_ = a.RedisClient.Publish(ctx, gatewaycontract.Keys.Channel.APIKeyUpdate(), gatewaycontract.PurgePayload).Err()
 			util.NotifyConfigChanged(ctx, util.ConfigChangeAPIKeys)
 		}
 		return err
@@ -293,14 +293,14 @@ func (a *UserAPIKey) syncToRedis(ctx context.Context, apiKey *schema.UserAPIKey)
 		return err
 	}
 	util.ClearGatewayConfigCache()
-	_ = a.RedisClient.Publish(ctx, "aigw:channel:apikey_update", "purge").Err()
+	_ = a.RedisClient.Publish(ctx, gatewaycontract.Keys.Channel.APIKeyUpdate(), gatewaycontract.PurgePayload).Err()
 	util.NotifyConfigChanged(ctx, util.ConfigChangeAPIKeys)
 	return nil
 }
 
 func apiKeyRuntimeRedisKey(apiKey string) string {
-	keyHash := gatewaykeys.HashAPIKey(apiKey, config.C.Gateway.APIKeyPepper)
-	return gatewaykeys.RedisKeyAPIKeyHash(keyHash)
+	keyHash := gatewaycontract.HashAPIKey(apiKey, config.C.Gateway.APIKeyPepper)
+	return gatewaycontract.Keys.APIKey.Hash(keyHash)
 }
 
 func apiKeyRuntimeRedisKeys(apiKey string) []string {

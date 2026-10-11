@@ -21,7 +21,7 @@ const (
 
 // RedisStreamConfig holds Redis Stream consumer configuration.
 type RedisStreamConfig struct {
-	StreamKey     string // e.g. "aigw:events:policy"
+	StreamKey     string // gatewaycontract.Keys.Events.Policy unless config overrides it
 	ConsumerGroup string // e.g. "admin-consumer"
 	BatchSize     int64
 	BlockTimeout  time.Duration

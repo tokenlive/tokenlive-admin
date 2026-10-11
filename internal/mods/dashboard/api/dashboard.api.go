@@ -20,6 +20,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/biz"
 	rschema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
@@ -246,8 +247,8 @@ func (a *Dashboard) QueryCircuitBreakers(c *gin.Context) {
 	var endpoints []string
 	var services []string
 	if a.RedisClient != nil {
-		endpoints, _ = a.RedisClient.SMembers(ctx, "aigw:cb:open_endpoints").Result()
-		services, _ = a.RedisClient.SMembers(ctx, "aigw:cb:open_services").Result()
+		endpoints, _ = a.RedisClient.SMembers(ctx, gatewaycontract.Keys.Circuit.OpenEndpoints).Result()
+		services, _ = a.RedisClient.SMembers(ctx, gatewaycontract.Keys.Circuit.OpenServices).Result()
 	} else {
 		endpoints = metrics.GlobalStore.GetOpenEndpoints()
 		services = metrics.GlobalStore.GetOpenServices()
@@ -352,8 +353,8 @@ func (a *Dashboard) getOverview(ctx context.Context) (*OverviewResponse, error) 
 		if a.RedisClient != nil {
 			// 降级：从 Redis 计算 QPS
 			minute := time.Now().Unix() / 60
-			sKey := fmt.Sprintf("aigw:status:global:%d:s", minute-1)
-			fKey := fmt.Sprintf("aigw:status:global:%d:f", minute-1)
+			sKey := gatewaycontract.Keys.Status.Global(minute-1, gatewaycontract.MetricSuccess)
+			fKey := gatewaycontract.Keys.Status.Global(minute-1, gatewaycontract.MetricFailure)
 
 			vals, err := a.RedisClient.MGet(ctx, sKey, fKey).Result()
 			if err == nil && len(vals) == 2 {
@@ -366,8 +367,8 @@ func (a *Dashboard) getOverview(ctx context.Context) (*OverviewResponse, error) 
 				}
 				total := succ + fail
 				if total <= 0 {
-					sKeyCurr := fmt.Sprintf("aigw:status:global:%d:s", minute)
-					fKeyCurr := fmt.Sprintf("aigw:status:global:%d:f", minute)
+					sKeyCurr := gatewaycontract.Keys.Status.Global(minute, gatewaycontract.MetricSuccess)
+					fKeyCurr := gatewaycontract.Keys.Status.Global(minute, gatewaycontract.MetricFailure)
 					valsCurr, errCurr := a.RedisClient.MGet(ctx, sKeyCurr, fKeyCurr).Result()
 					if errCurr == nil && len(valsCurr) == 2 {
 						var succC, failC int64
@@ -397,12 +398,12 @@ func (a *Dashboard) getOverview(ctx context.Context) (*OverviewResponse, error) 
 	// 2. 获取今日自然日累计值 (Redis 或 内存)
 	if a.RedisClient != nil {
 		dateStr := time.Now().Format("2006-01-02")
-		dailyReqKey := fmt.Sprintf("aigw:status:daily:req:%s", dateStr)
-		dailyPromptKey := fmt.Sprintf("aigw:status:daily:input_tokens:%s", dateStr)
-		dailyCompletionKey := fmt.Sprintf("aigw:status:daily:output_tokens:%s", dateStr)
-		dailyCachedKey := fmt.Sprintf("aigw:status:daily:cached_tokens:%s", dateStr)
-		dailyCacheCreationKey := fmt.Sprintf("aigw:status:daily:cache_creation_tokens:%s", dateStr)
-		dailyCostKey := fmt.Sprintf("aigw:status:daily:cost:%s", dateStr)
+		dailyReqKey := gatewaycontract.Keys.Status.Daily(gatewaycontract.DailyRequests, dateStr)
+		dailyPromptKey := gatewaycontract.Keys.Status.Daily(gatewaycontract.DailyInputTokens, dateStr)
+		dailyCompletionKey := gatewaycontract.Keys.Status.Daily(gatewaycontract.DailyOutputTokens, dateStr)
+		dailyCachedKey := gatewaycontract.Keys.Status.Daily(gatewaycontract.DailyCachedTokens, dateStr)
+		dailyCacheCreationKey := gatewaycontract.Keys.Status.Daily(gatewaycontract.DailyCacheCreationTokens, dateStr)
+		dailyCostKey := gatewaycontract.Keys.Status.Daily(gatewaycontract.DailyCost, dateStr)
 
 		vals, err := a.RedisClient.MGet(ctx, dailyReqKey, dailyPromptKey, dailyCompletionKey, dailyCachedKey, dailyCacheCreationKey, dailyCostKey).Result()
 		if err == nil && len(vals) == 6 {
@@ -478,8 +479,8 @@ func (a *Dashboard) getCircuitBreakers(ctx context.Context) []CircuitBreakerInfo
 	var endpoints []string
 	var services []string
 	if a.RedisClient != nil {
-		endpoints, _ = a.RedisClient.SMembers(ctx, "aigw:cb:open_endpoints").Result()
-		services, _ = a.RedisClient.SMembers(ctx, "aigw:cb:open_services").Result()
+		endpoints, _ = a.RedisClient.SMembers(ctx, gatewaycontract.Keys.Circuit.OpenEndpoints).Result()
+		services, _ = a.RedisClient.SMembers(ctx, gatewaycontract.Keys.Circuit.OpenServices).Result()
 	} else {
 		endpoints = metrics.GlobalStore.GetOpenEndpoints()
 		services = metrics.GlobalStore.GetOpenServices()
@@ -902,8 +903,8 @@ func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCo
 				keys := make([]string, numMinutes*2)
 				for i := 0; i < numMinutes; i++ {
 					minute := firstMinute + int64(i)
-					keys[i*2] = fmt.Sprintf("aigw:status:endpoint:%s:%d:s", epID, minute)
-					keys[i*2+1] = fmt.Sprintf("aigw:status:endpoint:%s:%d:f", epID, minute)
+					keys[i*2] = gatewaycontract.Keys.Status.Endpoint(epID, minute, gatewaycontract.MetricSuccess)
+					keys[i*2+1] = gatewaycontract.Keys.Status.Endpoint(epID, minute, gatewaycontract.MetricFailure)
 				}
 				vals, err := a.RedisClient.MGet(ctx, keys...).Result()
 				series := TrendsSeries{
@@ -952,8 +953,8 @@ func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCo
 			keys := make([]string, numMinutes*2)
 			for i := 0; i < numMinutes; i++ {
 				minute := firstMinute + int64(i)
-				keys[i*2] = fmt.Sprintf("aigw:status:model:%s:%d:s", resolvedModelCode, minute)
-				keys[i*2+1] = fmt.Sprintf("aigw:status:model:%s:%d:f", resolvedModelCode, minute)
+				keys[i*2] = gatewaycontract.Keys.Status.Model(resolvedModelCode, minute, gatewaycontract.MetricSuccess)
+				keys[i*2+1] = gatewaycontract.Keys.Status.Model(resolvedModelCode, minute, gatewaycontract.MetricFailure)
 			}
 			vals, err := a.RedisClient.MGet(ctx, keys...).Result()
 			series := TrendsSeries{
@@ -997,8 +998,8 @@ func (a *Dashboard) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCo
 			keys := make([]string, fallbackMinutes*2)
 			for i := 0; i < fallbackMinutes; i++ {
 				ts := minute - int64(fallbackMinutes-1-i)
-				keys[i*2] = fmt.Sprintf("aigw:status:global:%d:s", ts)
-				keys[i*2+1] = fmt.Sprintf("aigw:status:global:%d:f", ts)
+				keys[i*2] = gatewaycontract.Keys.Status.Global(ts, gatewaycontract.MetricSuccess)
+				keys[i*2+1] = gatewaycontract.Keys.Status.Global(ts, gatewaycontract.MetricFailure)
 			}
 			vals, err = a.RedisClient.MGet(ctx, keys...).Result()
 		} else {
@@ -1232,12 +1233,12 @@ func (a *Dashboard) getModelPerformanceFallback(
 		for i := 0; i < numMinutes; i++ {
 			minute := firstMinute + int64(i)
 			offset := i * keysPerMinute
-			keys[offset] = fmt.Sprintf("aigw:status:model:%s:%d:s", modelCode, minute)
-			keys[offset+1] = fmt.Sprintf("aigw:status:model:%s:%d:f", modelCode, minute)
-			keys[offset+2] = fmt.Sprintf("aigw:status:model:%s:%d:ttft_sum", modelCode, minute)
-			keys[offset+3] = fmt.Sprintf("aigw:status:model:%s:%d:ttft_cnt", modelCode, minute)
-			keys[offset+4] = fmt.Sprintf("aigw:status:model:%s:%d:out", modelCode, minute)
-			keys[offset+5] = fmt.Sprintf("aigw:status:model:%s:%d:dur_ms", modelCode, minute)
+			keys[offset] = gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricSuccess)
+			keys[offset+1] = gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricFailure)
+			keys[offset+2] = gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricTTFTSum)
+			keys[offset+3] = gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricTTFTCount)
+			keys[offset+4] = gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricOutputTokens)
+			keys[offset+5] = gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricDurationMs)
 		}
 
 		values = values[:0]
@@ -1675,8 +1676,8 @@ func (a *Dashboard) getModelRankingAt(ctx context.Context, sortBy, timeRange str
 				for i := 0; i < numMinutes; i++ {
 					minute := currentMin - int64(numMinutes-1-i)
 					keys = append(keys,
-						fmt.Sprintf("aigw:status:model:%s:%d:s", m.ModelCode, minute),
-						fmt.Sprintf("aigw:status:model:%s:%d:f", m.ModelCode, minute),
+						gatewaycontract.Keys.Status.Model(m.ModelCode, minute, gatewaycontract.MetricSuccess),
+						gatewaycontract.Keys.Status.Model(m.ModelCode, minute, gatewaycontract.MetricFailure),
 					)
 				}
 			}

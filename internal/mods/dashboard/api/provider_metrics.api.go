@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	rschema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
@@ -349,8 +350,8 @@ func (a *Dashboard) fillProviderStatusFromRedis(
 			for m := 0; m < minutes; m++ {
 				minute := currentMinute - int64(minutes-1-m)
 				keys = append(keys,
-					fmt.Sprintf("aigw:status:provider:%s:%d:s", storeKey, minute),
-					fmt.Sprintf("aigw:status:provider:%s:%d:f", storeKey, minute),
+					gatewaycontract.Keys.Status.Provider(storeKey, minute, gatewaycontract.MetricSuccess),
+					gatewaycontract.Keys.Status.Provider(storeKey, minute, gatewaycontract.MetricFailure),
 				)
 			}
 		}

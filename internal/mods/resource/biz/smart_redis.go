@@ -7,11 +7,10 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm/clause"
 )
-
-const RedisKeySmartRoutingPrefix = "aigw:config:smart_routing:"
 
 // The version increment is first: Redis rejects a bad version hash before
 // changing any routing keys. Lua keeps readers from seeing a half publication.
@@ -56,7 +55,7 @@ func (s *ConfigRedisSync) publishSmartRouting(ctx context.Context, model *schema
 		if err != nil {
 			return err
 		}
-		return s.publishRoutingVersion(ctx, model.ModelCode, RedisKeySmartRoutingPrefix+model.ModelCode, "aigw:config:endpoints:"+model.ModelCode, data, runtime.Version)
+		return s.publishRoutingVersion(ctx, model.ModelCode, gatewaycontract.Keys.Config.SmartRouting(model.ModelCode), gatewaycontract.Keys.Config.Endpoints(model.ModelCode), data, runtime.Version)
 	})
 }
 
@@ -65,7 +64,7 @@ func (s *ConfigRedisSync) publishRouting(ctx context.Context, code, activeKey, o
 }
 
 func (s *ConfigRedisSync) publishRoutingVersion(ctx context.Context, code, activeKey, obsoleteKey string, data []byte, version any) error {
-	if _, err := publishRoutingScript.Run(ctx, s.RedisClient, []string{activeKey, obsoleteKey, RedisKeyConfigModelVersions}, code, string(data), version).Result(); err != nil {
+	if _, err := publishRoutingScript.Run(ctx, s.RedisClient, []string{activeKey, obsoleteKey, gatewaycontract.Keys.Config.ModelVersions()}, code, string(data), version).Result(); err != nil {
 		return err
 	}
 	ClearGatewayConfigCache()
@@ -74,7 +73,7 @@ func (s *ConfigRedisSync) publishRoutingVersion(ctx context.Context, code, activ
 }
 
 func (s *ConfigRedisSync) deleteRouting(ctx context.Context, code string) error {
-	if _, err := deleteRoutingScript.Run(ctx, s.RedisClient, []string{RedisKeySmartRoutingPrefix + code, "aigw:config:endpoints:" + code, RedisKeyConfigModelVersions}, code).Result(); err != nil {
+	if _, err := deleteRoutingScript.Run(ctx, s.RedisClient, []string{gatewaycontract.Keys.Config.SmartRouting(code), gatewaycontract.Keys.Config.Endpoints(code), gatewaycontract.Keys.Config.ModelVersions()}, code).Result(); err != nil {
 		return err
 	}
 	ClearGatewayConfigCache()

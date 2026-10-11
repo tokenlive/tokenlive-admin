@@ -7,7 +7,7 @@ import (
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/dashboard/schema"
 	rbac "github.com/tokenlive/tokenlive-admin/internal/mods/rbac/schema"
-	"github.com/tokenlive/tokenlive-admin/pkg/gatewaykeys"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 )
 
 type localKeyIdentity struct {
@@ -63,7 +63,7 @@ func (r *IdentityResolver) localMetadata(ctx context.Context) *localSnapshot {
 		if r.pepper == "" || key.APIKey == "" {
 			continue
 		}
-		hash := gatewaykeys.HashAPIKey(key.APIKey, r.pepper)
+		hash := gatewaycontract.HashAPIKey(key.APIKey, r.pepper)
 		snapshot.byID[key.ID] = localKeyIdentity{userID: key.UserID, hash: hash}
 		status := "unknown"
 		switch key.Status {
@@ -87,7 +87,7 @@ func (r *IdentityResolver) localMetadata(ctx context.Context) *localSnapshot {
 		if tenant.Status == rbac.TenantStatusActivated {
 			status = "enabled"
 		}
-		put(gatewaykeys.HashAPIKey(tenant.APIKey, r.pepper), schema.Metadata{
+		put(gatewaycontract.HashAPIKey(tenant.APIKey, r.pepper), schema.Metadata{
 			KeyName: tenant.Name + " · API Key", Display: rbac.MaskAPIKey(tenant.APIKey), Source: "tenant",
 			KeyStatus: currentKeyStatus(status, tenant.Deleted, tenant.DeletedAt, nil, r.now()), MetadataStatus: "ready",
 			Owner: schema.Owner{Kind: "tenant", ID: tenant.Code, Name: tenant.Name},

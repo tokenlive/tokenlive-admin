@@ -133,7 +133,7 @@ type Storage struct {
 	}
 	EventQueue struct {
 		Type          string `default:"redis"`              // redis | kafka
-		Topic         string `default:"aigw:events:policy"` // stream/topic name
+		Topic         string `default:"aigw:events:policy"` // stream/topic name; keep equal to gatewaycontract.Keys.Events.Policy
 		ConsumerGroup string `default:"admin-consumer"`     // consumer group name
 		Kafka         struct {
 			Brokers []string

@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	rschema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
@@ -540,10 +541,10 @@ func TestGetModelPerformanceTrendsFallsBackToRedisForOneHour(t *testing.T) {
 	minute := end.Unix() / 60
 	modelCode := "gpt-test"
 	values := map[string]interface{}{
-		fmt.Sprintf("aigw:status:model:%s:%d:ttft_sum", modelCode, minute): "500",
-		fmt.Sprintf("aigw:status:model:%s:%d:ttft_cnt", modelCode, minute): "2",
-		fmt.Sprintf("aigw:status:model:%s:%d:out", modelCode, minute):      "80",
-		fmt.Sprintf("aigw:status:model:%s:%d:dur_ms", modelCode, minute):   "2000",
+		gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricTTFTSum):      "500",
+		gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricTTFTCount):    "2",
+		gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricOutputTokens): "80",
+		gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricDurationMs):   "2000",
 	}
 	redisClient := redis.NewClient(&redis.Options{Addr: "unused:6379"})
 	redisClient.AddHook(performanceRedisHook{values: values})
@@ -649,16 +650,16 @@ func TestGetTrendsEndpointFallsBackToRedis(t *testing.T) {
 		Deleted:   "0",
 	}).Error)
 	require.NoError(t, db.Create(&rschema.Endpoint{
-		ID:       endpointID,
-		Code:     "ep-test",
-		ModelID:  "model-1",
-		Enabled:  1,
-		Deleted:  "0",
+		ID:      endpointID,
+		Code:    "ep-test",
+		ModelID: "model-1",
+		Enabled: 1,
+		Deleted: "0",
 	}).Error)
 
 	values := map[string]interface{}{
-		fmt.Sprintf("aigw:status:endpoint:%s:%d:s", endpointID, minute): "5",
-		fmt.Sprintf("aigw:status:endpoint:%s:%d:f", endpointID, minute): "1",
+		gatewaycontract.Keys.Status.Endpoint(endpointID, minute, gatewaycontract.MetricSuccess): "5",
+		gatewaycontract.Keys.Status.Endpoint(endpointID, minute, gatewaycontract.MetricFailure): "1",
 	}
 	redisClient := redis.NewClient(&redis.Options{Addr: "unused:6379"})
 	redisClient.AddHook(performanceRedisHook{values: values})
@@ -713,8 +714,8 @@ func TestGetTrendsModelFallsBackToRedis(t *testing.T) {
 	modelCode := "gpt-test-model"
 
 	values := map[string]interface{}{
-		fmt.Sprintf("aigw:status:model:%s:%d:s", modelCode, minute): "10",
-		fmt.Sprintf("aigw:status:model:%s:%d:f", modelCode, minute): "2",
+		gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricSuccess): "10",
+		gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricFailure): "2",
 	}
 	redisClient := redis.NewClient(&redis.Options{Addr: "unused:6379"})
 	redisClient.AddHook(performanceRedisHook{values: values})

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -23,8 +24,8 @@ func TestSmartLateDisablePublicationKeepsLatestEnable(t *testing.T) {
 	current, err := b.ModelDAL.Get(ctx, before.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, current.Enabled)
-	require.True(t, server.Exists(RedisKeySmartRoutingPrefix+"smart"))
-	require.NotEmpty(t, server.HGet(RedisKeyConfigModelVersions, "smart"))
+	require.True(t, server.Exists(gatewaycontract.Keys.Config.SmartRouting("smart")))
+	require.NotEmpty(t, server.HGet(gatewaycontract.Keys.Config.ModelVersions(), "smart"))
 }
 
 func TestSmartSyncRetryRepairsFailedAvailability(t *testing.T) {
@@ -40,11 +41,11 @@ func TestSmartSyncRetryRepairsFailedAvailability(t *testing.T) {
 	require.Equal(t, "failed", form.Result.SyncStatus)
 	server.SetError("")
 	require.NoError(t, b.Sync(ctx, "a"))
-	raw, err := server.Get(RedisKeySmartRoutingPrefix + "smart")
+	raw, err := server.Get(gatewaycontract.Keys.Config.SmartRouting("smart"))
 	require.NoError(t, err)
 	require.Contains(t, raw, `"judge_model":"a"`)
 	require.Contains(t, raw, `"version":1`)
-	require.True(t, server.Exists("aigw:config:endpoints:a"))
+	require.True(t, server.Exists(gatewaycontract.Keys.Config.Endpoints("a")))
 }
 
 func TestSmartDeletedCodeReuseDoesNotInheritFormerOwnerAccess(t *testing.T) {
@@ -58,11 +59,11 @@ func TestSmartDeletedCodeReuseDoesNotInheritFormerOwnerAccess(t *testing.T) {
 	require.NoError(t, db.Create(&schema.Model{ID: "reused", ModelCode: "a", ModelName: "Reused", SpaceCode: "default", Enabled: 1, RequestTypes: `["chat_completion"]`}).Error)
 	require.NoError(t, db.Create(&schema.Endpoint{ID: "ep-reused", Code: "ep-reused", ModelID: "reused", ProviderID: "provider", Enabled: 1, Protocol: "openai", URL: "https://reused.example.test/v1"}).Error)
 	require.NoError(t, sync.SyncModelByCode(ctx, "a"))
-	reusedJSON, err := server.Get("aigw:config:endpoints:a")
+	reusedJSON, err := server.Get(gatewaycontract.Keys.Config.Endpoints("a"))
 	require.NoError(t, err)
 	require.Contains(t, reusedJSON, "ep-reused")
 	require.NoError(t, b.Sync(ctx, "b"))
-	after, err := server.Get("aigw:config:endpoints:a")
+	after, err := server.Get(gatewaycontract.Keys.Config.Endpoints("a"))
 	require.NoError(t, err)
 	require.JSONEq(t, reusedJSON, after, "reused code belongs to a different model and must not be deleted")
 }
@@ -115,7 +116,7 @@ func TestSmartAvailabilityFailureDoesNotClaimCompletePublication(t *testing.T) {
 			require.NoError(t, db.Exec("CREATE TABLE tenant_endpoint (tenant_code TEXT, endpoint_id TEXT)").Error)
 			require.NoError(t, db.Exec("INSERT INTO tenant_model (tenant_code, model_id) VALUES (?, ?)", "tenant-a", model.ID).Error)
 			require.NoError(t, b.ModelDAL.UpdateEnabled(ctx, model.ID, 1-state.enabled, "alice"))
-			server.Set("aigw:tenant:tenant-a:models", "wrong-type")
+			server.Set(gatewaycontract.Keys.Tenant.Models("tenant-a"), "wrong-type")
 			form := &schema.ModelEnabledForm{Enabled: state.enabled}
 			require.NoError(t, b.ToggleEnabled(ctx, model.ID, form))
 			require.Equal(t, "failed", form.Result.SyncStatus, "routing alone is not complete publication when tenant binding publication failed")
@@ -134,7 +135,7 @@ func TestSmartReusedCodeRecoveryRebuildsTenantAccessFromCurrentOwner(t *testing.
 		require.NoError(t, db.Exec("INSERT INTO tenant_endpoint (tenant_code, endpoint_id) VALUES (?, 'ep-a')", tenant).Error)
 	}
 	require.NoError(t, b.Sync(ctx, "a"))
-	require.NoError(t, sync.RedisClient.SAdd(ctx, "aigw:tenant:old-only:models", "unrelated").Err())
+	require.NoError(t, sync.RedisClient.SAdd(ctx, gatewaycontract.Keys.Tenant.Models("old-only"), "unrelated").Err())
 	require.NoError(t, db.Exec("DELETE FROM tenant_model WHERE model_id = 'a'").Error)
 	require.NoError(t, db.Exec("DELETE FROM tenant_endpoint WHERE endpoint_id = 'ep-a'").Error)
 	require.NoError(t, db.Exec("DELETE FROM endpoint WHERE model_id = 'a'").Error)
@@ -149,19 +150,19 @@ func TestSmartReusedCodeRecoveryRebuildsTenantAccessFromCurrentOwner(t *testing.
 		require.NoError(t, db.Exec("INSERT INTO tenant_endpoint (tenant_code, endpoint_id) VALUES (?, 'ep-reused')", tenant).Error)
 	}
 	require.NoError(t, sync.SyncModelByCode(ctx, "a"))
-	routing, err := server.Get("aigw:config:endpoints:a")
+	routing, err := server.Get(gatewaycontract.Keys.Config.Endpoints("a"))
 	require.NoError(t, err)
 	for _, tenant := range []string{"new-only", "unrestricted", "orphan"} {
-		require.NoError(t, sync.RedisClient.SAdd(ctx, "aigw:tenant:"+tenant+":models", "a", "unrelated").Err())
+		require.NoError(t, sync.RedisClient.SAdd(ctx, gatewaycontract.Keys.Tenant.Models(tenant), "a", "unrelated").Err())
 		endpoint := "ep-a"
 		if tenant == "new-only" {
 			endpoint = "ep-reused"
 		}
-		require.NoError(t, sync.RedisClient.SAdd(ctx, "aigw:tenant:"+tenant+":model:a:endpoints", endpoint).Err())
+		require.NoError(t, sync.RedisClient.SAdd(ctx, gatewaycontract.Keys.Tenant.Endpoints(tenant, "a"), endpoint).Err())
 	}
 
 	require.NoError(t, sync.syncModelAvailability(ctx, "a", "a"))
-	after, err := server.Get("aigw:config:endpoints:a")
+	after, err := server.Get(gatewaycontract.Keys.Config.Endpoints("a"))
 	require.NoError(t, err)
 	require.JSONEq(t, routing, after, "preserve the current owner's routing")
 	for _, tc := range []struct {
@@ -176,10 +177,10 @@ func TestSmartReusedCodeRecoveryRebuildsTenantAccessFromCurrentOwner(t *testing.
 		{"orphan", []string{"unrelated"}, nil},
 	} {
 		t.Run(tc.tenant, func(t *testing.T) {
-			members, err := sync.RedisClient.SMembers(ctx, "aigw:tenant:"+tc.tenant+":models").Result()
+			members, err := sync.RedisClient.SMembers(ctx, gatewaycontract.Keys.Tenant.Models(tc.tenant)).Result()
 			require.NoError(t, err)
 			require.ElementsMatch(t, tc.allowed, members)
-			endpoints, err := sync.RedisClient.SMembers(ctx, "aigw:tenant:"+tc.tenant+":model:a:endpoints").Result()
+			endpoints, err := sync.RedisClient.SMembers(ctx, gatewaycontract.Keys.Tenant.Endpoints(tc.tenant, "a")).Result()
 			require.NoError(t, err)
 			require.ElementsMatch(t, tc.endpoints, endpoints)
 		})
