@@ -5,7 +5,6 @@ import (
 	"time"
 
 	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
-	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	resourceDal "github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
@@ -23,36 +22,84 @@ type PolicyTagging struct {
 	AuditLogBIZ       *opsBiz.AuditLog
 }
 
+func (a *PolicyTagging) lifecycle() policyLifecycle {
+	return policyLifecycle{
+		modelDAL:          a.ModelDAL,
+		dataPermissionDAL: a.DataPermissionDAL,
+		trans:             a.Trans,
+		syncer:            a.PolicyRedisSync,
+		audit:             a.AuditLogBIZ,
+		store:             taggingStore{a.PolicyTaggingDAL},
+		kind:              "tagging",
+		blankActorIsSet:   true,
+		notFound:          func() error { return errors.NotFound("", "Policy tagging not found") },
+		duplicate:         func() error { return errors.BadRequest("", "Policy tagging with the same name already exists") },
+	}
+}
+
+type taggingStore struct{ dal *dal.PolicyTagging }
+
+func (s taggingStore) get(ctx context.Context, id string) (policyRecord, bool, error) {
+	item, err := s.dal.Get(ctx, id)
+	if err != nil || item == nil {
+		return policyRecord{}, false, err
+	}
+	return policyRecord{
+		ID: item.ID, ModelID: item.ModelID, ScopeType: item.ScopeType, ScopeCode: item.ScopeCode,
+		Priority: item.Priority, Name: item.Name, Enabled: item.Enabled, Creator: item.Creator, Modifier: item.Modifier,
+	}, true, nil
+}
+
+func (s taggingStore) existsName(ctx context.Context, scopeType, scopeCode, modelID, name string) (bool, error) {
+	return s.dal.ExistsByName(ctx, scopeType, scopeCode, modelID, name)
+}
+
+func (s taggingStore) updateEnabled(ctx context.Context, id string, enabled int, modifier string) error {
+	return s.dal.UpdateEnabled(ctx, id, enabled, modifier)
+}
+
+func (s taggingStore) delete(ctx context.Context, id string) error {
+	return s.dal.Delete(ctx, id)
+}
+
+type taggingForm struct{ *schema.PolicyTaggingForm }
+
+func (f taggingForm) modelID() string   { return f.ModelID }
+func (f taggingForm) scopeType() string { return f.ScopeType }
+func (f taggingForm) scopeCode() string { return f.ScopeCode }
+func (f taggingForm) name() string      { return f.Name }
+
 // Query policy taggings from the data access object based on the provided parameters and options.
 func (a *PolicyTagging) Query(ctx context.Context, params schema.PolicyTaggingQueryParam) (*schema.PolicyTaggingQueryResult, error) {
 	params.Pagination = false
 
-	result, err := a.PolicyTaggingDAL.Query(ctx, params, schema.PolicyTaggingQueryOptions{
+	return a.PolicyTaggingDAL.Query(ctx, params, schema.PolicyTaggingQueryOptions{
 		QueryOptions: util.QueryOptions{
 			OrderFields: []util.OrderByParam{
 				{Field: "created_at", Direction: util.DESC},
 			},
 		},
 	})
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
 }
 
 // Get the specified policy tagging from the data access object.
 func (a *PolicyTagging) Get(ctx context.Context, id string) (*schema.PolicyTaggingForm, error) {
-	policyTagging, err := a.PolicyTaggingDAL.Get(ctx, id)
+	item, ok, err := a.lifecycle().store.get(ctx, id)
 	if err != nil {
 		return nil, err
-	} else if policyTagging == nil {
-		return nil, errors.NotFound("", "Policy tagging not found")
 	}
-	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyTagging.ModelID, modelPermissionRead); err != nil {
+	if !ok {
+		return nil, a.lifecycle().notFound()
+	}
+	if err := a.lifecycle().require(ctx, item.ModelID, modelPermissionRead); err != nil {
+		return nil, err
+	}
+	stored, err := a.PolicyTaggingDAL.Get(ctx, id)
+	if err != nil {
 		return nil, err
 	}
 	var form schema.PolicyTaggingForm
-	if err := policyTagging.ConvertTo(&form); err != nil {
+	if err := stored.ConvertTo(&form); err != nil {
 		return nil, err
 	}
 	return &form, nil
@@ -60,204 +107,120 @@ func (a *PolicyTagging) Get(ctx context.Context, id string) (*schema.PolicyTaggi
 
 // Create a new policy tagging in the data access object.
 func (a *PolicyTagging) Create(ctx context.Context, formItem *schema.PolicyTaggingForm) (*schema.PolicyTagging, error) {
-	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite); err != nil {
-		return nil, err
-	}
-
-	if exists, err := a.PolicyTaggingDAL.ExistsByName(ctx, formItem.ScopeType, formItem.ScopeCode, formItem.ModelID, formItem.Name); err != nil {
-		return nil, err
-	} else if exists {
-		return nil, errors.BadRequest("", "Policy tagging with the same name already exists")
-	}
-
-	creator := util.FromUsername(ctx)
-	policyTagging := &schema.PolicyTagging{
-		ID:        util.NewXID(),
-		Deleted:   "0",
-		Creator:   &creator,
-		CreatedAt: time.Now(),
-	}
-
-	if err := formItem.FillTo(policyTagging); err != nil {
-		return nil, err
-	}
-
-	err := a.Trans.Exec(ctx, func(ctx context.Context) error {
-		return a.PolicyTaggingDAL.Create(ctx, policyTagging)
-	})
+	life := a.lifecycle()
+	prepared, err := life.prepareCreate(ctx, taggingForm{formItem})
 	if err != nil {
 		return nil, err
 	}
-	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "tagging", "create", policyTagging.ScopeType, policyTagging.ScopeCode, policyTagging.ModelID)
-
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyTagging.ID, policyTagging.Name, nil, policyTagging)
-
-	return policyTagging, nil
+	item := &schema.PolicyTagging{
+		ID:        prepared.ID,
+		Deleted:   "0",
+		Creator:   prepared.Creator,
+		CreatedAt: time.Now(),
+	}
+	if err := formItem.FillTo(item); err != nil {
+		return nil, err
+	}
+	if err := a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyTaggingDAL.Create(ctx, item)
+	}); err != nil {
+		return nil, err
+	}
+	life.afterCreate(ctx, recordOfTagging(item), item)
+	return item, nil
 }
 
 // Update the specified policy tagging in the data access object.
 func (a *PolicyTagging) Update(ctx context.Context, id string, formItem *schema.PolicyTaggingForm) error {
-	policyTagging, err := a.PolicyTaggingDAL.Get(ctx, id)
-	if err != nil {
-		return err
-	} else if policyTagging == nil {
-		return errors.NotFound("", "Policy tagging not found")
-	}
-	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyTagging.ModelID, modelPermissionWrite); err != nil {
-		return err
-	}
-	if err := rejectPolicyKindChange(policyTagging.ModelID, formItem.ModelID); err != nil {
-		return err
-	}
-	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite); err != nil {
-		return err
-	}
-
-	// If unique key fields changed, ensure the new combination is not occupied.
-	if policyTagging.ModelID != formItem.ModelID || policyTagging.Name != formItem.Name {
-		if exists, err := a.PolicyTaggingDAL.ExistsByName(ctx, formItem.ScopeType, formItem.ScopeCode, formItem.ModelID, formItem.Name); err != nil {
-			return err
-		} else if exists {
-			return errors.BadRequest("", "Policy tagging with the same name already exists")
-		}
-	}
-
-	beforePolicy := *policyTagging
-
-	if err := formItem.FillTo(policyTagging); err != nil {
-		return err
-	}
-	modifier := util.FromUsername(ctx)
-	policyTagging.Modifier = &modifier
-	policyTagging.UpdatedAt = time.Now()
-
-	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		return a.PolicyTaggingDAL.Update(ctx, policyTagging)
-	})
+	life := a.lifecycle()
+	before, err := life.beginUpdate(ctx, id, taggingForm{formItem})
 	if err != nil {
 		return err
 	}
-
-	// 级联同步引用此策略的维度到 Redis
-	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "tagging", "update_old_dimension", beforePolicy.ScopeType, beforePolicy.ScopeCode, beforePolicy.ModelID)
-	if beforePolicy.ScopeType != policyTagging.ScopeType || beforePolicy.ScopeCode != policyTagging.ScopeCode || beforePolicy.ModelID != policyTagging.ModelID {
-		_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "tagging", "update_new_dimension", policyTagging.ScopeType, policyTagging.ScopeCode, policyTagging.ModelID)
+	item, err := a.PolicyTaggingDAL.Get(ctx, id)
+	if err != nil {
+		return err
 	}
-
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyTagging.ID, policyTagging.Name, beforePolicy, policyTagging)
-
+	beforeStored := *item
+	if err := formItem.FillTo(item); err != nil {
+		return err
+	}
+	item.UpdatedAt = time.Now()
+	if modifier, set := life.modifier(ctx); set {
+		item.Modifier = modifier
+	}
+	if err := a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyTaggingDAL.Update(ctx, item)
+	}); err != nil {
+		return err
+	}
+	life.afterUpdate(ctx, before, recordOfTagging(item), &beforeStored, item)
 	return nil
 }
 
 // ToggleEnabled updates only the enabled status of a policy and re-syncs policy cache.
 func (a *PolicyTagging) ToggleEnabled(ctx context.Context, id string, formItem *schema.PolicyEnabledForm) error {
-	policyTagging, err := a.PolicyTaggingDAL.Get(ctx, id)
-	if err != nil {
-		return err
-	} else if policyTagging == nil {
-		return errors.NotFound("", "Policy tagging not found")
-	}
-	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyTagging.ModelID, modelPermissionWrite); err != nil {
-		return err
-	}
-	if policyTagging.Enabled == formItem.Enabled {
-		return nil
-	}
-
-	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		return a.PolicyTaggingDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
-	})
-	if err != nil {
-		return err
-	}
-
-	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "tagging", "toggle_enabled", policyTagging.ScopeType, policyTagging.ScopeCode, policyTagging.ModelID)
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyTagging.ID, policyTagging.Name, map[string]int{"enabled": policyTagging.Enabled}, map[string]int{"enabled": formItem.Enabled})
-	return nil
+	return a.lifecycle().toggle(ctx, id, formItem.Enabled)
 }
 
 // Delete the specified policy tagging from the data access object.
 func (a *PolicyTagging) Delete(ctx context.Context, id string) error {
-	policyTagging, err := a.PolicyTaggingDAL.Get(ctx, id)
-	if err != nil {
-		return err
-	} else if policyTagging == nil {
-		return errors.NotFound("", "Policy tagging not found")
-	}
-	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyTagging.ModelID, modelPermissionWrite); err != nil {
-		return err
-	}
-
-	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		return a.PolicyTaggingDAL.Delete(ctx, id)
-	})
+	life := a.lifecycle()
+	stored, err := a.PolicyTaggingDAL.Get(ctx, id)
 	if err != nil {
 		return err
 	}
-
-	// 级联同步引用此策略的维度到 Redis
-	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "tagging", "delete", policyTagging.ScopeType, policyTagging.ScopeCode, policyTagging.ModelID)
-
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyTagging.ID, policyTagging.Name, policyTagging, nil)
-
+	item, err := life.remove(ctx, id)
+	if err != nil {
+		return err
+	}
+	life.afterDelete(ctx, item, stored)
 	return nil
 }
 
 // CopyTemplateToModel copies a policy template into a model-owned policy instance.
 func (a *PolicyTagging) CopyTemplateToModel(ctx context.Context, templateID string, form *schema.PolicyCopyToModelForm) (*schema.PolicyTagging, error) {
-	template, err := a.PolicyTaggingDAL.Get(ctx, templateID)
-	if err != nil {
-		return nil, err
-	} else if template == nil {
-		return nil, errors.NotFound("", "Policy tagging not found")
-	}
-	if template.ModelID != "" {
-		return nil, errors.BadRequest("", "Only policy templates can be copied to a model")
-	}
-	if _, err := requireModelPermission(ctx, a.ModelDAL, a.DataPermissionDAL, form.ModelID, modelPermissionWrite); err != nil {
-		return nil, err
-	}
-	name := form.Name
-	if name == "" {
-		name = template.Name
-	}
-	name, err = nextPolicyName(ctx, name, form.ModelID, func(ctx context.Context, modelID, name string) (bool, error) {
-		return a.PolicyTaggingDAL.ExistsByName(ctx, "global", "", modelID, name)
-	})
+	life := a.lifecycle()
+	template, ok, err := life.store.get(ctx, templateID)
 	if err != nil {
 		return nil, err
 	}
-
-	instance := *template
-	instance.ID = util.NewXID()
-	instance.ModelID = form.ModelID
-	instance.Name = name
-	instance.Creator = nil
+	if !ok {
+		return nil, life.notFound()
+	}
+	copied, err := life.prepareCopy(ctx, template, form)
+	if err != nil {
+		return nil, err
+	}
+	stored, err := a.PolicyTaggingDAL.Get(ctx, templateID)
+	if err != nil {
+		return nil, err
+	}
+	instance := *stored
+	instance.ID = copied.ID
+	instance.ModelID = copied.ModelID
+	instance.Name = copied.Name
+	instance.ScopeType = copied.ScopeType
+	instance.ScopeCode = copied.ScopeCode
+	instance.Priority = copied.Priority
+	instance.Creator = copied.Creator
 	instance.Modifier = nil
-	instance.CreatedAt = time.Now()
+	instance.CreatedAt = copied.CreatedAt
 	instance.UpdatedAt = time.Time{}
 	instance.Deleted = "0"
 	instance.DeletedAt = nil
-	if form.ScopeType != nil {
-		instance.ScopeType = *form.ScopeType
-	}
-	if form.ScopeCode != nil {
-		instance.ScopeCode = *form.ScopeCode
-	}
-	if form.Priority != nil {
-		instance.Priority = *form.Priority
-	}
-	if username := util.FromUsername(ctx); username != "" {
-		instance.Creator = &username
-	}
-
-	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
+	if err := a.Trans.Exec(ctx, func(ctx context.Context) error {
 		return a.PolicyTaggingDAL.Create(ctx, &instance)
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
-	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "tagging", "copy_template_to_model", instance.ScopeType, instance.ScopeCode, instance.ModelID)
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, instance.ID, instance.Name, nil, &instance)
+	life.afterCopy(ctx, recordOfTagging(&instance), &instance)
 	return &instance, nil
+}
+
+func recordOfTagging(item *schema.PolicyTagging) policyRecord {
+	return policyRecord{
+		ID: item.ID, ModelID: item.ModelID, ScopeType: item.ScopeType, ScopeCode: item.ScopeCode,
+		Priority: item.Priority, Name: item.Name, Enabled: item.Enabled,
+	}
 }

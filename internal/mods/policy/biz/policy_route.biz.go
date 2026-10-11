@@ -5,7 +5,6 @@ import (
 	"time"
 
 	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
-	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	resourceDal "github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
@@ -23,266 +22,226 @@ type PolicyRoute struct {
 	AuditLogBIZ       *opsBiz.AuditLog
 }
 
+func (a *PolicyRoute) lifecycle() policyLifecycle {
+	return policyLifecycle{
+		modelDAL:          a.ModelDAL,
+		dataPermissionDAL: a.DataPermissionDAL,
+		trans:             a.Trans,
+		syncer:            a.PolicyRedisSync,
+		audit:             a.AuditLogBIZ,
+		store:             routeStore{a.PolicyRouteDAL},
+		kind:              "route",
+		notFound:          func() error { return errors.NotFound("", "Policy route not found") },
+		duplicate:         func() error { return errors.BadRequest("", "Policy route with the same name already exists") },
+	}
+}
+
+type routeStore struct{ dal *dal.PolicyRoute }
+
+func (s routeStore) get(ctx context.Context, id string) (policyRecord, bool, error) {
+	item, err := s.dal.Get(ctx, id)
+	if err != nil || item == nil {
+		return policyRecord{}, false, err
+	}
+	return policyRecord{
+		ID: item.ID, ModelID: item.ModelID, ScopeType: item.ScopeType, ScopeCode: item.ScopeCode,
+		Priority: item.Priority, Name: item.Name, Enabled: item.Enabled, Creator: item.Creator, Modifier: item.Modifier,
+	}, true, nil
+}
+
+func (s routeStore) existsName(ctx context.Context, scopeType, scopeCode, modelID, name string) (bool, error) {
+	return s.dal.ExistsByUniqueKey(ctx, scopeType, scopeCode, modelID, name)
+}
+
+func (s routeStore) updateEnabled(ctx context.Context, id string, enabled int, modifier string) error {
+	return s.dal.UpdateEnabled(ctx, id, enabled, modifier)
+}
+
+func (s routeStore) delete(ctx context.Context, id string) error {
+	return s.dal.Delete(ctx, id)
+}
+
+type routeForm struct{ *schema.PolicyRouteForm }
+
+func (f routeForm) modelID() string   { return f.ModelID }
+func (f routeForm) scopeType() string { return f.ScopeType }
+func (f routeForm) scopeCode() string { return f.ScopeCode }
+func (f routeForm) name() string      { return f.Name }
+
 // Query policy routes from the data access object based on the provided parameters and options.
 func (a *PolicyRoute) Query(ctx context.Context, params schema.PolicyRouteQueryParam) (*schema.PolicyRouteQueryResult, error) {
 	params.Pagination = false
 
-	result, err := a.PolicyRouteDAL.Query(ctx, params, schema.PolicyRouteQueryOptions{
+	return a.PolicyRouteDAL.Query(ctx, params, schema.PolicyRouteQueryOptions{
 		QueryOptions: util.QueryOptions{
 			OrderFields: []util.OrderByParam{
 				{Field: "created_at", Direction: util.DESC},
 			},
 		},
 	})
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
 }
 
 // Get the specified policy route from the data access object.
 func (a *PolicyRoute) Get(ctx context.Context, id string) (*schema.PolicyRouteForm, error) {
-	policyRoute, err := a.PolicyRouteDAL.Get(ctx, id)
+	item, ok, err := a.lifecycle().store.get(ctx, id)
 	if err != nil {
 		return nil, err
-	} else if policyRoute == nil {
-		return nil, errors.NotFound("", "Policy route not found")
 	}
-	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyRoute.ModelID, modelPermissionRead); err != nil {
+	if !ok {
+		return nil, a.lifecycle().notFound()
+	}
+	if err := a.lifecycle().require(ctx, item.ModelID, modelPermissionRead); err != nil {
 		return nil, err
 	}
-	var policyRouteForm schema.PolicyRouteForm
-	if err := policyRoute.ConvertTo(&policyRouteForm); err != nil {
+	stored, err := a.PolicyRouteDAL.Get(ctx, id)
+	if err != nil {
 		return nil, err
 	}
-	return &policyRouteForm, nil
+	var form schema.PolicyRouteForm
+	if err := stored.ConvertTo(&form); err != nil {
+		return nil, err
+	}
+	return &form, nil
 }
 
 // Create a new policy route in the data access object.
 func (a *PolicyRoute) Create(ctx context.Context, formItem *schema.PolicyRouteForm) (*schema.PolicyRoute, error) {
-	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite); err != nil {
-		return nil, err
-	}
-
-	if exists, err := a.PolicyRouteDAL.ExistsByUniqueKey(ctx, formItem.ScopeType, formItem.ScopeCode, formItem.ModelID, formItem.Name); err != nil {
-		return nil, err
-	} else if exists {
-		return nil, errors.BadRequest("", "Policy route with the same name already exists")
-	}
-
-	policyRoute := &schema.PolicyRoute{
-		ID:        util.NewXID(),
-		Deleted:   "0",
-		CreatedAt: time.Now(),
-	}
-
-	username := util.FromUsername(ctx)
-	if username != "" {
-		policyRoute.Creator = &username
-	}
-
-	if err := formItem.FillTo(policyRoute); err != nil {
-		return nil, err
-	}
-
-	err := a.Trans.Exec(ctx, func(ctx context.Context) error {
-		return a.PolicyRouteDAL.Create(ctx, policyRoute)
-	})
+	life := a.lifecycle()
+	prepared, err := life.prepareCreate(ctx, routeForm{formItem})
 	if err != nil {
 		return nil, err
 	}
-	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "route", "create", policyRoute.ScopeType, policyRoute.ScopeCode, policyRoute.ModelID)
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, policyRoute.ID, policyRoute.Name, nil, policyRoute)
-	return policyRoute, nil
+	item := &schema.PolicyRoute{
+		ID:        prepared.ID,
+		Deleted:   "0",
+		Creator:   prepared.Creator,
+		CreatedAt: time.Now(),
+	}
+	if err := formItem.FillTo(item); err != nil {
+		return nil, err
+	}
+	if err := a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyRouteDAL.Create(ctx, item)
+	}); err != nil {
+		return nil, err
+	}
+	life.afterCreate(ctx, recordOfRoute(item), item)
+	return item, nil
 }
 
 // Update the specified policy route in the data access object.
 func (a *PolicyRoute) Update(ctx context.Context, id string, formItem *schema.PolicyRouteForm) error {
-	policyRoute, err := a.PolicyRouteDAL.Get(ctx, id)
-	if err != nil {
-		return err
-	} else if policyRoute == nil {
-		return errors.NotFound("", "Policy route not found")
-	}
-	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyRoute.ModelID, modelPermissionWrite); err != nil {
-		return err
-	}
-	if err := rejectPolicyKindChange(policyRoute.ModelID, formItem.ModelID); err != nil {
-		return err
-	}
-	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, formItem.ModelID, modelPermissionWrite); err != nil {
-		return err
-	}
-
-	// If unique key fields changed, ensure the new combination is not occupied.
-	if policyRoute.ModelID != formItem.ModelID || policyRoute.Name != formItem.Name {
-		if exists, err := a.PolicyRouteDAL.ExistsByUniqueKey(ctx, formItem.ScopeType, formItem.ScopeCode, formItem.ModelID, formItem.Name); err != nil {
-			return err
-		} else if exists {
-			return errors.BadRequest("", "Policy route with the same name already exists")
-		}
-	}
-
-	beforePolicy := *policyRoute
-
-	if err := formItem.FillTo(policyRoute); err != nil {
-		return err
-	}
-	policyRoute.UpdatedAt = time.Now()
-
-	username := util.FromUsername(ctx)
-	if username != "" {
-		policyRoute.Modifier = &username
-	}
-
-	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		return a.PolicyRouteDAL.Update(ctx, policyRoute)
-	})
+	life := a.lifecycle()
+	before, err := life.beginUpdate(ctx, id, routeForm{formItem})
 	if err != nil {
 		return err
 	}
-
-	// 级联同步引用此策略的维度到 Redis
-	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "route", "update_old_dimension", beforePolicy.ScopeType, beforePolicy.ScopeCode, beforePolicy.ModelID)
-	if beforePolicy.ScopeType != policyRoute.ScopeType || beforePolicy.ScopeCode != policyRoute.ScopeCode || beforePolicy.ModelID != policyRoute.ModelID {
-		_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "route", "update_new_dimension", policyRoute.ScopeType, policyRoute.ScopeCode, policyRoute.ModelID)
+	item, err := a.PolicyRouteDAL.Get(ctx, id)
+	if err != nil {
+		return err
 	}
-
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyRoute.ID, policyRoute.Name, beforePolicy, policyRoute)
+	beforeStored := *item
+	if err := formItem.FillTo(item); err != nil {
+		return err
+	}
+	item.UpdatedAt = time.Now()
+	if modifier, set := life.modifier(ctx); set {
+		item.Modifier = modifier
+	}
+	if err := a.Trans.Exec(ctx, func(ctx context.Context) error {
+		return a.PolicyRouteDAL.Update(ctx, item)
+	}); err != nil {
+		return err
+	}
+	life.afterUpdate(ctx, before, recordOfRoute(item), &beforeStored, item)
 	return nil
 }
 
 // ToggleEnabled updates only the enabled status of a policy and re-syncs policy cache.
 func (a *PolicyRoute) ToggleEnabled(ctx context.Context, id string, formItem *schema.PolicyEnabledForm) error {
-	policyRoute, err := a.PolicyRouteDAL.Get(ctx, id)
-	if err != nil {
-		return err
-	} else if policyRoute == nil {
-		return errors.NotFound("", "Policy route not found")
-	}
-	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyRoute.ModelID, modelPermissionWrite); err != nil {
-		return err
-	}
-	if policyRoute.Enabled == formItem.Enabled {
-		return nil
-	}
-
-	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		return a.PolicyRouteDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
-	})
-	if err != nil {
-		return err
-	}
-
-	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "route", "toggle_enabled", policyRoute.ScopeType, policyRoute.ScopeCode, policyRoute.ModelID)
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, policyRoute.ID, policyRoute.Name, map[string]int{"enabled": policyRoute.Enabled}, map[string]int{"enabled": formItem.Enabled})
-	return nil
+	return a.lifecycle().toggle(ctx, id, formItem.Enabled)
 }
 
 // Delete the specified policy route from the data access object.
 func (a *PolicyRoute) Delete(ctx context.Context, id string) error {
-	policyRoute, err := a.PolicyRouteDAL.Get(ctx, id)
-	if err != nil {
-		return err
-	} else if policyRoute == nil {
-		return errors.NotFound("", "Policy route not found")
-	}
-	if _, err := requireExistingModelPolicy(ctx, a.ModelDAL, a.DataPermissionDAL, policyRoute.ModelID, modelPermissionWrite); err != nil {
-		return err
-	}
-
-	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
-		return a.PolicyRouteDAL.Delete(ctx, id)
-	})
+	life := a.lifecycle()
+	stored, err := a.PolicyRouteDAL.Get(ctx, id)
 	if err != nil {
 		return err
 	}
-
-	// 级联同步引用此策略的维度到 Redis
-	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "route", "delete", policyRoute.ScopeType, policyRoute.ScopeCode, policyRoute.ModelID)
-
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionDelete, opsSchema.AuditResourceTypePolicy, policyRoute.ID, policyRoute.Name, policyRoute, nil)
+	item, err := life.remove(ctx, id)
+	if err != nil {
+		return err
+	}
+	life.afterDelete(ctx, item, stored)
 	return nil
 }
 
 // CopyTemplateToModel copies a policy template into a model-owned policy instance.
 func (a *PolicyRoute) CopyTemplateToModel(ctx context.Context, templateID string, form *schema.PolicyCopyToModelForm) (*schema.PolicyRoute, error) {
-	template, err := a.PolicyRouteDAL.Get(ctx, templateID)
-	if err != nil {
-		return nil, err
-	} else if template == nil {
-		return nil, errors.NotFound("", "Policy route not found")
-	}
-	if template.ModelID != "" {
-		return nil, errors.BadRequest("", "Only policy templates can be copied to a model")
-	}
-	if _, err := requireModelPermission(ctx, a.ModelDAL, a.DataPermissionDAL, form.ModelID, modelPermissionWrite); err != nil {
-		return nil, err
-	}
-	name := form.Name
-	if name == "" {
-		name = template.Name
-	}
-	name, err = nextPolicyName(ctx, name, form.ModelID, func(ctx context.Context, modelID, name string) (bool, error) {
-		return a.PolicyRouteDAL.ExistsByUniqueKey(ctx, "global", "", modelID, name)
-	})
+	life := a.lifecycle()
+	template, ok, err := life.store.get(ctx, templateID)
 	if err != nil {
 		return nil, err
 	}
-
-	var details []schema.PolicyRouteDetail
-	if err := util.GetDB(ctx, a.PolicyRouteDAL.DB).
-		Where("route_id = ? AND deleted = '0'", template.ID).
-		Find(&details).Error; err != nil {
+	if !ok {
+		return nil, life.notFound()
+	}
+	copied, err := life.prepareCopy(ctx, template, form)
+	if err != nil {
 		return nil, err
 	}
-
-	instance := *template
-	instance.ID = util.NewXID()
-	instance.ModelID = form.ModelID
-	instance.Name = name
-	instance.Creator = nil
+	stored, err := a.PolicyRouteDAL.Get(ctx, templateID)
+	if err != nil {
+		return nil, err
+	}
+	instance := *stored
+	instance.ID = copied.ID
+	instance.ModelID = copied.ModelID
+	instance.Name = copied.Name
+	instance.ScopeType = copied.ScopeType
+	instance.ScopeCode = copied.ScopeCode
+	instance.Priority = copied.Priority
+	instance.Creator = copied.Creator
 	instance.Modifier = nil
-	instance.CreatedAt = time.Now()
+	instance.CreatedAt = copied.CreatedAt
 	instance.UpdatedAt = time.Time{}
 	instance.Deleted = "0"
 	instance.DeletedAt = nil
 	instance.Details = nil
-	if form.ScopeType != nil {
-		instance.ScopeType = *form.ScopeType
+	var details []schema.PolicyRouteDetail
+	if err := util.GetDB(ctx, a.PolicyRouteDAL.DB).
+		Where("route_id = ? AND deleted = '0'", templateID).
+		Find(&details).Error; err != nil {
+		return nil, err
 	}
-	if form.ScopeCode != nil {
-		instance.ScopeCode = *form.ScopeCode
-	}
-	if form.Priority != nil {
-		instance.Priority = *form.Priority
-	}
-	if username := util.FromUsername(ctx); username != "" {
-		instance.Creator = &username
-	}
-
-	err = a.Trans.Exec(ctx, func(ctx context.Context) error {
+	if err := a.Trans.Exec(ctx, func(ctx context.Context) error {
 		if err := a.PolicyRouteDAL.Create(ctx, &instance); err != nil {
 			return err
 		}
 		for _, detail := range details {
-			copied := detail
-			copied.ID = util.NewXID()
-			copied.RouteId = instance.ID
-			copied.CreatedAt = time.Now()
-			copied.UpdatedAt = time.Time{}
-			copied.Deleted = "0"
-			copied.DeletedAt = nil
-			if err := util.GetDB(ctx, a.PolicyRouteDAL.DB).Create(&copied).Error; err != nil {
+			copiedDetail := detail
+			copiedDetail.ID = util.NewXID()
+			copiedDetail.RouteId = instance.ID
+			copiedDetail.CreatedAt = time.Now()
+			copiedDetail.UpdatedAt = time.Time{}
+			copiedDetail.Deleted = "0"
+			copiedDetail.DeletedAt = nil
+			if err := util.GetDB(ctx, a.PolicyRouteDAL.DB).Create(&copiedDetail).Error; err != nil {
 				return err
 			}
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
-	_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "route", "copy_template_to_model", instance.ScopeType, instance.ScopeCode, instance.ModelID)
-	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, instance.ID, instance.Name, nil, &instance)
+	life.afterCopy(ctx, recordOfRoute(&instance), &instance)
 	return &instance, nil
+}
+
+func recordOfRoute(item *schema.PolicyRoute) policyRecord {
+	return policyRecord{
+		ID: item.ID, ModelID: item.ModelID, ScopeType: item.ScopeType, ScopeCode: item.ScopeCode,
+		Priority: item.Priority, Name: item.Name, Enabled: item.Enabled,
+	}
 }
