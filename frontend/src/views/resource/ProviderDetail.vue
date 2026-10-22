@@ -248,32 +248,36 @@
                             {{ $t('pages.provider.detail.quota.empty') }}
                         </div>
                         <div
-                            v-for="win in quotaData.windows || []"
-                            :key="win.id"
-                            class="quota-row">
-                            <div class="quota-row-header">
-                                <span class="quota-row-label">{{ win.label }}</span>
-                                <div class="quota-row-meta">
-                                    <span v-if="win.remaining_percent != null">
-                                        {{ Math.round(win.remaining_percent) }}%
-                                    </span>
-                                    <span
-                                        v-if="win.amount_label"
-                                        class="quota-amount">
-                                        {{ win.amount_label }}
-                                    </span>
-                                    <span
-                                        v-if="win.reset_label"
-                                        class="quota-reset">
-                                        {{ win.reset_label }}
-                                    </span>
+                            v-else
+                            class="quota-grid">
+                            <div
+                                v-for="win in quotaData.windows || []"
+                                :key="win.id"
+                                class="quota-row">
+                                <div class="quota-row-header">
+                                    <span class="quota-row-label">{{ win.label }}</span>
+                                    <div class="quota-row-meta">
+                                        <span v-if="win.remaining_percent != null">
+                                            {{ Math.round(win.remaining_percent) }}%
+                                        </span>
+                                        <span
+                                            v-if="win.amount_label"
+                                            class="quota-amount">
+                                            {{ win.amount_label }}
+                                        </span>
+                                        <span
+                                            v-if="win.reset_label"
+                                            class="quota-reset">
+                                            {{ win.reset_label }}
+                                        </span>
+                                    </div>
                                 </div>
+                                <a-progress
+                                    :percent="quotaBarPercent(win)"
+                                    :show-info="false"
+                                    size="small"
+                                    :stroke-color="quotaBarColor(win)" />
                             </div>
-                            <a-progress
-                                :percent="quotaBarPercent(win)"
-                                :show-info="false"
-                                size="small"
-                                :stroke-color="quotaBarColor(win)" />
                         </div>
                     </template>
                     <div
@@ -1563,8 +1567,19 @@ function handleRemoveMember({ id }) {
         font-weight: 500;
     }
 
+    .quota-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 32px;
+        row-gap: 12px;
+
+        @media (max-width: 767px) {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
     .quota-row {
-        margin-bottom: 12px;
+        min-width: 0;
     }
 
     .quota-row-header {
