@@ -651,6 +651,7 @@ const endpointColumns = [
         width: 180,
         ellipsis: true,
         fixed: 'left',
+        sorter: (a, b) => getModelName(a.model_id).localeCompare(getModelName(b.model_id)),
     },
     {
         title: t('pages.endpoint.form.protocol'),
@@ -699,6 +700,7 @@ const endpointColumns = [
         title: t('pages.endpoint.form.created_at'),
         key: 'created_at',
         width: 180,
+        sorter: (a, b) => new Date(a.created_at) - new Date(b.created_at),
     },
     {
         title: t('button.action'),
