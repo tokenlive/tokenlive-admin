@@ -41,7 +41,7 @@
                             >
                             <a-select-option value="least_latency">最低延迟策略 (least_latency)</a-select-option>
                             <a-select-option value="cost">最低成本策略 (cost)</a-select-option>
-                            <a-select-option value="sticky">会话保持策略 (sticky)</a-select-option>
+                            <a-select-option value="session_hash">会话哈希策略 (session_hash)</a-select-option>
                             <a-select-option value="composite">综合策略 (composite)</a-select-option>
                             <a-select-option value="endpoint_affinity"
                                 >端点亲和性策略 (endpoint_affinity)</a-select-option
@@ -82,7 +82,7 @@
                 </a-row>
             </template>
 
-            <template v-if="formData.type === 'sticky'">
+            <template v-if="formData.type === 'session_hash'">
                 <a-form-item
                     :label="$t('pages.loadbalance.form.sessionHeader')"
                     name="session_header">
@@ -459,7 +459,7 @@ function handleOk() {
                         latency_weight:
                             formData.value.latency_weight !== undefined ? formData.value.latency_weight : 0.5,
                     })
-                } else if (values.type === 'sticky') {
+                } else if (values.type === 'session_hash') {
                     params.params = JSON.stringify({
                         session_header: formData.value.session_header || '',
                     })

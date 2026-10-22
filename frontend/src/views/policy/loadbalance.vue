@@ -56,7 +56,7 @@
                                 >
                                 <a-select-option value="least_latency">最低延迟策略 (least_latency)</a-select-option>
                                 <a-select-option value="cost">最低成本策略 (cost)</a-select-option>
-                                <a-select-option value="sticky">会话保持策略 (sticky)</a-select-option>
+                                <a-select-option value="session_hash">会话哈希策略 (session_hash)</a-select-option>
                                 <a-select-option value="composite">综合策略 (composite)</a-select-option>
                                 <a-select-option value="endpoint_affinity"
                                     >端点亲和性策略 (endpoint_affinity)</a-select-option
@@ -198,7 +198,7 @@ const policyTypeMap = {
     least_connections: '最少连接策略 (least_connections)',
     least_latency: '最低延迟策略 (least_latency)',
     cost: '最低成本策略 (cost)',
-    sticky: '会话保持策略 (sticky)',
+    session_hash: '会话哈希策略 (session_hash)',
     composite: '综合策略 (composite)',
     endpoint_affinity: '端点亲和性策略 (endpoint_affinity)',
 }
