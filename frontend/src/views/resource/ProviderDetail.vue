@@ -382,7 +382,9 @@
                                     >
                                 </template>
                                 <template v-if="'real_model' === column.key">
-                                    {{ record.real_model || '--' }}
+                                    <a-tooltip :title="record.real_model">
+                                        <span class="url-text">{{ record.real_model || '--' }}</span>
+                                    </a-tooltip>
                                 </template>
                                 <template v-if="'priority' === column.key">
                                     {{ record.priority ?? 0 }}
@@ -677,6 +679,7 @@ const endpointColumns = [
         title: t('pages.endpoint.form.real_model'),
         key: 'real_model',
         width: 150,
+        ellipsis: true,
     },
     {
         title: t('pages.endpoint.form.priority'),

@@ -346,7 +346,9 @@
                                     >
                                 </template>
                                 <template v-if="'real_model' === column.key">
-                                    {{ record.real_model || '--' }}
+                                    <a-tooltip :title="record.real_model">
+                                        <span class="url-text">{{ record.real_model || '--' }}</span>
+                                    </a-tooltip>
                                 </template>
                                 <template v-if="'priority' === column.key">
                                     {{ record.priority ?? 0 }}
@@ -1095,6 +1097,11 @@ const endpointColumns = [
         width: 150,
         ellipsis: true,
         fixed: 'left',
+        sorter: (a, b) => {
+            const nameDiff = getProviderName(a.provider_id).localeCompare(getProviderName(b.provider_id))
+            if (nameDiff !== 0) return nameDiff
+            return (a.priority ?? 0) - (b.priority ?? 0)
+        },
     },
     {
         title: t('pages.endpoint.form.protocol'),
@@ -1116,6 +1123,7 @@ const endpointColumns = [
         title: t('pages.endpoint.form.real_model'),
         key: 'real_model',
         width: 150,
+        ellipsis: true,
     },
     {
         title: t('pages.endpoint.form.priority'),
@@ -1644,10 +1652,11 @@ async function loadEndpointList() {
     if (!modelData.value.id || isSmartModel.value) return
     try {
         endpointLoading.value = true
-        const { data, success, total } = await apis.endpoint
+        // 一次性拉全量，排序/翻页在客户端完成（与供应商详情页端点列表一致）
+        const { data, success } = await apis.endpoint
             .getEndpointList({
-                pageSize: endpointPagination.pageSize,
-                current: endpointPagination.current,
+                pageSize: 1000,
+                current: 1,
                 model_id: modelId.value,
                 provider_id: endpointFilterProviderId.value || undefined,
                 enabled: endpointFilterEnabled.value !== undefined ? endpointFilterEnabled.value : undefined,
@@ -1658,7 +1667,7 @@ async function loadEndpointList() {
         endpointLoading.value = false
         if (config('http.code.success') === success) {
             endpointListData.value = data || []
-            endpointPagination.total = total || 0
+            endpointPagination.total = endpointListData.value.length
         }
     } catch (error) {
         endpointLoading.value = false
@@ -1719,7 +1728,6 @@ async function handleToggleEndpointEnabled(record) {
 function onEndpointTableChange({ current, pageSize }) {
     endpointPagination.current = current
     endpointPagination.pageSize = pageSize
-    loadEndpointList()
 }
 
 function handleRemoveEndpoint({ id }) {
