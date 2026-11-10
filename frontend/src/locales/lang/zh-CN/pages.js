@@ -125,6 +125,7 @@ export default {
     'pages.dashboard.metrics.avg_ttft.footer': '流式请求最近 5 分钟首包耗时',
     'pages.dashboard.units.seconds': '秒',
     'pages.dashboard.trends.title': '流量与成功率走势',
+    'pages.dashboard.trends.empty': '该时间范围内暂无流量数据',
     'pages.dashboard.usageTrends.title': '使用趋势',
     'pages.dashboard.usageTrends.category': '指标分类',
     'pages.dashboard.usageTrends.timeRange': '时间范围',

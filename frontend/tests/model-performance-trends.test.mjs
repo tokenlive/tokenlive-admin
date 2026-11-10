@@ -25,27 +25,20 @@ test('model performance query retains explicit start, cutoff and zone in snapsho
     )
 })
 
-test('model monitor loads and renders independent TTFT and OTPS trend charts', async () => {
+test('model monitor renders TTFT and OTPS through the shared chart presentation', async () => {
     const source = await readFile(monitorUrl, 'utf8')
-    const trafficBlock = source.slice(
-        source.indexOf('const trafficChartOptions'),
-        source.indexOf('const endpointChartOptions')
-    )
-    const ttftBlock = source.slice(source.indexOf('const ttftChartOptions'), source.indexOf('const otpsChartOptions'))
-    const otpsBlock = source.slice(
-        source.indexOf('const otpsChartOptions'),
-        source.indexOf('function endpointSeriesLabel')
-    )
+    const ttft = source.slice(source.indexOf('const ttftChart'), source.indexOf('const otpsChart'))
+    const otps = source.slice(source.indexOf('const otpsChart'), source.indexOf('function loadAll'))
 
     assert.match(source, /pages\.model\.detail\.monitor\.ttftTrend/)
     assert.match(source, /pages\.model\.detail\.monitor\.otpsTrend/)
-    assert.match(source, /const hasTTFTTrend = computed\(\(\) => hasMetricData\(performance\.value\.avg_ttft_ms\)\)/)
-    assert.match(source, /const hasOTPSTrend = computed\(\(\) => hasMetricData\(performance\.value\.otps\)\)/)
-    assert.match(source, /data: performance\.value\.avg_ttft_ms \|\| \[\]/)
-    assert.match(source, /data: performance\.value\.otps \|\| \[\]/)
-    assert.doesNotMatch(trafficBlock, /valueFormatter/)
-    assert.match(ttftBlock, /valueFormatter: \(value\) => formatLatency\(value\)/)
-    assert.match(otpsBlock, /valueFormatter: \(value\) => formatOtps\(value\)/)
+    assert.match(source, /ttftChart\.mode === 'empty'/)
+    assert.match(source, /otpsChart\.mode === 'chart'/)
+    assert.match(ttft, /values: performance\.value\.avg_ttft_ms/)
+    assert.match(ttft, /format: formatLatency/)
+    assert.match(otps, /values: performance\.value\.otps/)
+    assert.match(otps, /format: formatOtps/)
+    assert.doesNotMatch(source, /hasMetricData|trafficChartOptions|ttftChartOptions/)
 })
 
 test('model performance chart copy exists in both locales', async () => {

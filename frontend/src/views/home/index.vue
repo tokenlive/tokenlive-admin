@@ -69,7 +69,6 @@
             </template>
         </a-alert>
 
-        <MonitoringStatus :reading="monitoring.overview" />
         <!-- 第一行：遥测动态大盘卡片 -->
         <a-row
             :gutter="16"
@@ -83,7 +82,12 @@
                     class="telemetry-card telemetry-card--blue"
                     :bordered="false"
                     hoverable>
-                    <div class="telemetry-title">{{ $t('pages.dashboard.metrics.daily_requests') }}</div>
+                    <div class="telemetry-title">
+                        {{ $t('pages.dashboard.metrics.daily_requests') }}
+                        <MonitoringStatus
+                            hint
+                            :reading="monitoring.overview" />
+                    </div>
                     <div class="telemetry-value">
                         <animated-number
                             v-if="metrics.dailyRequests != null"
@@ -216,9 +220,15 @@
                 style="margin-bottom: 16px">
                 <a-card
                     class="dashboard-panel"
-                    :title="$t('pages.dashboard.trends.title')"
                     :bordered="false"
                     hoverable>
+                    <template #title>
+                        {{ $t('pages.dashboard.trends.title') }}
+                        <MonitoringStatus
+                            v-if="trafficChart.hint"
+                            hint
+                            :reading="monitoring.traffic" />
+                    </template>
                     <template #extra>
                         <a-space :size="8">
                             <a-select
@@ -257,7 +267,6 @@
                             </a-select>
                         </a-space>
                     </template>
-                    <MonitoringStatus :reading="monitoring.traffic" />
                     <transition
                         name="fade-chart"
                         mode="out-in">
@@ -404,9 +413,12 @@
                                 </svg>
                             </div>
                         </div>
+                        <a-empty
+                            v-else-if="trafficChart.mode === 'empty'"
+                            :description="$t('pages.dashboard.trends.empty')" />
                         <x-chart
-                            v-else
-                            :options="trendsChartOptions"
+                            v-else-if="trafficChart.mode === 'chart'"
+                            :options="trafficChart.options"
                             height="340" />
                     </transition>
                 </a-card>
@@ -520,9 +532,15 @@
                 style="margin-bottom: 16px">
                 <a-card
                     class="dashboard-panel dashboard-ranking-panel"
-                    :title="$t('pages.dashboard.modelRanking.title')"
                     :bordered="false"
                     hoverable>
+                    <template #title>
+                        {{ $t('pages.dashboard.modelRanking.title') }}
+                        <MonitoringStatus
+                            v-if="modelRanking.length > 0"
+                            hint
+                            :reading="monitoring.models" />
+                    </template>
                     <template #extra>
                         <a-select
                             v-model:value="rankingTimeRange"
@@ -545,7 +563,6 @@
                             }}</a-select-option>
                         </a-select>
                     </template>
-                    <MonitoringStatus :reading="monitoring.models" />
                     <transition
                         name="fade-chart"
                         mode="out-in">
@@ -859,7 +876,6 @@ import { useAppStore } from '@/store'
 import useUserStore from '@/store/modules/user'
 import { config } from '@/config'
 
-import * as echarts from 'echarts'
 import {
     TeamOutlined,
     AppstoreOutlined,
@@ -880,6 +896,7 @@ import APIKeyUsageRanking from './components/APIKeyUsageRanking.vue'
 import UsageTrends from './components/UsageTrends.vue'
 import MonitoringStatus from '@/components/MonitoringStatus.vue'
 import { monitoringSnapshot, monitoringSuccessRates } from '@/utils/monitoring-snapshot'
+import { monitoringChart } from '@/utils/monitoring-chart'
 
 defineOptions({
     name: 'home',
@@ -1232,165 +1249,23 @@ onUnmounted(() => {
 })
 
 // 计算双线渐变面积趋势图配置
-const trendsChartOptions = computed(() => {
-    const isDark = appStore.config.theme === 'dark'
-    const chartTextColor = isDark ? 'rgba(231, 236, 246, 0.68)' : 'rgba(31, 41, 55, 0.68)'
-    const chartTooltip = {
-        backgroundColor: isDark ? 'rgba(18, 24, 38, 0.96)' : 'rgba(255, 255, 255, 0.98)',
-        borderColor: isDark ? 'rgba(126, 145, 178, 0.18)' : 'rgba(15, 23, 42, 0.1)',
-        textStyle: { color: isDark ? '#e7ecf6' : '#1f2937' },
-        extraCssText: 'box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18); border-radius: 8px;',
-    }
-    const splitLineStyle = {
-        lineStyle: { color: isDark ? 'rgba(126, 145, 178, 0.11)' : 'rgba(15, 23, 42, 0.08)' },
-    }
-
-    // 判断是否为分组模式
-    const isGroupMode = trends.series.length > 1
-
-    if (isGroupMode) {
-        // 分组模式：每条 series 一条 total 折线
-        const seriesColors = [
-            '#2f8cff',
-            '#23c7b7',
-            '#ff4d5e',
-            '#ffb020',
-            '#8b5cf6',
-            '#6ee7d8',
-            '#f472b6',
-            '#7bb8ff',
-            '#a78bfa',
-            '#58d68d',
-        ]
-
-        return {
-            tooltip: {
-                ...chartTooltip,
-                trigger: 'axis',
-                axisPointer: { type: 'cross' },
-            },
-            legend: {
-                data: trends.series.map((s) => s.label),
-                textStyle: { color: chartTextColor },
-            },
-            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-            xAxis: {
-                type: 'category',
-                boundaryGap: false,
-                data: trends.times,
-                axisLabel: { color: chartTextColor },
-                axisLine: { lineStyle: { color: isDark ? 'rgba(126, 145, 178, 0.18)' : 'rgba(15, 23, 42, 0.12)' } },
-            },
-            yAxis: [
-                {
-                    type: 'value',
-                    name: t('pages.dashboard.trends.requests'),
-                    minInterval: 1,
-                    axisLabel: { color: chartTextColor },
-                    splitLine: splitLineStyle,
-                },
-            ],
-            series: trends.series.map((s, index) => ({
-                name: s.label,
-                type: 'line',
-                smooth: true,
-                showSymbol: false,
-                itemStyle: { color: seriesColors[index % seriesColors.length] },
-                data: s.total || [],
-            })),
-        }
-    } else {
-        // 全局模式：保持原来的双折线（成功+失败）+ 成功率样式
-        const successData = trends.series[0]?.success || []
-        const failureData = trends.series[0]?.failure || []
-
-        const successRates = monitoringSuccessRates(successData, failureData)
-
-        return {
-            tooltip: {
-                ...chartTooltip,
-                trigger: 'axis',
-                axisPointer: { type: 'cross' },
-            },
-            legend: {
-                data: [
-                    t('pages.dashboard.trends.success_requests'),
-                    t('pages.dashboard.trends.failed_requests'),
-                    t('pages.dashboard.trends.success_rate'),
-                ],
-                textStyle: { color: chartTextColor },
-            },
-            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-            xAxis: {
-                type: 'category',
-                boundaryGap: false,
-                data: trends.times,
-                axisLabel: { color: chartTextColor },
-                axisLine: { lineStyle: { color: isDark ? 'rgba(126, 145, 178, 0.18)' : 'rgba(15, 23, 42, 0.12)' } },
-            },
-            yAxis: [
-                {
-                    type: 'value',
-                    name: t('pages.dashboard.trends.requests'),
-                    minInterval: 1,
-                    axisLabel: { color: chartTextColor },
-                    splitLine: splitLineStyle,
-                },
-                {
-                    type: 'value',
-                    name: t('pages.dashboard.trends.success_rate'),
-                    min: 0,
-                    max: 100,
-                    axisLabel: {
-                        formatter: '{value} %',
-                        color: chartTextColor,
-                    },
-                    splitLine: { show: false },
-                },
-            ],
-            series: [
-                {
-                    name: t('pages.dashboard.trends.success_requests'),
-                    type: 'line',
-                    smooth: true,
-                    showSymbol: false,
-                    areaStyle: {
-                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: 'rgba(35, 199, 183, 0.32)' },
-                            { offset: 1, color: 'rgba(35, 199, 183, 0.02)' },
-                        ]),
-                    },
-                    itemStyle: { color: '#23c7b7' },
-                    data: successData,
-                },
-                {
-                    name: t('pages.dashboard.trends.failed_requests'),
-                    type: 'line',
-                    smooth: true,
-                    showSymbol: false,
-                    areaStyle: {
-                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: 'rgba(255, 77, 94, 0.3)' },
-                            { offset: 1, color: 'rgba(255, 77, 94, 0.02)' },
-                        ]),
-                    },
-                    itemStyle: { color: '#ff4d5e' },
-                    data: failureData,
-                },
-                {
-                    name: t('pages.dashboard.trends.success_rate'),
-                    type: 'line',
-                    yAxisIndex: 1,
-                    smooth: true,
-                    showSymbol: true,
-                    symbolSize: 6,
-                    itemStyle: { color: '#8b5cf6' },
-                    lineStyle: { width: 2, type: 'dashed' },
-                    data: successRates,
-                },
-            ],
-        }
-    }
+const trafficChart = computed(() => {
+    const grouped = trends.series.length > 1
+    return monitoringChart({
+        state: monitoring.traffic?.state,
+        times: trends.times,
+        series: grouped
+            ? trends.series.map((series) => ({ name: series.label, values: series.total || [] }))
+            : [{ success: trends.series[0]?.success || [], failure: trends.series[0]?.failure || [] }],
+        dark: appStore.config.theme === 'dark',
+        labels: {
+            requests: t('pages.dashboard.trends.requests'),
+            success: t('pages.dashboard.trends.success_requests'),
+            failure: t('pages.dashboard.trends.failed_requests'),
+            rate: t('pages.dashboard.trends.success_rate'),
+        },
+        rate: grouped ? undefined : monitoringSuccessRates,
+    })
 })
 
 // 计算 Token 占比饼图配置

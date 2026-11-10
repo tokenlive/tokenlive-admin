@@ -1,6 +1,5 @@
 <template>
     <div class="provider-monitor">
-        <MonitoringStatus :reading="monitoring" />
         <div class="tab-toolbar">
             <div class="time-controls">
                 <a-select
@@ -84,14 +83,19 @@
                 :xs="24"
                 :lg="12">
                 <div class="monitor-panel">
-                    <div class="monitor-panel__title">{{ $t('pages.provider.detail.monitor.traffic') }}</div>
-                    <MonitoringStatus :reading="readings.traffic" />
+                    <div class="monitor-panel__title">
+                        {{ $t('pages.provider.detail.monitor.traffic') }}
+                        <MonitoringStatus
+                            v-if="trafficChart.hint"
+                            hint
+                            :reading="readings.traffic" />
+                    </div>
                     <a-empty
-                        v-if="!hasTraffic && readings.traffic?.state === 'ok'"
+                        v-if="trafficChart.mode === 'empty'"
                         :description="$t('pages.provider.detail.monitor.traffic.empty')" />
                     <x-chart
-                        v-if="hasTraffic"
-                        :options="trafficChartOptions"
+                        v-else-if="trafficChart.mode === 'chart'"
+                        :options="trafficChart.options"
                         height="280px"
                         :loading="loading" />
                 </div>
@@ -102,14 +106,17 @@
                 <div class="monitor-panel">
                     <div class="monitor-panel__title">
                         {{ $t('pages.provider.detail.monitor.endpointTraffic') }}
+                        <MonitoringStatus
+                            v-if="endpointChart.hint"
+                            hint
+                            :reading="readings.endpointTraffic" />
                     </div>
-                    <MonitoringStatus :reading="readings.endpointTraffic" />
                     <a-empty
-                        v-if="!hasEndpointTraffic && readings.endpointTraffic?.state === 'ok'"
+                        v-if="endpointChart.mode === 'empty'"
                         :description="$t('pages.provider.detail.monitor.endpointTraffic.empty')" />
                     <x-chart
-                        v-if="hasEndpointTraffic"
-                        :options="endpointChartOptions"
+                        v-else-if="endpointChart.mode === 'chart'"
+                        :options="endpointChart.options"
                         height="280px"
                         :loading="loading" />
                 </div>
@@ -117,13 +124,18 @@
         </a-row>
 
         <div class="monitor-panel events-panel">
-            <div class="monitor-panel__title">{{ $t('pages.provider.detail.monitor.events') }}</div>
-            <MonitoringStatus :reading="readings.events" />
+            <div class="monitor-panel__title">
+                {{ $t('pages.provider.detail.monitor.events') }}
+                <MonitoringStatus
+                    v-if="events.length > 0 || eventPagination.total > 0"
+                    hint
+                    :reading="readings.events" />
+            </div>
             <a-empty
                 v-if="
                     events.length === 0 &&
                     !eventsLoading &&
-                    readings.events?.state === 'ok' &&
+                    readings.events?.state !== 'error' &&
                     eventPagination.total === 0
                 "
                 :description="$t('pages.provider.detail.monitor.events.empty')" />
@@ -228,12 +240,12 @@
 
 <script setup>
 import MonitoringStatus from '@/components/MonitoringStatus.vue'
-import { monitoringSuccessRates, monitoringStatus } from '@/utils/monitoring-snapshot'
+import { monitoringSuccessRates } from '@/utils/monitoring-snapshot'
+import { monitoringChart } from '@/utils/monitoring-chart'
 import { providerHealthCards } from '@/utils/provider-health'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from 'vue'
 import { createDetailMonitoring } from '@/utils/detail-monitoring'
 import { useI18n } from 'vue-i18n'
-import * as echarts from 'echarts'
 import dayjs from 'dayjs'
 import { ReloadOutlined, InfoCircleOutlined } from '@ant-design/icons-vue'
 import { useAppStore } from '@/store'
@@ -289,7 +301,6 @@ const controller = createDetailMonitoring({
 })
 state.value = controller.getState()
 const readings = computed(() => state.value.readings)
-const monitoring = computed(() => monitoringStatus(Object.values(readings.value)))
 const loading = computed(() => state.value.loading)
 const eventsLoading = computed(() => state.value.eventsLoading)
 const ranking = computed(() => state.value.ranking)
@@ -394,162 +405,41 @@ const providerBreakers = computed(() => {
     )
 })
 
-const hasTraffic = computed(() => (traffic.value.series || []).some((series) => hasMetricData(series.total)))
-
-const hasEndpointTraffic = computed(() =>
-    (endpointTraffic.value.series || []).some((series) => hasMetricData(series.total))
-)
-
-function hasMetricData(values) {
-    return (values || []).some((value) => value !== null && value !== undefined && Number.isFinite(Number(value)))
-}
-
-function chartTheme() {
-    const isDark = appStore.config.theme === 'dark'
-    return {
-        isDark,
-        text: isDark ? 'rgba(231, 236, 246, 0.68)' : 'rgba(31, 41, 55, 0.68)',
-        tooltip: {
-            backgroundColor: isDark ? 'rgba(18, 24, 38, 0.96)' : 'rgba(255, 255, 255, 0.98)',
-            borderColor: isDark ? 'rgba(126, 145, 178, 0.18)' : 'rgba(15, 23, 42, 0.1)',
-            textStyle: { color: isDark ? '#e7ecf6' : '#1f2937' },
-            extraCssText: 'box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18); border-radius: 8px;',
-        },
-        splitLine: {
-            lineStyle: { color: isDark ? 'rgba(126, 145, 178, 0.11)' : 'rgba(15, 23, 42, 0.08)' },
-        },
-        axisLine: { lineStyle: { color: isDark ? 'rgba(126, 145, 178, 0.18)' : 'rgba(15, 23, 42, 0.12)' } },
-    }
-}
-
-const trafficChartOptions = computed(() => {
-    const theme = chartTheme()
-    const series = traffic.value.series?.[0] || {}
-    const successData = series.success || []
-    const failureData = series.failure || []
-    const successRates = monitoringSuccessRates(successData, failureData)
-
-    return {
-        tooltip: { ...theme.tooltip, trigger: 'axis', axisPointer: { type: 'cross' } },
-        legend: {
-            data: [
-                t('pages.dashboard.trends.success_requests'),
-                t('pages.dashboard.trends.failed_requests'),
-                t('pages.provider.detail.monitor.kpi.successRate'),
-            ],
-            textStyle: { color: theme.text },
-        },
-        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-        xAxis: {
-            type: 'category',
-            boundaryGap: false,
-            data: traffic.value.times || [],
-            axisLabel: { color: theme.text },
-            axisLine: theme.axisLine,
-        },
-        yAxis: [
-            {
-                type: 'value',
-                name: t('pages.dashboard.trends.requests'),
-                minInterval: 1,
-                axisLabel: { color: theme.text },
-                splitLine: theme.splitLine,
-            },
-            {
-                type: 'value',
-                name: t('pages.provider.detail.monitor.kpi.successRate'),
-                min: 0,
-                max: 100,
-                axisLabel: { formatter: '{value} %', color: theme.text },
-                splitLine: { show: false },
-            },
-        ],
-        series: [
-            {
-                name: t('pages.dashboard.trends.success_requests'),
-                type: 'line',
-                smooth: true,
-                showSymbol: false,
-                areaStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                        { offset: 0, color: 'rgba(35, 199, 183, 0.32)' },
-                        { offset: 1, color: 'rgba(35, 199, 183, 0.02)' },
-                    ]),
-                },
-                itemStyle: { color: '#23c7b7' },
-                data: successData,
-            },
-            {
-                name: t('pages.dashboard.trends.failed_requests'),
-                type: 'line',
-                smooth: true,
-                showSymbol: false,
-                areaStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                        { offset: 0, color: 'rgba(255, 77, 94, 0.3)' },
-                        { offset: 1, color: 'rgba(255, 77, 94, 0.02)' },
-                    ]),
-                },
-                itemStyle: { color: '#ff4d5e' },
-                data: failureData,
-            },
-            {
-                name: t('pages.provider.detail.monitor.kpi.successRate'),
-                type: 'line',
-                yAxisIndex: 1,
-                smooth: true,
-                showSymbol: true,
-                symbolSize: 6,
-                itemStyle: { color: '#8b5cf6' },
-                lineStyle: { width: 2, type: 'dashed' },
-                data: successRates,
-            },
-        ],
-    }
-})
-
-const endpointChartOptions = computed(() => {
-    const theme = chartTheme()
-    const colors = ['#2f8cff', '#23c7b7', '#ff4d5e', '#ffb020', '#8b5cf6', '#6ee7d8', '#f472b6', '#7bb8ff']
-    return {
-        tooltip: { ...theme.tooltip, trigger: 'axis', axisPointer: { type: 'cross' } },
-        legend: {
-            data: (endpointTraffic.value.series || []).map((series) => endpointSeriesLabel(series.label)),
-            textStyle: { color: theme.text },
-        },
-        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-        xAxis: {
-            type: 'category',
-            boundaryGap: false,
-            data: endpointTraffic.value.times || [],
-            axisLabel: { color: theme.text },
-            axisLine: theme.axisLine,
-        },
-        yAxis: [
-            {
-                type: 'value',
-                name: t('pages.dashboard.trends.requests'),
-                minInterval: 1,
-                axisLabel: { color: theme.text },
-                splitLine: theme.splitLine,
-            },
-        ],
-        series: (endpointTraffic.value.series || []).map((series, index) => ({
-            name: endpointSeriesLabel(series.label),
-            type: 'line',
-            smooth: true,
-            showSymbol: false,
-            itemStyle: { color: colors[index % colors.length] },
-            data: series.total || [],
-        })),
-    }
-})
-
 function endpointSeriesLabel(label) {
     if (!label) return label
     const match = endpoints.value.find((item) => item.id === label)
     return match?.code || label
 }
+
+const dark = computed(() => appStore.config.theme === 'dark')
+const trafficChart = computed(() => {
+    const series = traffic.value.series?.[0] || {}
+    return monitoringChart({
+        state: readings.value.traffic?.state,
+        times: traffic.value.times || [],
+        series: [{ success: series.success || [], failure: series.failure || [] }],
+        dark: dark.value,
+        labels: {
+            requests: t('pages.dashboard.trends.requests'),
+            success: t('pages.dashboard.trends.success_requests'),
+            failure: t('pages.dashboard.trends.failed_requests'),
+            rate: t('pages.provider.detail.monitor.kpi.successRate'),
+        },
+        rate: monitoringSuccessRates,
+    })
+})
+const endpointChart = computed(() =>
+    monitoringChart({
+        state: readings.value.endpointTraffic?.state,
+        times: endpointTraffic.value.times || [],
+        series: (endpointTraffic.value.series || []).map((series) => ({
+            name: endpointSeriesLabel(series.label),
+            values: series.total || [],
+        })),
+        dark: dark.value,
+        labels: { requests: t('pages.dashboard.trends.requests') },
+    })
+)
 
 function loadAll() {
     if (!props.active || !props.providerId) return
@@ -659,6 +549,8 @@ defineExpose({ loadAll })
 }
 
 .monitor-panel__title {
+    display: flex;
+    align-items: center;
     font-weight: 600;
     margin-bottom: 12px;
 }

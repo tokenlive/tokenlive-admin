@@ -131,6 +131,7 @@ export default {
     'pages.dashboard.metrics.avg_ttft.footer': 'Avg stream TTFT in last 5 minutes',
     'pages.dashboard.units.seconds': 's',
     'pages.dashboard.trends.title': 'Traffic and Success Rate',
+    'pages.dashboard.trends.empty': 'No traffic data in the selected time range',
     'pages.dashboard.usageTrends.title': 'Usage trends',
     'pages.dashboard.usageTrends.category': 'Metric category',
     'pages.dashboard.usageTrends.timeRange': 'Time range',
