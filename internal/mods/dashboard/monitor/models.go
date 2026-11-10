@@ -29,21 +29,13 @@ func buildModelOtpsQuery(promRange string) string {
 	)
 }
 
-func (a *Reader) getModelRanking(ctx context.Context, sortBy, timeRange string, limit int, modelFilter string) ([]ModelRankingItem, error) {
-	return a.getModelRankingAt(ctx, sortBy, timeRange, limit, modelFilter, a.now())
-}
-
-func (a *Reader) getModelRankingAt(ctx context.Context, sortBy, timeRange string, limit int, modelFilter string, end time.Time) ([]ModelRankingItem, error) {
-	ctx, plan, planErr := a.queryPlan(ctx, timeRange, end)
-	if planErr != nil {
-		return nil, planErr
-	}
+func (a *Reader) readModels(ctx context.Context, sortBy string, limit int, modelFilter string, plan windowPlan) ([]ModelRankingItem, error) {
 	if plan.minutes() == 0 {
 		source(ctx, "catalog")
 		return []ModelRankingItem{}, nil
 	}
-	end = plan.End
-	cacheKey := fmt.Sprintf("ranking:%s:%s:%d:%s:%d", sortBy, timeRange, limit, modelFilter, end.Unix())
+	end := plan.End
+	cacheKey := fmt.Sprintf("ranking:%s:%d:%s", sortBy, limit, modelFilter)
 	if cached, ok := a.getCache(ctx, cacheKey); ok {
 		return cached.([]ModelRankingItem), nil
 	}

@@ -9,36 +9,26 @@ import (
 	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 )
 
-func (a *Reader) getModelPerformanceTrends(ctx context.Context, modelCode, timeRange string) (*performanceResult, error) {
-	return a.getModelPerformanceTrendsAt(ctx, modelCode, timeRange, a.now().Truncate(time.Minute))
-}
-
-func (a *Reader) getModelPerformanceTrendsAt(ctx context.Context, modelCode, timeRange string, end time.Time) (*performanceResult, error) {
-	ctx, plan, planErr := a.queryPlan(ctx, timeRange, end)
-	if planErr != nil {
-		return nil, planErr
-	}
+func (a *Reader) readPerformance(ctx context.Context, modelCode string, plan windowPlan) (*Performance, error) {
 	if plan.minutes() == 0 {
 		source(ctx, "catalog")
-		return &performanceResult{}, nil
+		return &Performance{}, nil
 	}
-	end = plan.End
-	cacheKey := fmt.Sprintf("model-performance-trends:%s:%s:%d", modelCode, timeRange, end.Unix())
+	end := plan.End
+	cacheKey := "model-performance-trends:" + modelCode
 	if cached, ok := a.getCache(ctx, cacheKey); ok {
-		return cached.(*performanceResult), nil
+		return cached.(*Performance), nil
 	}
 
-	rangeConfig := plan.trendConfig()
-	end = rangeConfig.end
 	start := plan.Buckets[0].End
-	res := &performanceResult{
-		AvgTTFTMs: make([]*float64, rangeConfig.numPoints),
-		Otps:      make([]*float64, rangeConfig.numPoints),
+	res := &Performance{
+		AvgTTFTMs: make([]*float64, len(plan.Buckets)),
+		Otps:      make([]*float64, len(plan.Buckets)),
 	}
 
 	if a.isPrometheusAvailable(ctx) {
 		source(ctx, "prometheus")
-		promRange := fmt.Sprintf("%ds", rangeConfig.stepSeconds)
+		promRange := fmt.Sprintf("%ds", int64(plan.Step/time.Second))
 		ttftQuery, otpsQuery := buildModelPerformanceQueries(modelCode, promRange)
 		var ttftValues, otpsValues [][]interface{}
 		var ttftErr, otpsErr error
@@ -50,7 +40,7 @@ func (a *Reader) getModelPerformanceTrendsAt(ctx context.Context, modelCode, tim
 				ttftQuery,
 				start.Unix(),
 				end.Unix(),
-				rangeConfig.stepSeconds,
+				int64(plan.Step/time.Second),
 			)
 		}()
 		go func() {
@@ -59,20 +49,20 @@ func (a *Reader) getModelPerformanceTrendsAt(ctx context.Context, modelCode, tim
 				otpsQuery,
 				start.Unix(),
 				end.Unix(),
-				rangeConfig.stepSeconds,
+				int64(plan.Step/time.Second),
 			)
 		}()
 		wg.Wait()
 		if ttftErr == nil {
-			alignPrometheusFloatData(res.AvgTTFTMs, ttftValues, start.Unix(), rangeConfig.stepSeconds)
+			alignPrometheusFloatData(res.AvgTTFTMs, ttftValues, start.Unix(), int64(plan.Step/time.Second))
 		}
 		if otpsErr == nil {
-			alignPrometheusFloatData(res.Otps, otpsValues, start.Unix(), rangeConfig.stepSeconds)
+			alignPrometheusFloatData(res.Otps, otpsValues, start.Unix(), int64(plan.Step/time.Second))
 		}
 	}
 
 	if !hasFloatValues(res.AvgTTFTMs) || !hasFloatValues(res.Otps) {
-		fallbackTTFT, fallbackOtps, err := a.getModelPerformanceFallback(ctx, modelCode, rangeConfig, start, end)
+		fallbackTTFT, fallbackOtps, err := a.getModelPerformanceFallback(ctx, modelCode, plan)
 		if err == nil {
 			if !hasFloatValues(res.AvgTTFTMs) {
 				res.AvgTTFTMs = fallbackTTFT
@@ -99,14 +89,13 @@ func hasFloatValues(values []*float64) bool {
 func (a *Reader) getModelPerformanceFallback(
 	ctx context.Context,
 	modelCode string,
-	rangeConfig trendRangeConfig,
-	start time.Time,
-	end time.Time,
+	plan windowPlan,
 ) ([]*float64, []*float64, error) {
-	ttft := make([]*float64, rangeConfig.numPoints)
-	otps := make([]*float64, rangeConfig.numPoints)
-	stepMinutes := rangeConfig.stepSeconds / 60
-	windowMinutes := int64(rangeConfig.minutes)
+	end := plan.End
+	ttft := make([]*float64, len(plan.Buckets))
+	otps := make([]*float64, len(plan.Buckets))
+	stepMinutes := int64(plan.Step/time.Second) / 60
+	windowMinutes := int64(plan.minutes())
 	if stepMinutes <= 0 || windowMinutes > 7*24*60 {
 		return ttft, otps, nil
 	}
@@ -168,7 +157,7 @@ func (a *Reader) getModelPerformanceFallback(
 		otps,
 		values,
 		currentMinute,
-		rangeConfig.plan.Start.Unix()/60,
+		plan.Start.Unix()/60,
 		stepMinutes,
 	)
 	return ttft, otps, nil

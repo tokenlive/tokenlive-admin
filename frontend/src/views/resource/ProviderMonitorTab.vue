@@ -85,11 +85,12 @@
                 :lg="12">
                 <div class="monitor-panel">
                     <div class="monitor-panel__title">{{ $t('pages.provider.detail.monitor.traffic') }}</div>
+                    <MonitoringStatus :reading="readings.traffic" />
                     <a-empty
-                        v-if="!hasTraffic"
+                        v-if="!hasTraffic && readings.traffic?.state === 'ok'"
                         :description="$t('pages.provider.detail.monitor.traffic.empty')" />
                     <x-chart
-                        v-else
+                        v-if="hasTraffic"
                         :options="trafficChartOptions"
                         height="280px"
                         :loading="loading" />
@@ -102,11 +103,12 @@
                     <div class="monitor-panel__title">
                         {{ $t('pages.provider.detail.monitor.endpointTraffic') }}
                     </div>
+                    <MonitoringStatus :reading="readings.endpointTraffic" />
                     <a-empty
-                        v-if="!hasEndpointTraffic"
+                        v-if="!hasEndpointTraffic && readings.endpointTraffic?.state === 'ok'"
                         :description="$t('pages.provider.detail.monitor.endpointTraffic.empty')" />
                     <x-chart
-                        v-else
+                        v-if="hasEndpointTraffic"
                         :options="endpointChartOptions"
                         height="280px"
                         :loading="loading" />
@@ -116,11 +118,18 @@
 
         <div class="monitor-panel events-panel">
             <div class="monitor-panel__title">{{ $t('pages.provider.detail.monitor.events') }}</div>
+            <MonitoringStatus :reading="readings.events" />
             <a-empty
-                v-if="events.length === 0"
+                v-if="
+                    events.length === 0 &&
+                    !eventsLoading &&
+                    readings.events?.state === 'ok' &&
+                    eventPagination.total === 0
+                "
                 :description="$t('pages.provider.detail.monitor.events.empty')" />
             <a-table
-                v-else
+                v-if="events.length > 0 || eventsLoading || eventPagination.total > 0"
+                :loading="eventsLoading"
                 size="middle"
                 row-key="id"
                 :pagination="eventPagination"
@@ -220,7 +229,9 @@
 <script setup>
 import MonitoringStatus from '@/components/MonitoringStatus.vue'
 import { monitoringSuccessRates, monitoringStatus } from '@/utils/monitoring-snapshot'
-import { computed, reactive, ref, watch } from 'vue'
+import { providerHealthCards } from '@/utils/provider-health'
+import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from 'vue'
+import { createDetailMonitoring } from '@/utils/detail-monitoring'
 import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
 import dayjs from 'dayjs'
@@ -257,14 +268,6 @@ const appStore = useAppStore()
 
 const timeRange = ref('1h')
 const selectedTimeRange = ref([dayjs().subtract(1, 'hour'), dayjs()])
-const loading = ref(false)
-const monitoring = ref(null)
-const ranking = ref(null)
-const traffic = ref({ times: [], series: [] })
-const endpointTraffic = ref({ times: [], series: [] })
-const endpoints = ref([])
-const breakers = ref([])
-const events = ref([])
 const eventPagination = reactive({
     current: 1,
     pageSize: 20,
@@ -272,6 +275,29 @@ const eventPagination = reactive({
     showSizeChanger: true,
     showTotal: (total) => t('common.pagination.total', { total }),
 })
+
+const state = shallowRef(null)
+const controller = createDetailMonitoring({
+    kind: 'provider',
+    api: apis,
+    onChange: (next) => {
+        state.value = next
+        eventPagination.current = next.eventPage.current
+        eventPagination.pageSize = next.eventPage.pageSize
+        eventPagination.total = next.eventTotal
+    },
+})
+state.value = controller.getState()
+const readings = computed(() => state.value.readings)
+const monitoring = computed(() => monitoringStatus(Object.values(readings.value)))
+const loading = computed(() => state.value.loading)
+const eventsLoading = computed(() => state.value.eventsLoading)
+const ranking = computed(() => state.value.ranking)
+const traffic = computed(() => state.value.traffic)
+const endpointTraffic = computed(() => state.value.endpointTraffic)
+const endpoints = computed(() => state.value.endpoints)
+const breakers = computed(() => state.value.breakers)
+const events = computed(() => state.value.events)
 
 const eventColumns = computed(() => [
     { title: t('pages.ops.table.time'), key: 'event_time', dataIndex: 'event_time', width: 170 },
@@ -293,27 +319,6 @@ const eventColumns = computed(() => [
         ellipsis: true,
     },
 ])
-
-function formatLatency(ms) {
-    if (!ms || ms === 0) return '-'
-    return (ms / 1000).toFixed(2) + 's'
-}
-
-function formatOtps(val) {
-    const num = Number(val)
-    if (!Number.isFinite(num) || num === 0) return '-'
-    return (
-        num.toLocaleString('en-US', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2,
-        }) + ' t/s'
-    )
-}
-
-function formatSuccessRate(val) {
-    if (val === undefined || val === null || Number.isNaN(Number(val))) return '-'
-    return Number(val).toFixed(1) + '%'
-}
 
 function eventTypeLabel(type) {
     const key = `pages.ops.${type}`
@@ -340,9 +345,7 @@ function formatEventValue(value) {
 }
 
 function handleEventTableChange(pagination) {
-    eventPagination.current = pagination.current
-    eventPagination.pageSize = pagination.pageSize
-    loadAll()
+    return controller.pageEvents({ current: pagination.current, pageSize: pagination.pageSize })
 }
 
 function quickRangeValue(range) {
@@ -382,52 +385,7 @@ function queryTimeRange() {
     return `${minutes}m`
 }
 
-const kpi = computed(() => ranking.value || {})
-
-const kpiCards = computed(() => [
-    {
-        key: 'upstreamCalls',
-        label: t('pages.provider.detail.monitor.kpi.upstreamCalls'),
-        value: kpi.value.upstream_call_count ? Number(kpi.value.upstream_call_count).toLocaleString('en-US') : '0',
-    },
-    {
-        key: 'successRate',
-        label: t('pages.provider.detail.monitor.kpi.successRate'),
-        value: kpi.value.upstream_call_count ? formatSuccessRate(kpi.value.upstream_call_success_rate) : '-',
-        hint: t('pages.provider.detail.health.successRate.hint'),
-    },
-    // 无 P50/P95/P99 tooltip：分位数需要直方图桶，内存 store 只有 sum/count。详见 ADR-0008。
-    {
-        key: 'latency',
-        label: t('pages.provider.detail.monitor.kpi.latency'),
-        value: formatLatency(kpi.value.avg_latency_ms),
-    },
-    {
-        key: 'ttft',
-        label: t('pages.provider.detail.monitor.kpi.ttft'),
-        value: formatLatency(kpi.value.avg_ttft_ms),
-    },
-    {
-        key: 'otps',
-        label: t('pages.provider.detail.monitor.kpi.otps'),
-        value: formatOtps(kpi.value.otps),
-    },
-    {
-        key: 'tokens',
-        label: t('pages.provider.detail.monitor.kpi.tokens'),
-        value: kpi.value.total_tokens ? formatTokens(kpi.value.total_tokens) : '-',
-    },
-    {
-        key: 'cost',
-        label: t('pages.provider.detail.monitor.kpi.cost'),
-        value: kpi.value.total_cost ? '¥' + Number(kpi.value.total_cost).toFixed(4) : '-',
-    },
-    {
-        key: 'endpoints',
-        label: t('pages.provider.detail.monitor.kpi.endpoints'),
-        value: endpoints.value.length.toLocaleString('en-US'),
-    },
-])
+const kpiCards = computed(() => providerHealthCards(ranking.value, t, formatTokens))
 
 const providerBreakers = computed(() => {
     const endpointIds = new Set((endpoints.value || []).map((item) => item.id))
@@ -436,11 +394,15 @@ const providerBreakers = computed(() => {
     )
 })
 
-const hasTraffic = computed(() => (traffic.value.series?.[0]?.total || []).some((value) => Number(value) > 0))
+const hasTraffic = computed(() => (traffic.value.series || []).some((series) => hasMetricData(series.total)))
 
 const hasEndpointTraffic = computed(() =>
-    (endpointTraffic.value.series || []).some((series) => (series.total || []).some((value) => Number(value) > 0))
+    (endpointTraffic.value.series || []).some((series) => hasMetricData(series.total))
 )
+
+function hasMetricData(values) {
+    return (values || []).some((value) => value !== null && value !== undefined && Number.isFinite(Number(value)))
+}
 
 function chartTheme() {
     const isDark = appStore.config.theme === 'dark'
@@ -589,128 +551,37 @@ function endpointSeriesLabel(label) {
     return match?.code || label
 }
 
-// 供应商侧的趋势按 group_by=provider 拉取，再挑出本供应商的那条 series。
-// 后端返回的 label 是网关上报的标识（ADR-0009 起为 provider code），
-// 完成穿透前的历史数据可能仍是 name，故两者都认。
-function pickProviderSeries(payload) {
-    const series = payload?.series || []
-    const candidates = [props.providerCode, props.providerName].filter(Boolean)
-    const matched = series.find((item) => candidates.includes(item.label))
-    return {
-        times: payload?.times || [],
-        series: matched ? [matched] : [],
-    }
-}
-
-let loadGeneration = 0
-async function loadAll() {
-    const generation = ++loadGeneration
-    if (!props.providerId) return
-    loading.value = true
+function loadAll() {
+    if (!props.active || !props.providerId) return
     if (timeRange.value !== 'custom') {
         selectedTimeRange.value = quickRangeValue(timeRange.value)
     }
     const range = queryTimeRange()
     const [start, end] = selectedTimeRange.value
     const endTime = end.format()
-    const providerRef = props.providerCode || props.providerId
-
-    try {
-        const [rankingRes, trafficRes, endpointListRes, breakerRes, eventRes] = await Promise.all([
-            apis.dashboard
-                .getProviderRanking({
-                    provider: providerRef,
-                    time_range: range,
-                    start_time: start.format(),
-                    end_time: endTime,
-                    limit: 1,
-                })
-                .catch(() => ({ data: [], monitoring: { state: 'error' } })),
-            apis.dashboard
-                .getTrends({ time_range: range, start_time: start.format(), end_time: endTime, group_by: 'provider' })
-                .catch(() => ({ data: { times: [], series: [] }, monitoring: { state: 'error' } })),
-            // 用专用接口而非通用列表：它预加载了 Model，端点流量趋势需要 model_code。
-            apis.endpoint
-                .getEndpointsByProviderId(props.providerId)
-                .catch(() => ({ data: [], monitoring: { state: 'error' } })),
-            apis.dashboard.getCircuitBreakers().catch(() => ({ data: [], monitoring: { state: 'error' } })),
-            apis.ops
-                .getEvents({
-                    provider_ref: providerRef,
-                    provider_name_fallback: props.providerName || undefined,
-                    start_time: start.toISOString(),
-                    end_time: endTime,
-                    pageSize: eventPagination.pageSize,
-                    current: eventPagination.current,
-                })
-                .catch(() => ({ data: [], monitoring: { state: 'error' } })),
-        ])
-
-        if (generation !== loadGeneration) return
-        const rankingRows = rankingRes.data || []
-        monitoring.value = monitoringStatus([rankingRes, trafficRes].map((r) => r.monitoring))
-        ranking.value = rankingRows[0] || null
-        traffic.value = pickProviderSeries(trafficRes.data)
-        endpoints.value = endpointListRes.data || []
-        breakers.value = breakerRes.data || []
-        events.value = eventRes.data || []
-        eventPagination.total = eventRes.total || 0
-
-        await loadEndpointTraffic(range, start.format(), endTime, generation)
-    } finally {
-        if (generation === loadGeneration) loading.value = false
-    }
-}
-
-// 端点分流量需要按模型逐个拉取：trends 的 group_by=endpoint 依赖 model 参数
-// 来确定端点集合，没有供应商维度的等价查询。这里改为在前端按本供应商的
-// 端点 ID 过滤 series。
-async function loadEndpointTraffic(range, startTime, endTime, generation) {
-    const modelCodes = [...new Set((endpoints.value || []).map((ep) => ep.model?.model_code).filter(Boolean))]
-    if (modelCodes.length === 0) {
-        endpointTraffic.value = { times: [], series: [] }
-        return
-    }
-
-    const ownEndpointIds = new Set((endpoints.value || []).map((ep) => ep.id))
-    const results = await Promise.all(
-        modelCodes.map((model) =>
-            apis.dashboard
-                .getTrends({ model, time_range: range, start_time: startTime, end_time: endTime, group_by: 'endpoint' })
-                .catch(() => ({ data: { times: [], series: [] }, monitoring: { state: 'error' } }))
-        )
-    )
-
-    if (generation !== loadGeneration) return
-    monitoring.value = monitoringStatus([monitoring.value, ...results.map((r) => r.monitoring)])
-    const merged = { times: [], series: [] }
-    for (const res of results) {
-        const payload = res.data || {}
-        if (!merged.times.length && payload.times?.length) {
-            merged.times = payload.times
-        }
-        for (const series of payload.series || []) {
-            if (ownEndpointIds.has(series.label)) {
-                merged.series.push(series)
-            }
-        }
-    }
-    endpointTraffic.value = merged
+    return controller.refresh({
+        id: props.providerId,
+        code: props.providerCode,
+        name: props.providerName,
+        time_range: range,
+        start_time: start.format(),
+        end_time: endTime,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    })
 }
 
 watch(
-    () => [props.active, props.providerId],
+    () => [props.active, props.providerId, props.providerCode, props.providerName],
     ([isActive, id]) => {
-        if (!isActive) {
-            loadGeneration++
+        if (!isActive || !id) {
+            controller.stop()
             return
         }
-        if (isActive && id) {
-            loadAll()
-        }
+        loadAll()
     },
     { immediate: true }
 )
+onBeforeUnmount(() => controller.stop())
 
 defineExpose({ loadAll })
 </script>

@@ -142,10 +142,6 @@ func (a *Reader) prometheusScalar(ctx context.Context, query string) *float64 {
 	return &value
 }
 
-func (a *Reader) queryPrometheusMultiValues(ctx context.Context, query string, labelKey string) map[string]float64 {
-	return a.queryPrometheusMultiValuesAt(ctx, query, labelKey, time.Time{})
-}
-
 func (a *Reader) queryPrometheusMultiValuesAt(ctx context.Context, query string, labelKey string, end time.Time) map[string]float64 {
 	resMap := make(map[string]float64)
 	promAddr := config.C.Util.PrometheusServer.Address

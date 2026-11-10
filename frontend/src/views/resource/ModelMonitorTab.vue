@@ -88,11 +88,12 @@
                 :lg="12">
                 <div class="monitor-panel">
                     <div class="monitor-panel__title">{{ $t('pages.model.detail.monitor.traffic') }}</div>
+                    <MonitoringStatus :reading="readings.traffic" />
                     <a-empty
-                        v-if="!hasTraffic"
+                        v-if="!hasTraffic && readings.traffic?.state === 'ok'"
                         :description="$t('pages.model.detail.monitor.empty')" />
                     <x-chart
-                        v-else
+                        v-if="hasTraffic"
                         :options="trafficChartOptions"
                         height="280px"
                         :loading="loading" />
@@ -103,11 +104,12 @@
                 :lg="12">
                 <div class="monitor-panel">
                     <div class="monitor-panel__title">{{ $t('pages.model.detail.monitor.endpointTraffic') }}</div>
+                    <MonitoringStatus :reading="readings.endpointTraffic" />
                     <a-empty
-                        v-if="!hasEndpointTraffic"
+                        v-if="!hasEndpointTraffic && readings.endpointTraffic?.state === 'ok'"
                         :description="$t('pages.model.detail.monitor.endpointTraffic.empty')" />
                     <x-chart
-                        v-else
+                        v-if="hasEndpointTraffic"
                         :options="endpointChartOptions"
                         height="280px"
                         :loading="loading" />
@@ -121,11 +123,12 @@
                 :lg="12">
                 <div class="monitor-panel">
                     <div class="monitor-panel__title">{{ $t('pages.model.detail.monitor.ttftTrend') }}</div>
+                    <MonitoringStatus :reading="readings.performance" />
                     <a-empty
-                        v-if="!hasTTFTTrend"
+                        v-if="!hasTTFTTrend && readings.performance?.state === 'ok'"
                         :description="$t('pages.model.detail.monitor.performance.empty')" />
                     <x-chart
-                        v-else
+                        v-if="hasTTFTTrend"
                         :options="ttftChartOptions"
                         height="280px"
                         :loading="loading" />
@@ -136,11 +139,12 @@
                 :lg="12">
                 <div class="monitor-panel">
                     <div class="monitor-panel__title">{{ $t('pages.model.detail.monitor.otpsTrend') }}</div>
+                    <MonitoringStatus :reading="readings.performance" />
                     <a-empty
-                        v-if="!hasOTPSTrend"
+                        v-if="!hasOTPSTrend && readings.performance?.state === 'ok'"
                         :description="$t('pages.model.detail.monitor.performance.empty')" />
                     <x-chart
-                        v-else
+                        v-if="hasOTPSTrend"
                         :options="otpsChartOptions"
                         height="280px"
                         :loading="loading" />
@@ -150,11 +154,18 @@
 
         <div class="monitor-panel events-panel">
             <div class="monitor-panel__title">{{ $t('pages.model.detail.monitor.events') }}</div>
+            <MonitoringStatus :reading="readings.events" />
             <a-empty
-                v-if="events.length === 0"
+                v-if="
+                    events.length === 0 &&
+                    !eventsLoading &&
+                    readings.events?.state === 'ok' &&
+                    eventPagination.total === 0
+                "
                 :description="$t('pages.model.detail.monitor.events.empty')" />
             <a-table
-                v-else
+                v-if="events.length > 0 || eventsLoading || eventPagination.total > 0"
+                :loading="eventsLoading"
                 size="middle"
                 row-key="id"
                 :pagination="eventPagination"
@@ -254,7 +265,8 @@
 <script setup>
 import MonitoringStatus from '@/components/MonitoringStatus.vue'
 import { monitoringSuccessRates, monitoringStatus } from '@/utils/monitoring-snapshot'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from 'vue'
+import { createDetailMonitoring } from '@/utils/detail-monitoring'
 import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
 import dayjs from 'dayjs'
@@ -283,15 +295,6 @@ const appStore = useAppStore()
 
 const timeRange = ref('1h')
 const selectedTimeRange = ref([dayjs().subtract(1, 'hour'), dayjs()])
-const loading = ref(false)
-const monitoring = ref(null)
-const ranking = ref(null)
-const traffic = ref({ times: [], series: [] })
-const endpointTraffic = ref({ times: [], series: [] })
-const performance = ref({ times: [], avg_ttft_ms: [], otps: [] })
-const endpoints = ref([])
-const breakers = ref([])
-const events = ref([])
 const eventPagination = reactive({
     current: 1,
     pageSize: 20,
@@ -299,6 +302,30 @@ const eventPagination = reactive({
     showSizeChanger: true,
     showTotal: (total) => t('common.pagination.total', { total }),
 })
+
+const state = shallowRef(null)
+const controller = createDetailMonitoring({
+    kind: 'model',
+    api: apis,
+    onChange: (next) => {
+        state.value = next
+        eventPagination.current = next.eventPage.current
+        eventPagination.pageSize = next.eventPage.pageSize
+        eventPagination.total = next.eventTotal
+    },
+})
+state.value = controller.getState()
+const readings = computed(() => state.value.readings)
+const monitoring = computed(() => monitoringStatus(Object.values(readings.value)))
+const loading = computed(() => state.value.loading)
+const eventsLoading = computed(() => state.value.eventsLoading)
+const ranking = computed(() => state.value.ranking)
+const traffic = computed(() => state.value.traffic)
+const endpointTraffic = computed(() => state.value.endpointTraffic)
+const performance = computed(() => state.value.performance)
+const endpoints = computed(() => state.value.endpoints)
+const breakers = computed(() => state.value.breakers)
+const events = computed(() => state.value.events)
 
 const eventColumns = computed(() => [
     { title: t('pages.ops.table.time'), key: 'event_time', dataIndex: 'event_time', width: 170 },
@@ -328,13 +355,13 @@ const eventColumns = computed(() => [
 ])
 
 function formatLatency(ms) {
-    if (!ms || ms === 0) return '-'
+    if (ms == null || ms === 0) return '—'
     return (ms / 1000).toFixed(2) + 's'
 }
 
 function formatOtps(val) {
     const num = Number(val)
-    if (!Number.isFinite(num) || num === 0) return '-'
+    if (val == null || !Number.isFinite(num) || num === 0) return '—'
     return (
         num.toLocaleString('en-US', {
             minimumFractionDigits: 0,
@@ -344,7 +371,7 @@ function formatOtps(val) {
 }
 
 function formatSuccessRate(val) {
-    if (val === undefined || val === null || Number.isNaN(Number(val))) return '-'
+    if (val === undefined || val === null || Number.isNaN(Number(val))) return '—'
     return Number(val).toFixed(1) + '%'
 }
 
@@ -374,9 +401,7 @@ function formatEventValue(value) {
 }
 
 function handleEventTableChange(pagination) {
-    eventPagination.current = pagination.current
-    eventPagination.pageSize = pagination.pageSize
-    loadAll()
+    return controller.pageEvents({ current: pagination.current, pageSize: pagination.pageSize })
 }
 
 function quickRangeValue(range) {
@@ -419,12 +444,12 @@ const kpiCards = computed(() => [
     {
         key: 'requests',
         label: t('pages.model.detail.monitor.kpi.requests'),
-        value: kpi.value.request_count ? Number(kpi.value.request_count).toLocaleString('en-US') : '0',
+        value: kpi.value.request_count == null ? '—' : Number(kpi.value.request_count).toLocaleString('en-US'),
     },
     {
         key: 'successRate',
         label: t('pages.model.detail.monitor.kpi.successRate'),
-        value: kpi.value.request_count ? formatSuccessRate(kpi.value.success_rate) : '-',
+        value: kpi.value.request_count ? formatSuccessRate(kpi.value.success_rate) : '—',
     },
     {
         key: 'latency',
@@ -454,17 +479,17 @@ const kpiCards = computed(() => [
     {
         key: 'tokens',
         label: t('pages.model.detail.monitor.kpi.tokens'),
-        value: kpi.value.total_tokens ? formatTokens(kpi.value.total_tokens) : '-',
+        value: kpi.value.total_tokens == null ? '—' : formatTokens(kpi.value.total_tokens),
     },
     {
         key: 'cost',
         label: t('pages.model.detail.monitor.kpi.cost'),
-        value: kpi.value.total_cost ? '¥' + Number(kpi.value.total_cost).toFixed(4) : '-',
+        value: kpi.value.total_cost == null ? '—' : '¥' + Number(kpi.value.total_cost).toFixed(4),
     },
     {
         key: 'endpoints',
         label: t('pages.model.detail.monitor.kpi.endpoints'),
-        value: endpoints.value.length.toLocaleString('en-US'),
+        value: readings.value.endpoints?.state === 'ok' ? endpoints.value.length.toLocaleString('en-US') : '—',
     },
 ])
 
@@ -475,10 +500,10 @@ const modelBreakers = computed(() => {
     )
 })
 
-const hasTraffic = computed(() => (traffic.value.series?.[0]?.total || []).some((value) => Number(value) > 0))
+const hasTraffic = computed(() => (traffic.value.series || []).some((series) => hasMetricData(series.total)))
 
 const hasEndpointTraffic = computed(() =>
-    (endpointTraffic.value.series || []).some((series) => (series.total || []).some((value) => Number(value) > 0))
+    (endpointTraffic.value.series || []).some((series) => hasMetricData(series.total))
 )
 
 function hasMetricData(values) {
@@ -728,96 +753,36 @@ function endpointSeriesLabel(label) {
     return match?.code || label
 }
 
-let loadGeneration = 0
-async function loadAll() {
-    const generation = ++loadGeneration
-    if (!props.modelId) return
-    loading.value = true
+function loadAll() {
+    if (!props.active || !props.modelId || !props.modelCode) return
     if (timeRange.value !== 'custom') {
         selectedTimeRange.value = quickRangeValue(timeRange.value)
     }
-    const model = props.modelCode || props.modelId
     const range = queryTimeRange()
     const [start, end] = selectedTimeRange.value
     const endTime = end.format()
-    try {
-        const [rankingRes, trafficRes, endpointRes, performanceRes, endpointListRes, breakerRes, eventRes] =
-            await Promise.all([
-                apis.dashboard
-                    .getModelRanking({
-                        model,
-                        time_range: range,
-                        start_time: start.format(),
-                        end_time: endTime,
-                        limit: 1,
-                    })
-                    .catch(() => ({ data: [], monitoring: { state: 'error' } })),
-                apis.dashboard
-                    .getTrends({ model, time_range: range, start_time: start.format(), end_time: endTime })
-                    .catch(() => ({ data: { times: [], series: [] }, monitoring: { state: 'error' } })),
-                apis.dashboard
-                    .getTrends({
-                        model,
-                        time_range: range,
-                        start_time: start.format(),
-                        end_time: endTime,
-                        group_by: 'endpoint',
-                    })
-                    .catch(() => ({ data: { times: [], series: [] }, monitoring: { state: 'error' } })),
-                apis.dashboard
-                    .getModelPerformanceTrends({
-                        model,
-                        time_range: range,
-                        start_time: start.format(),
-                        end_time: endTime,
-                    })
-                    .catch(() => ({ data: { times: [], avg_ttft_ms: [], otps: [] }, monitoring: { state: 'error' } })),
-                apis.endpoint
-                    .getEndpointList({ model_id: props.modelId, pageSize: 100, current: 1 })
-                    .catch(() => ({ data: [], monitoring: { state: 'error' } })),
-                apis.dashboard.getCircuitBreakers().catch(() => ({ data: [], monitoring: { state: 'error' } })),
-                apis.ops
-                    .getEvents({
-                        model_code: props.modelCode || undefined,
-                        start_time: start.toISOString(),
-                        end_time: endTime,
-                        pageSize: eventPagination.pageSize,
-                        current: eventPagination.current,
-                    })
-                    .catch(() => ({ data: [], monitoring: { state: 'error' } })),
-            ])
-
-        if (generation !== loadGeneration) return
-        const rankingRows = rankingRes.data || []
-        monitoring.value = monitoringStatus(
-            [rankingRes, trafficRes, endpointRes, performanceRes].map((r) => r.monitoring)
-        )
-        ranking.value = rankingRows[0] || null
-        traffic.value = trafficRes.data || { times: [], series: [] }
-        endpointTraffic.value = endpointRes.data || { times: [], series: [] }
-        performance.value = performanceRes.data || { times: [], avg_ttft_ms: [], otps: [] }
-        endpoints.value = endpointListRes.data || []
-        breakers.value = breakerRes.data || []
-        events.value = (eventRes.data || []).filter((item) => !props.modelCode || item.model_code === props.modelCode)
-        eventPagination.total = eventRes.total || 0
-    } finally {
-        if (generation === loadGeneration) loading.value = false
-    }
+    return controller.refresh({
+        id: props.modelId,
+        code: props.modelCode,
+        time_range: range,
+        start_time: start.format(),
+        end_time: endTime,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    })
 }
 
 watch(
     () => [props.active, props.modelId, props.modelCode],
     ([isActive, id, code]) => {
-        if (!isActive) {
-            loadGeneration++
+        if (!isActive || !id || !code) {
+            controller.stop()
             return
         }
-        if (isActive && id && code) {
-            loadAll()
-        }
+        loadAll()
     },
     { immediate: true }
 )
+onBeforeUnmount(() => controller.stop())
 </script>
 
 <style lang="less" scoped>

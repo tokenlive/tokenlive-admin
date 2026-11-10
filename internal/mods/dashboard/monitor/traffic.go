@@ -10,6 +10,17 @@ import (
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
 )
 
+type trendSeries struct {
+	Label   string  `json:"label"`
+	Success []int64 `json:"success"`
+	Failure []int64 `json:"failure"`
+	Total   []int64 `json:"total"`
+}
+
+type trafficResult struct {
+	Series []trendSeries `json:"series"`
+}
+
 func emptyTrendSeries(numPoints int, label string) trendSeries {
 	return trendSeries{
 		Label:   label,
@@ -19,29 +30,19 @@ func emptyTrendSeries(numPoints int, label string) trendSeries {
 	}
 }
 
-func (a *Reader) getTrends(ctx context.Context, groupBy, timeRange, modelCode string) (*trafficResult, error) {
-	return a.getTrendsAt(ctx, groupBy, timeRange, modelCode, a.now().Truncate(time.Minute))
-}
-
-func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode string, end time.Time) (*trafficResult, error) {
-	ctx, plan, planErr := a.queryPlan(ctx, timeRange, end)
-	if planErr != nil {
-		return nil, planErr
-	}
+func (a *Reader) readTraffic(ctx context.Context, groupBy, modelCode string, plan windowPlan) (*trafficResult, error) {
 	if plan.minutes() == 0 {
 		source(ctx, "catalog")
 		return &trafficResult{}, nil
 	}
-	end = plan.End
-	cacheKey := fmt.Sprintf("trends:%s:%s:%s:%d", groupBy, timeRange, modelCode, end.Unix())
+	end := plan.End
+	cacheKey := fmt.Sprintf("trends:%s:%s", groupBy, modelCode)
 	if cached, ok := a.getCache(ctx, cacheKey); ok {
 		return cached.(*trafficResult), nil
 	}
 
-	rangeConfig := plan.trendConfig()
-	end = rangeConfig.end
 	start := plan.Buckets[0].End
-	promRange := fmt.Sprintf("%ds", rangeConfig.stepSeconds)
+	promRange := fmt.Sprintf("%ds", int64(plan.Step/time.Second))
 
 	// 初始化响应
 	res := trafficResult{}
@@ -53,8 +54,8 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 
 		if groupBy == "" {
 			// 全局汇总
-			successData, err1 := a.queryPrometheusRange(ctx, successQuery, start.Unix(), end.Unix(), rangeConfig.stepSeconds)
-			errorData, err2 := a.queryPrometheusRange(ctx, errorQuery, start.Unix(), end.Unix(), rangeConfig.stepSeconds)
+			successData, err1 := a.queryPrometheusRange(ctx, successQuery, start.Unix(), end.Unix(), int64(plan.Step/time.Second))
+			errorData, err2 := a.queryPrometheusRange(ctx, errorQuery, start.Unix(), end.Unix(), int64(plan.Step/time.Second))
 
 			if err1 == nil && err2 == nil {
 				label := "global"
@@ -63,16 +64,16 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 				}
 				series := trendSeries{
 					Label:   label,
-					Success: make([]int64, rangeConfig.numPoints),
-					Failure: make([]int64, rangeConfig.numPoints),
-					Total:   make([]int64, rangeConfig.numPoints),
+					Success: make([]int64, len(plan.Buckets)),
+					Failure: make([]int64, len(plan.Buckets)),
+					Total:   make([]int64, len(plan.Buckets)),
 				}
 
 				// 使用时间戳对齐填充
-				alignPrometheusData(series.Success, successData, start.Unix(), rangeConfig.stepSeconds)
-				alignPrometheusData(series.Failure, errorData, start.Unix(), rangeConfig.stepSeconds)
+				alignPrometheusData(series.Success, successData, start.Unix(), int64(plan.Step/time.Second))
+				alignPrometheusData(series.Failure, errorData, start.Unix(), int64(plan.Step/time.Second))
 
-				for i := 0; i < rangeConfig.numPoints; i++ {
+				for i := 0; i < len(plan.Buckets); i++ {
 					series.Total[i] = series.Success[i] + series.Failure[i]
 				}
 
@@ -83,8 +84,8 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 		} else {
 			// 按标签分组
 			labelKey := groupBy
-			successMap, err1 := a.queryPrometheusRangeMulti(ctx, successQuery, start.Unix(), end.Unix(), rangeConfig.stepSeconds, labelKey)
-			errorMap, err2 := a.queryPrometheusRangeMulti(ctx, errorQuery, start.Unix(), end.Unix(), rangeConfig.stepSeconds, labelKey)
+			successMap, err1 := a.queryPrometheusRangeMulti(ctx, successQuery, start.Unix(), end.Unix(), int64(plan.Step/time.Second), labelKey)
+			errorMap, err2 := a.queryPrometheusRangeMulti(ctx, errorQuery, start.Unix(), end.Unix(), int64(plan.Step/time.Second), labelKey)
 
 			if err1 == nil && err2 == nil {
 				// 合并所有标签
@@ -100,20 +101,20 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 				for label := range allLabels {
 					series := trendSeries{
 						Label:   label,
-						Success: make([]int64, rangeConfig.numPoints),
-						Failure: make([]int64, rangeConfig.numPoints),
-						Total:   make([]int64, rangeConfig.numPoints),
+						Success: make([]int64, len(plan.Buckets)),
+						Failure: make([]int64, len(plan.Buckets)),
+						Total:   make([]int64, len(plan.Buckets)),
 					}
 
 					if successValues, ok := successMap[label]; ok {
-						alignPrometheusData(series.Success, successValues, start.Unix(), rangeConfig.stepSeconds)
+						alignPrometheusData(series.Success, successValues, start.Unix(), int64(plan.Step/time.Second))
 					}
 
 					if errorValues, ok := errorMap[label]; ok {
-						alignPrometheusData(series.Failure, errorValues, start.Unix(), rangeConfig.stepSeconds)
+						alignPrometheusData(series.Failure, errorValues, start.Unix(), int64(plan.Step/time.Second))
 					}
 
-					for i := 0; i < rangeConfig.numPoints; i++ {
+					for i := 0; i < len(plan.Buckets); i++ {
 						series.Total[i] = series.Success[i] + series.Failure[i]
 					}
 
@@ -136,11 +137,11 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 
 		if a.redis != nil {
 			source(ctx, "redis")
-			stepMinutes := rangeConfig.stepSeconds / 60
+			stepMinutes := int64(plan.Step/time.Second) / 60
 			if stepMinutes <= 0 {
 				stepMinutes = 1
 			}
-			windowMinutes := int64(rangeConfig.minutes)
+			windowMinutes := int64(plan.minutes())
 			numMinutes := int(windowMinutes)
 			if numMinutes > 120 {
 				numMinutes = 120
@@ -160,9 +161,9 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 				vals, err := a.redisValues(ctx, keys...)
 				series := trendSeries{
 					Label:   epID,
-					Success: make([]int64, rangeConfig.numPoints),
-					Failure: make([]int64, rangeConfig.numPoints),
-					Total:   make([]int64, rangeConfig.numPoints),
+					Success: make([]int64, len(plan.Buckets)),
+					Failure: make([]int64, len(plan.Buckets)),
+					Total:   make([]int64, len(plan.Buckets)),
 				}
 				if err == nil && len(vals) == numMinutes*2 {
 					aggregateRedisTrendValues(&series, vals, currentMinute, startMinute, stepMinutes)
@@ -174,7 +175,7 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 		}
 
 		source(ctx, "memory")
-		res.Series = buildMemoryTrendSeries(a.memory(), "endpoint", endpointIDs, rangeConfig, start, end)
+		res.Series = buildMemoryTrendSeries(a.memory(), "endpoint", endpointIDs, plan)
 		a.setCache(ctx, cacheKey, &res, 5*time.Second)
 		return &res, nil
 	}
@@ -190,11 +191,11 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 
 		if a.redis != nil && groupBy == "" {
 			source(ctx, "redis")
-			stepMinutes := rangeConfig.stepSeconds / 60
+			stepMinutes := int64(plan.Step/time.Second) / 60
 			if stepMinutes <= 0 {
 				stepMinutes = 1
 			}
-			windowMinutes := int64(rangeConfig.minutes)
+			windowMinutes := int64(plan.minutes())
 			numMinutes := int(windowMinutes)
 			if numMinutes > 120 {
 				numMinutes = 120
@@ -212,9 +213,9 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 			vals, err := a.redisValues(ctx, keys...)
 			series := trendSeries{
 				Label:   resolvedModelCode,
-				Success: make([]int64, rangeConfig.numPoints),
-				Failure: make([]int64, rangeConfig.numPoints),
-				Total:   make([]int64, rangeConfig.numPoints),
+				Success: make([]int64, len(plan.Buckets)),
+				Failure: make([]int64, len(plan.Buckets)),
+				Total:   make([]int64, len(plan.Buckets)),
 			}
 			if err == nil && len(vals) == numMinutes*2 {
 				aggregateRedisTrendValues(&series, vals, currentMinute, startMinute, stepMinutes)
@@ -226,12 +227,12 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 
 		if a.redis == nil && groupBy == "" {
 			source(ctx, "memory")
-			res.Series = buildMemoryTrendSeries(a.memory(), "model", []string{resolvedModelCode}, rangeConfig, start, end)
+			res.Series = buildMemoryTrendSeries(a.memory(), "model", []string{resolvedModelCode}, plan)
 			a.setCache(ctx, cacheKey, &res, 5*time.Second)
 			return &res, nil
 		}
 		if groupBy == "" {
-			res.Series = []trendSeries{emptyTrendSeries(rangeConfig.numPoints, resolvedModelCode)}
+			res.Series = []trendSeries{emptyTrendSeries(len(plan.Buckets), resolvedModelCode)}
 		} else {
 			res.Series = []trendSeries{}
 		}
@@ -240,9 +241,9 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 	}
 
 	// Redis 降级沿用两小时窗口；内存模式支持完整的七天保留窗口及分组。
-	fallbackMinutes := rangeConfig.redisMinutes
+	fallbackMinutes := min(plan.minutes(), 120)
 	if a.redis == nil {
-		fallbackMinutes = rangeConfig.minutes
+		fallbackMinutes = plan.minutes()
 	}
 	if fallbackMinutes > 0 {
 		var vals []interface{}
@@ -270,7 +271,7 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 				labels = []string{"global"}
 			}
 			source(ctx, "memory")
-			res.Series = buildMemoryTrendSeries(a.memory(), groupBy, labels, rangeConfig, start, end)
+			res.Series = buildMemoryTrendSeries(a.memory(), groupBy, labels, plan)
 			a.setCache(ctx, cacheKey, &res, 5*time.Second)
 			return &res, nil
 		}
@@ -278,21 +279,21 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 		if err == nil && len(vals) == fallbackMinutes*2 {
 			series := trendSeries{
 				Label:   "global",
-				Success: make([]int64, rangeConfig.numPoints),
-				Failure: make([]int64, rangeConfig.numPoints),
-				Total:   make([]int64, rangeConfig.numPoints),
+				Success: make([]int64, len(plan.Buckets)),
+				Failure: make([]int64, len(plan.Buckets)),
+				Total:   make([]int64, len(plan.Buckets)),
 			}
 
-			aggregateRedisTrendValues(&series, vals, end.Add(-time.Minute).Unix()/60, plan.Start.Unix()/60, rangeConfig.stepSeconds/60)
+			aggregateRedisTrendValues(&series, vals, end.Add(-time.Minute).Unix()/60, plan.Start.Unix()/60, int64(plan.Step/time.Second)/60)
 
 			res.Series = []trendSeries{series}
 		} else {
 			res.Series = []trendSeries{
 				{
 					Label:   "global",
-					Success: make([]int64, rangeConfig.numPoints),
-					Failure: make([]int64, rangeConfig.numPoints),
-					Total:   make([]int64, rangeConfig.numPoints),
+					Success: make([]int64, len(plan.Buckets)),
+					Failure: make([]int64, len(plan.Buckets)),
+					Total:   make([]int64, len(plan.Buckets)),
 				},
 			}
 		}
@@ -300,9 +301,9 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 		res.Series = []trendSeries{
 			{
 				Label:   "global",
-				Success: make([]int64, rangeConfig.numPoints),
-				Failure: make([]int64, rangeConfig.numPoints),
-				Total:   make([]int64, rangeConfig.numPoints),
+				Success: make([]int64, len(plan.Buckets)),
+				Failure: make([]int64, len(plan.Buckets)),
+				Total:   make([]int64, len(plan.Buckets)),
 			},
 		}
 	}
@@ -311,9 +312,10 @@ func (a *Reader) getTrendsAt(ctx context.Context, groupBy, timeRange, modelCode 
 	return &res, nil
 }
 
-func buildMemoryTrendSeries(store *metrics.MemoryStore, groupBy string, labels []string, rangeConfig trendRangeConfig, start, end time.Time) []trendSeries {
-	stepMinutes := rangeConfig.stepSeconds / 60
-	numMinutes := rangeConfig.minutes
+func buildMemoryTrendSeries(store *metrics.MemoryStore, groupBy string, labels []string, plan windowPlan) []trendSeries {
+	end := plan.End
+	stepMinutes := int64(plan.Step/time.Second) / 60
+	numMinutes := plan.minutes()
 	currentMinute := end.Add(-time.Minute).Unix() / 60
 	seriesList := make([]trendSeries, 0, len(labels))
 
@@ -342,11 +344,11 @@ func buildMemoryTrendSeries(store *metrics.MemoryStore, groupBy string, labels [
 
 		series := trendSeries{
 			Label:   label,
-			Success: make([]int64, rangeConfig.numPoints),
-			Failure: make([]int64, rangeConfig.numPoints),
-			Total:   make([]int64, rangeConfig.numPoints),
+			Success: make([]int64, len(plan.Buckets)),
+			Failure: make([]int64, len(plan.Buckets)),
+			Total:   make([]int64, len(plan.Buckets)),
 		}
-		aggregateRedisTrendValues(&series, values, currentMinute, rangeConfig.plan.Start.Unix()/60, stepMinutes)
+		aggregateRedisTrendValues(&series, values, currentMinute, plan.Start.Unix()/60, stepMinutes)
 		seriesList = append(seriesList, series)
 	}
 	return seriesList

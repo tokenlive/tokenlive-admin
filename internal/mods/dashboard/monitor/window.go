@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -124,28 +123,3 @@ func (p windowPlan) identity() string {
 }
 
 func (p windowPlan) minutes() int { return int(p.End.Sub(p.Start) / time.Minute) }
-
-func (a *Reader) queryPlan(ctx context.Context, span string, end time.Time) (context.Context, windowPlan, error) {
-	if s := scope(ctx); s != nil {
-		return ctx, s.plan, nil
-	}
-	p, err := compileWindow(WindowQuery{Range: span}, end, end, end.Location())
-	if err != nil {
-		return ctx, p, err
-	}
-	ctx, _ = withPlan(ctx, p)
-	return ctx, p, nil
-}
-
-func (p windowPlan) trendConfig() trendRangeConfig {
-	copy := p
-	return trendRangeConfig{plan: &copy, minutes: p.minutes(), numPoints: len(p.Buckets), stepSeconds: int64(p.Step / time.Second), redisMinutes: min(p.minutes(), 120), end: p.End}
-}
-
-func (p windowPlan) index(minute int64) int {
-	t := time.Unix(minute*60, 0)
-	if t.Before(p.Start) || !t.Before(p.End) {
-		return -1
-	}
-	return int(t.Sub(p.Start) / p.Step)
-}

@@ -99,17 +99,25 @@ func (a *Reader) getOverview(ctx context.Context) (*Overview, error) {
 			res.AvgTTFTMs = &v
 		}
 	}
-	res.ActiveCircuitBreakers = a.getCircuitBreakers(ctx)
+	// A nil list means unknown; a successful empty read returns an empty slice.
+	res.ActiveCircuitBreakers, _ = a.CircuitBreakers(ctx)
 	return res, nil
 }
 
-func (a *Reader) getCircuitBreakers(ctx context.Context) []CircuitBreakerInfo {
+func (a *Reader) CircuitBreakers(ctx context.Context) ([]CircuitBreakerInfo, error) {
 	var endpoints []string
 	var services []string
 	if a.redis != nil {
 		source(ctx, "redis")
-		endpoints, _ = a.redis.SMembers(ctx, gatewaycontract.Keys.Circuit.OpenEndpoints).Result()
-		services, _ = a.redis.SMembers(ctx, gatewaycontract.Keys.Circuit.OpenServices).Result()
+		var err error
+		endpoints, err = a.redis.SMembers(ctx, gatewaycontract.Keys.Circuit.OpenEndpoints).Result()
+		if err != nil {
+			return nil, err
+		}
+		services, err = a.redis.SMembers(ctx, gatewaycontract.Keys.Circuit.OpenServices).Result()
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		endpoints = a.memory().GetOpenEndpoints()
 		services = a.memory().GetOpenServices()
@@ -123,46 +131,43 @@ func (a *Reader) getCircuitBreakers(ctx context.Context) []CircuitBreakerInfo {
 			Preload("Provider").
 			Where("id IN ?", endpoints).
 			Find(&dbEndpoints).Error
-		if err == nil {
-			for _, ep := range dbEndpoints {
-				info := CircuitBreakerInfo{
-					ID:   ep.ID,
-					Type: "endpoint",
-					URL:  ep.URL,
-				}
-				if ep.Model != nil {
-					info.ModelID = ep.ModelID
-					info.ModelName = ep.Model.ModelName
-				}
-				if ep.Provider != nil {
-					info.ProviderID = ep.ProviderID
-					info.ProviderName = ep.Provider.Name
-				}
-				// 组合 Name
-				if info.ModelName != "" && info.ProviderName != "" {
-					info.Name = fmt.Sprintf("%s (%s)", info.ModelName, info.ProviderName)
-				} else if info.ModelName != "" {
-					info.Name = info.ModelName
-				} else {
-					info.Name = ep.URL
-				}
-				endpointInfos = append(endpointInfos, info)
-			}
+		if err != nil {
+			return nil, err
 		}
-
-		// 兜底填充：如果某些端点被逻辑删除（但在 Redis 缓存状态里仍然存活），则使用 ID 填补
-		foundMap := make(map[string]bool)
-		for _, info := range endpointInfos {
-			foundMap[info.ID] = true
-		}
-		for _, id := range endpoints {
-			if !foundMap[id] {
-				endpointInfos = append(endpointInfos, CircuitBreakerInfo{
-					ID:   id,
-					Type: "endpoint",
-					Name: id,
-				})
+		for _, ep := range dbEndpoints {
+			info := CircuitBreakerInfo{
+				ID:   ep.ID,
+				Type: "endpoint",
+				URL:  ep.URL,
 			}
+			if ep.Model != nil {
+				info.ModelID = ep.ModelID
+				info.ModelName = ep.Model.ModelName
+			}
+			if ep.Provider != nil {
+				info.ProviderID = ep.ProviderID
+				info.ProviderName = ep.Provider.Name
+			}
+			// 组合 Name
+			if info.ModelName != "" && info.ProviderName != "" {
+				info.Name = fmt.Sprintf("%s (%s)", info.ModelName, info.ProviderName)
+			} else if info.ModelName != "" {
+				info.Name = info.ModelName
+			} else {
+				info.Name = ep.URL
+			}
+			endpointInfos = append(endpointInfos, info)
+		}
+	}
+	// Deleted endpoints may still have live runtime state. Keep their IDs even
+	// without catalog metadata so readers can match their own endpoint inventory.
+	found := make(map[string]bool)
+	for _, info := range endpointInfos {
+		found[info.ID] = true
+	}
+	for _, id := range endpoints {
+		if !found[id] {
+			endpointInfos = append(endpointInfos, CircuitBreakerInfo{ID: id, Type: "endpoint", Name: id})
 		}
 	}
 
@@ -179,5 +184,5 @@ func (a *Reader) getCircuitBreakers(ctx context.Context) []CircuitBreakerInfo {
 	allInfos = append(allInfos, endpointInfos...)
 	allInfos = append(allInfos, serviceInfos...)
 
-	return allInfos
+	return allInfos, nil
 }

@@ -20,8 +20,9 @@ type WindowQuery struct {
 
 type TrafficQuery struct {
 	WindowQuery
-	GroupBy string `json:"group_by,omitempty"`
-	Model   string `json:"model,omitempty"`
+	GroupBy  string `json:"group_by,omitempty"`
+	Model    string `json:"model,omitempty"`
+	Provider string `json:"provider,omitempty"`
 }
 
 type PerformanceQuery struct {
@@ -88,12 +89,12 @@ type Performance struct {
 }
 
 type Snapshot struct {
-	Cutoff      time.Time                       `json:"cutoff"`
-	Overview    *Reading[Overview]              `json:"overview,omitempty"`
-	Traffic     *Reading[Traffic]               `json:"traffic,omitempty"`
-	Performance *Reading[Performance]           `json:"performance,omitempty"`
-	Models      *Reading[[]ModelRankingItem]    `json:"models,omitempty"`
-	Providers   *Reading[[]ProviderRankingItem] `json:"providers,omitempty"`
+	Cutoff      time.Time                    `json:"cutoff"`
+	Overview    *Reading[Overview]           `json:"overview,omitempty"`
+	Traffic     *Reading[Traffic]            `json:"traffic,omitempty"`
+	Performance *Reading[Performance]        `json:"performance,omitempty"`
+	Models      *Reading[[]ModelRankingItem] `json:"models,omitempty"`
+	Providers   *Reading[[]ProviderHealth]   `json:"providers,omitempty"`
 }
 
 // Overview keeps missing live/daily measurements distinct from a genuine zero.
@@ -142,26 +143,37 @@ type ModelRankingItem struct {
 	Otps         float64 `json:"otps"`
 }
 
-// ProviderRankingItem 单个供应商在给定时间窗口内的聚合指标。
-//
-// 注意：不含 P50/P95/P99 分位数。内存 store 只累积 sum/count 而无直方图桶，
-// 分位数仅 Prometheus 可算；一个在部分部署下静默消失的指标不如不提供。详见 ADR-0008。
-type ProviderRankingItem struct {
-	ProviderID   string `json:"provider_id"`
-	ProviderCode string `json:"provider_code"`
-	ProviderName string `json:"provider_name"`
-	// UpstreamCallCount 上游调用次数。故障转移产生的多次尝试各自计入对应供应商。
-	UpstreamCallCount int64 `json:"upstream_call_count"`
-	SuccessCount      int64 `json:"success_count"`
-	FailCount         int64 `json:"fail_count"`
-	// UpstreamCallSuccessRate 上游调用成功率（百分比）。
-	// 与 Request Success Rate 分母不同：故障转移走掉的失败尝试计入此处的失败数。
-	UpstreamCallSuccessRate float64 `json:"upstream_call_success_rate"`
-	AvgLatencyMs            float64 `json:"avg_latency_ms"`
-	AvgTTFTMs               float64 `json:"avg_ttft_ms"`
-	TotalTokens             int64   `json:"total_tokens"`
-	TotalCost               float64 `json:"total_cost"`
-	Otps                    float64 `json:"otps"`
-	EndpointCount           int64   `json:"endpoint_count"`
-	OpenBreakerCount        int64   `json:"open_breaker_count"`
+// HealthMetric keeps a value distinct from the availability of its samples.
+// Scope names the population counted or timed; Source names the observation source.
+type HealthMetric[T any] struct {
+	Value    *T       `json:"value"`
+	State    string   `json:"state"`
+	Source   string   `json:"source"`
+	Scope    string   `json:"scope"`
+	Identity string   `json:"identity,omitempty"`
+	Window   Window   `json:"window"`
+	Coverage Coverage `json:"coverage"`
+	Reason   string   `json:"reason,omitempty"`
+}
+
+type ProviderCalls struct {
+	Total   int64 `json:"total"`
+	Success int64 `json:"success"`
+	Failure int64 `json:"failure"`
+}
+
+// ProviderHealth separates upstream attempts from attributed request performance.
+type ProviderHealth struct {
+	ProviderID       string                      `json:"provider_id"`
+	ProviderCode     string                      `json:"provider_code"`
+	ProviderName     string                      `json:"provider_name"`
+	Calls            HealthMetric[ProviderCalls] `json:"calls"`
+	SuccessRate      HealthMetric[float64]       `json:"success_rate"`
+	AvgLatencyMs     HealthMetric[float64]       `json:"avg_latency_ms"`
+	AvgTTFTMs        HealthMetric[float64]       `json:"avg_ttft_ms"`
+	TotalTokens      HealthMetric[int64]         `json:"total_tokens"`
+	TotalCost        HealthMetric[float64]       `json:"total_cost"`
+	Otps             HealthMetric[float64]       `json:"otps"`
+	EndpointCount    HealthMetric[int64]         `json:"endpoint_count"`
+	OpenBreakerCount HealthMetric[int64]         `json:"open_breaker_count"`
 }

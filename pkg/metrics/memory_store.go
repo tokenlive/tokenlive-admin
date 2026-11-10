@@ -30,18 +30,23 @@ type RequestMetric struct {
 }
 
 type EndpointMinutePerf struct {
-	Requests     int64
-	Success      int64
-	Fail         int64
-	InputTokens  int64
-	OutputTokens int64
-	Output       int64
-	Cost         float64
-	TTFTSum      int64
-	TTFTCount    int64
-	LatencySumMs int64
-	LatencyCount int64
-	DurationMs   int64
+	// Provider-only observations keep attempts separate from legacy requests.
+	UpstreamSuccess        int64
+	UpstreamFailure        int64
+	RequestSamples         int64
+	LegacyProviderRequests int64
+	Requests               int64
+	Success                int64
+	Fail                   int64
+	InputTokens            int64
+	OutputTokens           int64
+	Output                 int64
+	Cost                   float64
+	TTFTSum                int64
+	TTFTCount              int64
+	LatencySumMs           int64
+	LatencyCount           int64
+	DurationMs             int64
 }
 
 type DailyStats struct {
@@ -154,7 +159,10 @@ func (s *MemoryStore) Record(m RequestMetric) {
 		recordRequest(getOrCreateDimension(s.modelPerf, m.Model, minute), m)
 	}
 	if m.Provider != "" && len(m.Attempts) == 0 {
-		recordRequest(getOrCreateDimension(s.providerPerf, m.Provider, minute), m)
+		perf := getOrCreateDimension(s.providerPerf, m.Provider, minute)
+		recordRequest(perf, m)
+		perf.RequestSamples++
+		perf.LegacyProviderRequests++
 	}
 
 	for _, attempt := range m.Attempts {
@@ -181,6 +189,8 @@ func (s *MemoryStore) Record(m RequestMetric) {
 			perf.Requests++
 			if attempt.Success {
 				perf.Success++
+				perf.UpstreamSuccess++
+				perf.RequestSamples++
 				// 请求级指标（token/费用/TTFT/时长）只有成功返回响应的那次
 				// 上游调用才产生，归属到该 attempt 所属的供应商。失败尝试无响应体，
 				// 只计入上游调用的失败数。
@@ -201,6 +211,7 @@ func (s *MemoryStore) Record(m RequestMetric) {
 				}
 			} else {
 				perf.Fail++
+				perf.UpstreamFailure++
 			}
 		}
 	}
@@ -284,6 +295,10 @@ func addPerf(total *EndpointMinutePerf, perf *EndpointMinutePerf) {
 	total.Success += perf.Success
 	total.Fail += perf.Fail
 	total.Requests += perf.Requests
+	total.UpstreamSuccess += perf.UpstreamSuccess
+	total.UpstreamFailure += perf.UpstreamFailure
+	total.RequestSamples += perf.RequestSamples
+	total.LegacyProviderRequests += perf.LegacyProviderRequests
 	total.InputTokens += perf.InputTokens
 	total.OutputTokens += perf.OutputTokens
 	total.Output += perf.Output
@@ -386,15 +401,24 @@ func (s *MemoryStore) GetProviderNames() []string {
 	return dimensionKeys(s.providerPerf)
 }
 
-func (s *MemoryStore) AggregateProviderMinutePerf(provider string, startMinute, endMinute int64) EndpointMinutePerf {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return aggregateMinutes(s.providerPerf[provider], startMinute, endMinute)
-}
-
 func (s *MemoryStore) GetEndpointStatus(endpointID string, minute int64) (int64, int64) {
 	perf := s.GetEndpointMinutePerf(endpointID, minute)
 	return perf.Success, perf.Fail
+}
+
+// LookupProviderMinutePerf distinguishes an observed zero from an absent identity.
+func (s *MemoryStore) LookupProviderMinutePerf(provider string, startMinute, endMinute int64) (EndpointMinutePerf, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	values := s.providerPerf[provider]
+	found := false
+	for minute := range values {
+		if minute >= startMinute && minute <= endMinute {
+			found = true
+			break
+		}
+	}
+	return aggregateMinutes(values, startMinute, endMinute), found
 }
 
 func (s *MemoryStore) GetEndpointMinutePerf(endpointID string, minute int64) EndpointMinutePerf {

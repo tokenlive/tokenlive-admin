@@ -38,7 +38,7 @@
                                             {{ formatPulseCount(pulseStats.fail) }}
                                         </span>
                                     </span>
-                                    <a-tooltip :title="$t('pages.provider.detail.health.successRate.hint')">
+                                    <a-tooltip :title="healthSuccessRate.hint">
                                         <span class="provider-pulse-rail__stat">
                                             <span class="provider-pulse-rail__stat-label is-hint">{{
                                                 $t('pages.provider.detail.health.successRate.short')
@@ -46,31 +46,37 @@
                                             <span
                                                 class="provider-pulse-rail__stat-value"
                                                 :class="healthRateClass">
-                                                {{ healthSuccessRateText }}
+                                                {{ healthSuccessRate.value }}
                                             </span>
                                         </span>
                                     </a-tooltip>
-                                    <span class="provider-pulse-rail__stat">
-                                        <span class="provider-pulse-rail__stat-label">{{
-                                            $t('pages.provider.detail.health.endpoints')
-                                        }}</span>
-                                        <span class="provider-pulse-rail__stat-value">
-                                            <span :class="healthEndpointClass">{{ healthUpEndpoints }}</span>
-                                            <span class="provider-pulse-rail__stat-total"
-                                                >/ {{ healthTotalEndpoints }}</span
-                                            >
+                                    <a-tooltip :title="healthEndpointsHint">
+                                        <span class="provider-pulse-rail__stat">
+                                            <span class="provider-pulse-rail__stat-label">{{
+                                                $t('pages.provider.detail.health.endpoints')
+                                            }}</span>
+                                            <span class="provider-pulse-rail__stat-value">
+                                                <span :class="healthEndpointClass">{{ healthUpEndpoints ?? '—' }}</span>
+                                                <span class="provider-pulse-rail__stat-total"
+                                                    >/ {{ healthTotalEndpoints ?? '—' }}</span
+                                                >
+                                            </span>
                                         </span>
-                                    </span>
-                                    <span
-                                        v-if="healthBreakerCount > 0"
-                                        class="provider-pulse-rail__stat">
-                                        <span class="provider-pulse-rail__stat-label">{{
-                                            $t('pages.provider.detail.health.breakers')
-                                        }}</span>
-                                        <span class="provider-pulse-rail__stat-value is-alert">
-                                            {{ healthBreakerCount }}
+                                    </a-tooltip>
+                                    <a-tooltip
+                                        v-if="healthBreakerCount !== 0"
+                                        :title="healthBreakersHint">
+                                        <span class="provider-pulse-rail__stat">
+                                            <span class="provider-pulse-rail__stat-label">{{
+                                                $t('pages.provider.detail.health.breakers')
+                                            }}</span>
+                                            <span
+                                                class="provider-pulse-rail__stat-value"
+                                                :class="{ 'is-alert': healthBreakerCount > 0 }">
+                                                {{ healthBreakerCount ?? '—' }}
+                                            </span>
                                         </span>
-                                    </span>
+                                    </a-tooltip>
                                 </div>
                             </template>
                             <span
@@ -559,7 +565,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive, h, watch, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, reactive, h, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Checkbox, message, Modal } from 'ant-design-vue'
 import {
@@ -579,6 +585,7 @@ import apis from '@/apis'
 import { config } from '@/config'
 import { formatUtcDateTime } from '@/utils/util'
 import { countProviderEndpointHealth } from '@/utils/providerEndpointHealth'
+import { providerMetricDisplay, providerMetricValue } from '@/utils/provider-health'
 import { useTableAutoScrollY } from '@/hooks'
 import { useAppStore } from '@/store'
 import { useI18n } from 'vue-i18n'
@@ -612,6 +619,30 @@ const {
 } = useTableAutoScrollY()
 const providerId = ref(route.params.id)
 const providerData = ref({})
+let providerRevision = 0
+let disposed = false
+const providerReads = { detail: 0, endpoints: 0, health: 0, quota: 0 }
+
+// A read owns both its provider identity and its place among refreshes of it.
+function beginProviderRead(section) {
+    const id = providerId.value
+    const revision = providerRevision
+    const sequence = ++providerReads[section]
+    return {
+        id,
+        current: () =>
+            !disposed &&
+            route.name === 'providerDetail' &&
+            providerId.value === id &&
+            providerRevision === revision &&
+            providerReads[section] === sequence,
+    }
+}
+
+onBeforeUnmount(() => {
+    disposed = true
+    providerRevision++
+})
 const activeTab = ref('endpoint')
 const basicInfoCollapsed = ref(false)
 const quotaCollapsed = ref(false)
@@ -635,6 +666,7 @@ const modelOptions = ref([])
 const providerOptions = ref([])
 const endpointListData = ref([])
 const endpointLoading = ref(false)
+const endpointReadState = ref('unavailable')
 const endpointPagination = reactive({
     current: 1,
     pageSize: 10,
@@ -768,7 +800,7 @@ const memberColumns = [
 
 onMounted(() => {
     // 健康条需要 provider code 作为指标聚合键，必须等详情加载完再拉。
-    loadProviderDetail().then(loadProviderHealth)
+    loadProviderDetail()
     loadModelOptions()
     loadProviderOptions()
     loadEndpointList()
@@ -776,9 +808,10 @@ onMounted(() => {
 })
 
 watch(
-    () => route.params.id,
-    (newId) => {
-        if (newId && route.name === 'providerDetail') {
+    () => [route.name, route.params.id],
+    ([name, newId]) => {
+        providerRevision++
+        if (newId && name === 'providerDetail') {
             providerId.value = newId
             // 重置状态以防残留旧数据
             providerData.value = {}
@@ -786,12 +819,18 @@ watch(
             memberListData.value = []
             healthRanking.value = null
             healthBreakers.value = []
+            healthBreakerState.value = 'unavailable'
+            endpointReadState.value = 'unavailable'
+            endpointLoading.value = false
+            quotaData.value = null
+            quotaError.value = ''
+            quotaLoading.value = false
 
             endpointPagination.current = 1
             memberPagination.current = 1
 
             // 重新加载
-            loadProviderDetail().then(loadProviderHealth)
+            loadProviderDetail()
             loadModelOptions()
             loadProviderOptions()
             loadEndpointList()
@@ -1042,10 +1081,12 @@ function quotaBarColor(win) {
 
 async function loadProviderQuota() {
     if (!showQuotaCard.value || !providerId.value) return
+    const read = beginProviderRead('quota')
     quotaLoading.value = true
     quotaError.value = ''
     try {
-        const res = await apis.provider.getProviderQuota(providerId.value).catch((e) => e?.response?.data || e)
+        const res = await apis.provider.getProviderQuota(read.id).catch((e) => e?.response?.data || e)
+        if (!read.current()) return
         const success = res?.success === true || res?.success === config('http.code.success')
         if (success) {
             quotaData.value = res.data || null
@@ -1060,28 +1101,41 @@ async function loadProviderQuota() {
                 t('pages.provider.detail.quota.load_failed')
         }
     } catch (e) {
+        if (!read.current()) return
         quotaData.value = null
         quotaError.value =
             e?.response?.data?.error?.detail || e?.message || t('pages.provider.detail.quota.load_failed')
     } finally {
-        quotaLoading.value = false
+        if (read.current()) quotaLoading.value = false
     }
 }
 
 async function loadProviderDetail() {
+    const read = beginProviderRead('detail')
+    // Earlier dependent reads must not land during a newer detail refresh.
+    providerReads.health++
+    providerReads.quota++
+    healthRanking.value = null
+    healthBreakerState.value = 'unavailable'
+    quotaLoading.value = false
     try {
-        const { data, success } = await apis.provider.getProvider(providerId.value)
+        const { data, success } = await apis.provider.getProvider(read.id)
+        if (!read.current()) return
         if (success) {
             providerData.value = data || {}
+            // Pass the identity of this accepted response, rather than reading
+            // mutable route/detail state when a previous promise completes.
+            loadProviderHealth({ id: read.id, code: data?.code })
             if (showQuotaCard.value) {
                 loadProviderQuota()
             } else {
                 quotaData.value = null
                 quotaError.value = ''
+                quotaLoading.value = false
             }
         }
     } catch (error) {
-        message.error(t('pages.provider.detail.load.failed'))
+        if (read.current()) message.error(t('pages.provider.detail.load.failed'))
     }
 }
 
@@ -1119,18 +1173,23 @@ function goToModelDetail(id) {
 }
 
 async function loadEndpointList() {
+    const read = beginProviderRead('endpoints')
+    endpointLoading.value = true
+    endpointReadState.value = 'unavailable'
     try {
-        endpointLoading.value = true
-        const { data, success, total } = await apis.endpoint.getEndpointsByProviderId(providerId.value).catch(() => {
-            throw new Error()
-        })
-        endpointLoading.value = false
-        if (config('http.code.success') === success) {
-            endpointListData.value = data || []
-            endpointPagination.total = total || (data ? data.length : 0)
+        const { data, success, total } = await apis.endpoint.getEndpointsByProviderId(read.id)
+        if (!read.current()) return
+        if (config('http.code.success') === success && Array.isArray(data)) {
+            endpointListData.value = data
+            endpointPagination.total = total ?? data.length
+            endpointReadState.value = 'ok'
+        } else {
+            endpointReadState.value = 'error'
         }
     } catch (error) {
-        endpointLoading.value = false
+        if (read.current()) endpointReadState.value = 'error'
+    } finally {
+        if (read.current()) endpointLoading.value = false
     }
 }
 
@@ -1144,11 +1203,17 @@ function onEndpointTableChange({ current, pageSize }) {
 // 顶部三个信号回答：有多少端点在服役、有多少被摘除、服役的跑得怎么样。
 const healthRanking = ref(null)
 const healthBreakers = ref([])
+const healthBreakerState = ref('unavailable')
 
 const endpointHealth = computed(() =>
     countProviderEndpointHealth(endpointListData.value, healthBreakers.value, providerId.value)
 )
-const healthTotalEndpoints = computed(() => endpointHealth.value.total)
+const healthTotalEndpoints = computed(() => (endpointReadState.value === 'ok' ? endpointHealth.value.total : null))
+const healthEndpointsHint = computed(() =>
+    endpointReadState.value === 'ok'
+        ? undefined
+        : t(`pages.provider.detail.measurement.state.${endpointReadState.value}`)
+)
 
 // Provider.Get 随详情一并返回的 100 分钟状态切片（ADR-0009）。
 const providerStatusPoints = computed(() => providerData.value.status_points || [])
@@ -1175,41 +1240,70 @@ function formatPulseCount(val) {
     return num.toLocaleString('en-US')
 }
 
-const healthBreakerCount = computed(() => endpointHealth.value.breakerCount)
+const healthBreakerCount = computed(() =>
+    endpointReadState.value === 'ok' && healthBreakerState.value === 'ok' ? endpointHealth.value.breakerCount : null
+)
+const healthBreakersHint = computed(() => {
+    if (endpointReadState.value !== 'ok') return t('pages.provider.detail.measurement.reason.inventory_unavailable')
+    return healthBreakerState.value === 'ok'
+        ? undefined
+        : t(`pages.provider.detail.measurement.state.${healthBreakerState.value}`)
+})
 
-const healthUpEndpoints = computed(() => endpointHealth.value.up)
+const healthUpEndpoints = computed(() => (endpointReadState.value === 'ok' ? endpointHealth.value.up : null))
 
 const healthEndpointClass = computed(() => {
-    if (healthTotalEndpoints.value === 0) return ''
+    if (healthTotalEndpoints.value == null || healthTotalEndpoints.value === 0 || healthBreakerCount.value == null)
+        return ''
     return healthUpEndpoints.value === healthTotalEndpoints.value ? 'is-healthy' : 'is-danger'
 })
 
-const healthSuccessRateText = computed(() => {
-    const kpi = healthRanking.value
-    if (!kpi || !kpi.upstream_call_count) return '--'
-    return Number(kpi.upstream_call_success_rate).toFixed(1) + '%'
-})
+const healthSuccessRate = computed(() =>
+    providerMetricDisplay(healthRanking.value?.success_rate, t, (value) => `${Number(value).toFixed(1)}%`)
+)
 
 const healthRateClass = computed(() => {
-    const kpi = healthRanking.value
-    if (!kpi || !kpi.upstream_call_count) return ''
-    const rate = Number(kpi.upstream_call_success_rate)
+    const rate = providerMetricValue(healthRanking.value?.success_rate)
+    if (rate == null) return ''
     if (rate >= 99) return 'is-healthy'
     if (rate >= 95) return 'is-warning'
     return 'is-danger'
 })
 
-async function loadProviderHealth() {
-    const providerRef = providerData.value.code || providerId.value
-    if (!providerRef) return
-    const [rankingRes, breakerRes] = await Promise.all([
-        apis.dashboard
-            .getProviderRanking({ provider: providerRef, time_range: '1h', limit: 1 })
-            .catch(() => ({ data: [] })),
-        apis.dashboard.getCircuitBreakers().catch(() => ({ data: [] })),
+async function loadProviderHealth(identity) {
+    if (!identity?.id || identity.id !== providerId.value) return
+    const read = beginProviderRead('health')
+    const providerRef = identity.code || identity.id
+    healthRanking.value = null
+    healthBreakers.value = []
+    healthBreakerState.value = 'unavailable'
+    const [rankingRes, breakerRes] = await Promise.allSettled([
+        apis.dashboard.getProviderRanking({ provider: providerRef, time_range: '1h', limit: 1 }),
+        apis.dashboard.getCircuitBreakers(),
     ])
-    healthRanking.value = (rankingRes.data || [])[0] || null
-    healthBreakers.value = breakerRes.data || []
+    if (!read.current()) return
+    const rankingResponse = rankingRes.status === 'fulfilled' ? rankingRes.value : null
+    const rankingFailed =
+        !rankingResponse || rankingResponse.success === false || rankingResponse.monitoring?.state === 'error'
+    healthRanking.value = (rankingResponse?.data || [])[0] || {
+        success_rate: {
+            value: null,
+            state: rankingFailed ? 'error' : 'unavailable',
+            reason: rankingFailed ? 'source_unavailable' : 'no_source_samples',
+            scope: 'upstream_call',
+        },
+    }
+
+    if (
+        breakerRes.status === 'fulfilled' &&
+        breakerRes.value?.success !== false &&
+        Array.isArray(breakerRes.value.data)
+    ) {
+        healthBreakers.value = breakerRes.value.data
+        healthBreakerState.value = 'ok'
+    } else {
+        healthBreakerState.value = 'error'
+    }
 }
 
 const testingEndpoints = ref({})

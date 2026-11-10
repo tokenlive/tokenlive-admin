@@ -570,7 +570,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/dashboard/circuit-breakers": {
+        "/api/v1/dashboard/api-key-ranking": {
             "get": {
                 "security": [
                     {
@@ -580,113 +580,23 @@ const docTemplate = `{
                 "tags": [
                     "DashboardAPI"
                 ],
-                "summary": "Query all endpoints that are currently in Open/Isolated state from Redis",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/util.ResponseResult"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/api.CircuitBreakerInfo"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/dashboard/model-performance-trends": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "DashboardAPI"
-                ],
-                "summary": "Query model TTFT and request-period OTPS trends",
+                "summary": "Query Root-only client API key usage ranking",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Model code",
-                        "name": "model",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Time range: 1h, 6h, 24h, 7d, today, or a duration up to 7d (default: 1h)",
+                        "description": "today, 1h, 6h, 24h, 7d",
                         "name": "time_range",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "RFC3339 query end time",
-                        "name": "end_time",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/util.ResponseResult"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/api.ModelPerformanceTrendsResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/util.ResponseResult"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/dashboard/model-ranking": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "DashboardAPI"
-                ],
-                "summary": "Query model usage ranking with detailed metrics",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Sort by: request_count, avg_latency, avg_ttft, tokens, cost, success_rate (default: request_count)",
+                        "description": "tokens, request_count, cost",
                         "name": "sort_by",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Limit results (default: 10)",
+                        "description": "10, 20, 50",
                         "name": "limit",
                         "in": "query"
                     }
@@ -703,87 +613,83 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
+                                            "$ref": "#/definitions/schema.Response"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/dashboard/circuit-breakers": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "DashboardAPI"
+                ],
+                "summary": "Read active circuit breakers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/api.ModelRankingItem"
+                                                "$ref": "#/definitions/monitor.CircuitBreakerInfo"
                                             }
                                         }
                                     }
                                 }
                             ]
                         }
-                    }
-                }
-            }
-        },
-        "/api/v1/dashboard/overview": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "DashboardAPI"
-                ],
-                "summary": "Query dashboard overview metrics (QPS, daily stats, latency, circuit breakers)",
-                "responses": {
-                    "200": {
-                        "description": "OK",
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/util.ResponseResult"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/api.OverviewResponse"
-                                        }
-                                    }
-                                }
-                            ]
+                            "$ref": "#/definitions/util.ResponseResult"
                         }
                     }
                 }
             }
         },
-        "/api/v1/dashboard/qps": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "tags": [
-                    "DashboardAPI"
-                ],
-                "summary": "Query real-time gateway QPS from Prometheus",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/util.ResponseResult"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "number",
-                                            "format": "float64"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/dashboard/sync-redis": {
+        "/api/v1/dashboard/snapshot": {
             "post": {
                 "security": [
                     {
@@ -793,10 +699,39 @@ const docTemplate = `{
                 "tags": [
                     "DashboardAPI"
                 ],
-                "summary": "One-click synchronization of database configuration to Redis",
+                "summary": "Read a monitoring snapshot with per-reading windows and coverage",
+                "parameters": [
+                    {
+                        "description": "Selected monitoring readings",
+                        "name": "query",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/monitor.Query"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/monitor.Snapshot"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/util.ResponseResult"
                         }
@@ -804,7 +739,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/dashboard/trends": {
+        "/api/v1/dashboard/usage-trends": {
             "get": {
                 "security": [
                     {
@@ -814,17 +749,11 @@ const docTemplate = `{
                 "tags": [
                     "DashboardAPI"
                 ],
-                "summary": "Query bucketed gateway traffic success/failure trends",
+                "summary": "Query request, token, latency and failure trends from request logs",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Group by: model, provider, tenant, endpoint (default: global)",
-                        "name": "group_by",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Time range: 1h, 6h, 24h, 7d, today (default: 1h)",
+                        "description": "today, 1h, 6h, 24h, 7d",
                         "name": "time_range",
                         "in": "query"
                     }
@@ -841,11 +770,35 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/api.TrendsResponse"
+                                            "$ref": "#/definitions/schema.UsageTrendsResponse"
                                         }
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
                         }
                     }
                 }
@@ -889,6 +842,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "URL (like)",
                         "name": "url",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Enabled status (0: disabled, 1: enabled)",
+                        "name": "enabled",
                         "in": "query"
                     }
                 ],
@@ -3604,7 +3563,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/schema.Model"
+                                            "$ref": "#/definitions/schema.ModelCreateResult"
                                         }
                                     }
                                 }
@@ -3894,6 +3853,69 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/models/{id}/smart-routing": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "ModelAPI"
+                ],
+                "summary": "Update a smart model's routing configuration without changing its basic information",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "model ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Routing configuration and expected version (0 for first save)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SmartRouting"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/schema.ModelMutationResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/util.ResponseResult"
                         }
@@ -7399,6 +7421,34 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/pub/version": {
+            "get": {
+                "tags": [
+                    "LoginAPI"
+                ],
+                "summary": "Get system version info",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/schema.VersionInfo"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/refresh-token": {
             "post": {
                 "tags": [
@@ -8428,6 +8478,274 @@ const docTemplate = `{
                                 "type": "integer",
                                 "description": "Seconds until manual checks are permitted"
                             }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system/upgrade/capability": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Read-only. Requires update-management or upgrade-execution permission.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SystemVersion"
+                ],
+                "summary": "Click-upgrade capability of the embedding host",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/upgradehost.Capability"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system/upgrade/prepare": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Requires upgrade-execution permission. Validates the target, never installs or restarts. Rejected while online update checks are disabled.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SystemVersion"
+                ],
+                "summary": "Prepare a click upgrade and create a confirmation credential",
+                "parameters": [
+                    {
+                        "description": "Target version",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/upgradehost.PrepareRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/upgradehost.Preparation"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "409": {
+                        "description": "upgrade_task_conflict | upgrade_target_changed | update_check_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system/upgrade/submit": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Requires upgrade-execution permission. Re-validates the credential, target and installation, then starts the one-shot task.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SystemVersion"
+                ],
+                "summary": "Submit a confirmed upgrade task",
+                "parameters": [
+                    {
+                        "description": "Task confirmation",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/upgradehost.SubmitRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/upgradehost.TaskView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "409": {
+                        "description": "upgrade_task_conflict | upgrade_target_changed | upgrade_confirmation_expired | update_check_disabled",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system/upgrade/task": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Requires upgrade-execution permission. Empty id returns the most recent task.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "SystemVersion"
+                ],
+                "summary": "Read one persisted upgrade task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/util.ResponseResult"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/upgradehost.TaskView"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/util.ResponseResult"
                         }
                     },
                     "500": {
@@ -9636,202 +9954,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "api.CircuitBreakerInfo": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "model_id": {
-                    "description": "关联模型 ID",
-                    "type": "string"
-                },
-                "model_name": {
-                    "description": "关联模型名称",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "显示名称",
-                    "type": "string"
-                },
-                "provider_id": {
-                    "description": "关联供应商 ID",
-                    "type": "string"
-                },
-                "provider_name": {
-                    "description": "关联供应商名称",
-                    "type": "string"
-                },
-                "type": {
-                    "description": "\"endpoint\" 或 \"service\"",
-                    "type": "string"
-                },
-                "url": {
-                    "description": "关联的 URL 地址",
-                    "type": "string"
-                }
-            }
-        },
-        "api.ModelPerformanceTrendsResponse": {
-            "type": "object",
-            "properties": {
-                "avg_ttft_ms": {
-                    "type": "array",
-                    "items": {
-                        "type": "number"
-                    }
-                },
-                "otps": {
-                    "type": "array",
-                    "items": {
-                        "type": "number"
-                    }
-                },
-                "times": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "api.ModelRankingItem": {
-            "type": "object",
-            "properties": {
-                "avg_latency_ms": {
-                    "type": "number"
-                },
-                "avg_ttft_ms": {
-                    "type": "number"
-                },
-                "fail_count": {
-                    "type": "integer"
-                },
-                "model_code": {
-                    "type": "string"
-                },
-                "model_id": {
-                    "type": "string"
-                },
-                "model_name": {
-                    "type": "string"
-                },
-                "p50_latency_ms": {
-                    "type": "number"
-                },
-                "p50_ttft_ms": {
-                    "type": "number"
-                },
-                "p95_latency_ms": {
-                    "type": "number"
-                },
-                "p95_ttft_ms": {
-                    "type": "number"
-                },
-                "p99_latency_ms": {
-                    "type": "number"
-                },
-                "p99_ttft_ms": {
-                    "type": "number"
-                },
-                "request_count": {
-                    "type": "integer"
-                },
-                "success_count": {
-                    "type": "integer"
-                },
-                "success_rate": {
-                    "type": "number"
-                },
-                "total_cost": {
-                    "type": "number"
-                },
-                "total_tokens": {
-                    "type": "integer"
-                }
-            }
-        },
-        "api.OverviewResponse": {
-            "type": "object",
-            "properties": {
-                "active_circuit_breakers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/api.CircuitBreakerInfo"
-                    }
-                },
-                "avg_latency_ms": {
-                    "type": "number"
-                },
-                "avg_ttft_ms": {
-                    "type": "number"
-                },
-                "daily_cache_creation_tokens": {
-                    "type": "integer"
-                },
-                "daily_cached_tokens": {
-                    "type": "integer"
-                },
-                "daily_completion_tokens": {
-                    "type": "integer"
-                },
-                "daily_cost": {
-                    "type": "number"
-                },
-                "daily_prompt_tokens": {
-                    "type": "integer"
-                },
-                "daily_requests": {
-                    "type": "integer"
-                },
-                "qps": {
-                    "type": "number"
-                }
-            }
-        },
-        "api.TrendsResponse": {
-            "type": "object",
-            "properties": {
-                "series": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/api.TrendsSeries"
-                    }
-                },
-                "times": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "api.TrendsSeries": {
-            "type": "object",
-            "properties": {
-                "failure": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "label": {
-                    "type": "string"
-                },
-                "success": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "total": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                }
-            }
-        },
         "api.activateWorkspaceRuntimeAccessRequest": {
             "type": "object",
             "properties": {
@@ -9941,6 +10063,678 @@ const docTemplate = `{
                 }
             }
         },
+        "monitor.Bucket": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
+        "monitor.CircuitBreakerInfo": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "model_id": {
+                    "description": "关联模型 ID",
+                    "type": "string"
+                },
+                "model_name": {
+                    "description": "关联模型名称",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "显示名称",
+                    "type": "string"
+                },
+                "provider_id": {
+                    "description": "关联供应商 ID",
+                    "type": "string"
+                },
+                "provider_name": {
+                    "description": "关联供应商名称",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"endpoint\" 或 \"service\"",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "关联的 URL 地址",
+                    "type": "string"
+                }
+            }
+        },
+        "monitor.Coverage": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
+        "monitor.HealthMetric-float64": {
+            "type": "object",
+            "properties": {
+                "coverage": {
+                    "$ref": "#/definitions/monitor.Coverage"
+                },
+                "identity": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "number"
+                },
+                "window": {
+                    "$ref": "#/definitions/monitor.Window"
+                }
+            }
+        },
+        "monitor.HealthMetric-int64": {
+            "type": "object",
+            "properties": {
+                "coverage": {
+                    "$ref": "#/definitions/monitor.Coverage"
+                },
+                "identity": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "integer"
+                },
+                "window": {
+                    "$ref": "#/definitions/monitor.Window"
+                }
+            }
+        },
+        "monitor.HealthMetric-monitor_ProviderCalls": {
+            "type": "object",
+            "properties": {
+                "coverage": {
+                    "$ref": "#/definitions/monitor.Coverage"
+                },
+                "identity": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "value": {
+                    "$ref": "#/definitions/monitor.ProviderCalls"
+                },
+                "window": {
+                    "$ref": "#/definitions/monitor.Window"
+                }
+            }
+        },
+        "monitor.ModelQuery": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "range": {
+                    "type": "string"
+                },
+                "sort": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
+        "monitor.ModelRankingItem": {
+            "type": "object",
+            "properties": {
+                "avg_latency_ms": {
+                    "type": "number"
+                },
+                "avg_ttft_ms": {
+                    "type": "number"
+                },
+                "fail_count": {
+                    "type": "integer"
+                },
+                "model_code": {
+                    "type": "string"
+                },
+                "model_id": {
+                    "type": "string"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "otps": {
+                    "type": "number"
+                },
+                "p50_latency_ms": {
+                    "type": "number"
+                },
+                "p50_ttft_ms": {
+                    "type": "number"
+                },
+                "p95_latency_ms": {
+                    "type": "number"
+                },
+                "p95_ttft_ms": {
+                    "type": "number"
+                },
+                "p99_latency_ms": {
+                    "type": "number"
+                },
+                "p99_ttft_ms": {
+                    "type": "number"
+                },
+                "request_count": {
+                    "type": "integer"
+                },
+                "success_count": {
+                    "type": "integer"
+                },
+                "success_rate": {
+                    "type": "number"
+                },
+                "total_cost": {
+                    "type": "number"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "monitor.Overview": {
+            "type": "object",
+            "properties": {
+                "active_circuit_breakers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/monitor.CircuitBreakerInfo"
+                    }
+                },
+                "avg_latency_ms": {
+                    "type": "number"
+                },
+                "avg_ttft_ms": {
+                    "type": "number"
+                },
+                "daily_cache_creation_tokens": {
+                    "type": "integer"
+                },
+                "daily_cached_tokens": {
+                    "type": "integer"
+                },
+                "daily_completion_tokens": {
+                    "type": "integer"
+                },
+                "daily_cost": {
+                    "type": "number"
+                },
+                "daily_prompt_tokens": {
+                    "type": "integer"
+                },
+                "daily_requests": {
+                    "type": "integer"
+                },
+                "qps": {
+                    "type": "number"
+                }
+            }
+        },
+        "monitor.Performance": {
+            "type": "object",
+            "properties": {
+                "avg_ttft_ms": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "otps": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                }
+            }
+        },
+        "monitor.PerformanceQuery": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "range": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
+        "monitor.ProviderCalls": {
+            "type": "object",
+            "properties": {
+                "failure": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "monitor.ProviderHealth": {
+            "type": "object",
+            "properties": {
+                "avg_latency_ms": {
+                    "$ref": "#/definitions/monitor.HealthMetric-float64"
+                },
+                "avg_ttft_ms": {
+                    "$ref": "#/definitions/monitor.HealthMetric-float64"
+                },
+                "calls": {
+                    "$ref": "#/definitions/monitor.HealthMetric-monitor_ProviderCalls"
+                },
+                "endpoint_count": {
+                    "$ref": "#/definitions/monitor.HealthMetric-int64"
+                },
+                "open_breaker_count": {
+                    "$ref": "#/definitions/monitor.HealthMetric-int64"
+                },
+                "otps": {
+                    "$ref": "#/definitions/monitor.HealthMetric-float64"
+                },
+                "provider_code": {
+                    "type": "string"
+                },
+                "provider_id": {
+                    "type": "string"
+                },
+                "provider_name": {
+                    "type": "string"
+                },
+                "success_rate": {
+                    "$ref": "#/definitions/monitor.HealthMetric-float64"
+                },
+                "total_cost": {
+                    "$ref": "#/definitions/monitor.HealthMetric-float64"
+                },
+                "total_tokens": {
+                    "$ref": "#/definitions/monitor.HealthMetric-int64"
+                }
+            }
+        },
+        "monitor.ProviderQuery": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "range": {
+                    "type": "string"
+                },
+                "sort": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
+        "monitor.Query": {
+            "type": "object",
+            "properties": {
+                "at": {
+                    "type": "string"
+                },
+                "models": {
+                    "$ref": "#/definitions/monitor.ModelQuery"
+                },
+                "overview": {
+                    "type": "boolean"
+                },
+                "performance": {
+                    "$ref": "#/definitions/monitor.PerformanceQuery"
+                },
+                "providers": {
+                    "$ref": "#/definitions/monitor.ProviderQuery"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "traffic": {
+                    "$ref": "#/definitions/monitor.TrafficQuery"
+                }
+            }
+        },
+        "monitor.Reading-array_monitor_ModelRankingItem": {
+            "type": "object",
+            "properties": {
+                "buckets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/monitor.Bucket"
+                    }
+                },
+                "coverage": {
+                    "$ref": "#/definitions/monitor.Coverage"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/monitor.ModelRankingItem"
+                    }
+                },
+                "error": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "window": {
+                    "$ref": "#/definitions/monitor.Window"
+                },
+                "windows": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/monitor.Window"
+                    }
+                }
+            }
+        },
+        "monitor.Reading-array_monitor_ProviderHealth": {
+            "type": "object",
+            "properties": {
+                "buckets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/monitor.Bucket"
+                    }
+                },
+                "coverage": {
+                    "$ref": "#/definitions/monitor.Coverage"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/monitor.ProviderHealth"
+                    }
+                },
+                "error": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "window": {
+                    "$ref": "#/definitions/monitor.Window"
+                },
+                "windows": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/monitor.Window"
+                    }
+                }
+            }
+        },
+        "monitor.Reading-monitor_Overview": {
+            "type": "object",
+            "properties": {
+                "buckets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/monitor.Bucket"
+                    }
+                },
+                "coverage": {
+                    "$ref": "#/definitions/monitor.Coverage"
+                },
+                "data": {
+                    "$ref": "#/definitions/monitor.Overview"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "window": {
+                    "$ref": "#/definitions/monitor.Window"
+                },
+                "windows": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/monitor.Window"
+                    }
+                }
+            }
+        },
+        "monitor.Reading-monitor_Performance": {
+            "type": "object",
+            "properties": {
+                "buckets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/monitor.Bucket"
+                    }
+                },
+                "coverage": {
+                    "$ref": "#/definitions/monitor.Coverage"
+                },
+                "data": {
+                    "$ref": "#/definitions/monitor.Performance"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "window": {
+                    "$ref": "#/definitions/monitor.Window"
+                },
+                "windows": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/monitor.Window"
+                    }
+                }
+            }
+        },
+        "monitor.Reading-monitor_Traffic": {
+            "type": "object",
+            "properties": {
+                "buckets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/monitor.Bucket"
+                    }
+                },
+                "coverage": {
+                    "$ref": "#/definitions/monitor.Coverage"
+                },
+                "data": {
+                    "$ref": "#/definitions/monitor.Traffic"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "window": {
+                    "$ref": "#/definitions/monitor.Window"
+                },
+                "windows": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/monitor.Window"
+                    }
+                }
+            }
+        },
+        "monitor.Snapshot": {
+            "type": "object",
+            "properties": {
+                "cutoff": {
+                    "type": "string"
+                },
+                "models": {
+                    "$ref": "#/definitions/monitor.Reading-array_monitor_ModelRankingItem"
+                },
+                "overview": {
+                    "$ref": "#/definitions/monitor.Reading-monitor_Overview"
+                },
+                "performance": {
+                    "$ref": "#/definitions/monitor.Reading-monitor_Performance"
+                },
+                "providers": {
+                    "$ref": "#/definitions/monitor.Reading-array_monitor_ProviderHealth"
+                },
+                "traffic": {
+                    "$ref": "#/definitions/monitor.Reading-monitor_Traffic"
+                }
+            }
+        },
+        "monitor.Traffic": {
+            "type": "object",
+            "properties": {
+                "series": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/monitor.TrafficSeries"
+                    }
+                }
+            }
+        },
+        "monitor.TrafficQuery": {
+            "type": "object",
+            "properties": {
+                "group_by": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "range": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
+        "monitor.TrafficSeries": {
+            "type": "object",
+            "properties": {
+                "failure": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "total": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "monitor.Window": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                }
+            }
+        },
         "productversion.Build": {
             "type": "object",
             "properties": {
@@ -9962,6 +10756,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "install_channel": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ApiKeyItem": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "value": {
                     "type": "string"
                 }
             }
@@ -10020,8 +10825,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "captcha_id": {
-                    "description": "Captcha ID",
+                    "description": "Captcha ID (empty when disabled)",
                     "type": "string"
+                },
+                "disabled": {
+                    "description": "true when captcha is turned off",
+                    "type": "boolean"
                 }
             }
         },
@@ -10122,6 +10931,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "api_key": {
+                    "type": "string"
+                },
+                "auth_type": {
                     "type": "string"
                 },
                 "cache_creation_price": {
@@ -10232,7 +11044,11 @@ const docTemplate = `{
             ],
             "properties": {
                 "api_key": {
-                    "description": "Optional, overrides provider-level api_key",
+                    "description": "Optional, overrides provider-level api_key (api_key type only)",
+                    "type": "string"
+                },
+                "auth_type": {
+                    "description": "Auth type: api_key, oauth_token",
                     "type": "string"
                 },
                 "cache_creation_price": {
@@ -10400,6 +11216,10 @@ const docTemplate = `{
                 "policy_name": {
                     "type": "string"
                 },
+                "provider_id": {
+                    "description": "ProviderID 由网关上报。网关尚未发送此字段，因此现存记录一律为空，\n查询侧需回退到 ProviderName 匹配。不回填历史数据——按当前 name→id\n映射回填会给改过名的供应商写入错误归属。详见 ADR-0007。",
+                    "type": "string"
+                },
                 "provider_name": {
                     "type": "string"
                 },
@@ -10423,6 +11243,9 @@ const docTemplate = `{
                 "circuit_break_count": {
                     "type": "integer"
                 },
+                "circuit_breaker_error_count": {
+                    "type": "integer"
+                },
                 "endpoint_failover_count": {
                     "type": "integer"
                 },
@@ -10439,6 +11262,9 @@ const docTemplate = `{
                     }
                 },
                 "rate_limit_count": {
+                    "type": "integer"
+                },
+                "retry_error_count": {
                     "type": "integer"
                 },
                 "tenant_ranking": {
@@ -10494,6 +11320,62 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.Item": {
+            "type": "object",
+            "properties": {
+                "cache_creation_tokens": {
+                    "type": "integer"
+                },
+                "cached_tokens": {
+                    "type": "integer"
+                },
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "key_display": {
+                    "type": "string"
+                },
+                "key_name": {
+                    "type": "string"
+                },
+                "key_status": {
+                    "type": "string"
+                },
+                "metadata_status": {
+                    "type": "string"
+                },
+                "output_tokens": {
+                    "type": "integer"
+                },
+                "owner": {
+                    "$ref": "#/definitions/schema.Owner"
+                },
+                "request_count": {
+                    "type": "integer"
+                },
+                "row_id": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "success_count": {
+                    "type": "integer"
+                },
+                "success_rate": {
+                    "type": "number"
+                },
+                "token_share": {
+                    "type": "number"
+                },
+                "total_cost": {
+                    "type": "string"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.Logger": {
             "type": "object",
             "properties": {
@@ -10546,18 +11428,16 @@ const docTemplate = `{
         "schema.LoginForm": {
             "type": "object",
             "required": [
-                "captcha_code",
-                "captcha_id",
                 "password",
                 "username"
             ],
             "properties": {
                 "captcha_code": {
-                    "description": "Captcha verify code",
+                    "description": "Captcha verify code (optional when captcha disabled)",
                     "type": "string"
                 },
                 "captcha_id": {
-                    "description": "Captcha verify id",
+                    "description": "Captcha verify id (optional when captcha disabled)",
                     "type": "string"
                 },
                 "password": {
@@ -10740,6 +11620,41 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.Metrics": {
+            "type": "object",
+            "properties": {
+                "cache_creation_tokens": {
+                    "type": "integer"
+                },
+                "cached_tokens": {
+                    "type": "integer"
+                },
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "output_tokens": {
+                    "type": "integer"
+                },
+                "request_count": {
+                    "type": "integer"
+                },
+                "success_count": {
+                    "type": "integer"
+                },
+                "success_rate": {
+                    "type": "number"
+                },
+                "token_share": {
+                    "type": "number"
+                },
+                "total_cost": {
+                    "type": "string"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.Model": {
             "type": "object",
             "properties": {
@@ -10767,6 +11682,9 @@ const docTemplate = `{
                 "enabled": {
                     "type": "integer"
                 },
+                "endpoint_count": {
+                    "type": "integer"
+                },
                 "extra": {
                     "type": "string"
                 },
@@ -10785,6 +11703,9 @@ const docTemplate = `{
                 "model_name": {
                     "type": "string"
                 },
+                "model_type": {
+                    "type": "string"
+                },
                 "modifier": {
                     "type": "string"
                 },
@@ -10794,8 +11715,20 @@ const docTemplate = `{
                 "owner": {
                     "type": "string"
                 },
+                "referenced_by": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ModelReference"
+                    }
+                },
                 "request_types": {
                     "type": "string"
+                },
+                "smart_routing": {
+                    "$ref": "#/definitions/schema.SmartRouting"
+                },
+                "smart_routing_ready": {
+                    "type": "boolean"
                 },
                 "space_code": {
                     "type": "string"
@@ -11174,6 +12107,120 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ModelCreateResult": {
+            "type": "object",
+            "properties": {
+                "abilities": {
+                    "type": "string"
+                },
+                "applied_seeds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "cache_creation_price": {
+                    "type": "number"
+                },
+                "cached_price": {
+                    "type": "number"
+                },
+                "context_length": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "creator": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "integer"
+                },
+                "endpoint_count": {
+                    "type": "integer"
+                },
+                "extra": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "input_price": {
+                    "type": "number"
+                },
+                "max_output_tokens": {
+                    "type": "integer"
+                },
+                "model_code": {
+                    "type": "string"
+                },
+                "model_name": {
+                    "type": "string"
+                },
+                "model_type": {
+                    "type": "string"
+                },
+                "modifier": {
+                    "type": "string"
+                },
+                "output_price": {
+                    "type": "number"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "referenced_by": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ModelReference"
+                    }
+                },
+                "request_types": {
+                    "type": "string"
+                },
+                "saved": {
+                    "type": "boolean"
+                },
+                "skipped_seeds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "smart_routing": {
+                    "$ref": "#/definitions/schema.SmartRouting"
+                },
+                "smart_routing_ready": {
+                    "type": "boolean"
+                },
+                "space_code": {
+                    "type": "string"
+                },
+                "status_points": {
+                    "description": "Recent status points",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.StatusPoint"
+                    }
+                },
+                "sync_status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.ModelEnabledForm": {
             "type": "object",
             "properties": {
@@ -11195,6 +12242,14 @@ const docTemplate = `{
                 "abilities": {
                     "description": "Model Abilities JSON",
                     "type": "string"
+                },
+                "apply_circuit_break_seed": {
+                    "description": "Copy the recommended circuit-break seed on create",
+                    "type": "boolean"
+                },
+                "apply_invocation_seed": {
+                    "description": "Copy the recommended invocation seed on create",
+                    "type": "boolean"
                 },
                 "cache_creation_price": {
                     "description": "Cache creation price (CNY/M Tokens)",
@@ -11238,6 +12293,9 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 128
                 },
+                "model_type": {
+                    "type": "string"
+                },
                 "output_price": {
                     "description": "Output price (CNY/M Tokens)",
                     "type": "number"
@@ -11250,10 +12308,39 @@ const docTemplate = `{
                     "description": "Model RequestTypes JSON",
                     "type": "string"
                 },
+                "smart_routing": {
+                    "$ref": "#/definitions/schema.SmartRouting"
+                },
+                "smart_routing_version": {
+                    "type": "integer"
+                },
                 "space_code": {
                     "description": "Space code",
                     "type": "string",
                     "maxLength": 255
+                }
+            }
+        },
+        "schema.ModelMutationResult": {
+            "type": "object",
+            "properties": {
+                "referenced_by": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ModelReference"
+                    }
+                },
+                "saved": {
+                    "type": "boolean"
+                },
+                "sync_status": {
+                    "type": "string"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -11356,6 +12443,46 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ModelReference": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "model_code": {
+                    "type": "string"
+                },
+                "model_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.OAuthCredential": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "description": "AccountID is Codex/ChatGPT account id used as Chatgpt-Account-Id header.",
+                    "type": "string"
+                },
+                "email": {
+                    "description": "Email is the upstream account email snapshot (non-secret).",
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "subscription_active_until": {
+                    "description": "SubscriptionActiveUntil is Codex plan renewal time display/snapshot\n(e.g. \"2026/8/28 01:21:08\"), extracted from id_token claims.",
+                    "type": "string"
+                },
+                "token_endpoint": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.OpType": {
             "type": "string",
             "enum": [
@@ -11374,6 +12501,20 @@ const docTemplate = `{
                 "OpType_REGULAR",
                 "OpType_PREFIX"
             ]
+        },
+        "schema.Owner": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
         },
         "schema.PolicyCircuitBreak": {
             "type": "object",
@@ -12470,6 +13611,9 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
+                "auth_type": {
+                    "type": "string"
+                },
                 "code": {
                     "type": "string"
                 },
@@ -12494,8 +13638,21 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "oauth": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "protocol": {
                     "type": "string"
+                },
+                "status_points": {
+                    "description": "Recent status points",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.StatusPoint"
+                    }
                 },
                 "updated_at": {
                     "type": "string"
@@ -12517,8 +13674,12 @@ const docTemplate = `{
                     "description": "Upstream API key list",
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/schema.ApiKeyItem"
                     }
+                },
+                "auth_type": {
+                    "description": "Auth type: api_key, oauth_token",
+                    "type": "string"
                 },
                 "code": {
                     "description": "Provider unique code",
@@ -12537,6 +13698,14 @@ const docTemplate = `{
                     "description": "Provider display name",
                     "type": "string",
                     "maxLength": 128
+                },
+                "oauth": {
+                    "description": "OAuth credential (refresh_token/token_endpoint/expires_at)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.OAuthCredential"
+                        }
+                    ]
                 },
                 "protocol": {
                     "description": "Protocol type: openai / anthropic / ...",
@@ -12583,6 +13752,41 @@ const docTemplate = `{
                 "RelationType_OR"
             ]
         },
+        "schema.Response": {
+            "type": "object",
+            "properties": {
+                "data_source": {
+                    "type": "string"
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.Item"
+                    }
+                },
+                "state": {
+                    "type": "string"
+                },
+                "summary": {
+                    "$ref": "#/definitions/schema.Summary"
+                },
+                "unattributed": {
+                    "$ref": "#/definitions/schema.Metrics"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "window": {
+                    "$ref": "#/definitions/schema.Window"
+                }
+            }
+        },
         "schema.RetryPolicy": {
             "type": "object",
             "properties": {
@@ -12619,6 +13823,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "exclude_failed_endpoint": {
+                    "description": "重试时是否排除失败的端点",
+                    "type": "boolean"
                 },
                 "idle_timeout": {
                     "description": "读空闲超时 (毫秒)",
@@ -12766,6 +13974,46 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.SmartRange": {
+            "type": "object",
+            "properties": {
+                "max": {
+                    "type": "integer"
+                },
+                "min": {
+                    "type": "integer"
+                },
+                "model_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SmartRouting": {
+            "type": "object",
+            "properties": {
+                "judge_max_input_bytes": {
+                    "type": "integer"
+                },
+                "judge_max_output_tokens": {
+                    "type": "integer"
+                },
+                "judge_model_id": {
+                    "type": "string"
+                },
+                "judge_timeout_ms": {
+                    "type": "integer"
+                },
+                "ranges": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SmartRange"
+                    }
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.Space": {
             "type": "object",
             "properties": {
@@ -12828,16 +14076,60 @@ const docTemplate = `{
         "schema.StatusPoint": {
             "type": "object",
             "properties": {
+                "avg_ttft_ms": {
+                    "type": "number"
+                },
                 "end_time": {
                     "type": "string"
                 },
                 "fail_count": {
                     "type": "integer"
                 },
+                "otps": {
+                    "type": "number"
+                },
                 "start_time": {
                     "type": "string"
                 },
                 "success_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.Summary": {
+            "type": "object",
+            "properties": {
+                "cache_creation_tokens": {
+                    "type": "integer"
+                },
+                "cached_tokens": {
+                    "type": "integer"
+                },
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "key_count": {
+                    "type": "integer"
+                },
+                "output_tokens": {
+                    "type": "integer"
+                },
+                "request_count": {
+                    "type": "integer"
+                },
+                "success_count": {
+                    "type": "integer"
+                },
+                "success_rate": {
+                    "type": "number"
+                },
+                "token_share": {
+                    "type": "number"
+                },
+                "total_cost": {
+                    "type": "string"
+                },
+                "total_tokens": {
                     "type": "integer"
                 }
             }
@@ -13018,6 +14310,9 @@ const docTemplate = `{
                 "circuit_break": {
                     "type": "integer"
                 },
+                "circuit_breaker_error": {
+                    "type": "integer"
+                },
                 "endpoint_failover": {
                     "type": "integer"
                 },
@@ -13028,6 +14323,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "rate_limit": {
+                    "type": "integer"
+                },
+                "retry_error": {
                     "type": "integer"
                 },
                 "time": {
@@ -13094,6 +14392,117 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.UsageTrendsBucket": {
+            "type": "object",
+            "properties": {
+                "avg_latency_ms": {
+                    "type": "number"
+                },
+                "avg_ttft_ms": {
+                    "type": "number"
+                },
+                "cache_creation_tokens": {
+                    "type": "integer"
+                },
+                "cached_tokens": {
+                    "type": "integer"
+                },
+                "end": {
+                    "type": "string"
+                },
+                "failure": {
+                    "type": "integer"
+                },
+                "failure_rate": {
+                    "type": "number"
+                },
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "output_tokens": {
+                    "type": "integer"
+                },
+                "requests": {
+                    "type": "integer"
+                },
+                "start": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "integer"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.UsageTrendsMetrics": {
+            "type": "object",
+            "properties": {
+                "avg_latency_ms": {
+                    "type": "number"
+                },
+                "avg_ttft_ms": {
+                    "type": "number"
+                },
+                "cache_creation_tokens": {
+                    "type": "integer"
+                },
+                "cached_tokens": {
+                    "type": "integer"
+                },
+                "failure": {
+                    "type": "integer"
+                },
+                "failure_rate": {
+                    "type": "number"
+                },
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "output_tokens": {
+                    "type": "integer"
+                },
+                "requests": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "integer"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.UsageTrendsResponse": {
+            "type": "object",
+            "properties": {
+                "bucket_seconds": {
+                    "type": "integer"
+                },
+                "buckets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.UsageTrendsBucket"
+                    }
+                },
+                "data_source": {
+                    "type": "string"
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "summary": {
+                    "$ref": "#/definitions/schema.UsageTrendsMetrics"
+                },
+                "window": {
+                    "$ref": "#/definitions/schema.Window"
+                }
+            }
+        },
         "schema.User": {
             "type": "object",
             "properties": {
@@ -13105,6 +14514,10 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "is_root": {
+                    "description": "Verified current-principal capability, never persisted",
+                    "type": "boolean"
                 },
                 "name": {
                     "type": "string"
@@ -13309,6 +14722,33 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.VersionInfo": {
+            "type": "object",
+            "properties": {
+                "app_name": {
+                    "description": "Application name",
+                    "type": "string"
+                },
+                "version": {
+                    "description": "Application release version",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.Window": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                }
+            }
+        },
         "updatecheck.Candidate": {
             "type": "object",
             "properties": {
@@ -13339,6 +14779,128 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "upgradehost.Capability": {
+            "type": "object",
+            "properties": {
+                "active_task": {
+                    "description": "ActiveTask is non-nil when a task exists that is neither terminal nor\nfully cleaned up; the UI must show it instead of a new button.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/upgradehost.TaskView"
+                        }
+                    ]
+                },
+                "allowed": {
+                    "type": "boolean"
+                },
+                "reasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "supported": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "upgradehost.Preparation": {
+            "type": "object",
+            "properties": {
+                "confirm_expires_in": {
+                    "description": "ConfirmExpiresIn is the remaining credential validity in seconds.",
+                    "type": "integer"
+                },
+                "credential": {
+                    "type": "string"
+                },
+                "current_version": {
+                    "type": "string"
+                },
+                "release_url": {
+                    "description": "ReleaseURL points at the official release notes for the target.",
+                    "type": "string"
+                },
+                "restart_warning": {
+                    "description": "RestartNotice tells the UI which restart impact text to render; the\nwording itself stays in frontend i18n.",
+                    "type": "boolean"
+                },
+                "target_version": {
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "upgradehost.PrepareRequest": {
+            "type": "object",
+            "properties": {
+                "target_version": {
+                    "type": "string"
+                }
+            }
+        },
+        "upgradehost.SubmitRequest": {
+            "type": "object",
+            "properties": {
+                "confirm": {
+                    "type": "boolean"
+                },
+                "credential": {
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "upgradehost.TaskView": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "current_version": {
+                    "type": "string"
+                },
+                "detail": {
+                    "description": "Detail is a short, sanitized human-readable diagnostic summary.",
+                    "type": "string"
+                },
+                "error_kind": {
+                    "type": "string"
+                },
+                "failure_stage": {
+                    "type": "string"
+                },
+                "initiator": {
+                    "type": "string"
+                },
+                "phase": {
+                    "description": "Phase is the concrete stage inside a non-terminal state, e.g. the\nbrew command currently running; informational only.",
+                    "type": "string"
+                },
+                "release_url": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "succeeded_at": {
+                    "type": "string"
+                },
+                "target_version": {
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -13438,11 +15000,23 @@ const docTemplate = `{
                 "can_manage_updates": {
                     "type": "boolean"
                 },
+                "can_manage_upgrades": {
+                    "description": "CanManageUpgrades is the separate upgrade-execution capability. It is\nnever implied by CanManageUpdates.",
+                    "type": "boolean"
+                },
                 "gateway": {
                     "$ref": "#/definitions/versionstatus.GatewayView"
                 },
                 "identity": {
                     "$ref": "#/definitions/productversion.Identity"
+                },
+                "upgrade_candidate": {
+                    "description": "UpgradeCandidate is the cached standalone target an upgrade-only role may\nconfirm. It is filled only when that role lacks update-management access,\nand only from a fresh ready candidate. It never contacts update sources.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/versionstatus.UpgradeCandidate"
+                        }
+                    ]
                 }
             }
         },
@@ -13460,6 +15034,17 @@ const docTemplate = `{
                 },
                 "retry_after_seconds": {
                     "type": "integer"
+                }
+            }
+        },
+        "versionstatus.UpgradeCandidate": {
+            "type": "object",
+            "properties": {
+                "release_url": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
                 }
             }
         }

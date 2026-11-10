@@ -21,7 +21,7 @@ Status: accepted
 
 调用方只选择结果，不再推断数据源、分钟索引或过期历史是否等于零。测试通过 Read、HTTP 和 WebSocket interface 验证组合行为；源 adapter 的计数与 Request／Upstream Call 口径继续单独验证。
 
-提供 `POST /api/v1/dashboard/snapshot`。原有单项 GET 仅作为轻量 adapter，统一返回 Snapshot，不保留旧 JSON 形状。仓库内消费者已同步迁移。
+提供 `POST /api/v1/dashboard/snapshot`。原有单项 GET 入口及其兼容参数解析已在消费者迁移后移除，仓库内消费者统一使用 Snapshot。独立熔断器查询仍服务监控详情页。
 
 缓存按实际窗口、时区、步长与筛选隔离，过期条目在写入时清理。快照只承诺共同评估截点，不承诺多个源的原子一致性。
 

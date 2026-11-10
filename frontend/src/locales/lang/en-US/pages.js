@@ -547,17 +547,58 @@ export default {
     'pages.provider.detail.health.successRate.short': 'Upstream OK',
     'pages.provider.detail.health.successRate.hint':
         'Failed attempts that failed over are counted as failures, so this runs lower than the request success rate',
+    'pages.provider.detail.measurement.state.ok': 'Data available',
+    'pages.provider.detail.measurement.state.partial': 'Partial data available',
+    'pages.provider.detail.measurement.state.no_samples': 'No usable samples',
+    'pages.provider.detail.measurement.state.unsupported': 'Unsupported by this source',
+    'pages.provider.detail.measurement.state.unavailable': 'Data unavailable',
+    'pages.provider.detail.measurement.state.error': 'Measurement failed to load',
+    'pages.provider.detail.measurement.source.redis': 'Source: shared upstream status',
+    'pages.provider.detail.measurement.source.memory': 'Source: observations from this instance',
+    'pages.provider.detail.measurement.source.prometheus': 'Source: Prometheus',
+    'pages.provider.detail.measurement.source.catalog': 'Source: endpoint configuration',
+    'pages.provider.detail.measurement.source.unknown': 'Source unknown',
+    'pages.provider.detail.measurement.scope.upstream_call':
+        'Counts every upstream attempt, including failed retries and failovers',
+    'pages.provider.detail.measurement.scope.final_provider_requests':
+        'Requests attributed to the final provider; request timing includes retries',
+    'pages.provider.detail.measurement.scope.successful_provider_requests':
+        'Requests attributed to the successful attempt provider; request timing includes retries',
+    'pages.provider.detail.measurement.scope.attributed_provider_requests':
+        'Requests attributed to this provider, including legacy reports; timing starts at the beginning of the request',
+    'pages.provider.detail.measurement.scope.current_inventory':
+        'Current configuration or runtime state, independent of the historical window',
+    'pages.provider.detail.measurement.scope.unknown': 'Population unknown',
+    'pages.provider.detail.measurement.reason.upstream_samples_unavailable':
+        'Legacy reports lack upstream attempt records; only known attempts are counted, and values are unknown without attempt samples',
+    'pages.provider.detail.measurement.reason.zero_denominator': 'No call samples; success rate is unknown',
+    'pages.provider.detail.measurement.reason.outside_retention':
+        'The selected window exceeds retention or this instance’s observation period',
+    'pages.provider.detail.measurement.reason.redis_unavailable':
+        'Shared status is unavailable; using observations from this instance',
+    'pages.provider.detail.measurement.reason.source_unavailable': 'Unable to read this source',
+    'pages.provider.detail.measurement.reason.provider_dimension_unavailable':
+        'Provider dimension is missing from this source',
+    'pages.provider.detail.measurement.reason.coverage_unverified': 'Full window coverage could not be verified',
+    'pages.provider.detail.measurement.reason.no_completed_minutes': 'No complete minutes in the selected window',
+    'pages.provider.detail.measurement.reason.no_source_samples':
+        'No samples for this measurement in the selected window',
+    'pages.provider.detail.measurement.reason.invalid_source_value': 'The source returned an invalid value',
+    'pages.provider.detail.measurement.reason.invalid_source_response': 'The source returned an invalid response',
+    'pages.provider.detail.measurement.reason.inventory_unavailable': 'Unable to read the endpoint inventory',
+    'pages.provider.detail.measurement.legacyName': 'Matched using a historical provider name',
+    'pages.provider.detail.measurement.coverage': 'Covered: {start} to {end}',
     // provider monitor
     'pages.provider.detail.monitor.refresh': 'Refresh',
     'pages.provider.detail.monitor.range.custom': 'Custom',
     'pages.provider.detail.monitor.range.limit': 'Provider monitoring supports a 7-day range at most',
     'pages.provider.detail.monitor.kpi.upstreamCalls': 'Upstream calls',
     'pages.provider.detail.monitor.kpi.successRate': 'Upstream call success rate',
-    'pages.provider.detail.monitor.kpi.latency': 'Avg latency',
-    'pages.provider.detail.monitor.kpi.ttft': 'Avg TTFT',
-    'pages.provider.detail.monitor.kpi.otps': 'OTPS',
-    'pages.provider.detail.monitor.kpi.tokens': 'Total tokens',
-    'pages.provider.detail.monitor.kpi.cost': 'Estimated cost',
+    'pages.provider.detail.monitor.kpi.latency': 'Request avg latency',
+    'pages.provider.detail.monitor.kpi.ttft': 'Request avg TTFT',
+    'pages.provider.detail.monitor.kpi.otps': 'Request output speed',
+    'pages.provider.detail.monitor.kpi.tokens': 'Request tokens',
+    'pages.provider.detail.monitor.kpi.cost': 'Request estimated cost',
     'pages.provider.detail.monitor.kpi.endpoints': 'Endpoints',
     'pages.provider.detail.monitor.traffic': 'Traffic trend',
     'pages.provider.detail.monitor.traffic.empty': 'No upstream calls for this provider in the selected range',

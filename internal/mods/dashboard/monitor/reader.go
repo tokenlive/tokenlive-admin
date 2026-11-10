@@ -20,9 +20,6 @@ type Reader struct {
 	prometheusAvail   bool
 	prometheusMu      sync.RWMutex
 	prometheusLastChk time.Time
-	providerLabelOK   bool
-	providerLabelMu   sync.RWMutex
-	providerLabelChk  time.Time
 	cacheMu           sync.RWMutex
 	cacheMap          map[string]cacheVal
 }
@@ -89,6 +86,9 @@ func (a *Reader) Read(ctx context.Context, q Query) (*Snapshot, error) {
 		if !oneOf(q.Traffic.GroupBy, "", "model", "provider", "tenant", "endpoint") {
 			return nil, fmt.Errorf("invalid traffic grouping")
 		}
+		if q.Traffic.Provider != "" && (q.Traffic.GroupBy != "provider" || q.Traffic.Model != "") {
+			return nil, fmt.Errorf("provider traffic requires provider grouping without a model filter")
+		}
 		err = add("traffic", q.Traffic.WindowQuery)
 	}
 	if q.Performance != nil && err == nil {
@@ -132,7 +132,7 @@ func (a *Reader) Read(ctx context.Context, q Query) (*Snapshot, error) {
 		if e != nil || data == nil {
 			r.State, r.Error = "error", "source_unavailable"
 		} else {
-			if data.QPS == nil || data.DailyRequests == nil || data.AvgLatencyMs == nil || data.AvgTTFTMs == nil {
+			if data.QPS == nil || data.DailyRequests == nil || data.AvgLatencyMs == nil || data.AvgTTFTMs == nil || data.ActiveCircuitBreakers == nil {
 				r.State, r.Coverage.Reason = "partial", "missing_measurements"
 			}
 			if a.redis == nil && a.memory().StartedAt().After(plans["overview"].Start) {
@@ -157,22 +157,26 @@ func (a *Reader) Read(ctx context.Context, q Query) (*Snapshot, error) {
 	}
 	if q.Traffic != nil {
 		p := plans["traffic"]
-		c, s := a.readContext(ctx, p)
-		raw, e := a.getTrendsAt(c, q.Traffic.GroupBy, q.Traffic.Range, q.Traffic.Model, p.End)
-		data := &Traffic{Series: []TrafficSeries{}}
-		if raw != nil {
-			for _, row := range raw.Series {
-				data.Series = append(data.Series, TrafficSeries{Label: row.Label, Success: nullableCounts(row.Success), Failure: nullableCounts(row.Failure), Total: nullableCounts(row.Total)})
+		if q.Traffic.Provider != "" {
+			res.Traffic = a.readProviderTraffic(ctx, q.Traffic.Provider, p)
+		} else {
+			c, s := a.readContext(ctx, p)
+			raw, e := a.readTraffic(c, q.Traffic.GroupBy, q.Traffic.Model, p)
+			data := &Traffic{Series: []TrafficSeries{}}
+			if raw != nil {
+				for _, row := range raw.Series {
+					data.Series = append(data.Series, TrafficSeries{Label: row.Label, Success: nullableCounts(row.Success), Failure: nullableCounts(row.Failure), Total: nullableCounts(row.Total)})
+				}
 			}
+			a.checkPrometheusCoverage(c, s)
+			res.Traffic = result(s, data, e)
+			maskTraffic(res.Traffic, s)
 		}
-		a.checkPrometheusCoverage(c, s)
-		res.Traffic = result(s, data, e)
-		maskTraffic(res.Traffic, s)
 	}
 	if q.Performance != nil {
 		p := plans["performance"]
 		c, s := a.readContext(ctx, p)
-		raw, e := a.getModelPerformanceTrendsAt(c, q.Performance.Model, q.Performance.Range, p.End)
+		raw, e := a.readPerformance(c, q.Performance.Model, p)
 		var data *Performance
 		if raw != nil {
 			data = &Performance{AvgTTFTMs: cloneFloats(raw.AvgTTFTMs), Otps: cloneFloats(raw.Otps)}
@@ -190,19 +194,17 @@ func (a *Reader) Read(ctx context.Context, q Query) (*Snapshot, error) {
 	if q.Models != nil {
 		p := plans["models"]
 		c, s := a.readContext(ctx, p)
-		data, e := a.getModelRankingAt(c, defaultSort(q.Models.Sort), q.Models.Range, defaultLimit(q.Models.Limit), q.Models.Model, p.End)
+		data, e := a.readModels(c, defaultSort(q.Models.Sort), defaultLimit(q.Models.Limit), q.Models.Model, p)
 		data = append([]ModelRankingItem{}, data...)
 		a.checkPrometheusCoverage(c, s)
 		res.Models = result(s, &data, e)
 	}
 	if q.Providers != nil {
 		p := plans["providers"]
-		c, s := a.readContext(ctx, p)
-		data, e := a.getProviderRankingAt(c, defaultSort(q.Providers.Sort), q.Providers.Range, defaultLimit(q.Providers.Limit), q.Providers.Provider, p.End)
-		data = append([]ProviderRankingItem{}, data...)
-		a.checkPrometheusCoverage(c, s)
-		res.Providers = result(s, &data, e)
+		data, e := a.readProviders(ctx, defaultSort(q.Providers.Sort), defaultLimit(q.Providers.Limit), q.Providers.Provider, p)
+		res.Providers = providerReading(p, data, e)
 	}
+
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

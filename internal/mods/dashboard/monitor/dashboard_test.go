@@ -162,7 +162,7 @@ func TestBuildTrendQueriesFiltersModelAndEscapesLabel(t *testing.T) {
 
 func TestGetTrendsModelFilterSkipsRedisFallback(t *testing.T) {
 	dashboard := &Reader{}
-	res, err := dashboard.getTrends(context.Background(), "", "1h", "gpt-4")
+	res, err := readTrafficAt(t, dashboard, context.Background(), "", "1h", "gpt-4", time.Now())
 	assert.NoError(t, err)
 	assert.Len(t, res.Series, 1)
 	assert.Equal(t, "gpt-4", res.Series[0].Label)
@@ -171,7 +171,7 @@ func TestGetTrendsModelFilterSkipsRedisFallback(t *testing.T) {
 		assert.Equal(t, int64(0), value)
 	}
 
-	grouped, err := dashboard.getTrends(context.Background(), "endpoint", "1h", "gpt-4")
+	grouped, err := readTrafficAt(t, dashboard, context.Background(), "endpoint", "1h", "gpt-4", time.Now())
 	assert.NoError(t, err)
 	assert.Empty(t, grouped.Series)
 }
@@ -194,7 +194,7 @@ func TestGetTrendsFallsBackToSevenDayMemoryDataGroupedByModelAndProvider(t *test
 	}
 
 	dashboard := &Reader{}
-	models, err := dashboard.getTrendsAt(context.Background(), "model", "7d", "", end)
+	models, err := readTrafficAt(t, dashboard, context.Background(), "model", "7d", "", end)
 	require.NoError(t, err)
 	require.Len(t, models.Series, 2)
 	assert.Equal(t, "gpt-a", models.Series[0].Label)
@@ -202,7 +202,7 @@ func TestGetTrendsFallsBackToSevenDayMemoryDataGroupedByModelAndProvider(t *test
 	assert.Equal(t, "gpt-b", models.Series[1].Label)
 	assert.Equal(t, int64(1), sumInt64(models.Series[1].Failure))
 
-	providers, err := dashboard.getTrendsAt(context.Background(), "provider", "7d", "", end)
+	providers, err := readTrafficAt(t, dashboard, context.Background(), "provider", "7d", "", end)
 	require.NoError(t, err)
 	require.Len(t, providers.Series, 2)
 	assert.Equal(t, "anthropic", providers.Series[0].Label)
@@ -266,7 +266,7 @@ func TestGetModelRankingSingleModelNoTrafficReturnsEmpty(t *testing.T) {
 	}).Error)
 
 	dashboard := &Reader{db: db}
-	items, err := dashboard.getModelRanking(context.Background(), "request_count", "1h", 10, "gpt-test")
+	items, err := readModelsAt(t, dashboard, context.Background(), "request_count", "1h", 10, "gpt-test", time.Now())
 	assert.NoError(t, err)
 	assert.Empty(t, items)
 }
@@ -317,7 +317,7 @@ func TestGetModelRankingFallsBackToDetailedMemoryMetricsForTwentyFourHours(t *te
 	})
 
 	dashboard := &Reader{db: db}
-	items, err := dashboard.getModelRankingAt(context.Background(), "request_count", "24h", 10, "", end)
+	items, err := readModelsAt(t, dashboard, context.Background(), "request_count", "24h", 10, "", end)
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 	assert.Equal(t, int64(2), items[0].RequestCount)
@@ -381,7 +381,7 @@ func TestGetTrendsPreservesSuccessTrafficWhenErrorQueryReturnsEmpty(t *testing.T
 	defer func() { config.C.Util.PrometheusServer.Address = origAddr }()
 
 	dashboard := &Reader{}
-	res, err := dashboard.getTrendsAt(context.Background(), "", "1h", "glm-5.3", time.Unix(2000, 0))
+	res, err := readTrafficAt(t, dashboard, context.Background(), "", "1h", "glm-5.3", time.Unix(2000, 0))
 	assert.NoError(t, err)
 	require.Len(t, res.Series, 1)
 	assert.Equal(t, "glm-5.3", res.Series[0].Label)
@@ -449,7 +449,7 @@ func TestGetModelPerformanceTrendsFallsBackToRedisForOneHour(t *testing.T) {
 	redisClient.AddHook(performanceRedisHook{values: values})
 	dashboard := &Reader{redis: redisClient}
 
-	res, err := dashboard.getModelPerformanceTrendsAt(context.Background(), modelCode, "1h", end)
+	res, err := readPerformanceAt(t, dashboard, context.Background(), modelCode, "1h", end)
 	require.NoError(t, err)
 	require.Len(t, res.AvgTTFTMs, 60)
 	require.NotNil(t, res.AvgTTFTMs[59])
@@ -498,7 +498,7 @@ func TestGetModelPerformanceTrendsFallsBackPerMetricWithoutOverwritingPrometheus
 	defer func() { config.C.Util.PrometheusServer.Address = originalAddress }()
 
 	dashboard := &Reader{}
-	res, err := dashboard.getModelPerformanceTrendsAt(context.Background(), modelCode, "1h", end)
+	res, err := readPerformanceAt(t, dashboard, context.Background(), modelCode, "1h", end)
 	require.NoError(t, err)
 	require.NotNil(t, res.AvgTTFTMs[59])
 	assert.Equal(t, 350.5, *res.AvgTTFTMs[59])
@@ -522,7 +522,7 @@ func TestGetModelPerformanceTrendsFallsBackToMemoryForLongWindow(t *testing.T) {
 	})
 
 	dashboard := &Reader{}
-	res, err := dashboard.getModelPerformanceTrendsAt(context.Background(), modelCode, "6h", end)
+	res, err := readPerformanceAt(t, dashboard, context.Background(), modelCode, "6h", end)
 	require.NoError(t, err)
 	require.NotNil(t, res.AvgTTFTMs[len(res.AvgTTFTMs)-1])
 	assert.Equal(t, 100.0, *res.AvgTTFTMs[len(res.AvgTTFTMs)-1])
@@ -564,7 +564,7 @@ func TestGetTrendsEndpointFallsBackToRedis(t *testing.T) {
 	redisClient.AddHook(performanceRedisHook{values: values})
 	dashboard := &Reader{db: db, redis: redisClient}
 
-	res, err := dashboard.getTrendsAt(context.Background(), "endpoint", "1h", modelCode, end)
+	res, err := readTrafficAt(t, dashboard, context.Background(), "endpoint", "1h", modelCode, end)
 	require.NoError(t, err)
 	require.Len(t, res.Series, 1)
 	assert.Equal(t, endpointID, res.Series[0].Label)
@@ -598,7 +598,7 @@ func TestGetTrendsEndpointFallsBackToMemory(t *testing.T) {
 	})
 
 	dashboard := &Reader{}
-	res, err := dashboard.getTrendsAt(context.Background(), "endpoint", "1h", modelCode, end)
+	res, err := readTrafficAt(t, dashboard, context.Background(), "endpoint", "1h", modelCode, end)
 	require.NoError(t, err)
 	require.Len(t, res.Series, 1)
 	assert.Equal(t, endpointID, res.Series[0].Label)
@@ -620,11 +620,34 @@ func TestGetTrendsModelFallsBackToRedis(t *testing.T) {
 	redisClient.AddHook(performanceRedisHook{values: values})
 	dashboard := &Reader{redis: redisClient}
 
-	res, err := dashboard.getTrendsAt(context.Background(), "", "1h", modelCode, end)
+	res, err := readTrafficAt(t, dashboard, context.Background(), "", "1h", modelCode, end)
 	require.NoError(t, err)
 	require.Len(t, res.Series, 1)
 	assert.Equal(t, modelCode, res.Series[0].Label)
 	assert.Equal(t, int64(10), res.Series[0].Success[59])
 	assert.Equal(t, int64(2), res.Series[0].Failure[59])
 	assert.Equal(t, int64(12), res.Series[0].Total[59])
+}
+
+func sourceWindow(t *testing.T, ctx context.Context, span string, end time.Time) (context.Context, windowPlan) {
+	t.Helper()
+	p, err := compileWindow(WindowQuery{Range: span}, end, end, end.Location())
+	require.NoError(t, err)
+	ctx, _ = withPlan(ctx, p)
+	return ctx, p
+}
+func readTrafficAt(t *testing.T, r *Reader, ctx context.Context, group, span, model string, end time.Time) (*trafficResult, error) {
+	t.Helper()
+	ctx, p := sourceWindow(t, ctx, span, end)
+	return r.readTraffic(ctx, group, model, p)
+}
+func readPerformanceAt(t *testing.T, r *Reader, ctx context.Context, model, span string, end time.Time) (*Performance, error) {
+	t.Helper()
+	ctx, p := sourceWindow(t, ctx, span, end)
+	return r.readPerformance(ctx, model, p)
+}
+func readModelsAt(t *testing.T, r *Reader, ctx context.Context, sort, span string, limit int, model string, end time.Time) ([]ModelRankingItem, error) {
+	t.Helper()
+	ctx, p := sourceWindow(t, ctx, span, end)
+	return r.readModels(ctx, sort, limit, model, p)
 }

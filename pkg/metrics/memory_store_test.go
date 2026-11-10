@@ -82,7 +82,10 @@ func TestMemoryStoreRecordsDashboardMetricsForGlobalModelAndProvider(t *testing.
 	assert.Equal(t, global, model)
 
 	provider := store.GetProviderMinutePerf("openai", minute)
-	assert.Equal(t, global, provider)
+	expectedProvider := global
+	expectedProvider.RequestSamples = 1
+	expectedProvider.LegacyProviderRequests = 1
+	assert.Equal(t, expectedProvider, provider)
 	assert.Equal(t, []string{"gpt-4"}, store.GetModelCodes())
 	assert.Equal(t, []string{"openai"}, store.GetProviderNames())
 }
@@ -198,7 +201,7 @@ func TestMemoryStoreAttributesRequestMetricsToSuccessfulAttemptProvider(t *testi
 	minute := now.Unix() / 60
 
 	// 失败方：只记一次失败的上游调用，不分摊 token 与费用。
-	failed := store.AggregateProviderMinutePerf("prov-a", minute, minute)
+	failed := store.GetProviderMinutePerf("prov-a", minute)
 	assert.Equal(t, int64(1), failed.Requests)
 	assert.Equal(t, int64(1), failed.Fail)
 	assert.Equal(t, int64(0), failed.Success)
@@ -207,7 +210,7 @@ func TestMemoryStoreAttributesRequestMetricsToSuccessfulAttemptProvider(t *testi
 	assert.Equal(t, int64(0), failed.TTFTCount)
 
 	// 成功方：承载全量请求级指标，供应商 KPI 卡依赖这些字段。
-	succeeded := store.AggregateProviderMinutePerf("prov-b", minute, minute)
+	succeeded := store.GetProviderMinutePerf("prov-b", minute)
 	assert.Equal(t, int64(1), succeeded.Requests)
 	assert.Equal(t, int64(1), succeeded.Success)
 	assert.Equal(t, int64(10), succeeded.InputTokens)

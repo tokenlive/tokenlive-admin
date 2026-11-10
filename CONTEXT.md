@@ -178,6 +178,10 @@ _Avoid_: 将策略种子视为每次启动强制同步的系统配置；与菜�
 **Tenant-Model Association (租户模型关联)**:
 将大模型（Model）授权给指定租户（Tenant）的物理配置关联。通过 `tenant_model` 表多对多关联模型 ID 与租户编码（Tenant Code），决定了该租户下所有用户、Workspace 及 API Key 能够访问的合法模型范围。
 
+**Metric Observation (指标观测)**:
+指标在指定统计范围内的观测结果，包含数值是否可用、样本是否存在及时间覆盖情况。真实零值与没有样本、未支持和读取失败具有不同含义。
+_Avoid_: 将没有样本的成功率解释为零成功率；将请求级耗时称为单次上游调用耗时。
+
 ## Relationships
 
 - 一个 **Admin User** 通过 **RBAC** 被授予一个或多个角色，控制其可操作的菜单和 API

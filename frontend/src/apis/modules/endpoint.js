@@ -18,7 +18,8 @@ export const delEndpoint = (id) => request.basic.delete(`/api/v1/endpoints/${id}
 // 查询 Model 关联的 Endpoint 列表
 export const getEndpointsByModelId = (modelId) => request.basic.get(`/api/v1/models/${modelId}/endpoints`)
 // 查询 Provider 关联的 Endpoint 列表
-export const getEndpointsByProviderId = (providerId) => request.basic.get(`/api/v1/providers/${providerId}/endpoints`)
+export const getEndpointsByProviderId = (providerId) =>
+    request.basic.get(`/api/v1/providers/${providerId}/endpoints`, undefined, { enableAbortController: false })
 // 测试指定 Endpoint 的连通性 (已有)
 export const testEndpoint = (id) => request.basic.post(`/api/v1/endpoints/${id}/test`)
 // 测试临时 Endpoint 配置 (草稿)

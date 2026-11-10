@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const dashboardApiUrl = new URL('../src/apis/modules/dashboard.js', import.meta.url)
 const monitorUrl = new URL('../src/views/resource/ModelMonitorTab.vue', import.meta.url)
 const zhLocaleUrl = new URL('../src/locales/lang/zh-CN/pages.js', import.meta.url)
 const enLocaleUrl = new URL('../src/locales/lang/en-US/pages.js', import.meta.url)

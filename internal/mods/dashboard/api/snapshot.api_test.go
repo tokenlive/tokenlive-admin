@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/dashboard/monitor"
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
@@ -77,4 +78,33 @@ func TestSnapshotWebSocketUsesSameReadingContractAndKeepsLocalFailures(t *testin
 	require.NoError(t, conn.ReadJSON(&s))
 	require.Equal(t, 6*time.Hour, s.Traffic.Window.End.Sub(s.Traffic.Window.Start))
 	require.Equal(t, "UTC", s.Traffic.Window.Timezone)
+}
+
+func TestCircuitBreakerHTTPReportsUnavailableWithoutSourceDetails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	client := redis.NewClient(&redis.Options{Addr: "unused"})
+	require.NoError(t, client.Close())
+	for _, tc := range []struct {
+		name   string
+		api    *Dashboard
+		status int
+	}{
+		{"empty", snapshotDashboard(), 200},
+		{"reader missing", &Dashboard{}, 503},
+		{"runtime failed", &Dashboard{Monitor: monitor.New(monitor.Dependencies{Redis: client})}, 503},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/dashboard/circuit-breakers", nil)
+			tc.api.QueryCircuitBreakers(c)
+			require.Equal(t, tc.status, w.Code, w.Body.String())
+			if tc.status == 200 {
+				require.Contains(t, w.Body.String(), `"data":[]`)
+			} else {
+				require.NotContains(t, w.Body.String(), "redis")
+				require.NotContains(t, w.Body.String(), "client is closed")
+			}
+		})
+	}
 }
