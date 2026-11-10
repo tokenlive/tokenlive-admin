@@ -69,6 +69,7 @@
             </template>
         </a-alert>
 
+        <MonitoringStatus :reading="monitoring.overview" />
         <!-- 第一行：遥测动态大盘卡片 -->
         <a-row
             :gutter="16"
@@ -84,7 +85,9 @@
                     hoverable>
                     <div class="telemetry-title">{{ $t('pages.dashboard.metrics.daily_requests') }}</div>
                     <div class="telemetry-value">
-                        <animated-number :value="metrics.dailyRequests" />
+                        <animated-number
+                            v-if="metrics.dailyRequests != null"
+                            :value="metrics.dailyRequests" /><span v-else>—</span>
                         <span class="telemetry-unit">{{ $t('pages.dashboard.units.requests') }}</span>
                     </div>
                     <div class="telemetry-footer">{{ $t('pages.dashboard.metrics.daily_requests.footer') }}</div>
@@ -105,8 +108,9 @@
                     </div>
                     <div class="telemetry-value">
                         <animated-number
+                            v-if="metrics.qps != null"
                             :value="metrics.qps"
-                            :precision="2" />
+                            :precision="2" /><span v-else>—</span>
                         <span class="telemetry-unit">req/s</span>
                     </div>
                     <div class="telemetry-footer">{{ $t('pages.dashboard.metrics.qps.footer') }}</div>
@@ -124,13 +128,15 @@
                     <div class="telemetry-title">{{ $t('pages.dashboard.metrics.tokens') }}</div>
                     <div class="telemetry-value">
                         <animated-number
+                            v-if="metrics.dailyPromptTokens != null && metrics.dailyCompletionTokens != null"
                             :value="metrics.dailyPromptTokens + metrics.dailyCompletionTokens"
-                            :formatter="formatTokens" />
+                            :formatter="formatTokens" /><span v-else>—</span>
                         <span class="telemetry-unit">{{ $t('pages.dashboard.units.tokens') }}</span>
                     </div>
                     <div class="telemetry-footer">
-                        Input: {{ formatTokens(metrics.dailyPromptTokens) }} | Output:
-                        {{ formatTokens(metrics.dailyCompletionTokens) }}
+                        Input: {{ metrics.dailyPromptTokens == null ? '—' : formatTokens(metrics.dailyPromptTokens) }} |
+                        Output:
+                        {{ metrics.dailyCompletionTokens == null ? '—' : formatTokens(metrics.dailyCompletionTokens) }}
                     </div>
                 </a-card>
             </a-col>
@@ -146,8 +152,9 @@
                     <div class="telemetry-title">{{ $t('pages.dashboard.metrics.cost') }}</div>
                     <div class="telemetry-value">
                         <animated-number
+                            v-if="metrics.dailyCost != null"
                             :value="metrics.dailyCost"
-                            :precision="4" />
+                            :precision="4" /><span v-else>—</span>
                         <span class="telemetry-unit">{{ $t('pages.dashboard.units.cost') }}</span>
                     </div>
                     <div class="telemetry-footer">
@@ -168,8 +175,9 @@
                     <div class="telemetry-title">{{ $t('pages.dashboard.metrics.avg_latency') }}</div>
                     <div class="telemetry-value">
                         <animated-number
+                            v-if="metrics.avgLatency != null"
                             :value="metrics.avgLatency"
-                            :formatter="formatLatencyNumber" />
+                            :formatter="formatLatencyNumber" /><span v-else>—</span>
                         <span class="telemetry-unit">s</span>
                     </div>
                     <div class="telemetry-footer">{{ $t('pages.dashboard.metrics.avg_latency.footer') }}</div>
@@ -188,14 +196,17 @@
                     <div class="telemetry-title">{{ $t('pages.dashboard.metrics.avg_ttft') }}</div>
                     <div class="telemetry-value">
                         <animated-number
+                            v-if="metrics.avgTTFT != null"
                             :value="metrics.avgTTFT"
-                            :formatter="formatLatencyNumber" />
+                            :formatter="formatLatencyNumber" /><span v-else>—</span>
                         <span class="telemetry-unit">s</span>
                     </div>
                     <div class="telemetry-footer">{{ $t('pages.dashboard.metrics.avg_ttft.footer') }}</div>
                 </a-card>
             </a-col>
         </a-row>
+
+        <UsageTrends />
 
         <!-- 第二行：遥测图表（走势 + Token 分布） -->
         <a-row :gutter="16">
@@ -246,6 +257,7 @@
                             </a-select>
                         </a-space>
                     </template>
+                    <MonitoringStatus :reading="monitoring.traffic" />
                     <transition
                         name="fade-chart"
                         mode="out-in">
@@ -533,6 +545,7 @@
                             }}</a-select-option>
                         </a-select>
                     </template>
+                    <MonitoringStatus :reading="monitoring.models" />
                     <transition
                         name="fade-chart"
                         mode="out-in">
@@ -893,6 +906,9 @@ import apis from '@/apis'
 import { formatTokens } from '@/utils/util'
 import AnimatedNumber from '@/components/AnimatedNumber/AnimatedNumber.vue'
 import APIKeyUsageRanking from './components/APIKeyUsageRanking.vue'
+import UsageTrends from './components/UsageTrends.vue'
+import MonitoringStatus from '@/components/MonitoringStatus.vue'
+import { monitoringSnapshot, monitoringSuccessRates } from '@/utils/monitoring-snapshot'
 
 defineOptions({
     name: 'home',
@@ -942,15 +958,15 @@ const counts = reactive({
 })
 
 const metrics = reactive({
-    qps: 0.0,
-    dailyRequests: 0,
-    dailyPromptTokens: 0,
-    dailyCompletionTokens: 0,
-    dailyCachedTokens: 0,
-    dailyCacheCreationTokens: 0,
-    dailyCost: 0.0,
-    avgLatency: 0.0,
-    avgTTFT: 0.0,
+    qps: null,
+    dailyRequests: null,
+    dailyPromptTokens: null,
+    dailyCompletionTokens: null,
+    dailyCachedTokens: null,
+    dailyCacheCreationTokens: null,
+    dailyCost: null,
+    avgLatency: null,
+    avgTTFT: null,
 })
 
 const circuitBreakers = ref([])
@@ -970,6 +986,7 @@ const policyCounts = reactive({
 })
 
 const modelRanking = ref([])
+const monitoring = reactive({ overview: null, traffic: null, models: null })
 
 function sendWsConfig() {
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -977,6 +994,7 @@ function sendWsConfig() {
             JSON.stringify({
                 type: 'config',
                 data: {
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                     trends_time_range: trendsTimeRange.value,
                     trends_group_by: trendsGroupBy.value || '',
                     model_ranking_sort_by: rankingSortBy,
@@ -989,42 +1007,12 @@ function sendWsConfig() {
 
 // 流量走势分组切换
 async function handleTrendsGroupChange() {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        sendWsConfig()
-    } else {
-        try {
-            const params = {}
-            if (trendsGroupBy.value) params.group_by = trendsGroupBy.value
-            if (trendsTimeRange.value) params.time_range = trendsTimeRange.value
-            const trendsRes = await apis.dashboard.getTrends(params).catch(() => ({ data: { times: [], series: [] } }))
-            if (trendsRes && trendsRes.data) {
-                trends.times = trendsRes.data.times || []
-                trends.series = trendsRes.data.series || []
-            }
-        } catch (e) {
-            console.error('Failed to fetch trends', e)
-        }
-    }
+    if (ws && ws.readyState === WebSocket.OPEN) sendWsConfig()
+    else await fetchTelemetryData()
 }
-
-// 模型排行榜排序/时间范围切换
 async function handleRankingSortChange() {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        sendWsConfig()
-    } else {
-        try {
-            const rankingRes = await apis.dashboard
-                .getModelRanking({
-                    sort_by: rankingSortBy,
-                    time_range: rankingTimeRange.value,
-                    limit: 10,
-                })
-                .catch(() => ({ data: [] }))
-            modelRanking.value = rankingRes.data || []
-        } catch (e) {
-            console.error('Failed to fetch model ranking', e)
-        }
-    }
+    if (ws && ws.readyState === WebSocket.OPEN) sendWsConfig()
+    else await fetchTelemetryData()
 }
 
 // 格式化延迟（毫秒转秒）
@@ -1125,75 +1113,62 @@ async function fetchStaticCounts() {
     }
 }
 
-async function fetchTelemetryData() {
-    try {
-        // 1. 获取静态实体数量
-        await fetchStaticCounts()
-
-        // 2. 获取概览数据（合并 QPS + Metrics + CircuitBreakers）
-        const overviewRes = await apis.dashboard.getOverview().catch(() => ({ data: {} }))
-        if (overviewRes && overviewRes.data) {
-            metrics.qps = overviewRes.data.qps || 0
-            metrics.dailyRequests = overviewRes.data.daily_requests || 0
-            metrics.dailyPromptTokens = overviewRes.data.daily_prompt_tokens || 0
-            metrics.dailyCompletionTokens = overviewRes.data.daily_completion_tokens || 0
-            metrics.dailyCachedTokens = overviewRes.data.daily_cached_tokens || 0
-            metrics.dailyCacheCreationTokens = overviewRes.data.daily_cache_creation_tokens || 0
-            metrics.dailyCost = overviewRes.data.daily_cost || 0
-            metrics.avgLatency = overviewRes.data.avg_latency_ms || 0
-            metrics.avgTTFT = overviewRes.data.avg_ttft_ms || 0
-            circuitBreakers.value = overviewRes.data.active_circuit_breakers || []
-        }
-
-        // 3. 获取流量走势
-        const trendsRes = await apis.dashboard
-            .getTrends({
-                group_by: trendsGroupBy.value || undefined,
-                time_range: trendsTimeRange.value,
-            })
-            .catch(() => ({ data: { times: [], series: [] } }))
-        if (trendsRes && trendsRes.data) {
-            trends.times = trendsRes.data.times || []
-            trends.series = trendsRes.data.series || []
-        }
-
-        // 4. 获取模型使用排行
-        const rankingRes = await apis.dashboard
-            .getModelRanking({
-                sort_by: rankingSortBy.value,
-                time_range: rankingTimeRange.value,
-                limit: 10,
-            })
-            .catch(() => ({ data: [] }))
-        modelRanking.value = rankingRes.data || []
-    } catch (e) {
-        console.error('Failed to query dashboard metrics', e)
-    } finally {
-        firstLoading.value = false
+function snapshotQuery() {
+    return {
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        overview: true,
+        traffic: { range: trendsTimeRange.value, group_by: trendsGroupBy.value || '' },
+        models: { range: rankingTimeRange.value, sort: rankingSortBy, limit: 10 },
     }
 }
 
-function handleWsMessage(payload) {
-    if (payload.overview) {
-        const d = payload.overview
-        metrics.qps = d.qps || 0
-        metrics.dailyRequests = d.daily_requests || 0
-        metrics.dailyPromptTokens = d.daily_prompt_tokens || 0
-        metrics.dailyCompletionTokens = d.daily_completion_tokens || 0
-        metrics.dailyCachedTokens = d.daily_cached_tokens || 0
-        metrics.dailyCacheCreationTokens = d.daily_cache_creation_tokens || 0
-        metrics.dailyCost = d.daily_cost || 0
-        metrics.avgLatency = d.avg_latency_ms || 0
-        metrics.avgTTFT = d.avg_ttft_ms || 0
+let telemetryGeneration = 0
+let telemetryDisposed = false
+async function fetchTelemetryData() {
+    const generation = ++telemetryGeneration
+    const query = snapshotQuery()
+    try {
+        const response = await apis.dashboard.getSnapshot(query)
+        if (
+            telemetryDisposed ||
+            generation !== telemetryGeneration ||
+            JSON.stringify(query) !== JSON.stringify(snapshotQuery())
+        )
+            return
+        handleWsMessage(response.data)
+    } catch {
+        if (telemetryDisposed || generation !== telemetryGeneration) return
+        Object.keys(metrics).forEach((key) => (metrics[key] = null))
+        monitoring.overview = { state: 'error' }
+        monitoring.traffic = { state: 'error' }
+        monitoring.models = { state: 'error' }
+        trends.times = []
+        trends.series = []
+        modelRanking.value = []
+    } finally {
+        if (generation === telemetryGeneration && !telemetryDisposed) firstLoading.value = false
+    }
+}
+
+function handleWsMessage(snapshot) {
+    const payload = monitoringSnapshot(snapshot)
+    Object.assign(monitoring, payload.monitoring)
+    {
+        const d = payload.overview || {}
+        metrics.qps = d.qps ?? null
+        metrics.dailyRequests = d.daily_requests ?? null
+        metrics.dailyPromptTokens = d.daily_prompt_tokens ?? null
+        metrics.dailyCompletionTokens = d.daily_completion_tokens ?? null
+        metrics.dailyCachedTokens = d.daily_cached_tokens ?? null
+        metrics.dailyCacheCreationTokens = d.daily_cache_creation_tokens ?? null
+        metrics.dailyCost = d.daily_cost ?? null
+        metrics.avgLatency = d.avg_latency_ms ?? null
+        metrics.avgTTFT = d.avg_ttft_ms ?? null
         circuitBreakers.value = d.active_circuit_breakers || []
     }
-    if (payload.trends) {
-        trends.times = payload.trends.times || []
-        trends.series = payload.trends.series || []
-    }
-    if (payload.model_ranking) {
-        modelRanking.value = payload.model_ranking || []
-    }
+    trends.times = payload.trends?.times || []
+    trends.series = payload.trends?.series || []
+    modelRanking.value = payload.model_ranking || []
     firstLoading.value = false
 }
 
@@ -1234,6 +1209,7 @@ function connectWebSocket() {
     ws.onmessage = (event) => {
         try {
             const payload = JSON.parse(event.data)
+            telemetryGeneration++
             handleWsMessage(payload)
             // 只有成功收到 WS 数据帧后，我们才停用 HTTP 轮询，确信 WS 可用且有数据
             if (timer.value) {
@@ -1280,6 +1256,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+    telemetryDisposed = true
+    telemetryGeneration++
     wsManualClose = true
     if (wsReconnectTimer) {
         clearTimeout(wsReconnectTimer)
@@ -1372,15 +1350,7 @@ const trendsChartOptions = computed(() => {
         const successData = trends.series[0]?.success || []
         const failureData = trends.series[0]?.failure || []
 
-        const successRates = []
-        for (let i = 0; i < successData.length; i++) {
-            const total = successData[i] + failureData[i]
-            if (total === 0) {
-                successRates.push(100.0)
-            } else {
-                successRates.push(parseFloat(((successData[i] / total) * 100).toFixed(1)))
-            }
-        }
+        const successRates = monitoringSuccessRates(successData, failureData)
 
         return {
             tooltip: {
@@ -1479,6 +1449,15 @@ const tokenChartOptions = computed(() => {
         textStyle: { color: isDark ? '#e7ecf6' : '#1f2937' },
         extraCssText: 'box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18); border-radius: 8px;',
     }
+    if (
+        [
+            metrics.dailyPromptTokens,
+            metrics.dailyCompletionTokens,
+            metrics.dailyCachedTokens,
+            metrics.dailyCacheCreationTokens,
+        ].some((v) => v == null)
+    )
+        return { title: { text: '—', left: 'center', top: 'center' }, series: [] }
     const input = metrics.dailyPromptTokens
     const output = metrics.dailyCompletionTokens
     const cached = metrics.dailyCachedTokens

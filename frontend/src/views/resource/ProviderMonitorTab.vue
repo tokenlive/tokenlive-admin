@@ -1,5 +1,6 @@
 <template>
     <div class="provider-monitor">
+        <MonitoringStatus :reading="monitoring" />
         <div class="tab-toolbar">
             <div class="time-controls">
                 <a-select
@@ -217,6 +218,8 @@
 </template>
 
 <script setup>
+import MonitoringStatus from '@/components/MonitoringStatus.vue'
+import { monitoringSuccessRates, monitoringStatus } from '@/utils/monitoring-snapshot'
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
@@ -255,6 +258,7 @@ const appStore = useAppStore()
 const timeRange = ref('1h')
 const selectedTimeRange = ref([dayjs().subtract(1, 'hour'), dayjs()])
 const loading = ref(false)
+const monitoring = ref(null)
 const ranking = ref(null)
 const traffic = ref({ times: [], series: [] })
 const endpointTraffic = ref({ times: [], series: [] })
@@ -461,11 +465,7 @@ const trafficChartOptions = computed(() => {
     const series = traffic.value.series?.[0] || {}
     const successData = series.success || []
     const failureData = series.failure || []
-    const successRates = successData.map((success, index) => {
-        const total = Number(success) + Number(failureData[index] || 0)
-        if (total === 0) return 100
-        return parseFloat(((Number(success) / total) * 100).toFixed(1))
-    })
+    const successRates = monitoringSuccessRates(successData, failureData)
 
     return {
         tooltip: { ...theme.tooltip, trigger: 'axis', axisPointer: { type: 'cross' } },
@@ -602,7 +602,9 @@ function pickProviderSeries(payload) {
     }
 }
 
+let loadGeneration = 0
 async function loadAll() {
+    const generation = ++loadGeneration
     if (!props.providerId) return
     loading.value = true
     if (timeRange.value !== 'custom') {
@@ -616,14 +618,22 @@ async function loadAll() {
     try {
         const [rankingRes, trafficRes, endpointListRes, breakerRes, eventRes] = await Promise.all([
             apis.dashboard
-                .getProviderRanking({ provider: providerRef, time_range: range, end_time: endTime, limit: 1 })
-                .catch(() => ({ data: [] })),
+                .getProviderRanking({
+                    provider: providerRef,
+                    time_range: range,
+                    start_time: start.format(),
+                    end_time: endTime,
+                    limit: 1,
+                })
+                .catch(() => ({ data: [], monitoring: { state: 'error' } })),
             apis.dashboard
-                .getTrends({ time_range: range, end_time: endTime, group_by: 'provider' })
-                .catch(() => ({ data: { times: [], series: [] } })),
+                .getTrends({ time_range: range, start_time: start.format(), end_time: endTime, group_by: 'provider' })
+                .catch(() => ({ data: { times: [], series: [] }, monitoring: { state: 'error' } })),
             // 用专用接口而非通用列表：它预加载了 Model，端点流量趋势需要 model_code。
-            apis.endpoint.getEndpointsByProviderId(props.providerId).catch(() => ({ data: [] })),
-            apis.dashboard.getCircuitBreakers().catch(() => ({ data: [] })),
+            apis.endpoint
+                .getEndpointsByProviderId(props.providerId)
+                .catch(() => ({ data: [], monitoring: { state: 'error' } })),
+            apis.dashboard.getCircuitBreakers().catch(() => ({ data: [], monitoring: { state: 'error' } })),
             apis.ops
                 .getEvents({
                     provider_ref: providerRef,
@@ -633,10 +643,12 @@ async function loadAll() {
                     pageSize: eventPagination.pageSize,
                     current: eventPagination.current,
                 })
-                .catch(() => ({ data: [] })),
+                .catch(() => ({ data: [], monitoring: { state: 'error' } })),
         ])
 
+        if (generation !== loadGeneration) return
         const rankingRows = rankingRes.data || []
+        monitoring.value = monitoringStatus([rankingRes, trafficRes].map((r) => r.monitoring))
         ranking.value = rankingRows[0] || null
         traffic.value = pickProviderSeries(trafficRes.data)
         endpoints.value = endpointListRes.data || []
@@ -644,16 +656,16 @@ async function loadAll() {
         events.value = eventRes.data || []
         eventPagination.total = eventRes.total || 0
 
-        await loadEndpointTraffic(range, endTime)
+        await loadEndpointTraffic(range, start.format(), endTime, generation)
     } finally {
-        loading.value = false
+        if (generation === loadGeneration) loading.value = false
     }
 }
 
 // 端点分流量需要按模型逐个拉取：trends 的 group_by=endpoint 依赖 model 参数
 // 来确定端点集合，没有供应商维度的等价查询。这里改为在前端按本供应商的
 // 端点 ID 过滤 series。
-async function loadEndpointTraffic(range, endTime) {
+async function loadEndpointTraffic(range, startTime, endTime, generation) {
     const modelCodes = [...new Set((endpoints.value || []).map((ep) => ep.model?.model_code).filter(Boolean))]
     if (modelCodes.length === 0) {
         endpointTraffic.value = { times: [], series: [] }
@@ -664,11 +676,13 @@ async function loadEndpointTraffic(range, endTime) {
     const results = await Promise.all(
         modelCodes.map((model) =>
             apis.dashboard
-                .getTrends({ model, time_range: range, end_time: endTime, group_by: 'endpoint' })
-                .catch(() => ({ data: { times: [], series: [] } }))
+                .getTrends({ model, time_range: range, start_time: startTime, end_time: endTime, group_by: 'endpoint' })
+                .catch(() => ({ data: { times: [], series: [] }, monitoring: { state: 'error' } }))
         )
     )
 
+    if (generation !== loadGeneration) return
+    monitoring.value = monitoringStatus([monitoring.value, ...results.map((r) => r.monitoring)])
     const merged = { times: [], series: [] }
     for (const res of results) {
         const payload = res.data || {}
@@ -687,6 +701,10 @@ async function loadEndpointTraffic(range, endTime) {
 watch(
     () => [props.active, props.providerId],
     ([isActive, id]) => {
+        if (!isActive) {
+            loadGeneration++
+            return
+        }
         if (isActive && id) {
             loadAll()
         }

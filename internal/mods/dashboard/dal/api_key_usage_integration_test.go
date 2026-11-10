@@ -99,4 +99,26 @@ func TestUsageReaderClickHouseIntegration(t *testing.T) {
 	require.Equal(t, uint64(100), all.Tokens())
 	require.Equal(t, uint64(5), all.Cached)
 	require.True(t, decimal.RequireFromString("0.3").Equal(all.Cost))
+
+	// The overview uses the same deduplicated request set, including client
+	// cancellations, without retrieving any key or tenant identities.
+	trends, err := reader.ReadUsageTrends(ctx, schema.Window{Start: start, End: start.Add(time.Hour)}, 60)
+	require.NoError(t, err)
+	var totals schema.UsageTrendsTotals
+	for _, bucket := range trends {
+		totals.Add(bucket.UsageTrendsTotals)
+	}
+	require.Equal(t, uint64(4), totals.Requests)
+	require.Equal(t, uint64(3), totals.Success)
+	require.Equal(t, uint64(1), totals.Metrics().Failure)
+	require.Equal(t, uint64(100), totals.Metrics().TotalTokens)
+	require.Equal(t, float64(0), *totals.Metrics().AvgLatencyMs)
+	require.Nil(t, totals.Metrics().AvgTTFTMs)
+
+	// A subsecond window must not be rounded to seconds by driver binding.
+	trends, err = reader.ReadUsageTrends(ctx, schema.Window{Start: start.Add(500 * time.Millisecond), End: start.Add(1500 * time.Millisecond)}, 60)
+	require.NoError(t, err)
+	require.Len(t, trends, 1)
+	require.Equal(t, uint64(1), trends[0].Requests)
+	require.Equal(t, uint64(40), trends[0].Input)
 }

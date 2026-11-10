@@ -10,9 +10,8 @@ import (
 	"context"
 	"github.com/tokenlive/tokenlive-admin/internal/mods"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/dashboard"
-	api5 "github.com/tokenlive/tokenlive-admin/internal/mods/dashboard/api"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/ops"
-	api6 "github.com/tokenlive/tokenlive-admin/internal/mods/ops/api"
+	api5 "github.com/tokenlive/tokenlive-admin/internal/mods/ops/api"
 	biz2 "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
 	dal2 "github.com/tokenlive/tokenlive-admin/internal/mods/ops/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy"
@@ -494,29 +493,29 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		PolicyInvocationAPI:   apiPolicyInvocation,
 		PolicyTaggingAPI:      apiPolicyTagging,
 	}
-	apiDashboard := &api5.Dashboard{
-		DB:          db,
-		RedisClient: redisClient,
-		RedisSync:   configRedisSync,
-	}
+	reader := dashboard.ProvideMonitor(db, redisClient)
+	apiDashboard := dashboard.ProvideDashboard(reader, configRedisSync)
 	clickHouseReader, cleanup4 := dashboard.ProvideUsageReader()
 	identityResolver := dashboard.ProvideUsageResolver(db)
 	apiKeyUsageService := dashboard.ProvideUsageService(clickHouseReader, identityResolver)
 	apiKeyUsage := dashboard.ProvideUsageAPI(apiKeyUsageService)
+	usageTrendsService := dashboard.ProvideUsageTrendsService(clickHouseReader)
+	usageTrends := dashboard.ProvideUsageTrendsAPI(usageTrendsService)
 	dashboardDashboard := &dashboard.Dashboard{
 		DashboardAPI:   apiDashboard,
 		APIKeyUsageAPI: apiKeyUsage,
+		UsageTrendsAPI: usageTrends,
 	}
-	wsHub := api6.NewWSHub()
-	eventAPI := &api6.EventAPI{
+	wsHub := api5.NewWSHub()
+	eventAPI := &api5.EventAPI{
 		EventBIZ: eventBiz,
 		Hub:      wsHub,
 	}
-	apiAuditLog := &api6.AuditLog{
+	apiAuditLog := &api5.AuditLog{
 		AuditLogBIZ: bizAuditLog,
 	}
 	portalUser := &biz2.PortalUser{}
-	portalUserAPI := &api6.PortalUserAPI{
+	portalUserAPI := &api5.PortalUserAPI{
 		PortalUserBIZ: portalUser,
 	}
 	eventSubscriber := ops.ProvideEventSubscriber(redisClient)

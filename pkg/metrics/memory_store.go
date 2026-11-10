@@ -54,7 +54,8 @@ type DailyStats struct {
 }
 
 type MemoryStore struct {
-	mu sync.RWMutex
+	mu        sync.RWMutex
+	startedAt time.Time
 
 	globalPerf   map[int64]*EndpointMinutePerf
 	modelPerf    map[string]map[int64]*EndpointMinutePerf
@@ -75,7 +76,13 @@ type MemoryStore struct {
 var GlobalStore = NewMemoryStore()
 
 func NewMemoryStore() *MemoryStore {
+	return NewMemoryStoreAt(time.Now())
+}
+
+// NewMemoryStoreAt records the start of observation, distinct from retention.
+func NewMemoryStoreAt(start time.Time) *MemoryStore {
 	return &MemoryStore{
+		startedAt:      start,
 		globalPerf:     make(map[int64]*EndpointMinutePerf),
 		modelPerf:      make(map[string]map[int64]*EndpointMinutePerf),
 		providerPerf:   make(map[string]map[int64]*EndpointMinutePerf),
@@ -85,6 +92,12 @@ func NewMemoryStore() *MemoryStore {
 		openEndpoints:  make(map[string]bool),
 		openServices:   make(map[string]bool),
 	}
+}
+
+func (s *MemoryStore) StartedAt() time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.startedAt
 }
 
 func getOrCreateMinute(values map[int64]*EndpointMinutePerf, minute int64) *EndpointMinutePerf {

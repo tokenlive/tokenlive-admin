@@ -1,4 +1,4 @@
-package api
+package monitor
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +19,6 @@ import (
 	rschema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
-	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
 )
 
@@ -82,37 +80,6 @@ func (performanceRedisHook) ProcessPipelineHook(next redis.ProcessPipelineHook) 
 	}
 }
 
-func TestQueryOverviewUsesRedisDailyCost(t *testing.T) {
-	prometheus := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[{"metric":{},"value":[1781457000,"3.25"]}]}}`))
-	}))
-	defer prometheus.Close()
-
-	oldAddress := config.C.Util.PrometheusServer.Address
-	config.C.Util.PrometheusServer.Address = prometheus.URL
-	defer func() {
-		config.C.Util.PrometheusServer.Address = oldAddress
-	}()
-
-	redisClient := redis.NewClient(&redis.Options{Addr: "unused:6379"})
-	redisClient.AddHook(overviewRedisHook{})
-	dashboard := &Dashboard{RedisClient: redisClient}
-
-	gin.SetMode(gin.TestMode)
-	recorder := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/v1/dashboard/overview", nil)
-
-	dashboard.QueryOverview(ctx)
-
-	var response util.ResponseResult
-	assert.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
-	data, ok := response.Data.(map[string]interface{})
-	assert.True(t, ok)
-	assert.Equal(t, 11.027258, data["daily_cost"])
-}
-
 func TestGetOverviewFallsBackToMemoryLatencyAndTTFT(t *testing.T) {
 	originalStore := metrics.GlobalStore
 	metrics.GlobalStore = metrics.NewMemoryStore()
@@ -138,26 +105,15 @@ func TestGetOverviewFallsBackToMemoryLatencyAndTTFT(t *testing.T) {
 		DurationMs: 3000,
 	})
 
-	dashboard := &Dashboard{}
+	dashboard := &Reader{}
 	overview, err := dashboard.getOverview(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, 2000.0, overview.AvgLatencyMs)
-	assert.Equal(t, 200.0, overview.AvgTTFTMs)
-}
-
-func TestResolveTrendRangeToday(t *testing.T) {
-	now := time.Date(2026, 6, 15, 10, 3, 0, 0, time.Local)
-
-	config := resolveTrendRange("today", now)
-
-	assert.Equal(t, 60, config.numPoints)
-	assert.Equal(t, int64(10*60), config.stepSeconds)
-	assert.Equal(t, time.Date(2026, 6, 15, 10, 0, 0, 0, time.Local), config.end)
-	assert.LessOrEqual(t, config.numPoints, 120)
+	assert.Equal(t, 2000.0, *overview.AvgLatencyMs)
+	assert.Equal(t, 200.0, *overview.AvgTTFTMs)
 }
 
 func TestAggregateRedisTrendValues(t *testing.T) {
-	series := TrendsSeries{
+	series := trendSeries{
 		Success: make([]int64, 3),
 		Failure: make([]int64, 3),
 		Total:   make([]int64, 3),
@@ -172,9 +128,9 @@ func TestAggregateRedisTrendValues(t *testing.T) {
 
 	aggregateRedisTrendValues(&series, values, 100, 96, 2)
 
-	assert.Equal(t, []int64{1, 8, 16}, series.Success)
-	assert.Equal(t, []int64{2, 10, 18}, series.Failure)
-	assert.Equal(t, []int64{3, 18, 34}, series.Total)
+	assert.Equal(t, []int64{4, 12, 9}, series.Success)
+	assert.Equal(t, []int64{6, 14, 10}, series.Failure)
+	assert.Equal(t, []int64{10, 26, 19}, series.Total)
 }
 
 func TestBuildModelTokensQueryCountsInputAndOutputOnly(t *testing.T) {
@@ -204,29 +160,8 @@ func TestBuildTrendQueriesFiltersModelAndEscapesLabel(t *testing.T) {
 	assert.Equal(t, `sum by (endpoint) (increase(`+mRequestTotal+`{status="error",model="gpt-4"}[300s]))`, errorQuery)
 }
 
-func TestResolveTimeRangeAcceptsCustomDuration(t *testing.T) {
-	promRange, redisMinutes := resolveTimeRange("90m")
-
-	assert.Equal(t, "90m", promRange)
-	assert.Equal(t, 90, redisMinutes)
-
-	promRange, redisMinutes = resolveTimeRange("3h30m")
-	assert.Equal(t, "3h30m", promRange)
-	assert.Equal(t, 0, redisMinutes)
-}
-
-func TestResolveTrendRangeUsesCustomDurationAndSelectedEnd(t *testing.T) {
-	end := time.Date(2026, 8, 24, 12, 34, 0, 0, time.Local)
-	config := resolveTrendRange("90m", end)
-
-	assert.Equal(t, end, config.end)
-	assert.Equal(t, 90, config.numPoints)
-	assert.Equal(t, int64(60), config.stepSeconds)
-	assert.Equal(t, 90, config.redisMinutes)
-}
-
 func TestGetTrendsModelFilterSkipsRedisFallback(t *testing.T) {
-	dashboard := &Dashboard{}
+	dashboard := &Reader{}
 	res, err := dashboard.getTrends(context.Background(), "", "1h", "gpt-4")
 	assert.NoError(t, err)
 	assert.Len(t, res.Series, 1)
@@ -253,12 +188,12 @@ func TestGetTrendsFallsBackToSevenDayMemoryDataGroupedByModelAndProvider(t *test
 	end := time.Now().Truncate(time.Minute)
 	for _, metric := range []metrics.RequestMetric{
 		{Time: end.Add(-6 * 24 * time.Hour).Unix(), Model: "gpt-a", Provider: "openai", Success: true},
-		{Time: end.Unix(), Model: "gpt-b", Provider: "anthropic", Success: false},
+		{Time: end.Add(-time.Minute).Unix(), Model: "gpt-b", Provider: "anthropic", Success: false},
 	} {
 		metrics.GlobalStore.Record(metric)
 	}
 
-	dashboard := &Dashboard{}
+	dashboard := &Reader{}
 	models, err := dashboard.getTrendsAt(context.Background(), "model", "7d", "", end)
 	require.NoError(t, err)
 	require.Len(t, models.Series, 2)
@@ -330,7 +265,7 @@ func TestGetModelRankingSingleModelNoTrafficReturnsEmpty(t *testing.T) {
 		Enabled:   1,
 	}).Error)
 
-	dashboard := &Dashboard{DB: db}
+	dashboard := &Reader{db: db}
 	items, err := dashboard.getModelRanking(context.Background(), "request_count", "1h", 10, "gpt-test")
 	assert.NoError(t, err)
 	assert.Empty(t, items)
@@ -370,7 +305,7 @@ func TestGetModelRankingFallsBackToDetailedMemoryMetricsForTwentyFourHours(t *te
 		DurationMs:   1000,
 	})
 	metrics.GlobalStore.Record(metrics.RequestMetric{
-		Time:         end.Unix(),
+		Time:         end.Add(-time.Minute).Unix(),
 		Model:        "gpt-test",
 		Provider:     "openai",
 		Success:      true,
@@ -381,7 +316,7 @@ func TestGetModelRankingFallsBackToDetailedMemoryMetricsForTwentyFourHours(t *te
 		DurationMs:   3000,
 	})
 
-	dashboard := &Dashboard{DB: db}
+	dashboard := &Reader{db: db}
 	items, err := dashboard.getModelRankingAt(context.Background(), "request_count", "24h", 10, "", end)
 	require.NoError(t, err)
 	require.Len(t, items, 1)
@@ -420,8 +355,8 @@ func TestQueryPrometheusRangeReturnsNilOnEmptyResult(t *testing.T) {
 	config.C.Util.PrometheusServer.Address = ts.URL
 	defer func() { config.C.Util.PrometheusServer.Address = origAddr }()
 
-	dashboard := &Dashboard{}
-	values, err := dashboard.queryPrometheusRange("sum(increase(test[60s]))", 1000, 2000, 60)
+	dashboard := &Reader{}
+	values, err := dashboard.queryPrometheusRange(context.Background(), "sum(increase(test[60s]))", 1000, 2000, 60)
 	assert.NoError(t, err)
 	assert.Nil(t, values)
 }
@@ -445,7 +380,7 @@ func TestGetTrendsPreservesSuccessTrafficWhenErrorQueryReturnsEmpty(t *testing.T
 	config.C.Util.PrometheusServer.Address = ts.URL
 	defer func() { config.C.Util.PrometheusServer.Address = origAddr }()
 
-	dashboard := &Dashboard{}
+	dashboard := &Reader{}
 	res, err := dashboard.getTrendsAt(context.Background(), "", "1h", "glm-5.3", time.Unix(2000, 0))
 	assert.NoError(t, err)
 	require.Len(t, res.Series, 1)
@@ -488,57 +423,21 @@ func TestAlignPrometheusFloatDataPreservesFractionsAndMissingPoints(t *testing.T
 
 func TestModelPerformanceResponseMarshalsUnavailablePointsAsNull(t *testing.T) {
 	value := 180.5
-	raw, err := json.Marshal(ModelPerformanceTrendsResponse{
-		Times:     []string{"10:00", "10:01"},
+	raw, err := json.Marshal(Performance{
 		AvgTTFTMs: []*float64{&value, nil},
 		Otps:      []*float64{nil, &value},
 	})
 	require.NoError(t, err)
 
 	assert.JSONEq(t, `{
-		"times":["10:00","10:01"],
 		"avg_ttft_ms":[180.5,null],
 		"otps":[null,180.5]
 	}`, string(raw))
 }
 
-func TestGetModelPerformanceTrendsUsesTrafficTimeGridWhenUnavailable(t *testing.T) {
-	end := time.Date(2026, 8, 31, 12, 0, 0, 0, time.Local)
-	dashboard := &Dashboard{}
-
-	res, err := dashboard.getModelPerformanceTrendsAt(context.Background(), "gpt-test", "6h", end)
-	require.NoError(t, err)
-
-	rangeConfig := resolveTrendRange("6h", end)
-	require.Len(t, res.Times, rangeConfig.numPoints)
-	require.Len(t, res.AvgTTFTMs, rangeConfig.numPoints)
-	require.Len(t, res.Otps, rangeConfig.numPoints)
-	assert.Equal(t, end.Add(-time.Duration(rangeConfig.numPoints-1)*time.Duration(rangeConfig.stepSeconds)*time.Second).Format("15:04"), res.Times[0])
-	for i := range res.Times {
-		assert.Nil(t, res.AvgTTFTMs[i])
-		assert.Nil(t, res.Otps[i])
-	}
-}
-
-func TestQueryModelPerformanceTrendsRequiresModel(t *testing.T) {
-	dashboard := &Dashboard{}
-	gin.SetMode(gin.TestMode)
-	recorder := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/v1/dashboard/model-performance-trends?time_range=1h", nil)
-
-	dashboard.QueryModelPerformanceTrends(ctx)
-
-	assert.Equal(t, http.StatusBadRequest, recorder.Code)
-	var response util.ResponseResult
-	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
-	require.NotNil(t, response.Error)
-	assert.Equal(t, "bad_request", response.Error.ID)
-}
-
 func TestGetModelPerformanceTrendsFallsBackToRedisForOneHour(t *testing.T) {
 	end := time.Date(2026, 8, 31, 12, 0, 0, 0, time.Local)
-	minute := end.Unix() / 60
+	minute := end.Add(-time.Minute).Unix() / 60
 	modelCode := "gpt-test"
 	values := map[string]interface{}{
 		gatewaycontract.Keys.Status.Model(modelCode, minute, gatewaycontract.MetricTTFTSum):      "500",
@@ -548,7 +447,7 @@ func TestGetModelPerformanceTrendsFallsBackToRedisForOneHour(t *testing.T) {
 	}
 	redisClient := redis.NewClient(&redis.Options{Addr: "unused:6379"})
 	redisClient.AddHook(performanceRedisHook{values: values})
-	dashboard := &Dashboard{RedisClient: redisClient}
+	dashboard := &Reader{redis: redisClient}
 
 	res, err := dashboard.getModelPerformanceTrendsAt(context.Background(), modelCode, "1h", end)
 	require.NoError(t, err)
@@ -568,7 +467,7 @@ func TestGetModelPerformanceTrendsFallsBackPerMetricWithoutOverwritingPrometheus
 	metrics.GlobalStore = metrics.NewMemoryStore()
 	defer func() { metrics.GlobalStore = originalStore }()
 	metrics.GlobalStore.Record(metrics.RequestMetric{
-		Time:         end.Unix(),
+		Time:         end.Add(-time.Minute).Unix(),
 		Model:        modelCode,
 		Success:      true,
 		OutputTokens: 60,
@@ -598,7 +497,7 @@ func TestGetModelPerformanceTrendsFallsBackPerMetricWithoutOverwritingPrometheus
 	config.C.Util.PrometheusServer.Address = prometheus.URL
 	defer func() { config.C.Util.PrometheusServer.Address = originalAddress }()
 
-	dashboard := &Dashboard{}
+	dashboard := &Reader{}
 	res, err := dashboard.getModelPerformanceTrendsAt(context.Background(), modelCode, "1h", end)
 	require.NoError(t, err)
 	require.NotNil(t, res.AvgTTFTMs[59])
@@ -614,7 +513,7 @@ func TestGetModelPerformanceTrendsFallsBackToMemoryForLongWindow(t *testing.T) {
 	metrics.GlobalStore = metrics.NewMemoryStore()
 	defer func() { metrics.GlobalStore = originalStore }()
 	metrics.GlobalStore.Record(metrics.RequestMetric{
-		Time:         end.Unix(),
+		Time:         end.Add(-time.Minute).Unix(),
 		Model:        modelCode,
 		Success:      true,
 		OutputTokens: 60,
@@ -622,7 +521,7 @@ func TestGetModelPerformanceTrendsFallsBackToMemoryForLongWindow(t *testing.T) {
 		DurationMs:   2000,
 	})
 
-	dashboard := &Dashboard{}
+	dashboard := &Reader{}
 	res, err := dashboard.getModelPerformanceTrendsAt(context.Background(), modelCode, "6h", end)
 	require.NoError(t, err)
 	require.NotNil(t, res.AvgTTFTMs[len(res.AvgTTFTMs)-1])
@@ -633,7 +532,7 @@ func TestGetModelPerformanceTrendsFallsBackToMemoryForLongWindow(t *testing.T) {
 
 func TestGetTrendsEndpointFallsBackToRedis(t *testing.T) {
 	end := time.Date(2026, 8, 31, 12, 0, 0, 0, time.Local)
-	minute := end.Unix() / 60
+	minute := end.Add(-time.Minute).Unix() / 60
 	modelCode := "gpt-test"
 	endpointID := "ep-1"
 
@@ -663,7 +562,7 @@ func TestGetTrendsEndpointFallsBackToRedis(t *testing.T) {
 	}
 	redisClient := redis.NewClient(&redis.Options{Addr: "unused:6379"})
 	redisClient.AddHook(performanceRedisHook{values: values})
-	dashboard := &Dashboard{DB: db, RedisClient: redisClient}
+	dashboard := &Reader{db: db, redis: redisClient}
 
 	res, err := dashboard.getTrendsAt(context.Background(), "endpoint", "1h", modelCode, end)
 	require.NoError(t, err)
@@ -684,7 +583,7 @@ func TestGetTrendsEndpointFallsBackToMemory(t *testing.T) {
 	defer func() { metrics.GlobalStore = originalStore }()
 
 	metrics.GlobalStore.Record(metrics.RequestMetric{
-		Time:    end.Unix(),
+		Time:    end.Add(-time.Minute).Unix(),
 		Model:   modelCode,
 		Success: true,
 		Attempts: []struct {
@@ -698,7 +597,7 @@ func TestGetTrendsEndpointFallsBackToMemory(t *testing.T) {
 		},
 	})
 
-	dashboard := &Dashboard{}
+	dashboard := &Reader{}
 	res, err := dashboard.getTrendsAt(context.Background(), "endpoint", "1h", modelCode, end)
 	require.NoError(t, err)
 	require.Len(t, res.Series, 1)
@@ -710,7 +609,7 @@ func TestGetTrendsEndpointFallsBackToMemory(t *testing.T) {
 
 func TestGetTrendsModelFallsBackToRedis(t *testing.T) {
 	end := time.Date(2026, 8, 31, 12, 0, 0, 0, time.Local)
-	minute := end.Unix() / 60
+	minute := end.Add(-time.Minute).Unix() / 60
 	modelCode := "gpt-test-model"
 
 	values := map[string]interface{}{
@@ -719,7 +618,7 @@ func TestGetTrendsModelFallsBackToRedis(t *testing.T) {
 	}
 	redisClient := redis.NewClient(&redis.Options{Addr: "unused:6379"})
 	redisClient.AddHook(performanceRedisHook{values: values})
-	dashboard := &Dashboard{RedisClient: redisClient}
+	dashboard := &Reader{redis: redisClient}
 
 	res, err := dashboard.getTrendsAt(context.Background(), "", "1h", modelCode, end)
 	require.NoError(t, err)

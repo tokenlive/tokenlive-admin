@@ -10,6 +10,7 @@ import (
 type Dashboard struct {
 	DashboardAPI   *api.Dashboard
 	APIKeyUsageAPI *api.APIKeyUsage
+	UsageTrendsAPI *api.UsageTrends
 }
 
 func (a *Dashboard) Init(ctx context.Context) error {
@@ -19,6 +20,7 @@ func (a *Dashboard) Init(ctx context.Context) error {
 func (a *Dashboard) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) error {
 	g := v1.Group("dashboard")
 	{
+		g.POST("snapshot", a.DashboardAPI.QuerySnapshot)
 		g.GET("qps", a.DashboardAPI.QueryQPS)
 		g.GET("circuit-breakers", a.DashboardAPI.QueryCircuitBreakers)
 		g.GET("trends", a.DashboardAPI.QueryTrends)
@@ -26,6 +28,7 @@ func (a *Dashboard) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) 
 		g.POST("sync-redis", a.DashboardAPI.SyncRedis)
 		g.GET("model-ranking", a.DashboardAPI.QueryModelRanking)
 		g.GET("api-key-ranking", a.APIKeyUsageAPI.Query)
+		g.GET("usage-trends", a.UsageTrendsAPI.Query)
 		g.GET("provider-ranking", a.DashboardAPI.QueryProviderRanking)
 		g.GET("overview", a.DashboardAPI.QueryOverview)
 		g.GET("ws", a.DashboardAPI.HandleWebSocket)

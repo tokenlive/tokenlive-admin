@@ -1,4 +1,7 @@
 export default {
+    'pages.dashboard.monitoring.partial': 'Showing available data; some periods or measurements are incomplete',
+    'pages.dashboard.monitoring.unavailable': 'Monitoring data is unavailable for this period',
+    'pages.dashboard.monitoring.error': 'Unable to load monitoring data. Please retry later',
     'pages.dashboard.apiKeyRanking.title': 'API Key Usage',
     'pages.dashboard.apiKeyRanking.key': 'API Key',
     'pages.dashboard.apiKeyRanking.source': 'Source',
@@ -129,6 +132,35 @@ export default {
     'pages.dashboard.metrics.avg_ttft.footer': 'Avg stream TTFT in last 5 minutes',
     'pages.dashboard.units.seconds': 's',
     'pages.dashboard.trends.title': 'Traffic and Success Rate',
+    'pages.dashboard.usageTrends.title': 'Usage trends',
+    'pages.dashboard.usageTrends.category': 'Metric category',
+    'pages.dashboard.usageTrends.timeRange': 'Time range',
+    'pages.dashboard.usageTrends.requests': 'Requests',
+    'pages.dashboard.usageTrends.usage': 'Tokens',
+    'pages.dashboard.usageTrends.latency': 'Latency',
+    'pages.dashboard.usageTrends.errors': 'Errors',
+    'pages.dashboard.usageTrends.totalRequests': 'Total requests',
+    'pages.dashboard.usageTrends.success': 'Succeeded',
+    'pages.dashboard.usageTrends.failure': 'Failed',
+    'pages.dashboard.usageTrends.input_tokens': 'Input',
+    'pages.dashboard.usageTrends.output_tokens': 'Output',
+    'pages.dashboard.usageTrends.cached_tokens': 'Cache reads',
+    'pages.dashboard.usageTrends.cache_creation_tokens': 'Cache writes',
+    'pages.dashboard.usageTrends.avg_latency_ms': 'Average response time',
+    'pages.dashboard.usageTrends.avg_ttft_ms': 'Average time to first token',
+    'pages.dashboard.usageTrends.failure_rate': 'Failure rate',
+    'pages.dashboard.usageTrends.requestsHint':
+        'Final request outcomes, including client cancellations. Recent data may arrive later.',
+    'pages.dashboard.usageTrends.usageHint':
+        'Measured in tokens. Cached tokens are part of input; total usage is input plus output.',
+    'pages.dashboard.usageTrends.latencyHint':
+        'Response time includes failures and cancellations. TTFT uses valid streaming samples only.',
+    'pages.dashboard.usageTrends.errorsHint':
+        'Includes client cancellations. A failed request does not always indicate a gateway fault.',
+    'pages.dashboard.usageTrends.error': 'Unable to load trends. Please retry.',
+    'pages.dashboard.usageTrends.forbidden':
+        'Trends are unavailable. Check your sign-in status and overview permissions.',
+    'pages.dashboard.usageTrends.retry': 'Retry',
     'pages.dashboard.trends.requests': 'Requests',
     'pages.dashboard.trends.success_requests': 'Successful Requests',
     'pages.dashboard.trends.failed_requests': 'Failed Requests',

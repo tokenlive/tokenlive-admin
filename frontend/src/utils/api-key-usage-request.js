@@ -1,6 +1,12 @@
 // A local-error reader: session recovery is delegated to the existing user store.
 // No global toast or independent refresh coordinator belongs in this module.
-export function createAPIKeyUsageLoader({ send, getSession, refreshAccessToken, invalidateLocalSession }) {
+export function createAPIKeyUsageLoader({
+    send,
+    getSession,
+    refreshAccessToken,
+    invalidateLocalSession,
+    url = '/api/v1/dashboard/api-key-ranking',
+}) {
     return async function load(params, { signal } = {}) {
         for (let attempt = 0; attempt < 2; attempt++) {
             if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
@@ -8,7 +14,7 @@ export function createAPIKeyUsageLoader({ send, getSession, refreshAccessToken, 
             try {
                 const response = await send({
                     method: 'get',
-                    url: '/api/v1/dashboard/api-key-ranking',
+                    url,
                     params,
                     signal,
                     headers: { Authorization: session.token },

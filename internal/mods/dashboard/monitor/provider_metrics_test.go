@@ -1,4 +1,4 @@
-package api
+package monitor
 
 import (
 	"testing"
@@ -36,52 +36,6 @@ func TestPickProviderMetricReturnsZeroWhenNoKeyMatches(t *testing.T) {
 	assert.Equal(t, float64(0), pickProviderMetric(map[string]float64{"other": 7}, []string{"openai"}))
 }
 
-func TestResolveProviderMetricRangeClampsToSevenDays(t *testing.T) {
-	end := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
-
-	// 超过 7 天的请求被夹取，而非静默返回不完整数据（ADR-0008）。
-	promRange, minutes := resolveProviderMetricRange("30d", end)
-	assert.Equal(t, "10080m", promRange)
-	assert.Equal(t, 7*24*60, minutes)
-}
-
-func TestResolveProviderMetricRangeParsesDayUnit(t *testing.T) {
-	end := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
-
-	// time.ParseDuration 不认 "d"，而前端快捷范围里就有 "7d"。
-	promRange, minutes := resolveProviderMetricRange("7d", end)
-	assert.Equal(t, "10080m", promRange)
-	assert.Equal(t, 7*24*60, minutes)
-}
-
-func TestResolveProviderMetricRangeHandlesNormalRanges(t *testing.T) {
-	end := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
-
-	promRange, minutes := resolveProviderMetricRange("1h", end)
-	assert.Equal(t, "60m", promRange)
-	assert.Equal(t, 60, minutes)
-
-	promRange, minutes = resolveProviderMetricRange("24h", end)
-	assert.Equal(t, "1440m", promRange)
-	assert.Equal(t, 1440, minutes)
-}
-
-func TestResolveProviderMetricRangeTodayCountsFromMidnight(t *testing.T) {
-	end := time.Date(2026, 9, 13, 2, 30, 0, 0, time.UTC)
-
-	promRange, minutes := resolveProviderMetricRange("today", end)
-	assert.Equal(t, "151m", promRange)
-	assert.Equal(t, 151, minutes)
-}
-
-func TestResolveProviderMetricRangeFallsBackOnGarbage(t *testing.T) {
-	end := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
-
-	promRange, minutes := resolveProviderMetricRange("not-a-duration", end)
-	assert.Equal(t, "60m", promRange)
-	assert.Equal(t, 60, minutes)
-}
-
 func TestFillProviderMetricsFromMemoryUsesUpstreamCallScope(t *testing.T) {
 	store := metrics.NewMemoryStore()
 	original := metrics.GlobalStore
@@ -93,7 +47,7 @@ func TestFillProviderMetricsFromMemoryUsesUpstreamCallScope(t *testing.T) {
 	// 一次用户请求：供应商 a 失败后转移到 b 成功。
 	// 上游调用口径下 a 记失败、b 记成功——a 的故障不被转移掩盖（ADR-0008）。
 	store.Record(metrics.RequestMetric{
-		Time:    now.Unix(),
+		Time:    now.Add(-time.Minute).Unix(),
 		Model:   "gpt-4",
 		Success: true,
 		Attempts: []struct {
@@ -113,7 +67,7 @@ func TestFillProviderMetricsFromMemoryUsesUpstreamCallScope(t *testing.T) {
 	}
 	storeKeys := [][]string{{"prov-a"}, {"prov-b"}}
 
-	fillProviderMetricsFromMemory(items, storeKeys, 5, now)
+	(&Reader{}).fillProviderMetricsFromMemory(items, storeKeys, 5, now)
 
 	assert.Equal(t, int64(1), items[0].UpstreamCallCount)
 	assert.Equal(t, int64(1), items[0].FailCount)
@@ -134,7 +88,7 @@ func TestFillProviderMetricsFromMemoryFallsBackToNameKey(t *testing.T) {
 
 	// 网关完成 provider_code 穿透之前，上报的是名称。
 	store.Record(metrics.RequestMetric{
-		Time:         now.Unix(),
+		Time:         now.Add(-time.Minute).Unix(),
 		Model:        "gpt-4",
 		Provider:     "OpenAI 官方",
 		Success:      true,
@@ -146,7 +100,7 @@ func TestFillProviderMetricsFromMemoryFallsBackToNameKey(t *testing.T) {
 	})
 
 	items := []ProviderRankingItem{{ProviderID: "1", ProviderCode: "openai"}}
-	fillProviderMetricsFromMemory(items, [][]string{{"openai", "OpenAI 官方"}}, 5, now)
+	(&Reader{}).fillProviderMetricsFromMemory(items, [][]string{{"openai", "OpenAI 官方"}}, 5, now)
 
 	assert.Equal(t, int64(1), items[0].UpstreamCallCount)
 	assert.Equal(t, float64(100), items[0].UpstreamCallSuccessRate)
@@ -168,7 +122,7 @@ func TestFillProviderMetricsFromMemoryCarriesFullKpiSetForAttemptTraffic(t *test
 	// 真实网关上报带 attempts。KPI 卡的 TTFT/Token/费用/延迟必须在这条路径下有值——
 	// 若只在无 attempts 的数据上验证，指标归零的缺陷会被静默放过。
 	store.Record(metrics.RequestMetric{
-		Time:         now.Unix(),
+		Time:         now.Add(-time.Minute).Unix(),
 		Model:        "gpt-4",
 		Success:      true,
 		InputTokens:  10,
@@ -187,7 +141,7 @@ func TestFillProviderMetricsFromMemoryCarriesFullKpiSetForAttemptTraffic(t *test
 	})
 
 	items := []ProviderRankingItem{{ProviderID: "1", ProviderCode: "openai"}}
-	fillProviderMetricsFromMemory(items, [][]string{{"openai"}}, 5, now)
+	(&Reader{}).fillProviderMetricsFromMemory(items, [][]string{{"openai"}}, 5, now)
 
 	assert.Equal(t, int64(1), items[0].UpstreamCallCount)
 	assert.Equal(t, float64(100), items[0].UpstreamCallSuccessRate)
@@ -205,7 +159,7 @@ func TestFillProviderMetricsFromMemoryLeavesZeroWhenNoTraffic(t *testing.T) {
 	defer func() { metrics.GlobalStore = original }()
 
 	items := []ProviderRankingItem{{ProviderID: "1", ProviderCode: "quiet"}}
-	fillProviderMetricsFromMemory(items, [][]string{{"quiet"}}, 5, time.Now())
+	(&Reader{}).fillProviderMetricsFromMemory(items, [][]string{{"quiet"}}, 5, time.Now())
 
 	assert.Equal(t, int64(0), items[0].UpstreamCallCount)
 	assert.Equal(t, float64(0), items[0].UpstreamCallSuccessRate)

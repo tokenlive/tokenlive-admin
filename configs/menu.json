@@ -16,6 +16,10 @@
                 "status": "enabled",
                 "resources": [
                     {
+                        "method": "POST",
+                        "path": "/api/v1/dashboard/snapshot"
+                    },
+                    {
                         "method": "GET",
                         "path": "/api/v1/dashboard/qps"
                     },
@@ -30,6 +34,10 @@
                     {
                         "method": "GET",
                         "path": "/api/v1/dashboard/trends"
+                    },
+                    {
+                        "method": "GET",
+                        "path": "/api/v1/dashboard/usage-trends"
                     },
                     {
                         "method": "POST",

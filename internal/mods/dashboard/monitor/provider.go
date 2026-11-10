@@ -1,20 +1,15 @@
-package api
+package monitor
 
 import (
 	"context"
 	"fmt"
-	"math"
 	"sort"
-	"strconv"
-	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	rschema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
-	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
 // providerMetricsMaxRange 供应商监控的时间范围上限。
@@ -28,36 +23,12 @@ const providerMetricsMaxRange = 7 * 24 * time.Hour
 // 超出该窗口的查询无法由 Redis 覆盖，需降级到内存 store。
 const providerRedisMaxMinutes = 120
 
-// ProviderRankingItem 单个供应商在给定时间窗口内的聚合指标。
-//
-// 注意：不含 P50/P95/P99 分位数。内存 store 只累积 sum/count 而无直方图桶，
-// 分位数仅 Prometheus 可算；一个在部分部署下静默消失的指标不如不提供。详见 ADR-0008。
-type ProviderRankingItem struct {
-	ProviderID   string `json:"provider_id"`
-	ProviderCode string `json:"provider_code"`
-	ProviderName string `json:"provider_name"`
-	// UpstreamCallCount 上游调用次数。故障转移产生的多次尝试各自计入对应供应商。
-	UpstreamCallCount int64 `json:"upstream_call_count"`
-	SuccessCount      int64 `json:"success_count"`
-	FailCount         int64 `json:"fail_count"`
-	// UpstreamCallSuccessRate 上游调用成功率（百分比）。
-	// 与 Request Success Rate 分母不同：故障转移走掉的失败尝试计入此处的失败数。
-	UpstreamCallSuccessRate float64 `json:"upstream_call_success_rate"`
-	AvgLatencyMs            float64 `json:"avg_latency_ms"`
-	AvgTTFTMs               float64 `json:"avg_ttft_ms"`
-	TotalTokens             int64   `json:"total_tokens"`
-	TotalCost               float64 `json:"total_cost"`
-	Otps                    float64 `json:"otps"`
-	EndpointCount           int64   `json:"endpoint_count"`
-	OpenBreakerCount        int64   `json:"open_breaker_count"`
-}
-
 // hasProviderLabel 探测 Prometheus 的 request_total 指标是否带 provider label。
 //
 // Gateway 的埋点无法从 Admin 仓库验证。若直接假定 label 存在并发起
 // `sum by (provider)` 查询，label 缺失时会静默返回空结果——接口通了但数据全是空值，
 // 这种失败方式非常隐蔽。因此先探测，无 label 则降级到内存 store。结果缓存 30 秒。
-func (a *Dashboard) hasProviderLabel() bool {
+func (a *Reader) hasProviderLabel(ctx context.Context) bool {
 	a.providerLabelMu.RLock()
 	if time.Since(a.providerLabelChk) < 30*time.Second {
 		ok := a.providerLabelOK
@@ -74,53 +45,11 @@ func (a *Dashboard) hasProviderLabel() bool {
 	}
 
 	probe := fmt.Sprintf(`count by (provider) (%s)`, mRequestTotal)
-	values := a.queryPrometheusMultiValues(probe, "provider")
+	values := a.queryPrometheusMultiValues(ctx, probe, "provider")
 
 	a.providerLabelOK = len(values) > 0
 	a.providerLabelChk = time.Now()
 	return a.providerLabelOK
-}
-
-// resolveProviderMetricRange 解析并夹取供应商监控的时间范围。
-// 超过 7 天的请求被夹到 7 天，而非静默返回不完整数据。
-func resolveProviderMetricRange(timeRange string, end time.Time) (promRange string, minutes int) {
-	if timeRange == "today" {
-		midnight := time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
-		mins := int(math.Ceil(end.Sub(midnight).Minutes())) + 1
-		if mins < 1 {
-			mins = 1
-		}
-		return fmt.Sprintf("%dm", mins), mins
-	}
-
-	duration, ok := parseRangeDuration(timeRange)
-	if !ok || duration < time.Minute {
-		duration = time.Hour
-	}
-	if duration > providerMetricsMaxRange {
-		duration = providerMetricsMaxRange
-	}
-	mins := int(math.Ceil(duration.Minutes()))
-	return fmt.Sprintf("%dm", mins), mins
-}
-
-// parseRangeDuration 解析前端传入的时间范围。
-//
-// time.ParseDuration 不支持 "d" 单位，而前端的快捷范围里就有 "7d"——
-// 直接交给它解析会让 "7d" 静默退化成默认的 1 小时。
-func parseRangeDuration(timeRange string) (time.Duration, bool) {
-	if days, found := strings.CutSuffix(timeRange, "d"); found {
-		n, err := strconv.Atoi(days)
-		if err != nil || n <= 0 {
-			return 0, false
-		}
-		return time.Duration(n) * 24 * time.Hour, true
-	}
-	duration, err := time.ParseDuration(timeRange)
-	if err != nil {
-		return 0, false
-	}
-	return duration, true
 }
 
 // providerStoreKeys 返回可能被网关用作指标 key 的候选标识。
@@ -148,24 +77,35 @@ func pickProviderMetric(values map[string]float64, keys []string) float64 {
 	return 0
 }
 
-func (a *Dashboard) getProviderRankingAt(
+func (a *Reader) getProviderRankingAt(
 	ctx context.Context,
 	sortBy, timeRange string,
 	limit int,
 	providerFilter string,
 	end time.Time,
 ) ([]ProviderRankingItem, error) {
-	end = end.Truncate(time.Minute)
+	ctx, plan, planErr := a.queryPlan(ctx, timeRange, end)
+	if planErr != nil {
+		return nil, planErr
+	}
+	if plan.minutes() == 0 {
+		source(ctx, "catalog")
+		return []ProviderRankingItem{}, nil
+	}
+	end = plan.End
 	cacheKey := fmt.Sprintf("provider-ranking:%s:%s:%d:%s:%d", sortBy, timeRange, limit, providerFilter, end.Unix())
-	if cached, ok := a.getCache(cacheKey); ok {
+	if cached, ok := a.getCache(ctx, cacheKey); ok {
 		return cached.([]ProviderRankingItem), nil
 	}
 
-	promRange, minutes := resolveProviderMetricRange(timeRange, end)
+	promRange, minutes := fmt.Sprintf("%ds", int64(plan.End.Sub(plan.Start)/time.Second)), plan.minutes()
 
 	// 1. 查询供应商。指定 provider 时按 id 或 code 精确匹配单行。
 	var providers []rschema.Provider
-	query := a.DB.WithContext(ctx)
+	if a.db == nil {
+		return nil, fmt.Errorf("provider catalog is unavailable")
+	}
+	query := a.db.WithContext(ctx)
 	if providerFilter != "" {
 		query = query.Where("id = ? OR code = ?", providerFilter, providerFilter)
 	} else {
@@ -176,7 +116,8 @@ func (a *Dashboard) getProviderRankingAt(
 	}
 
 	if len(providers) == 0 {
-		a.setCache(cacheKey, []ProviderRankingItem{}, 5*time.Second)
+		source(ctx, "catalog")
+		a.setCache(ctx, cacheKey, []ProviderRankingItem{}, 5*time.Second)
 		return []ProviderRankingItem{}, nil
 	}
 
@@ -199,12 +140,15 @@ func (a *Dashboard) getProviderRankingAt(
 	//    Redis 层只有成功/失败计数（ADR-0009 的 aigw:status:provider:{code} 键），
 	//    没有 TTFT/token/费用，且 TTL 仅 2 小时，故只在 2 小时内的窗口使用。
 	switch {
-	case a.isPrometheusAvailable() && a.hasProviderLabel():
-		a.fillProviderMetricsFromPrometheus(items, storeKeys, promRange, end)
-	case a.RedisClient != nil && minutes <= providerRedisMaxMinutes:
+	case a.isPrometheusAvailable(ctx) && a.hasProviderLabel(ctx):
+		source(ctx, "prometheus")
+		a.fillProviderMetricsFromPrometheus(ctx, items, storeKeys, promRange, end)
+	case a.redis != nil && minutes <= providerRedisMaxMinutes:
+		source(ctx, "redis")
 		a.fillProviderStatusFromRedis(ctx, items, storeKeys, minutes, end)
 	default:
-		fillProviderMetricsFromMemory(items, storeKeys, minutes, end)
+		source(ctx, "memory")
+		a.fillProviderMetricsFromMemory(items, storeKeys, minutes, end)
 	}
 
 	// 4. 过滤无流量的供应商。单供应商查询需要保留该行，即使流量为零——
@@ -225,12 +169,12 @@ func (a *Dashboard) getProviderRankingAt(
 		filtered = filtered[:limit]
 	}
 
-	a.setCache(cacheKey, filtered, 5*time.Second)
+	a.setCache(ctx, cacheKey, filtered, 5*time.Second)
 	return filtered, nil
 }
 
 // fillProviderEndpointStats 填充每个供应商的端点总数与当前熔断端点数。
-func (a *Dashboard) fillProviderEndpointStats(ctx context.Context, items []ProviderRankingItem) {
+func (a *Reader) fillProviderEndpointStats(ctx context.Context, items []ProviderRankingItem) {
 	providerIDs := make([]string, 0, len(items))
 	indexByID := make(map[string]int, len(items))
 	for i, item := range items {
@@ -239,7 +183,7 @@ func (a *Dashboard) fillProviderEndpointStats(ctx context.Context, items []Provi
 	}
 
 	var endpoints []rschema.Endpoint
-	if err := a.DB.WithContext(ctx).
+	if err := a.db.WithContext(ctx).
 		Select("id", "provider_id").
 		Where("provider_id IN ?", providerIDs).
 		Find(&endpoints).Error; err != nil {
@@ -265,14 +209,14 @@ func (a *Dashboard) fillProviderEndpointStats(ctx context.Context, items []Provi
 	}
 }
 
-func (a *Dashboard) fillProviderMetricsFromPrometheus(
+func (a *Reader) fillProviderMetricsFromPrometheus(ctx context.Context,
 	items []ProviderRankingItem,
 	storeKeys [][]string,
 	promRange string,
 	end time.Time,
 ) {
 	queryValues := func(query string) map[string]float64 {
-		return a.queryPrometheusMultiValuesAt(query, "provider", end)
+		return a.queryPrometheusMultiValuesAt(ctx, query, "provider", end)
 	}
 
 	successMap := queryValues(fmt.Sprintf(
@@ -334,14 +278,14 @@ func mgetInBatches(ctx context.Context, client *redis.Client, keys []string) ([]
 
 // fillProviderStatusFromRedis 从 ADR-0009 的 aigw:status:provider:{code}:{minute}:[s|f]
 // 键读取成功/失败计数。该层只有计数，没有 TTFT、token 与费用——这些指标在此路径下留零值。
-func (a *Dashboard) fillProviderStatusFromRedis(
+func (a *Reader) fillProviderStatusFromRedis(
 	ctx context.Context,
 	items []ProviderRankingItem,
 	storeKeys [][]string,
 	minutes int,
 	end time.Time,
 ) {
-	currentMinute := end.Unix() / 60
+	currentMinute := end.Add(-time.Minute).Unix() / 60
 
 	// 每个供应商的每个候选 key 都要取 minutes 个分钟的成功与失败两个键。
 	keys := make([]string, 0, len(items)*2*minutes)
@@ -360,10 +304,11 @@ func (a *Dashboard) fillProviderStatusFromRedis(
 		return
 	}
 
-	values, err := mgetInBatches(ctx, a.RedisClient, keys)
+	values, err := mgetInBatches(ctx, a.redis, keys)
 	if err != nil {
 		// Redis 不可用时回退到内存 store，而非留下一片空白。
-		fillProviderMetricsFromMemory(items, storeKeys, minutes, end)
+		source(ctx, "memory")
+		a.fillProviderMetricsFromMemory(items, storeKeys, minutes, end)
 		return
 	}
 
@@ -402,20 +347,20 @@ func (a *Dashboard) fillProviderStatusFromRedis(
 	}
 }
 
-func fillProviderMetricsFromMemory(
+func (a *Reader) fillProviderMetricsFromMemory(
 	items []ProviderRankingItem,
 	storeKeys [][]string,
 	minutes int,
 	end time.Time,
 ) {
-	currentMinute := end.Unix() / 60
+	currentMinute := end.Add(-time.Minute).Unix() / 60
 	startMinute := currentMinute - int64(minutes-1)
 
 	for i := range items {
 		var perf metrics.EndpointMinutePerf
 		// 按候选 key 依次尝试，取首个有数据的聚合结果。
 		for _, key := range storeKeys[i] {
-			perf = metrics.GlobalStore.AggregateProviderMinutePerf(key, startMinute, currentMinute)
+			perf = a.memory().AggregateProviderMinutePerf(key, startMinute, currentMinute)
 			if perf.Requests > 0 || perf.Success > 0 || perf.Fail > 0 {
 				break
 			}
@@ -473,32 +418,4 @@ func sortProviderRankingItems(items []ProviderRankingItem, sortBy string) {
 			return items[i].UpstreamCallCount > items[j].UpstreamCallCount
 		})
 	}
-}
-
-// @Tags DashboardAPI
-// @Security ApiKeyAuth
-// @Summary Query provider upstream health ranking
-// @Param sort_by query string false "Sort by: request_count, avg_latency, avg_ttft, tokens, cost, success_rate, otps (default: request_count)"
-// @Param time_range query string false "Time range: 1h, 6h, 24h, 7d, today (max 7d, default: 1h)"
-// @Param limit query int false "Limit results (default: 10)"
-// @Param provider query string false "Filter by provider id or code"
-// @Param end_time query string false "RFC3339 query end time"
-// @Success 200 {object} util.ResponseResult{data=[]ProviderRankingItem}
-// @Failure 500 {object} util.ResponseResult
-// @Router /api/v1/dashboard/provider-ranking [get]
-func (a *Dashboard) QueryProviderRanking(c *gin.Context) {
-	sortBy := c.DefaultQuery("sort_by", "request_count")
-	timeRange := c.DefaultQuery("time_range", "1h")
-	providerFilter := strings.TrimSpace(c.Query("provider"))
-	limit := 10
-	if l, err := strconv.Atoi(c.DefaultQuery("limit", "10")); err == nil && l > 0 {
-		limit = l
-	}
-	res, err := a.getProviderRankingAt(
-		c.Request.Context(), sortBy, timeRange, limit, providerFilter, dashboardQueryEnd(c))
-	if err != nil {
-		util.ResError(c, err)
-		return
-	}
-	util.ResSuccess(c, res)
 }

@@ -3,12 +3,14 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/tokenlive/tokenlive-admin/internal/mods/dashboard/monitor"
 )
 
 const (
@@ -32,13 +34,7 @@ type WSConfigMsg struct {
 	TrendsGroupBy         string `json:"trends_group_by"`
 	ModelRankingSortBy    string `json:"model_ranking_sort_by"`
 	ModelRankingTimeRange string `json:"model_ranking_time_range"`
-}
-
-// WSDashboardPayload represents the unified push data payload
-type WSDashboardPayload struct {
-	Overview     *OverviewResponse  `json:"overview"`
-	Trends       *TrendsResponse    `json:"trends"`
-	ModelRanking []ModelRankingItem `json:"model_ranking"`
+	Timezone              string `json:"timezone"`
 }
 
 // HandleWebSocket upgrades the HTTP request to WebSocket and pushes dashboard metrics
@@ -87,6 +83,7 @@ func (a *Dashboard) HandleWebSocket(c *gin.Context) {
 					cfg.TrendsTimeRange = msg.Data.TrendsTimeRange
 				}
 				cfg.TrendsGroupBy = msg.Data.TrendsGroupBy
+				cfg.Timezone = msg.Data.Timezone
 				if msg.Data.ModelRankingSortBy != "" {
 					cfg.ModelRankingSortBy = msg.Data.ModelRankingSortBy
 				}
@@ -116,25 +113,17 @@ func (a *Dashboard) HandleWebSocket(c *gin.Context) {
 		currentCfg := cfg
 		cfgMu.Unlock()
 
-		overview, err := a.getOverview(ctx)
-		if err != nil {
-			return err
+		if a.Monitor == nil {
+			return fmt.Errorf("monitoring is unavailable")
 		}
-
-			trends, err := a.getTrends(ctx, currentCfg.TrendsGroupBy, currentCfg.TrendsTimeRange, "")
+		payload, err := a.Monitor.Read(ctx, monitor.Query{
+			Timezone: currentCfg.Timezone, Overview: true,
+			Traffic: &monitor.TrafficQuery{WindowQuery: monitor.WindowQuery{Range: currentCfg.TrendsTimeRange}, GroupBy: currentCfg.TrendsGroupBy},
+			Models:  &monitor.ModelQuery{WindowQuery: monitor.WindowQuery{Range: currentCfg.ModelRankingTimeRange}, Sort: currentCfg.ModelRankingSortBy, Limit: 10},
+		})
 		if err != nil {
+			conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "invalid_monitoring_query"), time.Now().Add(wsWriteWait))
 			return err
-		}
-
-			ranking, err := a.getModelRanking(ctx, currentCfg.ModelRankingSortBy, currentCfg.ModelRankingTimeRange, 10, "")
-		if err != nil {
-			return err
-		}
-
-		payload := WSDashboardPayload{
-			Overview:     overview,
-			Trends:       trends,
-			ModelRanking: ranking,
 		}
 
 		data, err := json.Marshal(payload)
