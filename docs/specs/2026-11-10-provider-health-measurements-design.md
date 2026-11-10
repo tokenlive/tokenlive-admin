@@ -18,7 +18,7 @@ Admin MemoryStore 按 Attempts 记录调用结果，并将请求级性能归属�
 
 ## Interface 与范围
 
-保留 `Reader.Read` seam 和 `Query.providers`。供应商行返回具名类型的 HealthMetric：值、状态、来源、统计范围、窗口、覆盖范围、稳定原因；成功／失败及总调用数原子返回并派生成功率。外层 Reading 汇总状态，但不会因一个指标失败而丢弃整行。
+保留 `Reader.Read` seam 和 `Query.providers`。供应商行返回具名类型的 MetricObservation：值、状态、来源、统计范围、窗口、覆盖范围、稳定原因；成功／失败及总调用数原子返回并派生成功率。外层 Reading 汇总状态，但不会因一个指标失败而丢弃整行。
 
 供应商计数只在 Redis 真实保留区间内读取，源失败或历史超出保留时回退本实例内存观测并明确来源；性能整组选用 Prometheus 或内存，各项错误独立。空值排序置后，不把未知供应商当作零调用静默过滤。
 

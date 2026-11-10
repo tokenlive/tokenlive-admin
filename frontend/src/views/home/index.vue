@@ -617,57 +617,25 @@
                                             {{ record.model_code }}
                                         </div>
                                     </template>
-                                    <template v-else-if="column.key === 'request_count'">
-                                        <span>{{ record.request_count?.toLocaleString() || '-' }}</span>
-                                    </template>
-                                    <template v-else-if="column.key === 'success_rate'">
-                                        <a-tag
-                                            :color="
-                                                record.success_rate >= 98
-                                                    ? 'success'
-                                                    : record.success_rate >= 90
-                                                      ? 'warning'
-                                                      : 'error'
-                                            ">
-                                            {{ record.success_rate ? record.success_rate.toFixed(1) + '%' : 'N/A' }}
-                                        </a-tag>
-                                    </template>
-                                    <template v-else-if="column.key === 'avg_latency'">
-                                        <a-tooltip>
-                                            <template #title>
-                                                <div style="font-size: 12px">
-                                                    <div>P50: {{ formatLatency(record.p50_latency_ms) }}</div>
-                                                    <div>P95: {{ formatLatency(record.p95_latency_ms) }}</div>
-                                                    <div>P99: {{ formatLatency(record.p99_latency_ms) }}</div>
-                                                </div>
-                                            </template>
-                                            <span style="border-bottom: 1px dashed var(--color-text-tertiary)">
-                                                {{ formatLatency(record.avg_latency_ms) }}
-                                            </span>
+                                    <template v-else>
+                                        <a-tooltip
+                                            :title="rankingMetric(record, column.key).hint"
+                                            :overlay-inner-style="{ whiteSpace: 'pre-line' }">
+                                            <a-tag
+                                                v-if="column.key === 'success_rate'"
+                                                :color="
+                                                    metricValue(record.success_rate) == null
+                                                        ? undefined
+                                                        : metricValue(record.success_rate) >= 98
+                                                          ? 'success'
+                                                          : metricValue(record.success_rate) >= 90
+                                                            ? 'warning'
+                                                            : 'error'
+                                                "
+                                                >{{ rankingMetric(record, column.key).value }}</a-tag
+                                            >
+                                            <span v-else>{{ rankingMetric(record, column.key).value }}</span>
                                         </a-tooltip>
-                                    </template>
-                                    <template v-else-if="column.key === 'avg_ttft'">
-                                        <a-tooltip>
-                                            <template #title>
-                                                <div style="font-size: 12px">
-                                                    <div>P50: {{ formatLatency(record.p50_ttft_ms) }}</div>
-                                                    <div>P95: {{ formatLatency(record.p95_ttft_ms) }}</div>
-                                                    <div>P99: {{ formatLatency(record.p99_ttft_ms) }}</div>
-                                                </div>
-                                            </template>
-                                            <span style="border-bottom: 1px dashed var(--color-text-tertiary)">
-                                                {{ formatLatency(record.avg_ttft_ms) }}
-                                            </span>
-                                        </a-tooltip>
-                                    </template>
-                                    <template v-else-if="column.key === 'otps'">
-                                        <span>{{ formatOtps(record.otps) }}</span>
-                                    </template>
-                                    <template v-else-if="column.key === 'total_tokens'">
-                                        <span>{{ formatTokens(record.total_tokens) }}</span>
-                                    </template>
-                                    <template v-else-if="column.key === 'total_cost'">
-                                        <span>{{ record.total_cost ? '¥' + record.total_cost.toFixed(4) : '-' }}</span>
                                     </template>
                                 </template>
                             </a-table>
@@ -881,6 +849,9 @@
 </template>
 
 <script setup>
+import { modelMetricDisplay } from '@/utils/model-observations'
+import { compareMetric, metricValue } from '@/utils/metric-observation'
+
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -1015,28 +986,11 @@ async function handleRankingSortChange() {
     else await fetchTelemetryData()
 }
 
-// 格式化延迟（毫秒转秒）
-function formatLatency(ms) {
-    if (!ms || ms === 0) return 'N/A'
-    return (ms / 1000).toFixed(2) + 's'
-}
-
 // 格式化延迟纯数值（毫秒转秒，保留2位小数）
 function formatLatencyNumber(ms) {
     const num = Number(ms)
     if (!Number.isFinite(num) || num <= 0) return '0.00'
     return (num / 1000).toFixed(2)
-}
-
-function formatOtps(val) {
-    const num = Number(val)
-    if (!Number.isFinite(num) || num === 0) return '-'
-    return (
-        num.toLocaleString('en-US', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2,
-        }) + ' t/s'
-    )
 }
 
 const POLICY_META = [
@@ -1622,6 +1576,8 @@ const pieChartOptions = computed(() => {
     }
 })
 
+const rankingMetric = (row, key) => modelMetricDisplay(row, key, t, formatTokens)
+
 // 模型性能排行榜表格列配置
 const columns = computed(() => [
     {
@@ -1633,45 +1589,45 @@ const columns = computed(() => [
     },
     {
         title: t('pages.dashboard.modelRanking.columns.requests'),
-        dataIndex: 'request_count',
+        dataIndex: 'requests',
         key: 'request_count',
-        sorter: (a, b) => (a.request_count || 0) - (b.request_count || 0),
+        sorter: (a, b, order) => compareMetric(a.requests, b.requests, order, (value) => value.total),
     },
     {
         title: t('pages.dashboard.modelRanking.columns.successRate'),
         dataIndex: 'success_rate',
         key: 'success_rate',
-        sorter: (a, b) => (a.success_rate || 0) - (b.success_rate || 0),
+        sorter: (a, b, order) => compareMetric(a.success_rate, b.success_rate, order),
     },
     {
         title: t('pages.dashboard.modelRanking.columns.avgLatency'),
         dataIndex: 'avg_latency_ms',
         key: 'avg_latency',
-        sorter: (a, b) => (a.avg_latency_ms || 0) - (b.avg_latency_ms || 0),
+        sorter: (a, b, order) => compareMetric(a.avg_latency_ms, b.avg_latency_ms, order),
     },
     {
         title: t('pages.dashboard.modelRanking.columns.avgTTFT'),
         dataIndex: 'avg_ttft_ms',
         key: 'avg_ttft',
-        sorter: (a, b) => (a.avg_ttft_ms || 0) - (b.avg_ttft_ms || 0),
+        sorter: (a, b, order) => compareMetric(a.avg_ttft_ms, b.avg_ttft_ms, order),
     },
     {
         title: t('pages.dashboard.modelRanking.columns.otps'),
         dataIndex: 'otps',
         key: 'otps',
-        sorter: (a, b) => (a.otps || 0) - (b.otps || 0),
+        sorter: (a, b, order) => compareMetric(a.otps, b.otps, order),
     },
     {
         title: t('pages.dashboard.modelRanking.columns.tokens'),
         dataIndex: 'total_tokens',
         key: 'total_tokens',
-        sorter: (a, b) => (a.total_tokens || 0) - (b.total_tokens || 0),
+        sorter: (a, b, order) => compareMetric(a.total_tokens, b.total_tokens, order),
     },
     {
         title: t('pages.dashboard.modelRanking.columns.estimatedCost'),
         dataIndex: 'total_cost',
         key: 'total_cost',
-        sorter: (a, b) => (a.total_cost || 0) - (b.total_cost || 0),
+        sorter: (a, b, order) => compareMetric(a.total_cost, b.total_cost, order),
     },
 ])
 

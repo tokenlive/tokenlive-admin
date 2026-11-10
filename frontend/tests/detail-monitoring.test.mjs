@@ -46,7 +46,12 @@ function fixture(kind = 'model', overrides = {}) {
                 return Promise.resolve({
                     success: true,
                     data: {
-                        models: reading([{ model_code: code, request_count: 0 }]),
+                        models: reading([
+                            {
+                                model_code: code,
+                                requests: { state: 'ok', value: { total: 0, success: 0, failure: 0 } },
+                            },
+                        ]),
                         providers: reading([{ provider_code: code }]),
                         traffic: reading(traffic(code)),
                         performance: reading({ avg_ttft_ms: [null, 0], otps: [0, null] }),
@@ -101,7 +106,7 @@ test('model combines compatible readings and keeps endpoint traffic separate wit
     )
     assert.equal(calls.snapshots.filter((q) => q.traffic.group_by === 'endpoint').length, 1)
     const state = session.getState()
-    assert.equal(state.ranking.request_count, 0)
+    assert.equal(state.ranking.requests.value.total, 0)
     assert.deepEqual(state.traffic.series[0].total, [null, 0])
     assert.deepEqual(state.performance.avg_ttft_ms, [null, 0])
     assert.deepEqual(state.performance.otps, [0, null])
@@ -364,7 +369,7 @@ test('an invalid reading stays local and always finishes the refresh', async () 
             Promise.resolve({
                 data: query.models
                     ? {
-                          models: reading([{ request_count: 0 }]),
+                          models: reading([{ requests: { state: 'ok', value: { total: 0, success: 0, failure: 0 } } }]),
                           traffic: { state: 'ok', buckets, data: traffic() },
                           performance: reading({ avg_ttft_ms: [0, null], otps: [null, 0] }),
                       }
@@ -374,7 +379,7 @@ test('an invalid reading stays local and always finishes the refresh', async () 
     await session.refresh(target())
     const state = session.getState()
     assert.equal(state.readings.traffic.state, 'error')
-    assert.equal(state.ranking.request_count, 0)
+    assert.equal(state.ranking.requests.value.total, 0)
     assert.deepEqual(state.performance.avg_ttft_ms, [0, null])
     assert.equal(state.loading, false)
     assert.equal(state.eventsLoading, false)

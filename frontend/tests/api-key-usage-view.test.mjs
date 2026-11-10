@@ -109,9 +109,15 @@ test('unauthorized users render no ranking or controls', async () => {
     assert.ok(!html.includes('ant-select'))
 })
 
-test('disabled, empty and unavailable messages are distinct and translated', async () => {
+test('disabled usage hides the entire card and its controls', async () => {
+    const html = await render({ phase: 'disabled', data: null })
+    assert.ok(!html.includes('api-key-usage-panel'))
+    assert.ok(!html.includes('API Key 用量排行'))
+    assert.ok(!html.includes('ant-select'))
+})
+
+test('empty and unavailable messages are distinct and translated', async () => {
     for (const [phase, text] of [
-        ['disabled', '尚未启用 API Key 用量统计'],
         ['empty', '该时段暂无调用'],
         ['error', '数据暂不可用'],
     ]) {

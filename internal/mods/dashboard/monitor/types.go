@@ -122,30 +122,36 @@ type CircuitBreakerInfo struct {
 	URL          string `json:"url"`           // 关联的 URL 地址
 }
 
+// ModelRankingItem reports Request observations independently of upstream calls.
 type ModelRankingItem struct {
-	ModelID      string  `json:"model_id"`
-	ModelCode    string  `json:"model_code"`
-	ModelName    string  `json:"model_name"`
-	RequestCount int64   `json:"request_count"`
-	SuccessCount int64   `json:"success_count"`
-	FailCount    int64   `json:"fail_count"`
-	SuccessRate  float64 `json:"success_rate"`
-	AvgLatencyMs float64 `json:"avg_latency_ms"`
-	P50LatencyMs float64 `json:"p50_latency_ms"`
-	P95LatencyMs float64 `json:"p95_latency_ms"`
-	P99LatencyMs float64 `json:"p99_latency_ms"`
-	AvgTTFTMs    float64 `json:"avg_ttft_ms"`
-	P50TTFTMs    float64 `json:"p50_ttft_ms"`
-	P95TTFTMs    float64 `json:"p95_ttft_ms"`
-	P99TTFTMs    float64 `json:"p99_ttft_ms"`
-	TotalTokens  int64   `json:"total_tokens"`
-	TotalCost    float64 `json:"total_cost"`
-	Otps         float64 `json:"otps"`
+	ModelID      string                           `json:"model_id"`
+	ModelCode    string                           `json:"model_code"`
+	ModelName    string                           `json:"model_name"`
+	Requests     MetricObservation[RequestCounts] `json:"requests"`
+	SuccessRate  MetricObservation[float64]       `json:"success_rate"`
+	AvgLatencyMs MetricObservation[float64]       `json:"avg_latency_ms"`
+	P50LatencyMs MetricObservation[float64]       `json:"p50_latency_ms"`
+	P95LatencyMs MetricObservation[float64]       `json:"p95_latency_ms"`
+	P99LatencyMs MetricObservation[float64]       `json:"p99_latency_ms"`
+	AvgTTFTMs    MetricObservation[float64]       `json:"avg_ttft_ms"`
+	P50TTFTMs    MetricObservation[float64]       `json:"p50_ttft_ms"`
+	P95TTFTMs    MetricObservation[float64]       `json:"p95_ttft_ms"`
+	P99TTFTMs    MetricObservation[float64]       `json:"p99_ttft_ms"`
+	TotalCost    MetricObservation[float64]       `json:"total_cost"`
+	Otps         MetricObservation[float64]       `json:"otps"`
+	TotalTokens  MetricObservation[int64]         `json:"total_tokens"`
 }
 
-// HealthMetric keeps a value distinct from the availability of its samples.
+// RequestCounts is an atomic partition of final request outcomes in one source.
+type RequestCounts struct {
+	Total   int64 `json:"total"`
+	Success int64 `json:"success"`
+	Failure int64 `json:"failure"`
+}
+
+// MetricObservation keeps a value distinct from the availability of its samples.
 // Scope names the population counted or timed; Source names the observation source.
-type HealthMetric[T any] struct {
+type MetricObservation[T any] struct {
 	Value    *T       `json:"value"`
 	State    string   `json:"state"`
 	Source   string   `json:"source"`
@@ -164,16 +170,16 @@ type ProviderCalls struct {
 
 // ProviderHealth separates upstream attempts from attributed request performance.
 type ProviderHealth struct {
-	ProviderID       string                      `json:"provider_id"`
-	ProviderCode     string                      `json:"provider_code"`
-	ProviderName     string                      `json:"provider_name"`
-	Calls            HealthMetric[ProviderCalls] `json:"calls"`
-	SuccessRate      HealthMetric[float64]       `json:"success_rate"`
-	AvgLatencyMs     HealthMetric[float64]       `json:"avg_latency_ms"`
-	AvgTTFTMs        HealthMetric[float64]       `json:"avg_ttft_ms"`
-	TotalTokens      HealthMetric[int64]         `json:"total_tokens"`
-	TotalCost        HealthMetric[float64]       `json:"total_cost"`
-	Otps             HealthMetric[float64]       `json:"otps"`
-	EndpointCount    HealthMetric[int64]         `json:"endpoint_count"`
-	OpenBreakerCount HealthMetric[int64]         `json:"open_breaker_count"`
+	ProviderID       string                           `json:"provider_id"`
+	ProviderCode     string                           `json:"provider_code"`
+	ProviderName     string                           `json:"provider_name"`
+	Calls            MetricObservation[ProviderCalls] `json:"calls"`
+	SuccessRate      MetricObservation[float64]       `json:"success_rate"`
+	AvgLatencyMs     MetricObservation[float64]       `json:"avg_latency_ms"`
+	AvgTTFTMs        MetricObservation[float64]       `json:"avg_ttft_ms"`
+	TotalTokens      MetricObservation[int64]         `json:"total_tokens"`
+	TotalCost        MetricObservation[float64]       `json:"total_cost"`
+	Otps             MetricObservation[float64]       `json:"otps"`
+	EndpointCount    MetricObservation[int64]         `json:"endpoint_count"`
+	OpenBreakerCount MetricObservation[int64]         `json:"open_breaker_count"`
 }

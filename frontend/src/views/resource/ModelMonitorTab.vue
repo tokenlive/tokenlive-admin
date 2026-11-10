@@ -267,6 +267,7 @@ import MonitoringStatus from '@/components/MonitoringStatus.vue'
 import { monitoringSuccessRates, monitoringStatus } from '@/utils/monitoring-snapshot'
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from 'vue'
 import { createDetailMonitoring } from '@/utils/detail-monitoring'
+import { modelObservationCards } from '@/utils/model-observations'
 import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
 import dayjs from 'dayjs'
@@ -355,24 +356,19 @@ const eventColumns = computed(() => [
 ])
 
 function formatLatency(ms) {
-    if (ms == null || ms === 0) return '—'
+    if (ms == null) return '—'
     return (ms / 1000).toFixed(2) + 's'
 }
 
 function formatOtps(val) {
     const num = Number(val)
-    if (val == null || !Number.isFinite(num) || num === 0) return '—'
+    if (val == null || !Number.isFinite(num)) return '—'
     return (
         num.toLocaleString('en-US', {
             minimumFractionDigits: 0,
             maximumFractionDigits: 2,
         }) + ' t/s'
     )
-}
-
-function formatSuccessRate(val) {
-    if (val === undefined || val === null || Number.isNaN(Number(val))) return '—'
-    return Number(val).toFixed(1) + '%'
 }
 
 function eventTypeLabel(type) {
@@ -438,60 +434,9 @@ function queryTimeRange() {
     return `${minutes}m`
 }
 
-const kpi = computed(() => ranking.value || {})
-
-const kpiCards = computed(() => [
-    {
-        key: 'requests',
-        label: t('pages.model.detail.monitor.kpi.requests'),
-        value: kpi.value.request_count == null ? '—' : Number(kpi.value.request_count).toLocaleString('en-US'),
-    },
-    {
-        key: 'successRate',
-        label: t('pages.model.detail.monitor.kpi.successRate'),
-        value: kpi.value.request_count ? formatSuccessRate(kpi.value.success_rate) : '—',
-    },
-    {
-        key: 'latency',
-        label: t('pages.model.detail.monitor.kpi.latency'),
-        value: formatLatency(kpi.value.avg_latency_ms),
-        hint: [
-            `P50: ${formatLatency(kpi.value.p50_latency_ms)}`,
-            `P95: ${formatLatency(kpi.value.p95_latency_ms)}`,
-            `P99: ${formatLatency(kpi.value.p99_latency_ms)}`,
-        ],
-    },
-    {
-        key: 'ttft',
-        label: t('pages.model.detail.monitor.kpi.ttft'),
-        value: formatLatency(kpi.value.avg_ttft_ms),
-        hint: [
-            `P50: ${formatLatency(kpi.value.p50_ttft_ms)}`,
-            `P95: ${formatLatency(kpi.value.p95_ttft_ms)}`,
-            `P99: ${formatLatency(kpi.value.p99_ttft_ms)}`,
-        ],
-    },
-    {
-        key: 'otps',
-        label: t('pages.model.detail.monitor.kpi.otps'),
-        value: formatOtps(kpi.value.otps),
-    },
-    {
-        key: 'tokens',
-        label: t('pages.model.detail.monitor.kpi.tokens'),
-        value: kpi.value.total_tokens == null ? '—' : formatTokens(kpi.value.total_tokens),
-    },
-    {
-        key: 'cost',
-        label: t('pages.model.detail.monitor.kpi.cost'),
-        value: kpi.value.total_cost == null ? '—' : '¥' + Number(kpi.value.total_cost).toFixed(4),
-    },
-    {
-        key: 'endpoints',
-        label: t('pages.model.detail.monitor.kpi.endpoints'),
-        value: readings.value.endpoints?.state === 'ok' ? endpoints.value.length.toLocaleString('en-US') : '—',
-    },
-])
+const kpiCards = computed(() =>
+    modelObservationCards(ranking.value, endpoints.value, readings.value.endpoints, t, formatTokens)
+)
 
 const modelBreakers = computed(() => {
     const endpointIds = new Set((endpoints.value || []).map((item) => item.id))

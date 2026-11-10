@@ -4,50 +4,34 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"time"
 
 	rschema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
-	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 )
 
 func buildModelTokensQuery(promRange string) string {
-	return fmt.Sprintf(
-		`sum by (model) (increase(%s{type=~"input|output"}[%s]))`,
-		mTokensTotal,
-		promRange,
-	)
+	return fmt.Sprintf(`sum by (model) (increase(%s{type=~"input|output"}[%s]))`, mTokensTotal, promRange)
 }
 
 func buildModelOtpsQuery(promRange string) string {
-	return fmt.Sprintf(
-		`sum by (model) (increase(%s{type="output"}[%s])) / sum by (model) (increase(%s[%s]))`,
-		mTokensTotal,
-		promRange,
-		mRequestDurationSum,
-		promRange,
-	)
+	return fmt.Sprintf(`sum by (model) (increase(%s{type="output"}[%s])) / sum by (model) (increase(%s[%s]))`, mTokensTotal, promRange, mRequestDurationSum, promRange)
 }
 
-func (a *Reader) readModels(ctx context.Context, sortBy string, limit int, modelFilter string, plan windowPlan) ([]ModelRankingItem, error) {
-	if plan.minutes() == 0 {
-		source(ctx, "catalog")
+// Each measurement owns its source status. A failed query cannot discard a model's
+// successful measurements, or turn its unknown latency into a winning zero.
+func (a *Reader) readModels(ctx context.Context, sortBy string, limit int, modelFilter string, p windowPlan) ([]ModelRankingItem, error) {
+	if p.minutes() == 0 {
 		return []ModelRankingItem{}, nil
 	}
-	end := plan.End
+	ctx, _ = withPlan(ctx, p)
 	cacheKey := fmt.Sprintf("ranking:%s:%d:%s", sortBy, limit, modelFilter)
 	if cached, ok := a.getCache(ctx, cacheKey); ok {
-		return cached.([]ModelRankingItem), nil
+		return cloneModelRanking(cached.([]ModelRankingItem)), nil
 	}
-
-	// 根据 time_range 计算 PromQL 范围和 Redis 窗口
-	promRange, redisMinutes := fmt.Sprintf("%ds", int64(plan.End.Sub(plan.Start)/time.Second)), min(plan.minutes(), 120)
-
-	// 1. 从数据库查询启用的模型；指定 model 时只取这一行
-	var models []rschema.Model
 	if a.db == nil {
 		return nil, fmt.Errorf("model catalog is unavailable")
 	}
+	var models []rschema.Model
 	query := a.db.WithContext(ctx).Where("enabled = ?", 1)
 	if modelFilter != "" {
 		query = query.Where("id = ? OR model_code = ?", modelFilter, modelFilter)
@@ -55,225 +39,149 @@ func (a *Reader) readModels(ctx context.Context, sortBy string, limit int, model
 	if err := query.Find(&models).Error; err != nil {
 		return nil, err
 	}
-
-	if len(models) == 0 {
-		source(ctx, "catalog")
-		a.setCache(ctx, cacheKey, []ModelRankingItem{}, 5*time.Second)
-		return []ModelRankingItem{}, nil
-	}
-
-	// 2. 初始化 items
 	items := make([]ModelRankingItem, len(models))
-	for i, m := range models {
-		items[i] = ModelRankingItem{
-			ModelID:   m.ID,
-			ModelCode: m.ModelCode,
-			ModelName: m.ModelName,
-		}
+	for i, model := range models {
+		items[i] = ModelRankingItem{ModelID: model.ID, ModelCode: model.ModelCode, ModelName: model.ModelName}
 	}
-
-	// 3. 尝试从 Prometheus 获取数据
+	if len(items) == 0 {
+		return items, nil
+	}
 	if a.isPrometheusAvailable(ctx) {
-		source(ctx, "prometheus")
-		queryValues := func(query, label string) map[string]float64 {
-			return a.queryPrometheusMultiValuesAt(ctx, query, label, end)
-		}
-		// 查询请求计数
-		successQuery := fmt.Sprintf(`sum by (model) (increase(%s{status="success"}[%s]))`, mRequestTotal, promRange)
-		errorQuery := fmt.Sprintf(`sum by (model) (increase(%s{status="error"}[%s]))`, mRequestTotal, promRange)
-
-		successMap := queryValues(successQuery, "model")
-		errorMap := queryValues(errorQuery, "model")
-
-		// 查询延迟指标
-		avgLatencyMap := queryValues(fmt.Sprintf(`sum by (model) (rate(%s[%s])) / sum by (model) (rate(%s[%s]))`, mRequestDurationSum, promRange, mRequestDurationCount, promRange), "model")
-		p50LatencyMap := queryValues(fmt.Sprintf(`histogram_quantile(0.50, sum by (model, le) (rate(%s[%s])))`, mRequestDurationBucket, promRange), "model")
-		p95LatencyMap := queryValues(fmt.Sprintf(`histogram_quantile(0.95, sum by (model, le) (rate(%s[%s])))`, mRequestDurationBucket, promRange), "model")
-		p99LatencyMap := queryValues(fmt.Sprintf(`histogram_quantile(0.99, sum by (model, le) (rate(%s[%s])))`, mRequestDurationBucket, promRange), "model")
-
-		// 查询 TTFT 指标
-		avgTTFTMap := queryValues(fmt.Sprintf(`sum by (model) (rate(%s[%s])) / sum by (model) (rate(%s[%s]))`, mTtftSum, promRange, mTtftCount, promRange), "model")
-		p50TTFTMap := queryValues(fmt.Sprintf(`histogram_quantile(0.50, sum by (model, le) (rate(%s[%s])))`, mTtftBucket, promRange), "model")
-		p95TTFTMap := queryValues(fmt.Sprintf(`histogram_quantile(0.95, sum by (model, le) (rate(%s[%s])))`, mTtftBucket, promRange), "model")
-		p99TTFTMap := queryValues(fmt.Sprintf(`histogram_quantile(0.99, sum by (model, le) (rate(%s[%s])))`, mTtftBucket, promRange), "model")
-
-		// 查询 Token、OTPS 和费用
-		tokensMap := queryValues(buildModelTokensQuery(promRange), "model")
-		otpsMap := queryValues(buildModelOtpsQuery(promRange), "model")
-		costMap := queryValues(fmt.Sprintf(`sum by (model) (increase(%s[%s]))`, mCostTotal, promRange), "model")
-
-		// 填充数据
-		for i, m := range models {
-			code := m.ModelCode
-			items[i].SuccessCount = int64(successMap[code])
-			items[i].FailCount = int64(errorMap[code])
-			items[i].RequestCount = items[i].SuccessCount + items[i].FailCount
-
-			if items[i].RequestCount > 0 {
-				items[i].SuccessRate = float64(items[i].SuccessCount) / float64(items[i].RequestCount) * 100
-			}
-
-			// 延迟转换为毫秒
-			items[i].AvgLatencyMs = avgLatencyMap[code] * 1000
-			items[i].P50LatencyMs = p50LatencyMap[code] * 1000
-			items[i].P95LatencyMs = p95LatencyMap[code] * 1000
-			items[i].P99LatencyMs = p99LatencyMap[code] * 1000
-
-			// TTFT 转换为毫秒
-			items[i].AvgTTFTMs = avgTTFTMap[code] * 1000
-			items[i].P50TTFTMs = p50TTFTMap[code] * 1000
-			items[i].P95TTFTMs = p95TTFTMap[code] * 1000
-			items[i].P99TTFTMs = p99TTFTMap[code] * 1000
-
-			items[i].TotalTokens = int64(tokensMap[code])
-			items[i].Otps = otpsMap[code]
-			items[i].TotalCost = costMap[code]
-		}
-	} else if a.redis == nil {
-		source(ctx, "memory")
-		currentMin := end.Add(-time.Minute).Unix() / 60
-		numMinutes := plan.minutes()
-		startMinute := currentMin - int64(numMinutes-1)
-		for i, model := range models {
-			perf := a.memory().AggregateModelMinutePerf(model.ModelCode, startMinute, currentMin)
-			items[i].SuccessCount = perf.Success
-			items[i].FailCount = perf.Fail
-			items[i].RequestCount = perf.Requests
-			availabilityCount := perf.Success + perf.Fail
-			if availabilityCount > 0 {
-				items[i].SuccessRate = float64(perf.Success) / float64(availabilityCount) * 100
-			}
-			if perf.LatencyCount > 0 {
-				items[i].AvgLatencyMs = float64(perf.LatencySumMs) / float64(perf.LatencyCount)
-			}
-			if perf.TTFTCount > 0 {
-				items[i].AvgTTFTMs = float64(perf.TTFTSum) / float64(perf.TTFTCount)
-			}
-			items[i].TotalTokens = perf.InputTokens + perf.OutputTokens
-			items[i].TotalCost = perf.Cost
-			if perf.Output > 0 && perf.DurationMs > 0 {
-				items[i].Otps = float64(perf.Output) / (float64(perf.DurationMs) / 1000)
-			}
-		}
-	} else if redisMinutes > 0 {
-		var values []interface{}
-		var err error
-		currentMin := end.Add(-time.Minute).Unix() / 60
-		numMinutes := redisMinutes
-
-		if a.redis != nil {
-			source(ctx, "redis")
-			keys := make([]string, 0, len(models)*numMinutes*2)
-			for _, m := range models {
-				for i := 0; i < numMinutes; i++ {
-					minute := currentMin - int64(numMinutes-1-i)
-					keys = append(keys,
-						gatewaycontract.Keys.Status.Model(m.ModelCode, minute, gatewaycontract.MetricSuccess),
-						gatewaycontract.Keys.Status.Model(m.ModelCode, minute, gatewaycontract.MetricFailure),
-					)
-				}
-			}
-
-			values, err = a.redisValues(ctx, keys...)
-		} else {
-			values = make([]interface{}, len(models)*numMinutes*2)
-			idx := 0
-			for _, m := range models {
-				for i := 0; i < numMinutes; i++ {
-					minute := currentMin - int64(numMinutes-1-i)
-					succ, fail := a.memory().GetModelStatus(m.ModelCode, minute)
-					if succ > 0 {
-						values[idx] = strconv.FormatInt(succ, 10)
-					}
-					if fail > 0 {
-						values[idx+1] = strconv.FormatInt(fail, 10)
-					}
-					idx += 2
-				}
-			}
-		}
-		if err == nil {
-			idx := 0
-			for i := range models {
-				var succ, fail int64
-				for j := 0; j < numMinutes; j++ {
-					if values != nil {
-						if sVal := values[idx]; sVal != nil {
-							if sStr, ok := sVal.(string); ok {
-								succ += mustParseInt(sStr)
-							}
-						}
-						if fVal := values[idx+1]; fVal != nil {
-							if fStr, ok := fVal.(string); ok {
-								fail += mustParseInt(fStr)
-							}
-						}
-					}
-					idx += 2
-				}
-				items[i].SuccessCount = succ
-				items[i].FailCount = fail
-				items[i].RequestCount = succ + fail
-				if items[i].RequestCount > 0 {
-					items[i].SuccessRate = float64(succ) / float64(items[i].RequestCount) * 100
-				}
+		a.readModelPrometheus(ctx, items, p)
+	} else {
+		a.readModelRequests(ctx, items, p)
+		a.readModelMemoryPerformance(items, p)
+	}
+	cacheable := true
+	for _, row := range items {
+		for _, state := range modelMetricStates(row) {
+			if state == "error" {
+				cacheable = false
 			}
 		}
 	}
-
-	// 4. 过滤掉没有请求的模型
-	filtered := make([]ModelRankingItem, 0, len(items))
-	for _, item := range items {
-		if item.RequestCount > 0 {
-			filtered = append(filtered, item)
+	if modelFilter == "" {
+		filtered := make([]ModelRankingItem, 0, len(items))
+		for _, row := range items {
+			if row.Requests.Value == nil || row.Requests.State != "ok" || row.Requests.Value.Total > 0 {
+				filtered = append(filtered, row)
+			}
 		}
+		items = filtered
 	}
-
-	// 5. 排序
-	sortModelRankingItems(filtered, sortBy)
-
-	// 6. 限制结果数量。单模型查询需要完整这一行，不受 Top N 截断。
-	if modelFilter == "" && len(filtered) > limit {
-		filtered = filtered[:limit]
+	sortModelRankingItems(items, sortBy)
+	if modelFilter == "" && len(items) > limit {
+		items = items[:limit]
 	}
-
-	a.setCache(ctx, cacheKey, filtered, 5*time.Second)
-	return filtered, nil
+	if cacheable {
+		a.setCache(ctx, cacheKey, cloneModelRanking(items), 5*time.Second)
+	}
+	return items, nil
 }
 
-func sortModelRankingItems(items []ModelRankingItem, sortBy string) {
-	switch sortBy {
-	case "avg_latency":
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].AvgLatencyMs < items[j].AvgLatencyMs
-		})
-	case "avg_ttft":
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].AvgTTFTMs < items[j].AvgTTFTMs
-		})
-	case "tokens":
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].TotalTokens > items[j].TotalTokens
-		})
-	case "cost":
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].TotalCost > items[j].TotalCost
-		})
-	case "success_rate":
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].SuccessRate > items[j].SuccessRate
-		})
-	case "otps":
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].Otps > items[j].Otps
-		})
-	default: // request_count
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].RequestCount > items[j].RequestCount
-		})
+func modelReading(p windowPlan, items []ModelRankingItem, err error) *Reading[[]ModelRankingItem] {
+	r := &Reading[[]ModelRankingItem]{State: "ok", Source: "mixed", Window: p.Window, Data: &items, Coverage: Coverage{Reason: "per_metric_coverage"}}
+	if err != nil {
+		r.State, r.Error, r.Data = "error", "source_unavailable", nil
+		return r
 	}
+	if p.minutes() == 0 {
+		r.State, r.Coverage.Reason, r.Data = "unavailable", "no_completed_minutes", nil
+		return r
+	}
+	if len(items) == 0 {
+		r.Source, r.Coverage = "catalog", Coverage{Start: &p.Start, End: &p.End}
+		return r
+	}
+	for _, row := range items {
+		for _, state := range modelMetricStates(row) {
+			if state == "partial" || state == "error" || state == "unavailable" || state == "unsupported" {
+				r.State = "partial"
+			}
+		}
+	}
+	return r
 }
 
-// resolveTimeRange 将前端传入的 time_range 参数转换为 PromQL 范围字符串和 Redis 窗口分钟数
-// promRange: 用于 PromQL 查询的范围（如 "60m", "6h", "24h", "7d"）
-// redisMinutes: Redis 降级时查询的分钟数（0 表示 Redis 无法覆盖该范围）
+func modelMetricStates(row ModelRankingItem) []string {
+	return []string{row.Requests.State, row.SuccessRate.State, row.AvgLatencyMs.State, row.P50LatencyMs.State, row.P95LatencyMs.State, row.P99LatencyMs.State, row.AvgTTFTMs.State, row.P50TTFTMs.State, row.P95TTFTMs.State, row.P99TTFTMs.State, row.TotalTokens.State, row.TotalCost.State, row.Otps.State}
+}
+
+func modelRate(requests MetricObservation[RequestCounts]) MetricObservation[float64] {
+	m := MetricObservation[float64]{State: requests.State, Source: requests.Source, Scope: requests.Scope, Window: requests.Window, Coverage: requests.Coverage, Reason: requests.Reason, Identity: requests.Identity}
+	if requests.Value == nil {
+		return m
+	}
+	if requests.Value.Total == 0 {
+		return missingObservation(m, "no_samples", "zero_denominator")
+	}
+	value := float64(requests.Value.Success) / float64(requests.Value.Total) * 100
+	m.Value = &value
+	return m
+}
+
+func sortModelRankingItems(items []ModelRankingItem, by string) {
+	value := func(row ModelRankingItem) *float64 {
+		switch by {
+		case "avg_latency":
+			return row.AvgLatencyMs.Value
+		case "avg_ttft":
+			return row.AvgTTFTMs.Value
+		case "tokens":
+			if row.TotalTokens.Value != nil {
+				v := float64(*row.TotalTokens.Value)
+				return &v
+			}
+		case "cost":
+			return row.TotalCost.Value
+		case "success_rate":
+			return row.SuccessRate.Value
+		case "otps":
+			return row.Otps.Value
+		default:
+			if row.Requests.Value != nil {
+				v := float64(row.Requests.Value.Total)
+				return &v
+			}
+		}
+		return nil
+	}
+	ascending := by == "avg_latency" || by == "avg_ttft"
+	sort.SliceStable(items, func(i, j int) bool {
+		x, y := value(items[i]), value(items[j])
+		if x == nil {
+			return false
+		}
+		if y == nil {
+			return true
+		}
+		if *x == *y {
+			return items[i].ModelCode < items[j].ModelCode
+		}
+		if ascending {
+			return *x < *y
+		}
+		return *x > *y
+	})
+}
+
+func cloneModelRanking(items []ModelRankingItem) []ModelRankingItem {
+	out := append([]ModelRankingItem{}, items...)
+	for i := range out {
+		row := &out[i]
+		row.Requests = cloneObservation(row.Requests)
+		row.SuccessRate = cloneObservation(row.SuccessRate)
+		row.AvgLatencyMs = cloneObservation(row.AvgLatencyMs)
+		row.P50LatencyMs = cloneObservation(row.P50LatencyMs)
+		row.P95LatencyMs = cloneObservation(row.P95LatencyMs)
+		row.P99LatencyMs = cloneObservation(row.P99LatencyMs)
+		row.AvgTTFTMs = cloneObservation(row.AvgTTFTMs)
+		row.P50TTFTMs = cloneObservation(row.P50TTFTMs)
+		row.P95TTFTMs = cloneObservation(row.P95TTFTMs)
+		row.P99TTFTMs = cloneObservation(row.P99TTFTMs)
+		row.TotalTokens = cloneObservation(row.TotalTokens)
+		row.TotalCost = cloneObservation(row.TotalCost)
+		row.Otps = cloneObservation(row.Otps)
+	}
+	return out
+}

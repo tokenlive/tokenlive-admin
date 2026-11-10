@@ -142,56 +142,6 @@ func (a *Reader) prometheusScalar(ctx context.Context, query string) *float64 {
 	return &value
 }
 
-func (a *Reader) queryPrometheusMultiValuesAt(ctx context.Context, query string, labelKey string, end time.Time) map[string]float64 {
-	resMap := make(map[string]float64)
-	promAddr := config.C.Util.PrometheusServer.Address
-	if promAddr == "" {
-		return resMap
-	}
-	apiURL := promAddr + "/api/v1/query?query=" + url.QueryEscape(query)
-	if !end.IsZero() {
-		apiURL += "&time=" + strconv.FormatInt(end.Unix(), 10)
-	}
-
-	body, err := a.queryPrometheus(ctx, apiURL, 3*time.Second)
-	if err != nil {
-		return resMap
-	}
-
-	var promResp prometheusQueryResponse
-	if err := json.Unmarshal(body, &promResp); err != nil || promResp.Status != "success" {
-		sourceError(ctx, "prometheus", fmt.Errorf("invalid prometheus response"))
-		return resMap
-	}
-
-	if len(promResp.Data.Result) > 0 {
-		seen(ctx, 0)
-	}
-	for _, result := range promResp.Data.Result {
-		key, ok := result.Metric[labelKey]
-		if !ok || len(result.Value) < 2 {
-			continue
-		}
-		var valStr string
-		switch v := result.Value[1].(type) {
-		case string:
-			valStr = v
-		case float64:
-			resMap[key] = v
-			continue
-		default:
-			valStr = fmt.Sprintf("%v", v)
-		}
-		floatVal, _ := strconv.ParseFloat(valStr, 64)
-		if math.IsNaN(floatVal) || math.IsInf(floatVal, 0) {
-			floatVal = 0.0
-		}
-		resMap[key] = floatVal
-	}
-
-	return resMap
-}
-
 func (a *Reader) queryPrometheus(ctx context.Context, apiURL string, timeout time.Duration) ([]byte, error) {
 	source(ctx, "prometheus")
 	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)

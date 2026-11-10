@@ -66,7 +66,7 @@ func TestReadSevenDaysAndHistoricalTodayUsePlannedWindow(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "partial", s.Models.State)
 	require.Len(t, *s.Models.Data, 1)
-	require.Equal(t, int64(2), (*s.Models.Data)[0].RequestCount)
+	require.Equal(t, int64(2), (*s.Models.Data)[0].Requests.Value.Total)
 	at := now.Add(-24 * time.Hour)
 	a, err := r.Read(context.Background(), Query{At: &at, Timezone: "+08:00", Traffic: &TrafficQuery{WindowQuery: WindowQuery{Range: "today"}}})
 	require.NoError(t, err)

@@ -10124,7 +10124,7 @@ const docTemplate = `{
                 }
             }
         },
-        "monitor.HealthMetric-float64": {
+        "monitor.MetricObservation-float64": {
             "type": "object",
             "properties": {
                 "coverage": {
@@ -10153,7 +10153,7 @@ const docTemplate = `{
                 }
             }
         },
-        "monitor.HealthMetric-int64": {
+        "monitor.MetricObservation-int64": {
             "type": "object",
             "properties": {
                 "coverage": {
@@ -10182,7 +10182,7 @@ const docTemplate = `{
                 }
             }
         },
-        "monitor.HealthMetric-monitor_ProviderCalls": {
+        "monitor.MetricObservation-monitor_ProviderCalls": {
             "type": "object",
             "properties": {
                 "coverage": {
@@ -10205,6 +10205,35 @@ const docTemplate = `{
                 },
                 "value": {
                     "$ref": "#/definitions/monitor.ProviderCalls"
+                },
+                "window": {
+                    "$ref": "#/definitions/monitor.Window"
+                }
+            }
+        },
+        "monitor.MetricObservation-monitor_RequestCounts": {
+            "type": "object",
+            "properties": {
+                "coverage": {
+                    "$ref": "#/definitions/monitor.Coverage"
+                },
+                "identity": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "value": {
+                    "$ref": "#/definitions/monitor.RequestCounts"
                 },
                 "window": {
                     "$ref": "#/definitions/monitor.Window"
@@ -10235,13 +10264,10 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "avg_latency_ms": {
-                    "type": "number"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "avg_ttft_ms": {
-                    "type": "number"
-                },
-                "fail_count": {
-                    "type": "integer"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "model_code": {
                     "type": "string"
@@ -10253,40 +10279,37 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "otps": {
-                    "type": "number"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "p50_latency_ms": {
-                    "type": "number"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "p50_ttft_ms": {
-                    "type": "number"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "p95_latency_ms": {
-                    "type": "number"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "p95_ttft_ms": {
-                    "type": "number"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "p99_latency_ms": {
-                    "type": "number"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "p99_ttft_ms": {
-                    "type": "number"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
-                "request_count": {
-                    "type": "integer"
-                },
-                "success_count": {
-                    "type": "integer"
+                "requests": {
+                    "$ref": "#/definitions/monitor.MetricObservation-monitor_RequestCounts"
                 },
                 "success_rate": {
-                    "type": "number"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "total_cost": {
-                    "type": "number"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "total_tokens": {
-                    "type": "integer"
+                    "$ref": "#/definitions/monitor.MetricObservation-int64"
                 }
             }
         },
@@ -10377,22 +10400,22 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "avg_latency_ms": {
-                    "$ref": "#/definitions/monitor.HealthMetric-float64"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "avg_ttft_ms": {
-                    "$ref": "#/definitions/monitor.HealthMetric-float64"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "calls": {
-                    "$ref": "#/definitions/monitor.HealthMetric-monitor_ProviderCalls"
+                    "$ref": "#/definitions/monitor.MetricObservation-monitor_ProviderCalls"
                 },
                 "endpoint_count": {
-                    "$ref": "#/definitions/monitor.HealthMetric-int64"
+                    "$ref": "#/definitions/monitor.MetricObservation-int64"
                 },
                 "open_breaker_count": {
-                    "$ref": "#/definitions/monitor.HealthMetric-int64"
+                    "$ref": "#/definitions/monitor.MetricObservation-int64"
                 },
                 "otps": {
-                    "$ref": "#/definitions/monitor.HealthMetric-float64"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "provider_code": {
                     "type": "string"
@@ -10404,13 +10427,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "success_rate": {
-                    "$ref": "#/definitions/monitor.HealthMetric-float64"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "total_cost": {
-                    "$ref": "#/definitions/monitor.HealthMetric-float64"
+                    "$ref": "#/definitions/monitor.MetricObservation-float64"
                 },
                 "total_tokens": {
-                    "$ref": "#/definitions/monitor.HealthMetric-int64"
+                    "$ref": "#/definitions/monitor.MetricObservation-int64"
                 }
             }
         },
@@ -10638,6 +10661,20 @@ const docTemplate = `{
                     "additionalProperties": {
                         "$ref": "#/definitions/monitor.Window"
                     }
+                }
+            }
+        },
+        "monitor.RequestCounts": {
+            "type": "object",
+            "properties": {
+                "failure": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },

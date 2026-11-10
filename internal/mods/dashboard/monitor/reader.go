@@ -193,11 +193,8 @@ func (a *Reader) Read(ctx context.Context, q Query) (*Snapshot, error) {
 	}
 	if q.Models != nil {
 		p := plans["models"]
-		c, s := a.readContext(ctx, p)
-		data, e := a.readModels(c, defaultSort(q.Models.Sort), defaultLimit(q.Models.Limit), q.Models.Model, p)
-		data = append([]ModelRankingItem{}, data...)
-		a.checkPrometheusCoverage(c, s)
-		res.Models = result(s, &data, e)
+		data, e := a.readModels(ctx, defaultSort(q.Models.Sort), defaultLimit(q.Models.Limit), q.Models.Model, p)
+		res.Models = modelReading(p, data, e)
 	}
 	if q.Providers != nil {
 		p := plans["providers"]

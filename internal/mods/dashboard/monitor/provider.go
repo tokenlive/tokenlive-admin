@@ -114,63 +114,17 @@ func providerMetricStates(p ProviderHealth) []string {
 	return []string{p.Calls.State, p.SuccessRate.State, p.AvgLatencyMs.State, p.AvgTTFTMs.State, p.Otps.State, p.TotalTokens.State, p.TotalCost.State, p.EndpointCount.State, p.OpenBreakerCount.State}
 }
 
-func healthMetric[T any](p windowPlan, source, population string, c Coverage, identity string) HealthMetric[T] {
-	m := HealthMetric[T]{State: "ok", Source: source, Scope: population, Window: p.Window, Coverage: c, Identity: identity}
-	if c.Start == nil || c.End == nil {
-		m.State = "unavailable"
-		m.Reason = c.Reason
-	} else if c.Start.After(p.Start) || c.End.Before(p.End) || c.Reason != "" {
-		m.State = "partial"
-		m.Reason = c.Reason
-	}
-	return m
-}
-
-func missingHealthMetric[T any](m HealthMetric[T], state, reason string) HealthMetric[T] {
-	m.Value = nil
-	m.State = state
-	m.Reason = reason
-	return m
-}
-
-func providerRate(calls HealthMetric[ProviderCalls]) HealthMetric[float64] {
-	m := HealthMetric[float64]{State: calls.State, Source: calls.Source, Scope: calls.Scope, Window: calls.Window, Coverage: calls.Coverage, Reason: calls.Reason, Identity: calls.Identity}
+func providerRate(calls MetricObservation[ProviderCalls]) MetricObservation[float64] {
+	m := MetricObservation[float64]{State: calls.State, Source: calls.Source, Scope: calls.Scope, Window: calls.Window, Coverage: calls.Coverage, Reason: calls.Reason, Identity: calls.Identity}
 	if calls.Value == nil {
 		return m
 	}
 	if calls.Value.Total == 0 {
-		return missingHealthMetric(m, "no_samples", "zero_denominator")
+		return missingObservation(m, "no_samples", "zero_denominator")
 	}
 	value := float64(calls.Value.Success) / float64(calls.Value.Total) * 100
 	m.Value = &value
 	return m
-}
-
-func sourceCoverage(p windowPlan, floor time.Time) Coverage {
-	start, end := p.Start, p.End
-	if start.Before(floor) {
-		start = floor
-	}
-	if !start.Before(end) {
-		return Coverage{Reason: "outside_retention"}
-	}
-	c := Coverage{Start: &start, End: &end}
-	if start.After(p.Start) {
-		c.Reason = "outside_retention"
-	}
-	return c
-}
-
-func (a *Reader) memoryCoverage(p windowPlan) Coverage {
-	floor := p.Observed.Add(-7 * 24 * time.Hour).Truncate(time.Minute).Add(time.Minute)
-	started := a.memory().StartedAt()
-	if started.After(floor) {
-		floor = started.Truncate(time.Minute)
-		if !started.Equal(floor) {
-			floor = floor.Add(time.Minute)
-		}
-	}
-	return sourceCoverage(p, floor)
 }
 
 func sortProviderHealth(items []ProviderHealth, by string) {
@@ -218,35 +172,19 @@ func sortProviderHealth(items []ProviderHealth, by string) {
 	})
 }
 
-func cloneHealthMetric[T any](m HealthMetric[T]) HealthMetric[T] {
-	if m.Value != nil {
-		value := *m.Value
-		m.Value = &value
-	}
-	if m.Coverage.Start != nil {
-		at := *m.Coverage.Start
-		m.Coverage.Start = &at
-	}
-	if m.Coverage.End != nil {
-		at := *m.Coverage.End
-		m.Coverage.End = &at
-	}
-	return m
-}
-
 func cloneProviderHealth(items []ProviderHealth) []ProviderHealth {
 	out := append([]ProviderHealth{}, items...)
 	for i := range out {
 		p := &out[i]
-		p.Calls = cloneHealthMetric(p.Calls)
-		p.SuccessRate = cloneHealthMetric(p.SuccessRate)
-		p.AvgLatencyMs = cloneHealthMetric(p.AvgLatencyMs)
-		p.AvgTTFTMs = cloneHealthMetric(p.AvgTTFTMs)
-		p.TotalTokens = cloneHealthMetric(p.TotalTokens)
-		p.TotalCost = cloneHealthMetric(p.TotalCost)
-		p.Otps = cloneHealthMetric(p.Otps)
-		p.EndpointCount = cloneHealthMetric(p.EndpointCount)
-		p.OpenBreakerCount = cloneHealthMetric(p.OpenBreakerCount)
+		p.Calls = cloneObservation(p.Calls)
+		p.SuccessRate = cloneObservation(p.SuccessRate)
+		p.AvgLatencyMs = cloneObservation(p.AvgLatencyMs)
+		p.AvgTTFTMs = cloneObservation(p.AvgTTFTMs)
+		p.TotalTokens = cloneObservation(p.TotalTokens)
+		p.TotalCost = cloneObservation(p.TotalCost)
+		p.Otps = cloneObservation(p.Otps)
+		p.EndpointCount = cloneObservation(p.EndpointCount)
+		p.OpenBreakerCount = cloneObservation(p.OpenBreakerCount)
 	}
 	return out
 }

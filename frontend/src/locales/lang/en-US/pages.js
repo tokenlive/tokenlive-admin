@@ -546,47 +546,53 @@ export default {
     'pages.provider.detail.health.successRate.short': 'Upstream OK',
     'pages.provider.detail.health.successRate.hint':
         'Failed attempts that failed over are counted as failures, so this runs lower than the request success rate',
-    'pages.provider.detail.measurement.state.ok': 'Data available',
-    'pages.provider.detail.measurement.state.partial': 'Partial data available',
-    'pages.provider.detail.measurement.state.no_samples': 'No usable samples',
-    'pages.provider.detail.measurement.state.unsupported': 'Unsupported by this source',
-    'pages.provider.detail.measurement.state.unavailable': 'Data unavailable',
-    'pages.provider.detail.measurement.state.error': 'Measurement failed to load',
-    'pages.provider.detail.measurement.source.redis': 'Source: shared upstream status',
-    'pages.provider.detail.measurement.source.memory': 'Source: observations from this instance',
-    'pages.provider.detail.measurement.source.prometheus': 'Source: Prometheus',
-    'pages.provider.detail.measurement.source.catalog': 'Source: endpoint configuration',
-    'pages.provider.detail.measurement.source.unknown': 'Source unknown',
-    'pages.provider.detail.measurement.scope.upstream_call':
+    'pages.monitoring.measurement.state.ok': 'Data available',
+    'pages.monitoring.measurement.state.partial': 'Partial data available',
+    'pages.monitoring.measurement.state.no_samples': 'No usable samples',
+    'pages.monitoring.measurement.state.unsupported': 'Unsupported by this source',
+    'pages.monitoring.measurement.state.unavailable': 'Data unavailable',
+    'pages.monitoring.measurement.state.error': 'Measurement failed to load',
+    'pages.monitoring.measurement.source.redis': 'Source: shared status observations',
+    'pages.monitoring.measurement.source.memory': 'Source: observations from this instance',
+    'pages.monitoring.measurement.source.prometheus': 'Source: Prometheus',
+    'pages.monitoring.measurement.source.catalog': 'Source: endpoint configuration',
+    'pages.monitoring.measurement.source.unknown': 'Source unknown',
+    'pages.monitoring.measurement.scope.upstream_call':
         'Counts every upstream attempt, including failed retries and failovers',
-    'pages.provider.detail.measurement.scope.final_provider_requests':
+    'pages.monitoring.measurement.scope.final_provider_requests':
         'Requests attributed to the final provider; request timing includes retries',
-    'pages.provider.detail.measurement.scope.successful_provider_requests':
+    'pages.monitoring.measurement.scope.successful_provider_requests':
         'Requests attributed to the successful attempt provider; request timing includes retries',
-    'pages.provider.detail.measurement.scope.attributed_provider_requests':
+    'pages.monitoring.measurement.scope.attributed_provider_requests':
         'Requests attributed to this provider, including legacy reports; timing starts at the beginning of the request',
-    'pages.provider.detail.measurement.scope.current_inventory':
+    'pages.monitoring.measurement.scope.current_inventory':
         'Current configuration or runtime state, independent of the historical window',
-    'pages.provider.detail.measurement.scope.unknown': 'Population unknown',
-    'pages.provider.detail.measurement.reason.upstream_samples_unavailable':
+    'pages.monitoring.measurement.scope.model_requests':
+        'Model requests by final result; request timing includes retries',
+    'pages.monitoring.measurement.scope.unknown': 'Population unknown',
+    'pages.monitoring.measurement.reason.upstream_samples_unavailable':
         'Legacy reports lack upstream attempt records; only known attempts are counted, and values are unknown without attempt samples',
-    'pages.provider.detail.measurement.reason.zero_denominator': 'No call samples; success rate is unknown',
-    'pages.provider.detail.measurement.reason.outside_retention':
+    'pages.monitoring.measurement.reason.request_status_dimension_unavailable':
+        'Request outcome dimension is missing from this source',
+    'pages.monitoring.measurement.reason.model_dimension_unavailable': 'Model dimension is missing from this source',
+    'pages.monitoring.measurement.reason.source_unsupported': 'This source does not support this metric',
+    'pages.monitoring.measurement.reason.no_histogram': 'No histogram is available for percentiles',
+    'pages.monitoring.measurement.reason.zero_denominator': 'No call samples; success rate is unknown',
+    'pages.monitoring.measurement.reason.outside_retention':
         'The selected window exceeds retention or this instance’s observation period',
-    'pages.provider.detail.measurement.reason.redis_unavailable':
+    'pages.monitoring.measurement.reason.redis_unavailable':
         'Shared status is unavailable; using observations from this instance',
-    'pages.provider.detail.measurement.reason.source_unavailable': 'Unable to read this source',
-    'pages.provider.detail.measurement.reason.provider_dimension_unavailable':
+    'pages.monitoring.measurement.reason.source_unavailable': 'Unable to read this source',
+    'pages.monitoring.measurement.reason.provider_dimension_unavailable':
         'Provider dimension is missing from this source',
-    'pages.provider.detail.measurement.reason.coverage_unverified': 'Full window coverage could not be verified',
-    'pages.provider.detail.measurement.reason.no_completed_minutes': 'No complete minutes in the selected window',
-    'pages.provider.detail.measurement.reason.no_source_samples':
-        'No samples for this measurement in the selected window',
-    'pages.provider.detail.measurement.reason.invalid_source_value': 'The source returned an invalid value',
-    'pages.provider.detail.measurement.reason.invalid_source_response': 'The source returned an invalid response',
-    'pages.provider.detail.measurement.reason.inventory_unavailable': 'Unable to read the endpoint inventory',
-    'pages.provider.detail.measurement.legacyName': 'Matched using a historical provider name',
-    'pages.provider.detail.measurement.coverage': 'Covered: {start} to {end}',
+    'pages.monitoring.measurement.reason.coverage_unverified': 'Full window coverage could not be verified',
+    'pages.monitoring.measurement.reason.no_completed_minutes': 'No complete minutes in the selected window',
+    'pages.monitoring.measurement.reason.no_source_samples': 'No samples for this measurement in the selected window',
+    'pages.monitoring.measurement.reason.invalid_source_value': 'The source returned an invalid value',
+    'pages.monitoring.measurement.reason.invalid_source_response': 'The source returned an invalid response',
+    'pages.monitoring.measurement.reason.inventory_unavailable': 'Unable to read the endpoint inventory',
+    'pages.monitoring.measurement.legacyName': 'Matched using a historical provider name',
+    'pages.monitoring.measurement.coverage': 'Covered: {start} to {end}',
     // provider monitor
     'pages.provider.detail.monitor.refresh': 'Refresh',
     'pages.provider.detail.monitor.range.custom': 'Custom',

@@ -67,13 +67,13 @@ try {
                 data.models = reading(query, [
                     {
                         model_code: code,
-                        request_count: count,
-                        success_rate: 0,
-                        avg_latency_ms: 1000,
-                        avg_ttft_ms: 100,
-                        otps: 0,
-                        total_tokens: 0,
-                        total_cost: 0,
+                        requests: metric({ total: count, success: 0, failure: count }, 'model_requests'),
+                        success_rate: metric(count ? 0 : null, 'model_requests'),
+                        avg_latency_ms: metric(1000, 'model_requests'),
+                        avg_ttft_ms: metric(100, 'model_requests'),
+                        otps: metric(0, 'model_requests'),
+                        total_tokens: metric(0, 'model_requests'),
+                        total_cost: metric(0, 'model_requests'),
                     },
                 ])
                 data.performance = reading(query, { avg_ttft_ms: [0], otps: [0] })

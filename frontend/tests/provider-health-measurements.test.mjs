@@ -2,8 +2,11 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 const source = await readFile(new URL('../src/utils/provider-health.js', import.meta.url), 'utf8')
-const { providerMetricValue, providerMetricDisplay, providerHealthCards } = await import(
-    `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
+const dataURL = (value) => `data:text/javascript;base64,${Buffer.from(value).toString('base64')}`
+const sharedSource = await readFile(new URL('../src/utils/metric-observation.js', import.meta.url), 'utf8')
+const { metricValue, metricDisplay } = await import(dataURL(sharedSource))
+const { providerHealthCards } = await import(
+    dataURL(source.replace("'./metric-observation.js'", JSON.stringify(dataURL(sharedSource))))
 )
 const t = (key, values) => (values ? `translated ${key} ${JSON.stringify(values)}` : `translated ${key}`)
 const metric = (value, changes = {}) => ({ state: 'ok', value, source: 'memory', scope: 'upstream_call', ...changes })
@@ -28,12 +31,12 @@ test('every provider card preserves genuine zero and endpoint inventory uses its
 
 test('unavailable observations never format null or stale values as zero', () => {
     for (const state of ['no_samples', 'unsupported', 'unavailable', 'error']) {
-        assert.equal(providerMetricValue(metric(123, { state })), null)
-        const display = providerMetricDisplay(metric(null, { state }), t)
+        assert.equal(metricValue(metric(123, { state })), null)
+        const display = metricDisplay(metric(null, { state }), t)
         assert.equal(display.value, '—')
         assert.match(display.hint, new RegExp(`state.${state}`))
     }
-    assert.equal(providerMetricDisplay(undefined, t).value, '—')
+    assert.equal(metricDisplay(undefined, t).value, '—')
 })
 
 test('one failed observation keeps independent successful cards and partial values visible', () => {
@@ -55,7 +58,7 @@ test('one failed observation keeps independent successful cards and partial valu
 
 test('tooltips retain source, request population, legacy identity and actual coverage', () => {
     const values = { start: '2026-11-10T10:10:00+08:00', end: '2026-11-10T11:00:00+08:00' }
-    const display = providerMetricDisplay(
+    const display = metricDisplay(
         metric(20, {
             state: 'partial',
             source: 'prometheus',

@@ -585,7 +585,7 @@ import apis from '@/apis'
 import { config } from '@/config'
 import { formatUtcDateTime } from '@/utils/util'
 import { countProviderEndpointHealth } from '@/utils/providerEndpointHealth'
-import { providerMetricDisplay, providerMetricValue } from '@/utils/provider-health'
+import { metricDisplay, metricValue } from '@/utils/metric-observation'
 import { useTableAutoScrollY } from '@/hooks'
 import { useAppStore } from '@/store'
 import { useI18n } from 'vue-i18n'
@@ -1259,11 +1259,11 @@ const healthEndpointClass = computed(() => {
 })
 
 const healthSuccessRate = computed(() =>
-    providerMetricDisplay(healthRanking.value?.success_rate, t, (value) => `${Number(value).toFixed(1)}%`)
+    metricDisplay(healthRanking.value?.success_rate, t, (value) => `${Number(value).toFixed(1)}%`)
 )
 
 const healthRateClass = computed(() => {
-    const rate = providerMetricValue(healthRanking.value?.success_rate)
+    const rate = metricValue(healthRanking.value?.success_rate)
     if (rate == null) return ''
     if (rate >= 99) return 'is-healthy'
     if (rate >= 95) return 'is-warning'

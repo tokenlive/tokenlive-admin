@@ -2,15 +2,12 @@ package monitor
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
-	"net/url"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/tokenlive/tokenlive-admin/internal/config"
 	rschema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/metrics"
@@ -41,7 +38,7 @@ func (a *Reader) providerMemory(p windowPlan, keys []string) (metrics.EndpointMi
 }
 
 type providerCallSeries struct {
-	Metric  HealthMetric[ProviderCalls]
+	Metric  MetricObservation[ProviderCalls]
 	Minutes []ProviderCalls
 }
 
@@ -80,7 +77,7 @@ func (a *Reader) providerCallsSeries(ctx context.Context, items []ProviderHealth
 		if err == nil && len(values) == len(queryKeys) {
 			index := 0
 			for i := range items {
-				calls := healthMetric[ProviderCalls](p, "redis", "upstream_call", c, "")
+				calls := observation[ProviderCalls](p, "redis", "upstream_call", c, "")
 				found := false
 				for _, key := range keys[i] {
 					minutes := make([]ProviderCalls, p.minutes())
@@ -118,12 +115,12 @@ func (a *Reader) providerCallsSeries(ctx context.Context, items []ProviderHealth
 							calls.Value = &candidate
 							rows[i].Minutes = minutes
 						} else {
-							calls = missingHealthMetric(calls, "error", "invalid_source_value")
+							calls = missingObservation(calls, "error", "invalid_source_value")
 						}
 					}
 				}
 				if !found {
-					calls = missingHealthMetric(calls, "no_samples", "no_source_samples")
+					calls = missingObservation(calls, "no_samples", "no_source_samples")
 				}
 				rows[i].Metric = calls
 			}
@@ -133,7 +130,7 @@ func (a *Reader) providerCallsSeries(ctx context.Context, items []ProviderHealth
 	}
 	for i := range items {
 		perf, key, coverage := a.providerMemory(p, keys[i])
-		calls := healthMetric[ProviderCalls](p, "memory", "upstream_call", coverage, providerIdentity(items[i], key))
+		calls := observation[ProviderCalls](p, "memory", "upstream_call", coverage, providerIdentity(items[i], key))
 		if coverage.Start != nil {
 			calls.Value = &ProviderCalls{Total: perf.UpstreamSuccess + perf.UpstreamFailure, Success: perf.UpstreamSuccess, Failure: perf.UpstreamFailure}
 			rows[i].Minutes = make([]ProviderCalls, p.minutes())
@@ -147,7 +144,7 @@ func (a *Reader) providerCallsSeries(ctx context.Context, items []ProviderHealth
 			if calls.Value != nil && calls.Value.Total > 0 {
 				calls.State, calls.Reason = "partial", "upstream_samples_unavailable"
 			} else {
-				calls = missingHealthMetric(calls, "no_samples", "upstream_samples_unavailable")
+				calls = missingObservation(calls, "no_samples", "upstream_samples_unavailable")
 				rows[i].Minutes = nil
 			}
 		}
@@ -156,7 +153,7 @@ func (a *Reader) providerCallsSeries(ctx context.Context, items []ProviderHealth
 			calls.Reason = "redis_unavailable"
 		}
 		if redisFailed && calls.Value == nil {
-			calls = missingHealthMetric(calls, "error", "redis_unavailable")
+			calls = missingObservation(calls, "error", "redis_unavailable")
 		}
 		rows[i].Metric = calls
 	}
@@ -174,14 +171,14 @@ func (a *Reader) readProviderPerformance(ctx context.Context, items []ProviderHe
 		if perf.LegacyProviderRequests > 0 {
 			population = "attributed_provider_requests"
 		}
-		base := healthMetric[float64](p, "memory", population, c, providerIdentity(items[i], key))
-		value := func(numerator float64, denominator int64) HealthMetric[float64] {
+		base := observation[float64](p, "memory", population, c, providerIdentity(items[i], key))
+		value := func(numerator float64, denominator int64) MetricObservation[float64] {
 			m := base
 			if c.Start == nil {
 				return m
 			}
 			if denominator <= 0 {
-				return missingHealthMetric(m, "no_samples", "no_source_samples")
+				return missingObservation(m, "no_samples", "no_source_samples")
 			}
 			v := numerator / float64(denominator)
 			m.Value = &v
@@ -191,59 +188,18 @@ func (a *Reader) readProviderPerformance(ctx context.Context, items []ProviderHe
 		items[i].AvgTTFTMs = value(float64(perf.TTFTSum), perf.TTFTCount)
 		items[i].Otps = value(float64(perf.Output)*1000, perf.DurationMs)
 		items[i].TotalCost = value(perf.Cost, 1)
-		tokens := healthMetric[int64](p, "memory", population, c, base.Identity)
+		tokens := observation[int64](p, "memory", population, c, base.Identity)
 		if c.Start != nil && perf.RequestSamples > 0 {
 			v := perf.InputTokens + perf.OutputTokens
 			tokens.Value = &v
 		} else if c.Start != nil {
-			tokens = missingHealthMetric(tokens, "no_samples", "no_source_samples")
+			tokens = missingObservation(tokens, "no_samples", "no_source_samples")
 		}
 		items[i].TotalTokens = tokens
 		if perf.RequestSamples == 0 && c.Start != nil {
-			items[i].TotalCost = missingHealthMetric(base, "no_samples", "no_source_samples")
+			items[i].TotalCost = missingObservation(base, "no_samples", "no_source_samples")
 		}
 	}
-}
-
-type providerVector struct {
-	values        map[string]*float64
-	state, reason string
-}
-
-func (a *Reader) providerVector(ctx context.Context, query string, p windowPlan) providerVector {
-	c, _ := withPlan(ctx, p) // A failed measurement must not contaminate another one.
-	api := config.C.Util.PrometheusServer.Address + "/api/v1/query?query=" + url.QueryEscape(query) + "&time=" + strconv.FormatInt(p.End.Unix(), 10)
-	body, err := a.queryPrometheus(c, api, 3*time.Second)
-	v := providerVector{values: map[string]*float64{}, state: "ok"}
-	if err != nil {
-		v.state, v.reason = "error", "source_unavailable"
-		return v
-	}
-	var response prometheusQueryResponse
-	if err = json.Unmarshal(body, &response); err != nil || response.Status != "success" || response.Data.ResultType != "vector" {
-		v.state, v.reason = "error", "invalid_source_response"
-		return v
-	}
-	missingDimension := false
-	for _, row := range response.Data.Result {
-		key := row.Metric["provider"]
-		if key == "" {
-			missingDimension = true
-			continue
-		}
-		v.values[key] = nil
-		if len(row.Value) < 2 {
-			continue
-		}
-		n, e := strconv.ParseFloat(fmt.Sprint(row.Value[1]), 64)
-		if e == nil && !math.IsNaN(n) && !math.IsInf(n, 0) && n >= 0 {
-			v.values[key] = &n
-		}
-	}
-	if missingDimension && len(v.values) == 0 {
-		v.state, v.reason = "unsupported", "provider_dimension_unavailable"
-	}
-	return v
 }
 
 func (a *Reader) readProviderPrometheus(ctx context.Context, items []ProviderHealth, keys [][]string, p windowPlan) {
@@ -255,7 +211,7 @@ func (a *Reader) readProviderPrometheus(ctx context.Context, items []ProviderHea
 		fmt.Sprintf(`sum by (provider) (increase(%s{type="output"}[%s])) / sum by (provider) (increase(%s[%s]))`, mTokensTotal, duration, mRequestDurationSum, duration),
 		fmt.Sprintf(`sum by (provider) (increase(%s[%s]))`, mCostTotal, duration),
 	}
-	vectors := make([]providerVector, len(queries))
+	vectors := make([]metricVector, len(queries))
 	probeCtx, probe := withPlan(ctx, p)
 	source(probeCtx, "prometheus")
 	var reads sync.WaitGroup
@@ -263,7 +219,7 @@ func (a *Reader) readProviderPrometheus(ctx context.Context, items []ProviderHea
 	for i, query := range queries {
 		go func(index int, expression string) {
 			defer reads.Done()
-			vectors[index] = a.providerVector(ctx, expression, p)
+			vectors[index] = a.prometheusVector(ctx, expression, "provider", p)
 		}(i, query)
 	}
 	go func() { defer reads.Done(); a.checkPrometheusCoverage(probeCtx, probe) }()
@@ -286,17 +242,20 @@ func (a *Reader) readProviderPrometheus(ctx context.Context, items []ProviderHea
 				break
 			}
 		}
-		metric := func(index int, factor float64) HealthMetric[float64] {
-			m := healthMetric[float64](p, "prometheus", "final_provider_requests", coverage, providerIdentity(items[i], selected))
+		metric := func(index int, factor float64) MetricObservation[float64] {
+			m := observation[float64](p, "prometheus", "final_provider_requests", coverage, providerIdentity(items[i], selected))
 			v := vectors[index]
 			if v.state != "ok" {
-				return missingHealthMetric(m, v.state, v.reason)
+				return missingObservation(m, v.state, v.reason)
 			}
 			n := v.values[selected]
 			if n == nil {
-				return missingHealthMetric(m, "no_samples", "no_source_samples")
+				return missingObservation(m, "no_samples", "no_source_samples")
 			}
 			number := *n * factor
+			if math.IsNaN(number) || math.IsInf(number, 0) {
+				return missingObservation(m, "error", "invalid_source_value")
+			}
 			m.Value = &number
 			if coverage.Start == nil {
 				m.State = "partial"
@@ -308,17 +267,7 @@ func (a *Reader) readProviderPrometheus(ctx context.Context, items []ProviderHea
 		items[i].AvgTTFTMs = metric(1, 1000)
 		items[i].Otps = metric(3, 1)
 		items[i].TotalCost = metric(4, 1)
-		tokenValue := metric(2, 1)
-		token := HealthMetric[int64]{State: tokenValue.State, Source: tokenValue.Source, Scope: tokenValue.Scope, Identity: tokenValue.Identity, Window: tokenValue.Window, Coverage: tokenValue.Coverage, Reason: tokenValue.Reason}
-		if tokenValue.Value != nil {
-			if *tokenValue.Value < float64(math.MaxInt64) {
-				n := int64(*tokenValue.Value)
-				token.Value = &n
-			} else {
-				token = missingHealthMetric(token, "error", "invalid_source_value")
-			}
-		}
-		items[i].TotalTokens = token
+		items[i].TotalTokens = integerObservation(metric(2, 1))
 	}
 }
 
@@ -330,7 +279,7 @@ func (a *Reader) readProviderInventory(ctx context.Context, items []ProviderHeal
 	ids := make([]string, len(items))
 	for i := range items {
 		ids[i] = items[i].ProviderID
-		items[i].EndpointCount = healthMetric[int64](instant, "catalog", "current_inventory", c, "")
+		items[i].EndpointCount = observation[int64](instant, "catalog", "current_inventory", c, "")
 	}
 	var endpoints []rschema.Endpoint
 	err := a.db.WithContext(ctx).Select("id", "provider_id").Where("provider_id IN ?", ids).Find(&endpoints).Error
@@ -346,10 +295,10 @@ func (a *Reader) readProviderInventory(ctx context.Context, items []ProviderHeal
 		openSet[id] = true
 	}
 	for i := range items {
-		m := healthMetric[int64](instant, runtimeSource, "current_inventory", c, "")
+		m := observation[int64](instant, runtimeSource, "current_inventory", c, "")
 		if err != nil {
-			items[i].EndpointCount = missingHealthMetric(items[i].EndpointCount, "error", "source_unavailable")
-			items[i].OpenBreakerCount = missingHealthMetric(m, "error", "inventory_unavailable")
+			items[i].EndpointCount = missingObservation(items[i].EndpointCount, "error", "source_unavailable")
+			items[i].OpenBreakerCount = missingObservation(m, "error", "inventory_unavailable")
 			continue
 		}
 		var count, breakers int64
@@ -363,7 +312,7 @@ func (a *Reader) readProviderInventory(ctx context.Context, items []ProviderHeal
 		}
 		items[i].EndpointCount.Value = &count
 		if runtimeErr != nil {
-			m = missingHealthMetric(m, "error", "source_unavailable")
+			m = missingObservation(m, "error", "source_unavailable")
 		} else {
 			m.Value = &breakers
 		}
