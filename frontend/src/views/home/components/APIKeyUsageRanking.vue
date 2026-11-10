@@ -1,6 +1,6 @@
 <template>
     <a-card
-        v-if="authorized"
+        v-if="authorized && state.phase !== 'disabled'"
         class="dashboard-panel api-key-usage-panel"
         :title="t('pages.dashboard.apiKeyRanking.title')"
         :bordered="false">
@@ -208,7 +208,7 @@ const columns = computed(() => [
     { key: 'success', title: t('pages.dashboard.apiKeyRanking.success'), width: 130, align: 'right' },
 ])
 const statusMessage = computed(() => {
-    const keys = { disabled: 'disabled', empty: 'empty', error: 'unavailable', forbidden: 'forbidden' }
+    const keys = { empty: 'empty', error: 'unavailable', forbidden: 'forbidden' }
     return keys[state.phase] ? t(`pages.dashboard.apiKeyRanking.${keys[state.phase]}`) : ''
 })
 const duplicates = computed(() => {

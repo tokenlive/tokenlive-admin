@@ -20,7 +20,6 @@ export default {
     'pages.dashboard.apiKeyRanking.sortTokens': 'Tokens descending',
     'pages.dashboard.apiKeyRanking.sortRequests': 'Requests descending',
     'pages.dashboard.apiKeyRanking.sortCost': 'Cost descending',
-    'pages.dashboard.apiKeyRanking.disabled': 'API key usage reporting is not enabled',
     'pages.dashboard.apiKeyRanking.empty': 'No requests in this period',
     'pages.dashboard.apiKeyRanking.unavailable': 'Usage data is temporarily unavailable',
     'pages.dashboard.apiKeyRanking.forbidden': 'Usage access could not be verified. Please verify your sign-in again.',

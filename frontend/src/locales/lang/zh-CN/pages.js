@@ -20,7 +20,6 @@ export default {
     'pages.dashboard.apiKeyRanking.sortTokens': 'Token 用量降序',
     'pages.dashboard.apiKeyRanking.sortRequests': '请求数降序',
     'pages.dashboard.apiKeyRanking.sortCost': '费用降序',
-    'pages.dashboard.apiKeyRanking.disabled': '尚未启用 API Key 用量统计',
     'pages.dashboard.apiKeyRanking.empty': '该时段暂无调用',
     'pages.dashboard.apiKeyRanking.unavailable': '数据暂不可用',
     'pages.dashboard.apiKeyRanking.forbidden': '用量查看权限未通过验证，请重新验证登录身份',
