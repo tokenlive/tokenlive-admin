@@ -156,12 +156,7 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 				_ = json.Unmarshal(ep.Metadata, &stringMetadataMap)
 			}
 
-			var contextLength int64
-			var maxOutputTokens int64
-			if ep.Model != nil {
-				contextLength = int64(ep.Model.ContextLength)
-				maxOutputTokens = int64(ep.Model.MaxOutputTokens)
-			}
+			contextLength, maxOutputTokens, abilities := endpointCapabilities(ep)
 
 			if metadataMap != nil {
 				if v, ok := metadataMap["timeout"]; ok {
@@ -184,26 +179,7 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 						}
 					}
 				}
-				if v, ok := metadataMap["context_length"]; ok {
-					switch val := v.(type) {
-					case float64:
-						contextLength = int64(val)
-					case string:
-						if parsed, err := strconv.ParseInt(val, 10, 64); err == nil {
-							contextLength = parsed
-						}
-					}
-				}
-				if v, ok := metadataMap["max_output_tokens"]; ok {
-					switch val := v.(type) {
-					case float64:
-						maxOutputTokens = int64(val)
-					case string:
-						if parsed, err := strconv.ParseInt(val, 10, 64); err == nil {
-							maxOutputTokens = parsed
-						}
-					}
-				}
+
 			}
 
 			headersMap = call.Headers
@@ -265,6 +241,7 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 					RequestTypes:       apis,
 					ContextLength:      contextLength,
 					MaxOutputTokens:    maxOutputTokens,
+					Abilities:          abilities,
 					InputPrice:         &inputPriceVal,
 					OutputPrice:        &outputPriceVal,
 					CachedPrice:        &cachedPriceVal,

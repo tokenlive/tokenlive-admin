@@ -1,4 +1,19 @@
 export function normalizeSmartRouting(config) {
+    if (config?.mode === 'priority' || config?.mode === 'rules') {
+        const base = { schema_version: 2, version: config.version ?? 0, mode: config.mode }
+        if (config.mode === 'priority') return { ...base, primary_model_id: config.primary_model_id }
+        return {
+            ...base,
+            default_model_id: config.default_model_id,
+            rules: (config.rules || []).map((rule) => ({
+                ...rule,
+                conditions: (rule.conditions || []).map((condition) => ({
+                    ...condition,
+                    values: [...condition.values],
+                })),
+            })),
+        }
+    }
     return {
         version: config?.version ?? 0,
         judge_model_id: config?.judge_model_id,
@@ -50,6 +65,42 @@ export async function loadSmartModelCandidates(load, { spaceCode, modelId } = {}
 }
 
 export function validateSmartRouting(config, candidates) {
+    if (config?.mode === 'priority' || config?.mode === 'rules') {
+        const ids = new Set(candidates.map((model) => model.id))
+        if (config.schema_version !== 2) return 'mode'
+        if (config.mode === 'priority') return ids.has(config.primary_model_id) ? null : 'target_required'
+        if (!ids.has(config.default_model_id) || config.rules.some((rule) => !ids.has(rule.target_model_id)))
+            return 'target_required'
+        if (
+            config.rules.length > 100 ||
+            new Set(config.rules.map((r) => r.id)).size !== config.rules.length ||
+            new Set(config.rules.map((r) => r.order)).size !== config.rules.length ||
+            config.rules.some(
+                (rule) =>
+                    !rule.id ||
+                    !Number.isInteger(rule.order) ||
+                    rule.order < 0 ||
+                    !['AND', 'OR'].includes(rule.relation_type) ||
+                    !rule.conditions?.length ||
+                    rule.conditions.length > 20 ||
+                    rule.conditions.some(
+                        (condition) =>
+                            !['TAG', 'HEADER'].includes(condition.type) ||
+                            !condition.key?.trim() ||
+                            (condition.type === 'HEADER' &&
+                                !['x-tokenlive-task', 'x-tokenlive-tier'].includes(condition.key.toLowerCase())) ||
+                            !['EQUAL', 'NOT_EQUAL', 'IN', 'NOT_IN', 'PREFIX'].includes(condition.op_type) ||
+                            !condition.values?.length ||
+                            condition.values.some((value) => !value.trim()) ||
+                            (['EQUAL', 'NOT_EQUAL', 'PREFIX'].includes(condition.op_type) &&
+                                condition.values.length !== 1)
+                    )
+            )
+        )
+            return 'rules'
+        return null
+    }
+    if (config?.mode && config.mode !== 'difficulty') return 'mode'
     const ranges = config?.ranges
     if (
         !Array.isArray(ranges) ||
@@ -137,7 +188,12 @@ export function buildModelRoutingFields(model, original) {
 }
 
 export function isModelEnableBlocked(model) {
-    return model.model_type === 'smart' && model.enabled !== 1 && model.smart_routing_ready !== true
+    return (
+        model.model_type === 'smart' &&
+        model.enabled !== 1 &&
+        (model.smart_routing_ready !== true ||
+            (['priority', 'rules'].includes(model.smart_routing?.mode) && model.smart_routing_v2_available !== true))
+    )
 }
 
 export const formatRoutingRange = (range, isLast) => `[${range.min}, ${range.max}${isLast ? ']' : ')'}`

@@ -34,8 +34,10 @@ type PortalConfig struct {
 }
 
 type GatewayConfig struct {
-	APIKeyPepper     string
-	VersionNamespace string `default:"default"`
+	// CompositeRoutingV2 must remain false until every serving Gateway supports format 2.
+	CompositeRoutingV2 bool
+	APIKeyPepper       string
+	VersionNamespace   string `default:"default"`
 }
 
 type UpdateCheckConfig struct {

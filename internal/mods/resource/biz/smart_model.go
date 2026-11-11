@@ -5,8 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/tokenlive/tokenlive-admin/internal/config"
+	policyBiz "github.com/tokenlive/tokenlive-admin/internal/mods/policy/biz"
+	policyDal "github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
+	policySchema "github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/compositerouting"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
 	"github.com/tokenlive/tokenlive-admin/pkg/logging"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
@@ -20,13 +25,27 @@ func smartReferences(ctx context.Context, db *gorm.DB, id string) ([]*schema.Mod
 	if err := dal.GetModelDB(ctx, db).Where("model_type = ?", schema.ModelTypeSmart).Find(&models).Error; err != nil {
 		return nil, err
 	}
+	var target schema.Model
+	if err := dal.GetModelDB(ctx, db).Where("id = ?", id).Find(&target).Error; err != nil {
+		return nil, err
+	}
 	var refs []*schema.Model
 	for _, model := range models {
+		referenced := false
 		for _, refID := range model.SmartRouting.ReferenceIDs() {
-			if refID == id {
-				refs = append(refs, model)
-				break
+			referenced = referenced || refID == id
+		}
+		if !referenced && target.ID != "" && model.SmartRouting != nil && model.SmartRouting.RoutingMode() != compositerouting.Difficulty {
+			codes, err := compositeFallbackCodes(ctx, db, model.ID, false)
+			if err != nil {
+				return nil, err
 			}
+			for _, code := range codes {
+				referenced = referenced || code == target.ModelCode
+			}
+		}
+		if referenced {
+			refs = append(refs, model)
 		}
 	}
 	return refs, nil
@@ -68,6 +87,9 @@ func (m *Model) checkSmartModel(ctx context.Context, model *schema.Model) error 
 	} else if err := model.SmartRouting.Validate(); err != nil {
 		return err
 	}
+	if model.Enabled == 1 && model.SmartRouting != nil && model.SmartRouting.RoutingMode() != compositerouting.Difficulty && !config.C.Gateway.CompositeRoutingV2 {
+		return errors.BadRequest("", "Gateway 新版选模执行尚未开放；可以保存停用草稿和预演，完成网关升级后再启用")
+	}
 	db := util.GetDB(ctx, m.ModelDAL.DB)
 	var endpointCount int64
 	if err := db.Model(&schema.Endpoint{}).Where("model_id = ? AND deleted = '0'", model.ID).Count(&endpointCount).Error; err != nil {
@@ -83,6 +105,22 @@ func (m *Model) checkSmartModel(ctx context.Context, model *schema.Model) error 
 	if len(refs) != 0 {
 		return errors.BadRequest("", "模型已被智能模型引用，不能转换为智能模型")
 	}
+	if model.SmartRouting != nil && model.SmartRouting.RoutingMode() != compositerouting.Difficulty {
+		var policies []policySchema.PolicyInvocation
+		if err := db.Where("model_id = ? AND deleted = '0'", model.ID).Find(&policies).Error; err != nil {
+			return err
+		}
+		invocation := &policyBiz.PolicyInvocation{PolicyInvocationDAL: &policyDal.PolicyInvocation{DB: db}, ModelDAL: m.ModelDAL}
+		if m.DataPermissionBIZ != nil {
+			invocation.DataPermissionDAL = m.DataPermissionBIZ.DataPermissionDAL
+		}
+		for i := range policies {
+			if err := invocation.ValidateCompositeFallbackForModel(ctx, model, &policies[i]); err != nil {
+				return err
+			}
+		}
+	}
+	var dependencies []schema.Model
 	for _, id := range model.SmartRouting.ReferenceIDs() {
 		if id == model.ID {
 			return errors.BadRequest("", "智能模型不能引用自身")
@@ -110,8 +148,9 @@ func (m *Model) checkSmartModel(ctx context.Context, model *schema.Model) error 
 		if ref.SpaceCode != model.SpaceCode || ref.Enabled != 1 || ref.ModelType == schema.ModelTypeSmart || !supportsChat(ref.RequestTypes) {
 			return errors.BadRequest("", "引用模型必须为同空间、已启用且支持 Chat Completions 的普通模型")
 		}
+		dependencies = append(dependencies, ref)
 	}
-	return nil
+	return validateCompositePromise(model, dependencies)
 }
 
 func (m *Model) requireModelMutationPermission(ctx context.Context, model *schema.Model, bit int) error {

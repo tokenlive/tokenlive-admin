@@ -263,6 +263,8 @@ const smartTypeBlocked = computed(
 const enableBlocked = computed(() =>
     isModelEnableBlocked({
         ...formData.value,
+        smart_routing: formRecord.value?.smart_routing,
+        smart_routing_v2_available: formRecord.value?.smart_routing_v2_available,
         smart_routing_ready:
             formRecord.value?.model_type === 'smart' &&
             formRecord.value?.smart_routing_ready === true &&

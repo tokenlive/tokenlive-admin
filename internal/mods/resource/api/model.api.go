@@ -207,3 +207,18 @@ func (m *Model) Sync(c *gin.Context) {
 	}
 	util.ResOK(c)
 }
+
+// PreviewCompositeRouting previews a draft or saved route without upstream calls.
+func (m *Model) PreviewCompositeRouting(c *gin.Context) {
+	form := new(biz.CompositePreviewForm)
+	if err := util.ParseJSON(c, form); err != nil {
+		util.ResError(c, err)
+		return
+	}
+	result, err := m.ModelBIZ.PreviewCompositeRouting(c.Request.Context(), c.Param("id"), form)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResSuccess(c, result)
+}

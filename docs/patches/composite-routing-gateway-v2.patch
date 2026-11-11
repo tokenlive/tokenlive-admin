@@ -1,0 +1,866 @@
+diff --git a/pkg/compositerouting/plan.go b/pkg/compositerouting/plan.go
+new file mode 100644
+--- /dev/null
++++ b/pkg/compositerouting/plan.go
+@@ -0,0 +1,175 @@
++// Package compositerouting contains deterministic model selection, without I/O,
++// authentication or quota side effects. Admin and Gateway must use this planner.
++package compositerouting
++
++import (
++	"fmt"
++	"net/http"
++	"sort"
++	"strings"
++)
++
++const (
++	Priority   = "priority"
++	Rules      = "rules"
++	Difficulty = "difficulty"
++)
++
++// Condition deliberately supports only structured business metadata.
++type Condition struct {
++	Type   string   `json:"type" yaml:"type" mapstructure:"type"`
++	Key    string   `json:"key" yaml:"key" mapstructure:"key"`
++	OpType string   `json:"op_type" yaml:"op_type" mapstructure:"op_type"`
++	Values []string `json:"values" yaml:"values" mapstructure:"values"`
++}
++
++type Rule struct {
++	ID           string      `json:"id" yaml:"id" mapstructure:"id"`
++	Name         string      `json:"name" yaml:"name" mapstructure:"name"`
++	Order        int         `json:"order" yaml:"order" mapstructure:"order"`
++	Enabled      bool        `json:"enabled" yaml:"enabled" mapstructure:"enabled"`
++	RelationType string      `json:"relation_type" yaml:"relation_type" mapstructure:"relation_type"`
++	Conditions   []Condition `json:"conditions" yaml:"conditions" mapstructure:"conditions"`
++	Target       string      `json:"target" yaml:"target" mapstructure:"target"`
++}
++
++type Config struct {
++	Mode    string
++	Primary string
++	Default string
++	Rules   []Rule
++}
++
++type Input struct {
++	Tags    map[string]string `json:"tags" yaml:"tags" mapstructure:"tags"`
++	Headers map[string]string `json:"headers" yaml:"headers" mapstructure:"headers"`
++}
++
++type Plan struct {
++	Mode          string `json:"mode" yaml:"mode" mapstructure:"mode"`
++	MatchedRuleID string `json:"matched_rule_id,omitempty" yaml:"matched_rule_id,omitempty" mapstructure:"matched_rule_id,omitempty"`
++	Target        string `json:"target" yaml:"target" mapstructure:"target"`
++	Reason        string `json:"reason" yaml:"reason" mapstructure:"reason"`
++}
++
++// AllowedHeader excludes credentials and identity headers by construction.
++func AllowedHeader(key string) bool {
++	switch http.CanonicalHeaderKey(key) {
++	case "X-Tokenlive-Task", "X-Tokenlive-Tier":
++		return true
++	}
++	return false
++}
++
++func (c Config) Validate() error {
++	switch c.Mode {
++	case Priority:
++		if strings.TrimSpace(c.Primary) == "" || c.Default != "" || len(c.Rules) != 0 {
++			return fmt.Errorf("主备模式需要主模型，且不能混入规则模式字段")
++		}
++	case Rules:
++		if strings.TrimSpace(c.Default) == "" || c.Primary != "" || len(c.Rules) > 100 {
++			return fmt.Errorf("规则模式需要默认模型，不能配置主模型，规则最多 100 条")
++		}
++		ids, orders := map[string]bool{}, map[int]bool{}
++		for _, r := range c.Rules {
++			if strings.TrimSpace(r.ID) == "" || ids[r.ID] || r.Order < 0 || orders[r.Order] || strings.TrimSpace(r.Target) == "" {
++				return fmt.Errorf("规则 ID、目标模型必填，ID 和非负排序值必须唯一")
++			}
++			ids[r.ID], orders[r.Order] = true, true
++			if r.RelationType != "AND" && r.RelationType != "OR" || len(r.Conditions) == 0 || len(r.Conditions) > 20 {
++				return fmt.Errorf("规则需要 AND/OR 与 1–20 个有效条件；未命中使用默认模型")
++			}
++			for _, condition := range r.Conditions {
++				if err := condition.Validate(); err != nil {
++					return err
++				}
++			}
++		}
++	default:
++		return fmt.Errorf("不支持的确定性选模模式 %q", c.Mode)
++	}
++	return nil
++}
++
++func (c Condition) Validate() error {
++	if strings.TrimSpace(c.Key) == "" || len(c.Key) > 128 || len(c.Values) == 0 || len(c.Values) > 50 {
++		return fmt.Errorf("条件需要有效字段名与 1–50 个匹配值")
++	}
++	if c.Type != "TAG" && (c.Type != "HEADER" || !AllowedHeader(c.Key)) {
++		return fmt.Errorf("条件只支持标签和 X-TokenLive-Task / X-TokenLive-Tier 业务 Header")
++	}
++	switch c.OpType {
++	case "EQUAL", "NOT_EQUAL", "PREFIX":
++		if len(c.Values) != 1 {
++			return fmt.Errorf("该操作符只支持一个匹配值")
++		}
++	case "IN", "NOT_IN":
++	default:
++		return fmt.Errorf("不支持的条件操作符 %q", c.OpType)
++	}
++	for _, v := range c.Values {
++		if strings.TrimSpace(v) == "" || len(v) > 1024 {
++			return fmt.Errorf("匹配值不能为空且不能超过 1024 字节")
++		}
++	}
++	return nil
++}
++
++// Select returns only the initial logical target. It never guesses availability,
++// grants access or runs fallback; those belong to the authenticated executor.
++func Select(c Config, in Input) (Plan, error) {
++	if err := c.Validate(); err != nil {
++		return Plan{}, err
++	}
++	p := Plan{Mode: c.Mode, Target: c.Primary, Reason: "primary"}
++	if c.Mode == Priority {
++		return p, nil
++	}
++	rules := append([]Rule(nil), c.Rules...)
++	sort.Slice(rules, func(i, j int) bool { return rules[i].Order < rules[j].Order })
++	headers := make(map[string]string, len(in.Headers))
++	for k, v := range in.Headers {
++		key := http.CanonicalHeaderKey(k)
++		if _, exists := headers[key]; exists {
++			return Plan{}, fmt.Errorf("Header 名称不能大小写重复")
++		}
++		headers[key] = v
++	}
++	for _, r := range rules {
++		if !r.Enabled {
++			continue
++		}
++		matched := r.RelationType == "AND"
++		for _, cond := range r.Conditions {
++			value, exists := in.Tags[cond.Key]
++			if cond.Type == "HEADER" {
++				value, exists = headers[http.CanonicalHeaderKey(cond.Key)]
++			}
++			m := exists && matches(value, cond)
++			if r.RelationType == "AND" {
++				matched = matched && m
++			} else {
++				matched = matched || m
++			}
++		}
++		if matched {
++			return Plan{Mode: c.Mode, MatchedRuleID: r.ID, Target: r.Target, Reason: "rule_matched"}, nil
++		}
++	}
++	return Plan{Mode: c.Mode, Target: c.Default, Reason: "default"}, nil
++}
++
++func matches(value string, c Condition) bool {
++	if c.OpType == "PREFIX" {
++		return strings.HasPrefix(value, c.Values[0])
++	}
++	found := false
++	for _, v := range c.Values {
++		found = found || value == v
++	}
++	if c.OpType == "NOT_EQUAL" || c.OpType == "NOT_IN" {
++		return !found
++	}
++	return found
++}
+diff --git a/pkg/compositerouting/plan_test.go b/pkg/compositerouting/plan_test.go
+new file mode 100644
+--- /dev/null
++++ b/pkg/compositerouting/plan_test.go
+@@ -0,0 +1,56 @@
++package compositerouting
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestSelectionOrderDefaultAndMissingMetadata(t *testing.T) {
++	c := Config{Mode: Rules, Default: "default", Rules: []Rule{
++		{ID: "later", Order: 20, Enabled: true, RelationType: "AND", Target: "later", Conditions: []Condition{{Type: "TAG", Key: "task", OpType: "IN", Values: []string{"code", "chat"}}}},
++		{ID: "first", Order: 10, Enabled: true, RelationType: "AND", Target: "code", Conditions: []Condition{{Type: "TAG", Key: "task", OpType: "EQUAL", Values: []string{"code"}}}},
++	}}
++	p, err := Select(c, Input{Tags: map[string]string{"task": "code"}})
++	require.NoError(t, err)
++	require.Equal(t, "first", p.MatchedRuleID)
++	require.Equal(t, "later", c.Rules[0].ID, "selection must not reorder a shared configuration")
++	c.Rules[1].Enabled = false
++	p, err = Select(c, Input{Tags: map[string]string{"task": "code"}})
++	require.NoError(t, err)
++	require.Equal(t, "later", p.Target)
++	p, err = Select(c, Input{})
++	require.NoError(t, err)
++	require.Equal(t, "default", p.Target)
++	c.Rules[0].Conditions[0].OpType = "NOT_IN"
++	p, err = Select(c, Input{})
++	require.NoError(t, err)
++	require.Equal(t, "default", p.Target, "missing metadata must not satisfy a negative match")
++}
++
++func TestHeaderWhitelistAndCaseAmbiguity(t *testing.T) {
++	c := Config{Mode: Rules, Default: "default", Rules: []Rule{{ID: "header", Order: 1, Enabled: true, RelationType: "OR", Target: "code", Conditions: []Condition{{Type: "HEADER", Key: "X-TokenLive-Task", OpType: "PREFIX", Values: []string{"code"}}}}}}
++	p, err := Select(c, Input{Headers: map[string]string{"x-tokenlive-task": "code-review"}})
++	require.NoError(t, err)
++	require.Equal(t, "code", p.Target)
++	_, err = Select(c, Input{Headers: map[string]string{"x-tokenlive-task": "code", "X-TokenLive-Task": "chat"}})
++	require.Error(t, err)
++	for _, header := range []string{"Authorization", "Cookie", "X-API-Key", "X-User-ID", "X-Tenant"} {
++		c.Rules[0].Conditions[0].Key = header
++		require.Error(t, c.Validate(), header)
++	}
++}
++
++func TestRejectAmbiguousAndMixedConfiguration(t *testing.T) {
++	for _, c := range []Config{
++		{Mode: Priority},
++		{Mode: Priority, Primary: "a", Default: "b"},
++		{Mode: "other", Primary: "a"},
++		{Mode: Rules, Default: "a", Rules: []Rule{{ID: "empty", Target: "b", RelationType: "AND"}}},
++	} {
++		require.Error(t, c.Validate())
++	}
++	p, err := Select(Config{Mode: Priority, Primary: "only"}, Input{})
++	require.NoError(t, err)
++	require.Equal(t, "only", p.Target)
++}
+diff --git a/pkg/core/composite_budget.go b/pkg/core/composite_budget.go
+new file mode 100644
+--- /dev/null
++++ b/pkg/core/composite_budget.go
+@@ -0,0 +1,35 @@
++package core
++
++import (
++	"context"
++	"errors"
++	"sync/atomic"
++)
++
++var ErrCompositeAttemptBudget = errors.New("composite upstream attempt budget exhausted")
++
++type compositeBudgetKey struct{}
++
++// WithCompositeAttemptBudget shares an attempt counter through retries, model
++// changes and hedging contexts. Ordinary requests have no counter and are unchanged.
++func WithCompositeAttemptBudget(ctx context.Context, attempts int64) context.Context {
++	remaining := &atomic.Int64{}
++	remaining.Store(attempts)
++	return context.WithValue(ctx, compositeBudgetKey{}, remaining)
++}
++
++func ConsumeCompositeAttempt(ctx context.Context) error {
++	remaining, ok := ctx.Value(compositeBudgetKey{}).(*atomic.Int64)
++	if !ok {
++		return nil
++	}
++	for {
++		old := remaining.Load()
++		if old <= 0 {
++			return ErrCompositeAttemptBudget
++		}
++		if remaining.CompareAndSwap(old, old-1) {
++			return nil
++		}
++	}
++}
+diff --git a/pkg/core/composite_budget_test.go b/pkg/core/composite_budget_test.go
+new file mode 100644
+--- /dev/null
++++ b/pkg/core/composite_budget_test.go
+@@ -0,0 +1,29 @@
++package core
++
++import (
++	"sync"
++	"sync/atomic"
++	"testing"
++)
++
++func TestCompositeBudgetLimitsConcurrentCalls(t *testing.T) {
++	ctx := WithCompositeAttemptBudget(t.Context(), 6)
++	var started atomic.Int64
++	var wg sync.WaitGroup
++	for i := 0; i < 30; i++ {
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			if ConsumeCompositeAttempt(ctx) == nil {
++				started.Add(1)
++			}
++		}()
++	}
++	wg.Wait()
++	if started.Load() != 6 {
++		t.Fatalf("started %d calls with budget 6", started.Load())
++	}
++	if err := ConsumeCompositeAttempt(t.Context()); err != nil {
++		t.Fatalf("ordinary request affected: %v", err)
++	}
++}
+diff --git a/pkg/core/composite_config_test.go b/pkg/core/composite_config_test.go
+new file mode 100644
+--- /dev/null
++++ b/pkg/core/composite_config_test.go
+@@ -0,0 +1,32 @@
++package core
++
++import (
++	"testing"
++
++	"github.com/tokenlive/tokenlive-gateway/pkg/compositerouting"
++)
++
++func TestCompositeConfigFormatsAndDeepClone(t *testing.T) {
++	c := &SmartRoutingConfig{SchemaVersion: 2, Version: 1, Mode: compositerouting.Rules, DefaultModel: "a", Rules: []SmartRoutingRule{{ID: "rule", Order: 10, Enabled: true, RelationType: "AND", TargetModel: "b", Conditions: []compositerouting.Condition{{Type: "TAG", Key: "task", OpType: "EQUAL", Values: []string{"code"}}}}}}
++	c.ApplyDefaults()
++	if err := c.Validate("smart"); err != nil {
++		t.Fatal(err)
++	}
++	if c.JudgeTimeoutMs != 0 {
++		t.Fatal("judge defaults applied to a deterministic router")
++	}
++	clone := c.Clone()
++	clone.Rules[0].Conditions[0].Values[0] = "chat"
++	if c.Rules[0].Conditions[0].Values[0] != "code" {
++		t.Fatal("shared mutable condition values")
++	}
++	for _, invalid := range []*SmartRoutingConfig{
++		{SchemaVersion: 3, Version: 1, Mode: compositerouting.Priority, PrimaryModel: "a"},
++		{SchemaVersion: 2, Version: 1, Mode: compositerouting.Priority, PrimaryModel: "smart"},
++		{SchemaVersion: 2, Version: 1, Mode: compositerouting.Priority, PrimaryModel: "a", JudgeModel: "b"},
++	} {
++		if err := invalid.Validate("smart"); err == nil {
++			t.Fatalf("accepted invalid config: %+v", invalid)
++		}
++	}
++}
+diff --git a/pkg/core/smart_routing_config.go b/pkg/core/smart_routing_config.go
+--- a/pkg/core/smart_routing_config.go
++++ b/pkg/core/smart_routing_config.go
+@@ -2,17 +2,65 @@
+ 
+ import (
+ 	"fmt"
++	"github.com/tokenlive/tokenlive-gateway/pkg/compositerouting"
+ 	"strings"
+ )
+ 
+ // SmartRoutingConfig is a versioned routing snapshot. Callers own returned clones.
+ type SmartRoutingConfig struct {
++	SchemaVersion        int                 `json:"schema_version,omitempty" yaml:"schema_version" mapstructure:"schema_version"`
++	Mode                 string              `json:"mode,omitempty" yaml:"mode" mapstructure:"mode"`
++	PrimaryModel         string              `json:"primary_model,omitempty" yaml:"primary_model" mapstructure:"primary_model"`
++	DefaultModel         string              `json:"default_model,omitempty" yaml:"default_model" mapstructure:"default_model"`
++	Rules                []SmartRoutingRule  `json:"rules,omitempty" yaml:"rules" mapstructure:"rules"`
+ 	Version              int64               `json:"version" yaml:"version" mapstructure:"version"`
+ 	JudgeModel           string              `json:"judge_model" yaml:"judge_model" mapstructure:"judge_model"`
+ 	JudgeTimeoutMs       int                 `json:"judge_timeout_ms" yaml:"judge_timeout_ms" mapstructure:"judge_timeout_ms"`
+ 	JudgeMaxInputBytes   int                 `json:"judge_max_input_bytes" yaml:"judge_max_input_bytes" mapstructure:"judge_max_input_bytes"`
+ 	JudgeMaxOutputTokens int                 `json:"judge_max_output_tokens" yaml:"judge_max_output_tokens" mapstructure:"judge_max_output_tokens"`
+ 	Ranges               []SmartRoutingRange `json:"ranges" yaml:"ranges" mapstructure:"ranges"`
++}
++
++type SmartRoutingRule struct {
++	ID           string                       `json:"id" yaml:"id" mapstructure:"id"`
++	Name         string                       `json:"name" yaml:"name" mapstructure:"name"`
++	Order        int                          `json:"order" yaml:"order" mapstructure:"order"`
++	Enabled      bool                         `json:"enabled" yaml:"enabled" mapstructure:"enabled"`
++	RelationType string                       `json:"relation_type" yaml:"relation_type" mapstructure:"relation_type"`
++	Conditions   []compositerouting.Condition `json:"conditions" yaml:"conditions" mapstructure:"conditions"`
++	TargetModel  string                       `json:"target_model" yaml:"target_model" mapstructure:"target_model"`
++}
++
++func (c *SmartRoutingConfig) RoutingMode() string {
++	if c == nil || c.Mode == "" {
++		return compositerouting.Difficulty
++	}
++	return c.Mode
++}
++func (c *SmartRoutingConfig) PlanConfig() compositerouting.Config {
++	result := compositerouting.Config{Mode: c.RoutingMode(), Primary: c.PrimaryModel, Default: c.DefaultModel}
++	for _, r := range c.Rules {
++		result.Rules = append(result.Rules, compositerouting.Rule{ID: r.ID, Name: r.Name, Order: r.Order, Enabled: r.Enabled, RelationType: r.RelationType, Conditions: r.Conditions, Target: r.TargetModel})
++	}
++	return result
++}
++func (c *SmartRoutingConfig) ReferenceCodes() []string {
++	var codes []string
++	add := func(code string) {
++		if code != "" {
++			codes = append(codes, code)
++		}
++	}
++	add(c.JudgeModel)
++	add(c.PrimaryModel)
++	add(c.DefaultModel)
++	for _, r := range c.Rules {
++		add(r.TargetModel)
++	}
++	for _, r := range c.Ranges {
++		add(r.Model)
++	}
++	return codes
+ }
+ 
+ // SmartRoutingRange includes Min and excludes Max, except the final Max=100.
+@@ -24,6 +72,9 @@
+ 
+ // ApplyDefaults fills omitted technical limits on an owned configuration.
+ func (c *SmartRoutingConfig) ApplyDefaults() {
++	if c.RoutingMode() != compositerouting.Difficulty {
++		return
++	}
+ 	if c.JudgeTimeoutMs == 0 {
+ 		c.JudgeTimeoutMs = 5000
+ 	}
+@@ -42,6 +93,13 @@
+ 	}
+ 	result := *c
+ 	result.Ranges = append([]SmartRoutingRange(nil), c.Ranges...)
++	result.Rules = append([]SmartRoutingRule(nil), c.Rules...)
++	for i := range result.Rules {
++		result.Rules[i].Conditions = append([]compositerouting.Condition(nil), c.Rules[i].Conditions...)
++		for j := range result.Rules[i].Conditions {
++			result.Rules[i].Conditions[j].Values = append([]string(nil), c.Rules[i].Conditions[j].Values...)
++		}
++	}
+ 	return &result
+ }
+ 
+@@ -52,6 +110,23 @@
+ 	}
+ 	if strings.TrimSpace(modelCode) == "" || c.Version < 1 {
+ 		return fmt.Errorf("model code and positive smart_routing version are required")
++	}
++	if c.RoutingMode() != compositerouting.Difficulty {
++		if c.SchemaVersion != 2 || c.JudgeModel != "" || len(c.Ranges) > 0 || c.JudgeTimeoutMs != 0 || c.JudgeMaxInputBytes != 0 || c.JudgeMaxOutputTokens != 0 {
++			return fmt.Errorf("invalid format 2 configuration")
++		}
++		if err := c.PlanConfig().Validate(); err != nil {
++			return err
++		}
++		for _, code := range c.ReferenceCodes() {
++			if strings.EqualFold(code, modelCode) {
++				return fmt.Errorf("self reference is forbidden")
++			}
++		}
++		return nil
++	}
++	if c.SchemaVersion != 0 && c.SchemaVersion != 1 || c.PrimaryModel != "" || c.DefaultModel != "" || len(c.Rules) > 0 {
++		return fmt.Errorf("invalid legacy format")
+ 	}
+ 	if strings.TrimSpace(c.JudgeModel) == "" || strings.EqualFold(c.JudgeModel, modelCode) {
+ 		return fmt.Errorf("judge_model must name a different ordinary model")
+diff --git a/pkg/core/smart_routing_runtime.go b/pkg/core/smart_routing_runtime.go
+--- a/pkg/core/smart_routing_runtime.go
++++ b/pkg/core/smart_routing_runtime.go
+@@ -10,6 +10,8 @@
+ 
+ // SmartRoutingRecord contains routing metadata only; never raw prompts or keys.
+ type SmartRoutingRecord struct {
++	Mode            string            `json:"mode,omitempty"`
++	MatchedRuleID   string            `json:"matched_rule_id,omitempty"`
+ 	Model           string            `json:"model"`
+ 	Version         int64             `json:"version"`
+ 	PromptVersion   string            `json:"prompt_version"`
+diff --git a/pkg/config/smart_routing.go b/pkg/config/smart_routing.go
+--- a/pkg/config/smart_routing.go
++++ b/pkg/config/smart_routing.go
+@@ -34,10 +34,7 @@
+ 		return nil, fmt.Errorf("model %s: %w", code, err)
+ 	}
+ 	smart.ApplyDefaults()
+-	deps := []string{smart.JudgeModel}
+-	for _, r := range smart.Ranges {
+-		deps = append(deps, r.Model)
+-	}
++	deps := smart.ReferenceCodes()
+ 	for _, dep := range deps {
+ 		// A disabled/missing dependency is a runtime availability decision.
+ 		for name, candidate := range cfg.Models {
+diff --git a/pkg/invoker/composite.go b/pkg/invoker/composite.go
+new file mode 100644
+--- /dev/null
++++ b/pkg/invoker/composite.go
+@@ -0,0 +1,164 @@
++package invoker
++
++import (
++	"context"
++	"errors"
++	"net/http"
++	"strings"
++	"sync/atomic"
++	"time"
++
++	"github.com/tokenlive/tokenlive-gateway/pkg/compositerouting"
++	"github.com/tokenlive/tokenlive-gateway/pkg/core"
++)
++
++// Conservative first-release limits apply across the entire logical request.
++const (
++	compositeMaxModels           = 3
++	compositeMaxUpstreamAttempts = 6
++	compositeTotalTimeout        = 60 * time.Second
++)
++
++func (r *SmartRouter) invokeDeterministic(g *core.GatewayContext, pipe *core.Pipeline) error {
++	if err := g.Ctx.Err(); err != nil {
++		return err
++	}
++	in := compositerouting.Input{Tags: g.Tags, Headers: map[string]string{}}
++	request := g.GovernanceRequest
++	if request == nil {
++		request = g.Request
++	}
++	if request != nil {
++		for key, values := range request.Header {
++			if compositerouting.AllowedHeader(key) {
++				if len(values) != 1 {
++					return &smartHTTPError{http.StatusBadRequest, "ambiguous business header"}
++				}
++				in.Headers[key] = values[0]
++			}
++		}
++	}
++	plan, err := compositerouting.Select(g.SmartConfig.PlanConfig(), in)
++	if err != nil {
++		return &smartHTTPError{http.StatusServiceUnavailable, "invalid composite routing configuration"}
++	}
++	g.SmartRouting.Mode, g.SmartRouting.MatchedRuleID = plan.Mode, plan.MatchedRuleID
++	g.SmartRouting.MatchedModel, g.SmartRouting.Reason = plan.Target, plan.Reason
++	req, err := parseSmartTextRequest(g.RequestType, g.RawBody, true)
++	if err != nil {
++		return err
++	}
++	var auth core.InboundFilter
++	for _, filter := range pipe.InboundFilters {
++		if filter.Name() == "auth" {
++			auth = filter
++			break
++		}
++	}
++	accounting, err := r.childAccounting(pipe)
++	if err != nil {
++		return err
++	}
++	models := []string{plan.Target}
++	timeout := compositeTotalTimeout
++	if g.Policy != nil && g.Policy.InvocationPolicy != nil {
++		invocation := g.Policy.InvocationPolicy
++		if invocation.FallbackPolicy != nil {
++			models = append(models, invocation.FallbackPolicy.Targets...)
++		}
++		if invocation.RetryPolicy != nil && invocation.RetryPolicy.TotalTimeout > 0 {
++			timeout = time.Duration(invocation.RetryPolicy.TotalTimeout) * time.Millisecond
++		}
++	}
++	ctx, cancel := context.WithTimeout(g.Ctx, timeout)
++	defer cancel()
++	originalCtx := g.Ctx
++	g.Ctx = core.WithCompositeAttemptBudget(ctx, compositeMaxUpstreamAttempts)
++	defer func() { g.Ctx = originalCtx }()
++	seen := map[string]bool{}
++	lastErr := error(&smartHTTPError{http.StatusServiceUnavailable, "no eligible composite target"})
++	modelAttempts := 0
++	for _, model := range models {
++		if err := g.Ctx.Err(); err != nil {
++			return err
++		}
++		key := strings.ToLower(strings.TrimSpace(model))
++		if key == "" || seen[key] {
++			continue
++		}
++		seen[key] = true
++		child, reason, err := r.newChild(g, model, g.RawBody, req, auth)
++		if err != nil {
++			g.SmartRouting.Escalations = append(g.SmartRouting.Escalations, core.SmartEscalation{Model: model, Reason: reason})
++			lastErr = err
++			continue
++		}
++		if modelAttempts >= compositeMaxModels {
++			core.ReleaseContext(child)
++			return &smartHTTPError{http.StatusServiceUnavailable, "composite model attempt budget exhausted"}
++		}
++		modelAttempts++
++		child.IsStream = req.Stream
++		writer := &compositeStreamWriter{ResponseWriter: g.ResponseWriter}
++		if req.Stream {
++			child.ResponseWriter = writer
++		}
++		result := accounting.invoke(child, pipe.SelectInvoker(child))
++		err = result.err()
++		g.SmartRouting.ExecutedModel = model
++		g.History = append(g.History, child.History...)
++		g.AttemptCount += child.AttemptCount
++		g.FallbackChain = append(g.FallbackChain, model)
++		committed := req.Stream && writer.committed.Load()
++		if req.Stream {
++			g.TTFT = child.TTFT
++			g.TransmittedChars = child.TransmittedChars
++			for key, value := range child.Tags {
++				g.Tags[key] = value
++			}
++			// Engine uses TTFT to protect already committed streams from JSON writes.
++			if committed && g.TTFT == 0 {
++				g.TTFT = time.Nanosecond
++			}
++		}
++		if err == nil || committed {
++			copySmartAnswer(g, child)
++		}
++		// Reuse existing conservative fallback semantics. New modes do not silently
++		// turn generic HTTP errors into replayable model calls.
++		canFallback := !committed && result.admissionErr == nil && result.settlementErr == nil && core.CanFallbackModel(child, err) && !errors.Is(err, core.ErrCompositeAttemptBudget)
++		core.ReleaseContext(child)
++		if err == nil {
++			return nil
++		}
++		lastErr = err
++		if !canFallback {
++			return err
++		}
++		g.SmartRouting.Escalations = append(g.SmartRouting.Escalations, core.SmartEscalation{Model: model, Reason: "no_available_endpoint"})
++	}
++	return lastErr
++}
++
++// Track the actual downstream commitment, rather than relying on first-token
++// timing. Flushing headers alone also makes transparent model switching unsafe.
++type compositeStreamWriter struct {
++	http.ResponseWriter
++	committed atomic.Bool
++}
++
++func (w *compositeStreamWriter) WriteHeader(status int) {
++	w.committed.Store(true)
++	w.ResponseWriter.WriteHeader(status)
++}
++func (w *compositeStreamWriter) Write(p []byte) (int, error) {
++	w.committed.Store(true)
++	return w.ResponseWriter.Write(p)
++}
++func (w *compositeStreamWriter) Flush() {
++	w.committed.Store(true)
++	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
++		flusher.Flush()
++	}
++}
++func (w *compositeStreamWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+diff --git a/pkg/invoker/composite_test.go b/pkg/invoker/composite_test.go
+new file mode 100644
+--- /dev/null
++++ b/pkg/invoker/composite_test.go
+@@ -0,0 +1,114 @@
++package invoker
++
++import (
++	"errors"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/tokenlive/tokenlive-gateway/pkg/compositerouting"
++	"github.com/tokenlive/tokenlive-gateway/pkg/core"
++	"github.com/tokenlive/tokenlive-gateway/pkg/filters/inbound"
++	"github.com/tokenlive/tokenlive-gateway/pkg/filters/outbound"
++	"github.com/tokenlive/tokenlive-gateway/pkg/policy"
++	"github.com/tokenlive/tokenlive-gateway/pkg/store"
++	"go.uber.org/zap"
++)
++
++type compositeTestProvider struct {
++	smartTestProvider
++	interrupt bool
++}
++
++func (p *compositeTestProvider) Invoke(g *core.GatewayContext) error {
++	if !g.IsStream {
++		return p.smartTestProvider.Invoke(g)
++	}
++	p.calls = append(p.calls, g.Model)
++	g.ResponseWriter.Header().Set("Content-Type", "text/event-stream")
++	g.ResponseWriter.WriteHeader(http.StatusOK)
++	_, _ = g.ResponseWriter.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"hello\"}}]}\n\n"))
++	if p.interrupt {
++		return core.ErrNoAvailableEndpoint
++	}
++	_, _ = g.ResponseWriter.Write([]byte("data: [DONE]\n\n"))
++	return nil
++}
++
++func TestCompositeSelectionAndStreamCommitBoundary(t *testing.T) {
++	for _, tc := range []struct {
++		name                       string
++		stream, interrupt, missing bool
++	}{
++		{name: "primary"}, {name: "missing primary", missing: true},
++		{name: "stream", stream: true}, {name: "stream interrupted", stream: true, interrupt: true},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			cfg := &core.SmartRoutingConfig{SchemaVersion: 2, Version: 1, Mode: compositerouting.Priority, PrimaryModel: "cheap"}
++			provider := &compositeTestProvider{interrupt: tc.interrupt}
++			discovery := smartTestDiscovery{models: map[string][]*core.Endpoint{}}
++			for _, name := range []string{"cheap", "strong"} {
++				if tc.missing && name == "cheap" {
++					continue
++				}
++				discovery.models[name] = []*core.Endpoint{{ID: name, Model: name, Provider: "test", ProviderImpl: provider, Healthy: true, ContextLength: 100000, MaxOutputTokens: 8192, RequestTypes: []core.RequestType{core.RequestTypeChatCompletion}}}
++			}
++			ss := store.NewMemoryStateStore()
++			defer ss.Close()
++			cluster := NewClusterInvoker(discovery, nil, map[string]core.LoadBalancer{"round_robin": &testRoundRobin{}}, &policy.RetryPolicy{}, core.NewCircuitBreakerManager(), ss, zap.NewNop(), nil)
++			router := &SmartRouter{source: smartTestSource{cfg}, validator: smartTestValidator{}, policies: smartTestPolicies{}, limits: inbound.NewRateLimitFilter(ss), settler: outbound.NewTokenSettlementFilter(ss, nil, zap.NewNop()), discovery: discovery}
++			body := `{"model":"smart","messages":[{"role":"user","content":"hello"}]}`
++			if tc.stream {
++				body = strings.TrimSuffix(body, "}") + `,"stream":true}`
++			}
++			writer := httptest.NewRecorder()
++			g := core.AcquireContext(writer, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body)))
++			defer core.ReleaseContext(g)
++			g.Model, g.OriginalModel, g.RequestType, g.RawBody = "smart", "smart", core.RequestTypeChatCompletion, []byte(body)
++			g.IsStream = tc.stream
++			g.Policy = &policy.Policy{InvocationPolicy: &policy.InvocationPolicy{FallbackPolicy: &policy.FallbackPolicy{Targets: []string{"strong"}}}}
++			if err := router.Prepare(g); err != nil {
++				t.Fatal(err)
++			}
++			handled, err := router.Invoke(g, &core.Pipeline{Invoker: cluster})
++			if !handled || (err != nil) != tc.interrupt {
++				t.Fatalf("handled=%v err=%v", handled, err)
++			}
++			if len(provider.calls) != 1 {
++				t.Fatalf("unexpected calls: %v", provider.calls)
++			}
++			want := "cheap"
++			if tc.missing {
++				want = "strong"
++			}
++			if provider.calls[0] != want || g.SmartRouting.JudgeUsage != nil || g.SmartRouting.Score != nil {
++				t.Fatalf("unexpected routing: %+v calls=%v", g.SmartRouting, provider.calls)
++			}
++			if tc.stream && (!strings.Contains(writer.Body.String(), "hello") || g.TTFT == 0) {
++				t.Fatalf("stream not forwarded: %s", writer.Body.String())
++			}
++			if g.Model != "smart" || g.OriginalModel != "smart" {
++				t.Fatal("logical identity changed")
++			}
++		})
++	}
++}
++
++func TestCompositeStreamWriterFlushCommits(t *testing.T) {
++	w := &compositeStreamWriter{ResponseWriter: httptest.NewRecorder()}
++	w.Flush()
++	if !w.committed.Load() {
++		t.Fatal("flush commits headers even without a token")
++	}
++}
++
++func TestCompositeAttemptBudgetIsShared(t *testing.T) {
++	ctx := core.WithCompositeAttemptBudget(t.Context(), 1)
++	if err := core.ConsumeCompositeAttempt(ctx); err != nil {
++		t.Fatal(err)
++	}
++	if err := core.ConsumeCompositeAttempt(ctx); !errors.Is(err, core.ErrCompositeAttemptBudget) {
++		t.Fatal(err)
++	}
++}
+diff --git a/pkg/invoker/smart.go b/pkg/invoker/smart.go
+--- a/pkg/invoker/smart.go
++++ b/pkg/invoker/smart.go
+@@ -66,7 +66,7 @@
+ 	if err := cfg.Validate(g.Model); err != nil {
+ 		return &smartHTTPError{http.StatusServiceUnavailable, "invalid smart routing configuration"}
+ 	}
+-	if _, err := parseSmartRequest(g.RequestType, g.RawBody); err != nil {
++	if _, err := parseSmartTextRequest(g.RequestType, g.RawBody, cfg.RoutingMode() != "difficulty"); err != nil {
+ 		return err
+ 	}
+ 	g.SmartConfig = cfg
+@@ -81,6 +81,9 @@
+ 		return false, nil
+ 	}
+ 	defer func() { g.SmartRouting.DurationMs = time.Since(g.StartTime).Milliseconds() }()
++	if g.SmartConfig.RoutingMode() != "difficulty" {
++		return true, r.invokeDeterministic(g, pipe)
++	}
+ 	if err := g.Ctx.Err(); err != nil {
+ 		return true, err
+ 	}
+@@ -358,7 +361,7 @@
+ 
+ func (smartCapacityRouter) Name() string { return "smart_capacity" }
+ func (smartCapacityRouter) Route(g *core.GatewayContext, endpoints []*core.Endpoint) []*core.Endpoint {
+-	req, err := parseSmartRequest(g.RequestType, g.RawBody)
++	req, err := parseSmartTextRequest(g.RequestType, g.RawBody, true)
+ 	if err != nil {
+ 		return nil
+ 	}
+diff --git a/pkg/invoker/smart_request.go b/pkg/invoker/smart_request.go
+--- a/pkg/invoker/smart_request.go
++++ b/pkg/invoker/smart_request.go
+@@ -24,11 +24,15 @@
+ func (e *smartHTTPError) Code() int     { return e.status }
+ 
+ type smartRequest struct {
++	Stream    bool
+ 	Messages  json.RawMessage
+ 	MaxOutput int64
+ }
+ 
+ func parseSmartRequest(rt core.RequestType, body []byte) (*smartRequest, error) {
++	return parseSmartTextRequest(rt, body, false)
++}
++func parseSmartTextRequest(rt core.RequestType, body []byte, allowStream bool) (*smartRequest, error) {
+ 	bad := func() (*smartRequest, error) {
+ 		return nil, &smartHTTPError{http.StatusBadRequest, "smart models support only non-streaming text chat completions without tools"}
+ 	}
+@@ -40,7 +44,7 @@
+ 		return bad()
+ 	}
+ 	var stream bool
+-	if v := raw["stream"]; len(v) > 0 && (json.Unmarshal(v, &stream) != nil || stream) {
++	if v := raw["stream"]; len(v) > 0 && (json.Unmarshal(v, &stream) != nil || stream && !allowStream) {
+ 		return bad()
+ 	}
+ 	for _, key := range []string{"tools", "tool_choice", "functions", "function_call", "audio", "modalities"} {
+@@ -88,7 +92,7 @@
+ 			}
+ 		}
+ 	}
+-	req := &smartRequest{Messages: append(json.RawMessage(nil), raw["messages"]...)}
++	req := &smartRequest{Stream: stream, Messages: append(json.RawMessage(nil), raw["messages"]...)}
+ 	for _, key := range []string{"max_tokens", "max_completion_tokens"} {
+ 		if v, ok := raw[key]; ok {
+ 			var value int64
+diff --git a/pkg/invoker/provider.go b/pkg/invoker/provider.go
+--- a/pkg/invoker/provider.go
++++ b/pkg/invoker/provider.go
+@@ -41,6 +41,10 @@
+ 		return nil
+ 	}
+ 
++	if err := core.ConsumeCompositeAttempt(gctx.Ctx); err != nil {
++		gctx.FatalErr = err
++		return err
++	}
+ 	// Rewrite model to upstream name when configured.
+ 	originalModel := gctx.Model
+ 	var originalRawBody []byte

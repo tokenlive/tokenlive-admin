@@ -60,10 +60,13 @@ type GatewayConfig struct {
 }
 
 type ModelConfig struct {
-	RequestTypes []string             `json:"request_types"`
-	Endpoints    []EndpointConfig     `json:"endpoints"`
-	ModelType    string               `json:"model_type,omitempty"`
-	SmartRouting *RuntimeSmartRouting `json:"smart_routing,omitempty"`
+	ContextLength   int64                `json:"context_length,omitempty"`
+	MaxOutputTokens int64                `json:"max_output_tokens,omitempty"`
+	Abilities       []string             `json:"abilities,omitempty"`
+	RequestTypes    []string             `json:"request_types"`
+	Endpoints       []EndpointConfig     `json:"endpoints"`
+	ModelType       string               `json:"model_type,omitempty"`
+	SmartRouting    *RuntimeSmartRouting `json:"smart_routing,omitempty"`
 }
 
 type ProviderConfig struct {
@@ -74,19 +77,22 @@ type ProviderConfig struct {
 }
 
 type EndpointConfig struct {
-	ID        string            `json:"id"`
-	Code      string            `json:"code"`
-	Provider  string            `json:"provider"`
-	URL       string            `json:"url"`
-	RealModel string            `json:"real_model"`
-	APIKey    string            `json:"api_key,omitempty"`
-	AuthType  string            `json:"auth_type,omitempty"`
-	Protocol  string            `json:"protocol,omitempty"`
-	Timeout   string            `json:"timeout,omitempty"`
-	Priority  int               `json:"priority"`
-	Weight    int               `json:"weight"`
-	Headers   map[string]string `json:"headers,omitempty"`
-	Metadata  map[string]string `json:"metadata,omitempty"`
+	ContextLength   int64             `json:"context_length,omitempty"`
+	MaxOutputTokens int64             `json:"max_output_tokens,omitempty"`
+	Abilities       []string          `json:"abilities,omitempty"`
+	ID              string            `json:"id"`
+	Code            string            `json:"code"`
+	Provider        string            `json:"provider"`
+	URL             string            `json:"url"`
+	RealModel       string            `json:"real_model"`
+	APIKey          string            `json:"api_key,omitempty"`
+	AuthType        string            `json:"auth_type,omitempty"`
+	Protocol        string            `json:"protocol,omitempty"`
+	Timeout         string            `json:"timeout,omitempty"`
+	Priority        int               `json:"priority"`
+	Weight          int               `json:"weight"`
+	Headers         map[string]string `json:"headers,omitempty"`
+	Metadata        map[string]string `json:"metadata,omitempty"`
 }
 
 type HTTPPolicyValue struct {
@@ -258,7 +264,9 @@ func (s *GatewaySync) buildGatewayConfig(ctx context.Context, modelCode string) 
 		realModel := call.RealModel
 		headersMap = call.Headers
 
+		contextLength, maxOutputTokens, abilities := endpointCapabilities(&ep)
 		epCfg := EndpointConfig{
+			ContextLength: contextLength, MaxOutputTokens: maxOutputTokens, Abilities: abilities,
 			ID:        ep.ID,
 			Code:      ep.Code,
 			Provider:  providerName,
@@ -276,6 +284,7 @@ func (s *GatewaySync) buildGatewayConfig(ctx context.Context, modelCode string) 
 		mCfg, exists := modelsMap[mCode]
 		if !exists {
 			mCfg = ModelConfig{
+				ContextLength: int64(ep.Model.ContextLength), MaxOutputTokens: int64(ep.Model.MaxOutputTokens), Abilities: abilities,
 				ModelType:    schema.ModelTypeNormal,
 				RequestTypes: apis,
 				Endpoints:    []EndpointConfig{},

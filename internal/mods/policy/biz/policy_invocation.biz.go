@@ -5,11 +5,14 @@ import (
 	"time"
 
 	opsBiz "github.com/tokenlive/tokenlive-admin/internal/mods/ops/biz"
+	opsSchema "github.com/tokenlive/tokenlive-admin/internal/mods/ops/schema"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/policy/schema"
 	resourceDal "github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
+	resourceSchema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
+	"gorm.io/gorm/clause"
 )
 
 // Invocation policy management
@@ -121,6 +124,9 @@ func (a *PolicyInvocation) Create(ctx context.Context, formItem *schema.PolicyIn
 		return nil, err
 	}
 	if err := a.Trans.Exec(ctx, func(ctx context.Context) error {
+		if err := a.validateCompositeFallback(ctx, item); err != nil {
+			return err
+		}
 		return a.PolicyInvocationDAL.Create(ctx, item)
 	}); err != nil {
 		return nil, err
@@ -149,6 +155,9 @@ func (a *PolicyInvocation) Update(ctx context.Context, id string, formItem *sche
 		item.Modifier = modifier
 	}
 	if err := a.Trans.Exec(ctx, func(ctx context.Context) error {
+		if err := a.validateCompositeFallback(ctx, item); err != nil {
+			return err
+		}
 		return a.PolicyInvocationDAL.Update(ctx, item)
 	}); err != nil {
 		return err
@@ -159,7 +168,57 @@ func (a *PolicyInvocation) Update(ctx context.Context, id string, formItem *sche
 
 // ToggleEnabled updates only the enabled status of a policy and re-syncs policy cache.
 func (a *PolicyInvocation) ToggleEnabled(ctx context.Context, id string, formItem *schema.PolicyEnabledForm) error {
-	return a.lifecycle().toggle(ctx, id, formItem.Enabled)
+	if formItem.Enabled != 1 {
+		return a.lifecycle().toggle(ctx, id, formItem.Enabled)
+	}
+	life := a.lifecycle()
+	var before *schema.PolicyInvocation
+	changed := false
+	if err := a.Trans.Exec(ctx, func(ctx context.Context) error {
+		snapshot, err := a.PolicyInvocationDAL.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+		if snapshot == nil {
+			return life.notFound()
+		}
+		// Lock owner before policy, matching model deletion and policy updates.
+		if snapshot.ModelID != "" {
+			var owner resourceSchema.Model
+			if err := resourceDal.GetModelDB(ctx, a.PolicyInvocationDAL.DB).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", snapshot.ModelID).First(&owner).Error; err != nil {
+				return err
+			}
+		}
+		item, err := a.PolicyInvocationDAL.Get(util.NewRowLock(ctx), id)
+		if err != nil {
+			return err
+		}
+		if item == nil {
+			return life.notFound()
+		}
+		if item.ModelID != snapshot.ModelID {
+			return errors.Conflict("", "调用策略归属已更新，请刷新后重试")
+		}
+		if err := life.require(ctx, item.ModelID, modelPermissionWrite); err != nil {
+			return err
+		}
+		if err := a.validateCompositeFallback(ctx, item); err != nil {
+			return err
+		}
+		before = item
+		if item.Enabled == formItem.Enabled {
+			return nil
+		}
+		changed = true
+		return a.PolicyInvocationDAL.UpdateEnabled(ctx, id, formItem.Enabled, util.FromUsername(ctx))
+	}); err != nil {
+		return err
+	}
+	if changed {
+		_ = syncPolicyChangeAndLog(ctx, a.PolicyRedisSync, "invocation", "toggle_enabled", before.ScopeType, before.ScopeCode, before.ModelID)
+		life.audit.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypePolicy, id, before.Name, map[string]int{"enabled": before.Enabled}, map[string]int{"enabled": formItem.Enabled})
+	}
+	return nil
 }
 
 // Delete the specified policy invocation from the data access object.
@@ -209,6 +268,9 @@ func (a *PolicyInvocation) CopyTemplateToModel(ctx context.Context, templateID s
 	instance.Deleted = "0"
 	instance.DeletedAt = nil
 	if err := a.Trans.Exec(ctx, func(ctx context.Context) error {
+		if err := a.validateCompositeFallback(ctx, &instance); err != nil {
+			return err
+		}
 		return a.PolicyInvocationDAL.Create(ctx, &instance)
 	}); err != nil {
 		return nil, err

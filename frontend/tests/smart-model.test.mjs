@@ -361,3 +361,43 @@ test('delete publication failure uses recovery feedback that does not point to t
         }
     )
 })
+
+test('deterministic routing accepts a single primary and preserves isolated rule drafts', () => {
+    const primary = normalizeSmartRouting({
+        schema_version: 2,
+        mode: 'priority',
+        version: 4,
+        primary_model_id: 'economy',
+    })
+    assert.equal(validateSmartRouting(primary, [candidates[0]]), null)
+    assert.equal(Object.hasOwn(primary, 'judge_model_id'), false)
+    assert.equal(validateSmartRouting({ ...primary, primary_model_id: 'hidden' }, candidates), 'target_required')
+    const source = {
+        schema_version: 2,
+        mode: 'rules',
+        default_model_id: 'economy',
+        rules: [
+            {
+                id: 'code',
+                order: 10,
+                enabled: true,
+                relation_type: 'AND',
+                target_model_id: 'strong',
+                conditions: [{ type: 'TAG', key: 'task', op_type: 'IN', values: ['code', 'review'] }],
+            },
+        ],
+    }
+    const draft = normalizeSmartRouting(source)
+    assert.equal(validateSmartRouting(draft, candidates), null)
+    draft.rules[0].conditions[0].values[0] = 'chat'
+    assert.equal(source.rules[0].conditions[0].values[0], 'code')
+    draft.rules.push({ ...draft.rules[0] })
+    assert.equal(validateSmartRouting(draft, candidates), 'rules')
+})
+
+test('new routing cannot be enabled before the server rollout gate is available', () => {
+    const model = { model_type: 'smart', enabled: 0, smart_routing_ready: true, smart_routing: { mode: 'priority' } }
+    assert.equal(smartModel.isModelEnableBlocked(model), true)
+    assert.equal(smartModel.isModelEnableBlocked({ ...model, smart_routing_v2_available: true }), false)
+    assert.equal(smartModel.isModelEnableBlocked({ ...model, enabled: 1 }), false)
+})

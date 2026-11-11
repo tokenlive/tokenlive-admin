@@ -109,6 +109,8 @@ Password = "${PROMETHEUS_SERVER_PASSWORD:}"
 UserCacheExp = 4 # hours
 
 [Gateway]
+# Keep disabled until all serving Gateways support format 2 and rollout checks pass.
+CompositeRoutingV2 = false
 APIKeyPepper = "${GATEWAY_API_KEY_PEPPER:}"
 
 [OAuth]

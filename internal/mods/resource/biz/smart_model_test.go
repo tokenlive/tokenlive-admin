@@ -32,6 +32,7 @@ func smartForm() *schema.ModelForm {
 	return &schema.ModelForm{
 		ModelCode: "smart", ModelName: "Smart", ModelType: "smart", SpaceCode: "default", Enabled: 1,
 		RequestTypes: `["chat_completion"]`, Abilities: `[]`,
+		ContextLength: 128000, MaxOutputTokens: 8192,
 		SmartRouting: &schema.SmartRouting{
 			JudgeModelID: "a",
 			Ranges:       []schema.SmartRange{{Min: 0, Max: 40, ModelID: "a"}, {Min: 40, Max: 100, ModelID: "b"}},

@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
+	"github.com/tokenlive/tokenlive-admin/pkg/compositerouting"
 	"github.com/tokenlive/tokenlive-admin/pkg/gatewaycontract"
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 	"gorm.io/gorm"
@@ -21,11 +23,17 @@ func resolveSmartRuntime(ctx context.Context, db *gorm.DB, model *schema.Model) 
 		return nil, fmt.Errorf("model %s has no versioned smart routing", model.ModelCode)
 	}
 	routing := *model.SmartRouting
+	if routing.RoutingMode() != compositerouting.Difficulty && !config.C.Gateway.CompositeRoutingV2 {
+		return nil, fmt.Errorf("Gateway format 2 rollout is not enabled")
+	}
 	if err := routing.Validate(); err != nil {
 		return nil, err
 	}
 	var refs []schema.Model
 	if err := dal.GetModelDB(ctx, db).Where("id IN ?", routing.ReferenceIDs()).Find(&refs).Error; err != nil {
+		return nil, err
+	}
+	if err := validateCompositePromise(model, refs); err != nil {
 		return nil, err
 	}
 	codes := make(map[string]string)
@@ -42,9 +50,14 @@ func resolveSmartRuntime(ctx context.Context, db *gorm.DB, model *schema.Model) 
 		}
 	}
 	result := &RuntimeSmartRouting{
+		SchemaVersion: routing.SchemaVersion, Mode: routing.Mode,
+		PrimaryModel: codes[routing.PrimaryModelID], DefaultModel: codes[routing.DefaultModelID],
 		Version: routing.Version, JudgeModel: codes[routing.JudgeModelID],
 		JudgeTimeoutMS: routing.JudgeTimeoutMS, JudgeMaxInputBytes: routing.JudgeMaxInputBytes,
 		JudgeMaxOutputTokens: routing.JudgeMaxOutputTokens,
+	}
+	for _, r := range routing.Rules {
+		result.Rules = append(result.Rules, gatewaycontract.RuntimeSmartRule{ID: r.ID, Name: r.Name, Order: r.Order, Enabled: r.Enabled, RelationType: r.RelationType, Conditions: r.Conditions, TargetModel: codes[r.TargetModelID]})
 	}
 	for _, r := range routing.Ranges {
 		result.Ranges = append(result.Ranges, RuntimeSmartRange{Min: r.Min, Max: r.Max, Model: codes[r.ModelID]})
@@ -72,9 +85,13 @@ func (s *GatewaySync) smartModelConfigs(ctx context.Context, modelCode string) (
 			ModelType: schema.ModelTypeSmart, SmartRouting: runtime,
 			RequestTypes: []string{"chat_completion"}, Endpoints: []EndpointConfig{},
 		}
-		codes = append(codes, runtime.JudgeModel)
-		for _, r := range runtime.Ranges {
-			codes = append(codes, r.Model)
+		codes = append(codes, runtime.ReferenceCodes()...)
+		if model.SmartRouting.RoutingMode() != compositerouting.Difficulty {
+			backups, err := compositeFallbackCodes(ctx, s.DB, model.ID, true)
+			if err != nil {
+				return nil, nil, err
+			}
+			codes = append(codes, backups...)
 		}
 	}
 	return result, codes, nil

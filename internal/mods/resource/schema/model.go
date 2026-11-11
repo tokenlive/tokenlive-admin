@@ -14,6 +14,7 @@ import (
 
 // Model defines the LLM model from user's perspective.
 type Model struct {
+	RoutingV2Available bool             `json:"smart_routing_v2_available" gorm:"-"`
 	ID                 string           `json:"id" gorm:"type:char(20);primaryKey;comment:主键ID (XID);"`
 	ModelName          string           `json:"model_name" gorm:"type:varchar(128);not null;uniqueIndex:uniq_model_name;comment:模型名称;"`
 	ModelCode          string           `json:"model_code" gorm:"type:varchar(64);not null;uniqueIndex:uniq_model_code_deleted,priority:1;comment:模型唯一编码;"`

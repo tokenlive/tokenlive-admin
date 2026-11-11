@@ -236,6 +236,7 @@ test('detail editor saves initial routing through dedicated API at revision zero
     const { app, state } = mount(Editor, { model: record, onSaved: () => saved.push(true) })
     await flush()
     state.startEditing()
+    state.changeMode('difficulty')
     state.draft.judge_model_id = 'economy'
     state.draft.ranges[0].model_id = 'economy'
     state.draft.ranges[1].model_id = 'strong'
@@ -379,5 +380,56 @@ test('detail editor coalesces save clicks and ignores completion after switching
     assert.deepEqual(globalThis.__smartMessages, [])
     assert.equal(state.editing, false)
     assert.equal(state.saving, false)
+    app.unmount()
+})
+
+test('new composite config defaults to a single primary without a judge, and previews drafts', async () => {
+    const writes = []
+    const previews = []
+    api({
+        updateSmartRouting: async (id, config) => {
+            writes.push(config)
+            return { success: true, data: { saved: true, sync_status: 'synced' } }
+        },
+        previewModelRouting: async (id, input) => {
+            previews.push(input)
+            return { success: true, data: { target: 'economy', reason: 'primary', target_status: 'configured' } }
+        },
+    })
+    const { app, state } = mount(Editor, { model: model() })
+    await flush()
+    state.startEditing()
+    assert.equal(state.routingMode, 'priority')
+    state.draft.primary_model_id = 'economy'
+    await flush()
+    await state.preview()
+    assert.equal(previews[0].routing.primary_model_id, 'economy')
+    assert.equal(state.previewResult.target, 'economy')
+    await state.save()
+    assert.deepEqual(writes, [{ schema_version: 2, version: 0, mode: 'priority', primary_model_id: 'economy' }])
+    app.unmount()
+})
+
+test('preview ignores stale responses after metadata or draft changes', async () => {
+    let resolve
+    api({
+        previewModelRouting: () =>
+            new Promise((r) => {
+                resolve = r
+            }),
+    })
+    const { app, state } = mount(Editor, {
+        model: model({
+            smart_routing: { schema_version: 2, version: 1, mode: 'priority', primary_model_id: 'economy' },
+        }),
+    })
+    await flush()
+    const pending = state.preview()
+    state.previewInput = '{"tags":{"task":"chat"}}'
+    await flush()
+    resolve({ success: true, data: { target: 'economy' } })
+    await pending
+    assert.equal(state.previewResult, null)
+    assert.equal(state.previewLoading, false)
     app.unmount()
 })

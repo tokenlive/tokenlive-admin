@@ -1,0 +1,572 @@
+diff --git a/internal/bootstrap/engine.go b/internal/bootstrap/engine.go
+--- a/internal/bootstrap/engine.go
++++ b/internal/bootstrap/engine.go
+@@ -653,6 +653,7 @@
+ 				CacheCreationPrice: re.CacheCreationPrice,
+ 				ContextLength:      re.ContextLength,
+ 				MaxOutputTokens:    re.MaxOutputTokens,
++				Abilities:          append([]string(nil), re.Abilities...),
+ 				Healthy:            true,
+ 				RequestTypes:       requestTypes,
+ 			}
+@@ -718,6 +719,7 @@
+ 			CacheCreationPrice: ep.CacheCreationPrice,
+ 			ContextLength:      ep.ContextLength,
+ 			MaxOutputTokens:    ep.MaxOutputTokens,
++			Abilities:          append([]string(nil), ep.Abilities...),
+ 		}
+ 	}
+ 	return res
+diff --git a/pkg/config/composite_capabilities_test.go b/pkg/config/composite_capabilities_test.go
+new file mode 100644
+--- /dev/null
++++ b/pkg/config/composite_capabilities_test.go
+@@ -0,0 +1,30 @@
++package config
++
++import (
++	"encoding/json"
++	"testing"
++)
++
++func TestCompositeHTTPCapabilitiesSurviveResolution(t *testing.T) {
++	var cfg GatewayConfig
++	data := []byte(`{"providers":{"p":{"protocol":"openai"}},"models":{"child":{"request_types":["chat_completion"],"context_length":64000,"max_output_tokens":8192,"abilities":["stream"],"endpoints":[{"id":"override","provider":"p","url":"https://example.test","real_model":"child","context_length":32000,"max_output_tokens":4096},{"id":"inherit","provider":"p","url":"https://example.test","real_model":"child"}]}}}`)
++	if err := json.Unmarshal(data, &cfg); err != nil {
++		t.Fatal(err)
++	}
++	eps := Resolve(&cfg)["child"]
++	if len(eps) != 2 {
++		t.Fatalf("endpoints=%v", eps)
++	}
++	if eps[0].ContextLength != 32000 || eps[0].MaxOutputTokens != 4096 || eps[1].ContextLength != 64000 || eps[1].MaxOutputTokens != 8192 {
++		t.Fatalf("capacity inheritance lost: %+v", eps)
++	}
++	for _, ep := range eps {
++		if len(ep.Abilities) != 1 || ep.Abilities[0] != "stream" {
++			t.Fatalf("stream declaration lost: %+v", ep)
++		}
++	}
++	eps[0].Abilities[0] = "changed"
++	if cfg.Models["child"].Abilities[0] != "stream" {
++		t.Fatal("resolved endpoint aliases source abilities")
++	}
++}
+diff --git a/pkg/config/loader.go b/pkg/config/loader.go
+--- a/pkg/config/loader.go
++++ b/pkg/config/loader.go
+@@ -145,7 +145,12 @@
+ 				maxOutputTokens = m.MaxOutputTokens
+ 			}
+ 
++			abilities := ep.Abilities
++			if abilities == nil {
++				abilities = m.Abilities
++			}
+ 			re := ResolvedEndpoint{
++				Abilities:        append([]string(nil), abilities...),
+ 				ID:               ep.ID,
+ 				Code:             ep.Code,
+ 				ProviderName:     ep.Provider,
+diff --git a/pkg/config/types.go b/pkg/config/types.go
+--- a/pkg/config/types.go
++++ b/pkg/config/types.go
+@@ -14,6 +14,7 @@
+ 	RequestTypes    []string                 `mapstructure:"request_types" yaml:"request_types" json:"request_types"` // Optional API list
+ 	ContextLength   int64                    `mapstructure:"context_length" yaml:"context_length" json:"context_length,omitempty"`
+ 	MaxOutputTokens int64                    `mapstructure:"max_output_tokens" yaml:"max_output_tokens" json:"max_output_tokens,omitempty"`
++	Abilities       []string                 `mapstructure:"abilities" yaml:"abilities" json:"abilities,omitempty"`
+ 	Endpoints       []EndpointConfig         `mapstructure:"endpoints" yaml:"endpoints" json:"endpoints"` // Endpoints for this model
+ }
+ 
+@@ -42,6 +43,7 @@
+ 	Metadata        map[string]string `mapstructure:"metadata" yaml:"metadata" json:"metadata,omitempty"`       // Metadata
+ 	ContextLength   int64             `mapstructure:"context_length" yaml:"context_length" json:"context_length,omitempty"`
+ 	MaxOutputTokens int64             `mapstructure:"max_output_tokens" yaml:"max_output_tokens" json:"max_output_tokens,omitempty"`
++	Abilities       []string          `mapstructure:"abilities" yaml:"abilities" json:"abilities,omitempty"`
+ }
+ 
+ // GatewayConfig is model-centric two-layer gateway config.
+@@ -75,6 +77,7 @@
+ 	RequestTypes       []string          `mapstructure:"request_types" json:"request_types,omitempty"`
+ 	ContextLength      int64             `mapstructure:"context_length" json:"context_length,omitempty"`
+ 	MaxOutputTokens    int64             `mapstructure:"max_output_tokens" json:"max_output_tokens,omitempty"`
++	Abilities          []string          `mapstructure:"abilities" yaml:"abilities" json:"abilities,omitempty"`
+ 	InputPrice         *float64          `json:"input_price,omitempty"`
+ 	OutputPrice        *float64          `json:"output_price,omitempty"`
+ 	CachedPrice        *float64          `json:"cached_price,omitempty"`
+diff --git a/pkg/core/discovery_dynamic.go b/pkg/core/discovery_dynamic.go
+--- a/pkg/core/discovery_dynamic.go
++++ b/pkg/core/discovery_dynamic.go
+@@ -22,6 +22,7 @@
+ 	RequestTypes       []string
+ 	ContextLength      int64
+ 	MaxOutputTokens    int64
++	Abilities          []string
+ 	InputPrice         *float64
+ 	OutputPrice        *float64
+ 	CachedPrice        *float64
+@@ -93,6 +94,7 @@
+ 			CacheCreationPrice: de.CacheCreationPrice,
+ 			ContextLength:      de.ContextLength,
+ 			MaxOutputTokens:    de.MaxOutputTokens,
++			Abilities:          append([]string(nil), de.Abilities...),
+ 			Healthy:            true,
+ 			RequestTypes:       apis,
+ 		}
+diff --git a/pkg/core/types.go b/pkg/core/types.go
+--- a/pkg/core/types.go
++++ b/pkg/core/types.go
+@@ -38,6 +38,7 @@
+ 	ProviderProtocol string            // Protocol, e.g. "openai", "anthropic"
+ 	ContextLength    int64             // Context window limit in tokens
+ 	MaxOutputTokens  int64             // Max output tokens limit
++	Abilities        []string
+ 
+ 	// Per-endpoint rates; nil inherits Model Policy.Billing
+ 	InputPrice         *float64
+diff --git a/pkg/filters/outbound/composite_pricing_test.go b/pkg/filters/outbound/composite_pricing_test.go
+new file mode 100644
+--- /dev/null
++++ b/pkg/filters/outbound/composite_pricing_test.go
+@@ -0,0 +1,48 @@
++package outbound
++
++import (
++	"context"
++	"errors"
++	"github.com/tokenlive/tokenlive-gateway/pkg/core"
++	"github.com/tokenlive/tokenlive-gateway/pkg/policy"
++	"testing"
++)
++
++func TestCompositeEntryPricingAndOneBusinessSettlement(t *testing.T) {
++	for _, mode := range []string{"priority", "rules"} {
++		for _, stream := range []bool{false, true} {
++			for _, failed := range []bool{false, true} {
++				childPrice := 1.0
++				g := &core.GatewayContext{Ctx: context.Background(), Model: "smart", OriginalModel: "smart", UserID: "user", APIKey: "test-api-key", IsStream: stream, InputTokens: 100000, OutputTokens: 50000, SmartRouting: &core.SmartRoutingRecord{Mode: mode}, Policy: &policy.Policy{Billing: &policy.BillingPolicy{InputPrice: 10, OutputPrice: 20}}, SelectedEndpoint: &core.Endpoint{InputPrice: &childPrice, OutputPrice: &childPrice}}
++				if failed {
++					g.Err = errors.New("upstream failed")
++				}
++				credits := &mockCreditsDeductor{}
++				settler := NewTokenSettlementFilter(&mockSettlementStore{}, credits, nil)
++				if err := settler.OnResponse(g); err != nil {
++					t.Fatal(err)
++				}
++				if failed {
++					if credits.calls != 0 || g.Cost != 0 {
++						t.Fatalf("failed answer charged: calls=%v cost=%v", credits.calls, g.Cost)
++					}
++				} else if credits.calls != 1 || credits.deducted != 2000000 || !almostEqual(g.Cost, 2) {
++					t.Fatalf("entry pricing must be 10/20 and charged once: calls=%d credits=%d cost=%v", credits.calls, credits.deducted, g.Cost)
++				}
++			}
++		}
++	}
++}
++func TestCompositePricingDoesNotChangeOrdinaryOrDifficultyPricing(t *testing.T) {
++	for _, mode := range []string{"", "difficulty"} {
++		price := 1.0
++		g := &core.GatewayContext{Policy: &policy.Policy{Billing: &policy.BillingPolicy{InputPrice: 10, OutputPrice: 20}}, SelectedEndpoint: &core.Endpoint{InputPrice: &price, OutputPrice: &price}}
++		if mode != "" {
++			g.SmartRouting = &core.SmartRoutingRecord{Mode: mode}
++		}
++		input, output, _, _ := resolvePrices(g)
++		if input != 1 || output != 1 {
++			t.Fatal("ordinary/legacy endpoint pricing changed")
++		}
++	}
++}
+diff --git a/pkg/filters/outbound/token_settlement.go b/pkg/filters/outbound/token_settlement.go
+--- a/pkg/filters/outbound/token_settlement.go
++++ b/pkg/filters/outbound/token_settlement.go
+@@ -337,7 +337,10 @@
+ 		}
+ 	}
+ 
+-	if gctx.SelectedEndpoint != nil {
++	// Composite answers are billed at the business entry price. The selected
++	// supplier endpoint is retained for observability and child quota settlement.
++	composite := gctx.SmartRouting != nil && (gctx.SmartRouting.Mode == "priority" || gctx.SmartRouting.Mode == "rules")
++	if gctx.SelectedEndpoint != nil && !composite {
+ 		if gctx.SelectedEndpoint.InputPrice != nil {
+ 			inputPrice = *gctx.SelectedEndpoint.InputPrice
+ 		}
+diff --git a/pkg/invoker/child_accounting.go b/pkg/invoker/child_accounting.go
+--- a/pkg/invoker/child_accounting.go
++++ b/pkg/invoker/child_accounting.go
+@@ -10,8 +10,9 @@
+ 
+ // childAccounting 只复用已装配过滤器的预留与结算能力，不运行外层副作用。
+ type childAccounting struct {
+-	limits  *inbound.RateLimitFilter
+-	settler *outbound.TokenSettlementFilter
++	limits             *inbound.RateLimitFilter
++	settler            *outbound.TokenSettlementFilter
++	strictCapabilities bool
+ }
+ 
+ type childCallResult struct {
+@@ -35,7 +36,7 @@
+ 	if result.admissionErr == nil {
+ 		result.invokeErr = child.Ctx.Err()
+ 		if result.invokeErr == nil {
+-			checked, err := capacityCheckedInvoker(invoke)
++			checked, err := capacityCheckedInvoker(invoke, a.strictCapabilities)
+ 			result.invokeErr = err
+ 			if err == nil {
+ 				result.invokeErr = checked.Invoke(child)
+diff --git a/pkg/invoker/composite.go b/pkg/invoker/composite.go
+--- a/pkg/invoker/composite.go
++++ b/pkg/invoker/composite.go
+@@ -59,6 +59,7 @@
+ 	if err != nil {
+ 		return err
+ 	}
++	accounting.strictCapabilities = true
+ 	models := []string{plan.Target}
+ 	timeout := compositeTotalTimeout
+ 	if g.Policy != nil && g.Policy.InvocationPolicy != nil {
+@@ -91,6 +92,9 @@
+ 		if err != nil {
+ 			g.SmartRouting.Escalations = append(g.SmartRouting.Escalations, core.SmartEscalation{Model: model, Reason: reason})
+ 			lastErr = err
++			if errors.Is(err, core.ErrFatalNoAvailableEndpoint) || !core.CanFallbackModel(g, core.ErrNoAvailableEndpoint) {
++				return err
++			}
+ 			continue
+ 		}
+ 		if modelAttempts >= compositeMaxModels {
+@@ -126,7 +130,7 @@
+ 		}
+ 		// Reuse existing conservative fallback semantics. New modes do not silently
+ 		// turn generic HTTP errors into replayable model calls.
+-		canFallback := !committed && result.admissionErr == nil && result.settlementErr == nil && core.CanFallbackModel(child, err) && !errors.Is(err, core.ErrCompositeAttemptBudget)
++		canFallback := !committed && result.admissionErr == nil && result.settlementErr == nil && core.CanFallbackModel(g, err) && core.CanFallbackModel(child, err) && !errors.Is(err, core.ErrCompositeAttemptBudget)
+ 		core.ReleaseContext(child)
+ 		if err == nil {
+ 			return nil
+diff --git a/pkg/invoker/composite_capabilities_test.go b/pkg/invoker/composite_capabilities_test.go
+new file mode 100644
+--- /dev/null
++++ b/pkg/invoker/composite_capabilities_test.go
+@@ -0,0 +1,67 @@
++package invoker
++
++import (
++	"github.com/tokenlive/tokenlive-gateway/pkg/core"
++	"testing"
++)
++
++func TestCompositeChecksFullRequestCapacityAndStream(t *testing.T) {
++	for _, tc := range []struct {
++		name                       string
++		context, output, requested int64
++		stream                     bool
++		abilities                  []string
++		eligible                   bool
++	}{
++		{name: "known capacity", context: 4096, output: 1024, requested: 512, eligible: true},
++		{name: "unknown context", output: 1024, requested: 512},
++		{name: "unknown output", context: 4096, requested: 512},
++		{name: "output exceeds limit", context: 4096, output: 1024, requested: 2048},
++		{name: "prompt plus output exceeds context", context: 150, output: 1024, requested: 100},
++		{name: "undeclared streaming", context: 4096, output: 1024, requested: 512, stream: true},
++		{name: "declared streaming", context: 4096, output: 1024, requested: 512, stream: true, abilities: []string{"stream"}, eligible: true},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			ep := &core.Endpoint{ContextLength: tc.context, MaxOutputTokens: tc.output, Abilities: tc.abilities, RequestTypes: []core.RequestType{core.RequestTypeChatCompletion}}
++			req := &smartRequest{Messages: []byte(`[{"role":"user","content":"hello"}]`), MaxOutput: tc.requested, Stream: tc.stream, StrictCapabilities: true}
++			if got := smartEndpointCompatible(ep, req); got != tc.eligible {
++				t.Fatalf("eligible=%v want %v", got, tc.eligible)
++			}
++		})
++	}
++	// Difficulty compatibility: the old unknown-capacity behavior is isolated.
++	ep := &core.Endpoint{RequestTypes: []core.RequestType{core.RequestTypeChatCompletion}}
++	if !smartEndpointCompatible(ep, &smartRequest{Messages: []byte(`[]`)}) {
++		t.Fatal("legacy capacity behavior changed")
++	}
++}
++func TestCompositeCapacityRouterRechecksEveryEndpoint(t *testing.T) {
++	g := &core.GatewayContext{RequestType: core.RequestTypeChatCompletion, RawBody: []byte(`{"messages":[{"role":"user","content":"hi"}],"stream":true,"max_tokens":512}`)}
++	unknown := &core.Endpoint{ID: "unknown", RequestTypes: []core.RequestType{core.RequestTypeChatCompletion}}
++	good := &core.Endpoint{ID: "good", ContextLength: 4096, MaxOutputTokens: 1024, Abilities: []string{"stream"}, RequestTypes: unknown.RequestTypes}
++	got := (smartCapacityRouter{strict: true}).Route(g, []*core.Endpoint{unknown, good})
++	if len(got) != 1 || got[0].ID != "good" {
++		t.Fatalf("incompatible retry endpoint was not filtered: %+v", got)
++	}
++}
++func TestCompositeStructuredResponseFormatRejectsBeforeInvocation(t *testing.T) {
++	for _, value := range []string{`{"type":"json_schema","json_schema":{}}`, `{"type":"json_object"}`} {
++		cfg := &core.SmartRoutingConfig{SchemaVersion: 2, Version: 1, Mode: "priority", PrimaryModel: "cheap"}
++		router := &SmartRouter{source: smartTestSource{cfg}}
++		g := &core.GatewayContext{Model: "smart", RequestType: core.RequestTypeChatCompletion, RawBody: []byte(`{"messages":[{"role":"user","content":"hi"}],"response_format":` + value + `}`)}
++		if err := router.Prepare(g); err == nil {
++			t.Fatal("structured output entered executor")
++		}
++	}
++}
++
++func TestCompositeCapacityGuardPreservesDifficultyRequestBoundary(t *testing.T) {
++	g := &core.GatewayContext{RequestType: core.RequestTypeChatCompletion, RawBody: []byte(`{"messages":[{"role":"user","content":"hi"}],"response_format":{"type":"json_object"}}`)}
++	ep := &core.Endpoint{ID: "legacy", RequestTypes: []core.RequestType{core.RequestTypeChatCompletion}}
++	if len((smartCapacityRouter{}).Route(g, []*core.Endpoint{ep})) != 1 {
++		t.Fatal("difficulty request/capacity compatibility changed")
++	}
++	if len((smartCapacityRouter{strict: true}).Route(g, []*core.Endpoint{ep})) != 0 {
++		t.Fatal("new mode accepted structured output")
++	}
++}
+diff --git a/pkg/invoker/composite_review_test.go b/pkg/invoker/composite_review_test.go
+new file mode 100644
+--- /dev/null
++++ b/pkg/invoker/composite_review_test.go
+@@ -0,0 +1,91 @@
++package invoker
++
++import (
++	"context"
++	"errors"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/tokenlive/tokenlive-gateway/pkg/core"
++	"github.com/tokenlive/tokenlive-gateway/pkg/filters/inbound"
++	"github.com/tokenlive/tokenlive-gateway/pkg/filters/outbound"
++	"github.com/tokenlive/tokenlive-gateway/pkg/policy"
++	"github.com/tokenlive/tokenlive-gateway/pkg/store"
++	"go.uber.org/zap"
++)
++
++func TestCompositeUnknownCapacityMustNotBeEligible(t *testing.T) {
++	ep := &core.Endpoint{RequestTypes: []core.RequestType{core.RequestTypeChatCompletion}}
++	req := &smartRequest{Messages: []byte(`[{"role":"user","content":"hi"}]`), MaxOutput: 999999, StrictCapabilities: true}
++	if smartEndpointCompatible(ep, req) {
++		t.Fatal("unknown context/output capacity accepted even for max_tokens=999999")
++	}
++}
++func TestCompositeStructuredOutputMustBeRejected(t *testing.T) {
++	body := []byte(`{"messages":[{"role":"user","content":"hi"}],"response_format":{"type":"json_schema","json_schema":{"name":"x","schema":{"type":"object"}}}}`)
++	if _, err := parseSmartTextRequest(core.RequestTypeChatCompletion, body, true); err == nil {
++		t.Fatal("new mode accepts unverified structured output")
++	}
++}
++
++type reviewAffinityPolicies struct{ allowDegrade bool }
++
++func (pconf reviewAffinityPolicies) GetPolicy(_ context.Context, _, _, model string) (*policy.Policy, error) {
++	p := &policy.Policy{InvocationPolicy: &policy.InvocationPolicy{RetryPolicy: &policy.RetryPolicy{Retry: 0}}}
++	if model == "cheap" {
++		p.LoadBalancePolicy = &policy.LoadBalancePolicy{Type: "endpoint_affinity", Params: map[string]interface{}{"allow_degrade": pconf.allowDegrade}}
++	}
++	return p, nil
++}
++
++type compositeUnavailableDiscovery struct {
++	smartTestDiscovery
++	returnError bool
++}
++
++func (d compositeUnavailableDiscovery) List(ctx context.Context, model string) ([]*core.Endpoint, error) {
++	if d.returnError && model == "cheap" {
++		return nil, core.ErrNoAvailableEndpoint
++	}
++	return d.smartTestDiscovery.List(ctx, model)
++}
++func TestCompositeMissingTargetMustRespectStrongAffinity(t *testing.T) {
++	for _, allow := range []bool{false, true} {
++		for _, discoveryError := range []bool{false, true} {
++			for _, parentAffinity := range []bool{false, true} {
++				cfg := &core.SmartRoutingConfig{SchemaVersion: 2, Version: 1, Mode: "priority", PrimaryModel: "cheap"}
++				provider := &compositeTestProvider{}
++				d := compositeUnavailableDiscovery{smartTestDiscovery: smartTestDiscovery{models: map[string][]*core.Endpoint{"strong": {{ID: "strong", Model: "strong", Provider: "test", ProviderImpl: provider, Healthy: true, ContextLength: 100000, MaxOutputTokens: 8192, RequestTypes: []core.RequestType{core.RequestTypeChatCompletion}}}}}, returnError: discoveryError}
++				ss := store.NewMemoryStateStore()
++				cluster := NewClusterInvoker(d, nil, map[string]core.LoadBalancer{"round_robin": &testRoundRobin{}}, &policy.RetryPolicy{}, core.NewCircuitBreakerManager(), ss, zap.NewNop(), nil)
++				r := &SmartRouter{source: smartTestSource{cfg}, validator: smartTestValidator{}, policies: reviewAffinityPolicies{allowDegrade: allow}, limits: inbound.NewRateLimitFilter(ss), settler: outbound.NewTokenSettlementFilter(ss, nil, zap.NewNop()), discovery: d}
++				body := `{"model":"smart","messages":[{"role":"user","content":"hello"}]}`
++				g := core.AcquireContext(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body)))
++				g.Model, g.OriginalModel, g.RequestType, g.RawBody = "smart", "smart", core.RequestTypeChatCompletion, []byte(body)
++				g.Policy = &policy.Policy{InvocationPolicy: &policy.InvocationPolicy{FallbackPolicy: &policy.FallbackPolicy{Targets: []string{"strong"}}}}
++				if parentAffinity {
++					g.Policy.LoadBalancePolicy = &policy.LoadBalancePolicy{Type: "endpoint_affinity", Params: map[string]interface{}{"allow_degrade": false}}
++				}
++				if err := r.Prepare(g); err != nil {
++					t.Fatal(err)
++				}
++				_, err := r.Invoke(g, &core.Pipeline{Invoker: cluster})
++				permitted := allow && !parentAffinity
++				if permitted {
++					if err != nil || len(provider.calls) != 1 {
++						t.Fatalf("explicitly permitted fallback was blocked: err=%v calls=%v", err, provider.calls)
++					}
++				} else if err == nil || len(provider.calls) > 0 {
++					t.Fatalf("strong affinity bypassed: err=%v calls=%v", err, provider.calls)
++				}
++				if !allow && !errors.Is(err, core.ErrFatalNoAvailableEndpoint) {
++					t.Fatalf("missing terminal affinity classification: %v", err)
++				}
++				core.ReleaseContext(g)
++				_ = ss.Close()
++			}
++		}
++	}
++}
+diff --git a/pkg/invoker/composite_test.go b/pkg/invoker/composite_test.go
+--- a/pkg/invoker/composite_test.go
++++ b/pkg/invoker/composite_test.go
+@@ -52,7 +52,7 @@
+ 				if tc.missing && name == "cheap" {
+ 					continue
+ 				}
+-				discovery.models[name] = []*core.Endpoint{{ID: name, Model: name, Provider: "test", ProviderImpl: provider, Healthy: true, ContextLength: 100000, MaxOutputTokens: 8192, RequestTypes: []core.RequestType{core.RequestTypeChatCompletion}}}
++				discovery.models[name] = []*core.Endpoint{{ID: name, Model: name, Provider: "test", ProviderImpl: provider, Healthy: true, ContextLength: 100000, MaxOutputTokens: 8192, Abilities: []string{"stream"}, RequestTypes: []core.RequestType{core.RequestTypeChatCompletion}}}
+ 			}
+ 			ss := store.NewMemoryStateStore()
+ 			defer ss.Close()
+diff --git a/pkg/invoker/smart.go b/pkg/invoker/smart.go
+--- a/pkg/invoker/smart.go
++++ b/pkg/invoker/smart.go
+@@ -263,8 +263,18 @@
+ 	if err != nil || nested != nil {
+ 		return nil, "invalid_target", &smartHTTPError{http.StatusServiceUnavailable, "smart target must be an ordinary model"}
+ 	}
++	p := &policy.Policy{}
++	if r.policies != nil {
++		p, err = r.policies.GetPolicy(parent.Ctx, parent.Tenant, parent.UserID, model)
++		if err != nil || p == nil {
++			return nil, "target_policy_unavailable", &smartHTTPError{http.StatusForbidden, "smart routing target policy unavailable"}
++		}
++	}
+ 	endpoints, err := r.discovery.List(parent.Ctx, model)
+ 	if err != nil {
++		if req.StrictCapabilities && !core.CanFallbackModel(&core.GatewayContext{Policy: p}, core.ErrNoAvailableEndpoint) {
++			return nil, "affinity_no_degrade", core.ErrFatalNoAvailableEndpoint
++		}
+ 		return nil, "target_unavailable", &smartHTTPError{http.StatusServiceUnavailable, "smart routing target unavailable"}
+ 	}
+ 	compatible := false
+@@ -275,14 +285,10 @@
+ 		}
+ 	}
+ 	if !compatible {
++		if req.StrictCapabilities && !core.CanFallbackModel(&core.GatewayContext{Policy: p}, core.ErrNoAvailableEndpoint) {
++			return nil, "affinity_no_degrade", core.ErrFatalNoAvailableEndpoint
++		}
+ 		return nil, "target_incompatible", &smartHTTPError{http.StatusServiceUnavailable, "no compatible smart routing endpoint"}
+-	}
+-	p := &policy.Policy{}
+-	if r.policies != nil {
+-		p, err = r.policies.GetPolicy(parent.Ctx, parent.Tenant, parent.UserID, model)
+-		if err != nil || p == nil {
+-			return nil, "target_policy_unavailable", &smartHTTPError{http.StatusForbidden, "smart routing target policy unavailable"}
+-		}
+ 	}
+ 	// The policy service owns its snapshot; only mutate our shallow outer copy.
+ 	ownedPolicy := *p
+@@ -357,11 +363,11 @@
+ }
+ 
+ // The immutable endpoint subset is checked on every attempt, before priority.
+-type smartCapacityRouter struct{}
++type smartCapacityRouter struct{ strict bool }
+ 
+ func (smartCapacityRouter) Name() string { return "smart_capacity" }
+-func (smartCapacityRouter) Route(g *core.GatewayContext, endpoints []*core.Endpoint) []*core.Endpoint {
+-	req, err := parseSmartTextRequest(g.RequestType, g.RawBody, true)
++func (router smartCapacityRouter) Route(g *core.GatewayContext, endpoints []*core.Endpoint) []*core.Endpoint {
++	req, err := parseSmartTextRequest(g.RequestType, g.RawBody, router.strict)
+ 	if err != nil {
+ 		return nil
+ 	}
+@@ -378,6 +384,20 @@
+ 	if ep == nil || !ep.SupportsRequestType(core.RequestTypeChatCompletion) {
+ 		return false
+ 	}
++	if req.StrictCapabilities {
++		if ep.ContextLength <= 0 || ep.MaxOutputTokens <= 0 {
++			return false
++		}
++		if req.Stream {
++			supported := false
++			for _, ability := range ep.Abilities {
++				supported = supported || ability == "stream"
++			}
++			if !supported {
++				return false
++			}
++		}
++	}
+ 	output := req.MaxOutput
+ 	if output == 0 {
+ 		output = ep.MaxOutputTokens
+@@ -390,16 +410,16 @@
+ 	return ep.ContextLength <= 0 || output <= ep.ContextLength && input <= ep.ContextLength-output
+ }
+ 
+-func capacityCheckedInvoker(invoke core.Invoker) (core.Invoker, error) {
++func capacityCheckedInvoker(invoke core.Invoker, strict bool) (core.Invoker, error) {
+ 	switch v := invoke.(type) {
+ 	case *ClusterInvoker:
+ 		c := *v
+-		c.routerChain = append([]core.Router{smartCapacityRouter{}}, v.routerChain...)
++		c.routerChain = append([]core.Router{smartCapacityRouter{strict: strict}}, v.routerChain...)
+ 		return &c, nil
+ 	case *HedgingInvoker:
+ 		c := *v
+-		c.routerChain = append([]core.Router{smartCapacityRouter{}}, v.routerChain...)
+-		fallback, err := capacityCheckedInvoker(v.fallbackInvoker)
++		c.routerChain = append([]core.Router{smartCapacityRouter{strict: strict}}, v.routerChain...)
++		fallback, err := capacityCheckedInvoker(v.fallbackInvoker, strict)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+diff --git a/pkg/invoker/smart_request.go b/pkg/invoker/smart_request.go
+--- a/pkg/invoker/smart_request.go
++++ b/pkg/invoker/smart_request.go
+@@ -24,9 +24,10 @@
+ func (e *smartHTTPError) Code() int     { return e.status }
+ 
+ type smartRequest struct {
+-	Stream    bool
+-	Messages  json.RawMessage
+-	MaxOutput int64
++	Stream             bool
++	StrictCapabilities bool
++	Messages           json.RawMessage
++	MaxOutput          int64
+ }
+ 
+ func parseSmartRequest(rt core.RequestType, body []byte) (*smartRequest, error) {
+@@ -34,6 +35,9 @@
+ }
+ func parseSmartTextRequest(rt core.RequestType, body []byte, allowStream bool) (*smartRequest, error) {
+ 	bad := func() (*smartRequest, error) {
++		if allowStream {
++			return nil, &smartHTTPError{http.StatusBadRequest, "composite models support only text chat completions without tools or structured output"}
++		}
+ 		return nil, &smartHTTPError{http.StatusBadRequest, "smart models support only non-streaming text chat completions without tools"}
+ 	}
+ 	if rt != core.RequestTypeChatCompletion {
+@@ -51,6 +55,9 @@
+ 		if v, ok := raw[key]; ok && !bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
+ 			return bad()
+ 		}
++	}
++	if value, exists := raw["response_format"]; allowStream && exists && !bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
++		return bad()
+ 	}
+ 	var messages []map[string]json.RawMessage
+ 	if json.Unmarshal(raw["messages"], &messages) != nil || len(messages) == 0 {
+@@ -92,7 +99,7 @@
+ 			}
+ 		}
+ 	}
+-	req := &smartRequest{Stream: stream, Messages: append(json.RawMessage(nil), raw["messages"]...)}
++	req := &smartRequest{Stream: stream, StrictCapabilities: allowStream, Messages: append(json.RawMessage(nil), raw["messages"]...)}
+ 	for _, key := range []string{"max_tokens", "max_completion_tokens"} {
+ 		if v, ok := raw[key]; ok {
+ 			var value int64

@@ -18,7 +18,7 @@ import (
 // complete draft does not enable the model or overwrite its basic information.
 func (m *Model) UpdateSmartRouting(ctx context.Context, id string, routing *schema.SmartRouting) (*schema.ModelMutationResult, error) {
 	if routing == nil {
-		return nil, errors.BadRequest("", "请填写完整的裁决和难度路由区间配置")
+		return nil, errors.BadRequest("", "请填写完整的复合模型选模配置")
 	}
 	var model, before schema.Model
 	err := m.Trans.Exec(ctx, func(ctx context.Context) error {
@@ -33,7 +33,7 @@ func (m *Model) UpdateSmartRouting(ctx context.Context, id string, routing *sche
 			return err
 		}
 		if model.ModelType != schema.ModelTypeSmart {
-			return errors.BadRequest("", "只有智能模型可以配置难度路由区间")
+			return errors.BadRequest("", "只有复合模型可以配置选模方式")
 		}
 		before = model
 		model.SmartRouting = routing.Clone()

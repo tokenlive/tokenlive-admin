@@ -93,6 +93,7 @@ func (a *Resource) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) e
 		models.POST("", a.ModelAPI.Create)
 		models.PUT(":id", a.ModelAPI.Update)
 		models.PUT(":id/smart-routing", a.ModelAPI.UpdateSmartRouting)
+		models.POST(":id/route-preview", a.ModelAPI.PreviewCompositeRouting)
 		models.PUT(":id/enabled", a.ModelAPI.UpdateEnabled)
 		models.DELETE(":id", a.ModelAPI.Delete)
 		models.GET(":id/endpoints", a.EndpointAPI.QueryEndpointsByModelID)

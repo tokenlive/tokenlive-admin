@@ -18,3 +18,6 @@ export const toggleModelEnabled = (id, params) => request.basic.put(`/api/v1/mod
 export const delModel = (id) => request.basic.delete(`/api/v1/models/${id}`)
 // 同步 model
 export const syncModel = (id) => request.basic.post(`/api/v1/models/${id}/sync`)
+
+// 无上游调用的首次选模预演
+export const previewModelRouting = (id, params) => request.basic.post(`/api/v1/models/${id}/route-preview`, params)

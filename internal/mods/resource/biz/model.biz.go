@@ -63,6 +63,7 @@ func (m *Model) Query(ctx context.Context, params schema.ModelQueryParam) (*sche
 
 	for _, model := range result.Data {
 		model.SmartRoutingReady = model.IsSmartRoutingReady()
+		model.RoutingV2Available = config.C.Gateway.CompositeRoutingV2
 	}
 	return result, nil
 }
@@ -90,6 +91,7 @@ func (m *Model) Get(ctx context.Context, id string) (*schema.Model, error) {
 		return nil, err
 	}
 	model.SmartRoutingReady = model.IsSmartRoutingReady()
+	model.RoutingV2Available = config.C.Gateway.CompositeRoutingV2
 
 	return model, nil
 }
@@ -139,6 +141,7 @@ func (m *Model) Create(ctx context.Context, formItem *schema.ModelForm) (*schema
 
 	result := &schema.ModelCreateResult{Model: model, ModelMutationResult: *m.mutationResult(ctx, model, syncErr)}
 	model.SmartRoutingReady = model.IsSmartRoutingReady()
+	model.RoutingV2Available = config.C.Gateway.CompositeRoutingV2
 	m.applyRecommendedPolicySeeds(ctx, result, formItem)
 	return result, nil
 }
@@ -284,6 +287,17 @@ func (m *Model) Update(ctx context.Context, id string, formItem *schema.ModelFor
 			// Unchanged routing must not block basic edits or disabling when a
 			// dependency is temporarily unavailable. Revalidate when activating
 			// or changing the model space, both of which affect route validity.
+			promiseChanged := model.SmartRouting != nil && model.SmartRouting.SchemaVersion == 2 &&
+				(model.ContextLength != beforeModel.ContextLength || model.MaxOutputTokens != beforeModel.MaxOutputTokens || model.Abilities != beforeModel.Abilities)
+			if promiseChanged {
+				var refs []schema.Model
+				if err := dal.GetModelDB(ctx, m.ModelDAL.DB).Where("id IN ?", model.SmartRouting.ReferenceIDs()).Find(&refs).Error; err != nil {
+					return err
+				}
+				if err := validateCompositePromise(model, refs); err != nil {
+					return err
+				}
+			}
 			if (model.Enabled == 1 && beforeModel.Enabled != 1) || model.SpaceCode != beforeModel.SpaceCode {
 				if err := m.checkSmartModel(ctx, model); err != nil {
 					return err
@@ -336,7 +350,9 @@ func (m *Model) ToggleEnabled(ctx context.Context, id string, formItem *schema.M
 				if !model.IsSmartRoutingReady() {
 					return errors.BadRequest("", "请先在模型详情的难度路由区间中保存完整配置，再启用智能模型")
 				}
-				if err := m.checkSmartModel(ctx, &model); err != nil {
+				candidate := model
+				candidate.Enabled = 1
+				if err := m.checkSmartModel(ctx, &candidate); err != nil {
 					return err
 				}
 			}
