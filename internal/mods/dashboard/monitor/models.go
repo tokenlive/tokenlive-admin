@@ -63,7 +63,13 @@ func (a *Reader) readModels(ctx context.Context, sortBy string, limit int, model
 	if modelFilter == "" {
 		filtered := make([]ModelRankingItem, 0, len(items))
 		for _, row := range items {
-			if row.Requests.Value == nil || row.Requests.State != "ok" || row.Requests.Value.Total > 0 {
+			// no_samples means the source query succeeded over a covered window and
+			// the model genuinely had no traffic, so it is a confirmed zero and can
+			// be dropped. Other non-ok states keep the row: an uncertain source
+			// must not silently hide a model.
+			confirmedZero := row.Requests.State == "ok" && row.Requests.Value != nil && row.Requests.Value.Total == 0 ||
+				row.Requests.State == "no_samples"
+			if !confirmedZero {
 				filtered = append(filtered, row)
 			}
 		}

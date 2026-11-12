@@ -323,6 +323,39 @@ func TestModelObservationEmptyPrometheusResultDoesNotImplyUnsupportedOrZero(t *t
 	require.Nil(t, row.AvgLatencyMs.Value)
 }
 
+func TestModelRankingDropsConfirmedZeroTrafficModels(t *testing.T) {
+	r, _, _ := modelObservationReader(t)
+	configureProviderPrometheus(t, modelPromHandler(t, func(w http.ResponseWriter, q string) {
+		if strings.Contains(q, mRequestTotal) {
+			writeModelPromVector(w, modelPromSample("m-a", "success", "2"))
+			return
+		}
+		writeModelPromVector(w, modelPromSample("m-a", "", "0.2"))
+	}))
+	s, err := r.Read(context.Background(), Query{Models: &ModelQuery{Sort: "request_count"}})
+	require.NoError(t, err)
+	require.Len(t, *s.Models.Data, 1)
+	require.Equal(t, "m-a", (*s.Models.Data)[0].ModelCode)
+	require.Equal(t, int64(2), (*s.Models.Data)[0].Requests.Value.Total)
+}
+
+func TestModelRankingKeepsModelsWhenRequestSourceFails(t *testing.T) {
+	r, _, _ := modelObservationReader(t)
+	configureProviderPrometheus(t, modelPromHandler(t, func(w http.ResponseWriter, q string) {
+		if strings.Contains(q, mRequestTotal) {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		writeModelPromVector(w)
+	}))
+	s, err := r.Read(context.Background(), Query{Models: &ModelQuery{Sort: "request_count"}})
+	require.NoError(t, err)
+	require.Len(t, *s.Models.Data, 2)
+	for _, row := range *s.Models.Data {
+		require.Equal(t, "error", row.Requests.State)
+	}
+}
+
 func TestModelObservationExactSelectionPreservesEnabledModelFilter(t *testing.T) {
 	r, store, now := modelObservationReader(t)
 	require.NoError(t, r.db.Model(&rschema.Model{}).Where("id = ?", "model-a").Update("enabled", 0).Error)
