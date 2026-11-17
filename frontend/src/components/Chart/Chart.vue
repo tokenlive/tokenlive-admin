@@ -174,22 +174,27 @@ function init() {
         showChartLoading()
     }
 
-    setTimeout(() => {
-        if (chart.value) {
-            chart.value.setOption(
-                {
-                    backgroundColor: 'transparent',
-                    ...props.options,
-                },
-                true
-            )
-            chart.value.resize()
-            if (!props.loading) {
-                chart.value.hideLoading()
-            }
-            emit('init', chart.value)
+    const applyInitialOption = () => {
+        if (!chart.value) return
+        chart.value.setOption(
+            {
+                backgroundColor: 'transparent',
+                ...props.options,
+            },
+            true
+        )
+        chart.value.resize()
+        if (!props.loading) {
+            chart.value.hideLoading()
         }
-    }, 100)
+        emit('init', chart.value)
+    }
+
+    if (chartRef.value && chartRef.value.clientWidth > 0 && chartRef.value.clientHeight > 0) {
+        applyInitialOption()
+    } else {
+        setTimeout(applyInitialOption, 100)
+    }
 }
 </script>
 

@@ -2,6 +2,7 @@ package dal
 
 import (
 	"context"
+	"time"
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
@@ -188,11 +189,30 @@ func (e *Endpoint) QueryEndpointsByModelCode(ctx context.Context, modelCode stri
 	return list, nil
 }
 
-// UpdateApiKeyByProviderAndOldKey updates the api_key of non-deleted endpoints associated with a provider if their api_key matches oldKey.
-func (e *Endpoint) UpdateApiKeyByProviderAndOldKey(ctx context.Context, providerID, oldKey, newKey string) error {
+// ListByProviderID queries all non-deleted endpoints belonging to a provider.
+func (e *Endpoint) ListByProviderID(ctx context.Context, providerID string) (schema.Endpoints, error) {
+	var list schema.Endpoints
+	if err := GetEndpointDB(ctx, e.DB).Where("provider_id = ?", providerID).Find(&list).Error; err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return list, nil
+}
+
+// UpdateCascadeFields updates key binding, api_key, enabled status, modifier, and updated_at for a single endpoint.
+func (e *Endpoint) UpdateCascadeFields(ctx context.Context, id, providerKeyID, apiKey string, enabled int, modifier string, updatedAt time.Time) error {
+	var keyIDPtr *string
+	if providerKeyID != "" {
+		keyIDPtr = &providerKeyID
+	}
 	result := GetEndpointDB(ctx, e.DB).
-		Where("provider_id = ? AND api_key = ?", providerID, oldKey).
-		Update("api_key", newKey)
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"provider_key_id": keyIDPtr,
+			"api_key":         apiKey,
+			"enabled":         enabled,
+			"modifier":        modifier,
+			"updated_at":      updatedAt,
+		})
 	return errors.WithStack(result.Error)
 }
 

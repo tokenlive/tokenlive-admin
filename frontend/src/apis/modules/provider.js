@@ -10,6 +10,8 @@ export const getProvider = (id) => request.basic.get(`/api/v1/providers/${id}`)
 export const createProvider = (params) => request.basic.post('/api/v1/providers', params)
 // 更新 provider
 export const updateProvider = (id, params) => request.basic.put(`/api/v1/providers/${id}`, params)
+// 预检更新 provider 密钥对绑定端点的影响
+export const previewProviderKeyImpact = (id, params) => request.basic.post(`/api/v1/providers/${id}/key-impact`, params)
 // 删除 provider
 export const delProvider = (id) => request.basic.delete(`/api/v1/providers/${id}`)
 // 获取供应商上游模型列表

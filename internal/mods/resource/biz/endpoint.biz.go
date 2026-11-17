@@ -228,9 +228,54 @@ func (e *Endpoint) Get(ctx context.Context, id string) (*schema.Endpoint, error)
 	return endpoint, nil
 }
 
+// resolveEndpointKeyBinding validates provider_key_id (when set) and mirrors the bound
+// provider key value onto formItem.ApiKey before persistence or duplicate checks.
+func (e *Endpoint) resolveEndpointKeyBinding(ctx context.Context, formItem *schema.EndpointForm) error {
+	authType := strings.TrimSpace(formItem.AuthType)
+	if authType == "" && e.ProviderDAL != nil && formItem.ProviderID != "" {
+		if provider, err := e.ProviderDAL.Get(ctx, formItem.ProviderID); err == nil && provider != nil {
+			authType = provider.AuthType
+		}
+	}
+	if authType == "oauth_token" {
+		formItem.ProviderKeyID = ""
+		formItem.ApiKey = ""
+		return nil
+	}
+
+	keyID := strings.TrimSpace(formItem.ProviderKeyID)
+	formItem.ProviderKeyID = keyID
+	if keyID == "" {
+		return nil
+	}
+
+	if e.ProviderDAL == nil {
+		return errors.BadRequest("", "无法校验所选供应商密钥")
+	}
+	provider, err := e.ProviderDAL.Get(ctx, formItem.ProviderID)
+	if err != nil {
+		return err
+	} else if provider == nil {
+		return errors.BadRequest("", "关联供应商不存在")
+	}
+	if normalizeAuthType(provider.AuthType) == "oauth_token" {
+		return errors.BadRequest("", "OAuth 类型供应商不支持端点级密钥绑定")
+	}
+
+	keyItem, ok := provider.FindApiKeyByID(keyID)
+	if !ok || strings.TrimSpace(keyItem.Value) == "" {
+		return errors.BadRequest("", "所选供应商密钥不存在或已移除")
+	}
+	formItem.ApiKey = strings.TrimSpace(keyItem.Value)
+	return nil
+}
+
 // Create a new endpoint.
 func (e *Endpoint) Create(ctx context.Context, formItem *schema.EndpointForm) (*schema.Endpoint, error) {
 	if err := rejectSmartEndpoint(ctx, e.ModelDAL, formItem.ModelID); err != nil {
+		return nil, err
+	}
+	if err := e.resolveEndpointKeyBinding(ctx, formItem); err != nil {
 		return nil, err
 	}
 	// Exists check for duplicate endpoint
@@ -301,6 +346,10 @@ func (e *Endpoint) Update(ctx context.Context, id string, formItem *schema.Endpo
 		return err
 	} else if endpoint == nil {
 		return errors.NotFound("", "Endpoint not found")
+	}
+
+	if err := e.resolveEndpointKeyBinding(ctx, formItem); err != nil {
+		return err
 	}
 
 	// Exists check (excluding self)
@@ -532,6 +581,12 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 	}
 
 	// 探活只用第一把 key。解析函数返回全部，取哪一把由探活自己决定。
+	resolvedAPIKey := formItem.ApiKey
+	if authType != "oauth_token" && strings.TrimSpace(formItem.ProviderKeyID) != "" {
+		if keyItem, ok := provider.FindApiKeyByID(formItem.ProviderKeyID); ok && strings.TrimSpace(keyItem.Value) != "" {
+			resolvedAPIKey = strings.TrimSpace(keyItem.Value)
+		}
+	}
 	customHeaders := map[string]string{}
 	if len(formItem.Headers) > 0 && string(formItem.Headers) != "null" {
 		_ = json.Unmarshal(formItem.Headers, &customHeaders)
@@ -540,7 +595,7 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 		EndpointRealModel: formItem.RealModel,
 		ModelCode:         model.ModelCode,
 		AuthType:          authType,
-		EndpointAPIKey:    formItem.ApiKey,
+		EndpointAPIKey:    resolvedAPIKey,
 		ProviderAPIKeys:   providerAPIKeyValues(provider),
 		Headers:           customHeaders,
 		OAuthAccountID:    providerOAuthAccountID(provider),
@@ -1286,10 +1341,11 @@ func (e *Endpoint) TestByID(ctx context.Context, id string) (*schema.EndpointTes
 
 	// 将 schema.Endpoint 转为 EndpointForm 进行复用
 	form := &schema.EndpointForm{
-		ProviderID:  endpoint.ProviderID,
-		ModelID:     endpoint.ModelID,
-		URL:         endpoint.URL,
-		ApiKey:      endpoint.ApiKey,
+		ProviderID:    endpoint.ProviderID,
+		ModelID:       endpoint.ModelID,
+		URL:           endpoint.URL,
+		ProviderKeyID: endpoint.ProviderKeyID,
+		ApiKey:        endpoint.ApiKey,
 		AuthType:    endpoint.AuthType,
 		Protocol:    endpoint.Protocol,
 		RealModel:   endpoint.RealModel,

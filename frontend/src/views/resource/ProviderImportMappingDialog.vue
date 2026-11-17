@@ -274,7 +274,9 @@ async function handleOk() {
             // 循环密钥为端点创建绑定
             const endpointCodeTs = Math.floor(Date.now() / 1000)
             const isOAuth = importContext.value.auth_type === 'oauth_token'
-            for (const [keyIndex, key] of importContext.value.keysToCreate.entries()) {
+            for (const [keyIndex, keyItem] of importContext.value.keysToCreate.entries()) {
+                const keyId = typeof keyItem === 'object' ? keyItem?.id || '' : ''
+                const keyVal = typeof keyItem === 'object' ? keyItem?.value || '' : keyItem || ''
                 const keySuffix = importContext.value.keysToCreate.length > 1 ? `-${keyIndex + 1}` : ''
                 const epCode = `ep-${modelCodeForEp}-${importContext.value.providerCode}-${endpointCodeTs}${keySuffix}`
                 const endpointPayload = {
@@ -282,8 +284,10 @@ async function handleOk() {
                     provider_id: importContext.value.providerId,
                     model_id: modelId,
                     url: importContext.value.base_url,
-                    // OAuth 类型：认证令牌由 provider 级别统一管理，端点不绑定 api_key
-                    api_key: isOAuth ? '' : key,
+                    // OAuth 类型：认证令牌由 provider 级别统一管理，端点不绑定 api_key；
+                    // 多 Key 导入通过 provider_key_id 显式绑定，单 Key 留空保持密钥继承。
+                    provider_key_id: isOAuth ? '' : keyId,
+                    api_key: isOAuth ? '' : keyVal,
                     auth_type: importContext.value.auth_type || 'api_key',
                     protocol: '',
                     real_model: selectedModel.id,

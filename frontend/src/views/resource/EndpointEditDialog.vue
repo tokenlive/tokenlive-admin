@@ -130,15 +130,54 @@
                     <a-radio value="oauth_token">{{ $t('pages.endpoint.form.auth_type.oauth_token') }}</a-radio>
                 </a-radio-group>
             </a-form-item>
-            <a-form-item
-                v-if="formData.auth_type !== 'oauth_token'"
-                :label="$t('pages.endpoint.form.api_key')"
-                name="api_key">
-                <a-input-password
-                    :placeholder="$t('pages.endpoint.form.api_key.placeholder')"
-                    v-model:value="formData.api_key"
-                    allow-clear />
-            </a-form-item>
+            <template v-if="formData.auth_type !== 'oauth_token'">
+                <a-form-item
+                    :label="$t('pages.endpoint.form.key_mode')"
+                    :extra="
+                        keyMode === 'bind' && providerKeyOptions.length === 0
+                            ? $t('pages.endpoint.form.key_mode.bind_empty_hint')
+                            : ''
+                    ">
+                    <a-radio-group
+                        v-model:value="keyMode"
+                        @change="handleKeyModeChange">
+                        <a-radio value="inherit">{{ $t('pages.endpoint.form.key_mode.inherit') }}</a-radio>
+                        <a-radio
+                            value="bind"
+                            :disabled="providerKeyOptions.length === 0"
+                            >{{ $t('pages.endpoint.form.key_mode.bind') }}</a-radio
+                        >
+                        <a-radio value="override">{{ $t('pages.endpoint.form.key_mode.override') }}</a-radio>
+                    </a-radio-group>
+                </a-form-item>
+                <a-form-item
+                    v-if="keyMode === 'bind'"
+                    :label="$t('pages.endpoint.form.api_key')"
+                    name="provider_key_id"
+                    :rules="[{ required: true, message: $t('pages.endpoint.form.provider_key_id.required') }]">
+                    <a-select
+                        v-model:value="formData.provider_key_id"
+                        :options="providerKeyOptions"
+                        :placeholder="$t('pages.endpoint.form.provider_key_id.placeholder')"
+                        allow-clear />
+                </a-form-item>
+                <a-form-item
+                    v-else-if="keyMode === 'override'"
+                    :label="$t('pages.endpoint.form.api_key')"
+                    name="api_key"
+                    :rules="[
+                        {
+                            required: true,
+                            whitespace: true,
+                            message: $t('pages.endpoint.form.key_mode.override.required'),
+                        },
+                    ]">
+                    <a-input-password
+                        :placeholder="$t('pages.endpoint.form.key_mode.override.placeholder')"
+                        v-model:value="formData.api_key"
+                        allow-clear />
+                </a-form-item>
+            </template>
             <a-alert
                 v-else
                 type="info"
@@ -283,7 +322,7 @@
 
 <script setup>
 import { cloneDeep } from 'lodash-es'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import { config } from '@/config'
@@ -291,6 +330,7 @@ import apis from '@/apis'
 import { useForm, useModal } from '@/hooks'
 import { useI18n } from 'vue-i18n'
 import { getProviderProtocolOptions } from '@/enums/provider'
+import { formatProviderKeyLabel, resolveEndpointKeyMode } from '@/utils/endpointKeyMode'
 
 const props = defineProps({
     providerOptions: { type: Array, default: () => [] },
@@ -309,6 +349,40 @@ const protocolOptions = computed(() => getProviderProtocolOptions(t))
 
 const metadataList = ref([])
 const headersList = ref([])
+const keyMode = ref('inherit')
+
+const selectedProvider = computed(() => {
+    const id = formData.value.provider_id || props.providerId
+    if (!id) return null
+    return (props.providerOptions || []).find((p) => p.id === id) || null
+})
+
+const providerKeyOptions = computed(() => {
+    const keys = Array.isArray(selectedProvider.value?.api_keys) ? selectedProvider.value.api_keys : []
+    return keys
+        .filter((k) => k?.id && String(k?.value || '').trim())
+        .map((k) => ({
+            label: formatProviderKeyLabel(k),
+            value: k.id,
+            keyValue: k.value,
+        }))
+})
+
+watch(
+    () => formData.value.provider_id,
+    (newPid, oldPid) => {
+        if (!modal.value.open || !oldPid || newPid === oldPid) return
+        if (keyMode.value === 'bind') {
+            const exists = providerKeyOptions.value.some((opt) => opt.value === formData.value.provider_key_id)
+            if (!exists) {
+                formData.value.provider_key_id = undefined
+                if (providerKeyOptions.value.length === 0) {
+                    keyMode.value = 'inherit'
+                }
+            }
+        }
+    }
+)
 
 function addMetadata() {
     metadataList.value.push({ key: '', value: '' })
@@ -366,8 +440,47 @@ formRules.value = {
 
 function handleAuthTypeChange() {
     if (formData.value.auth_type === 'oauth_token') {
+        formData.value.provider_key_id = ''
         formData.value.api_key = ''
+        keyMode.value = 'inherit'
     }
+}
+
+function handleKeyModeChange() {
+    if (keyMode.value === 'inherit') {
+        formData.value.provider_key_id = ''
+        formData.value.api_key = ''
+    } else if (keyMode.value === 'bind') {
+        formData.value.api_key = ''
+        if (!formData.value.provider_key_id && providerKeyOptions.value.length === 1) {
+            formData.value.provider_key_id = providerKeyOptions.value[0].value
+        }
+    } else if (keyMode.value === 'override') {
+        formData.value.provider_key_id = ''
+    }
+}
+
+function buildEndpointPayload(values) {
+    const authType = values.auth_type || formData.value.auth_type || 'api_key'
+    const params = {
+        ...values,
+        auth_type: authType,
+        metadata: metadataToJSON(metadataList.value),
+        headers: headersToJSON(headersList.value),
+    }
+    if (authType === 'oauth_token' || keyMode.value === 'inherit') {
+        params.provider_key_id = ''
+        params.api_key = ''
+    } else if (keyMode.value === 'bind') {
+        const keyId = values.provider_key_id || formData.value.provider_key_id || ''
+        const matched = providerKeyOptions.value.find((opt) => opt.value === keyId)
+        params.provider_key_id = keyId
+        params.api_key = matched?.keyValue || ''
+    } else {
+        params.provider_key_id = ''
+        params.api_key = values.api_key ?? formData.value.api_key ?? ''
+    }
+    return params
 }
 
 function normalizeAuthType(record = {}) {
@@ -388,6 +501,8 @@ function handleCreate() {
         priority: 0,
         protocol: '',
         auth_type: 'api_key',
+        provider_key_id: '',
+        api_key: '',
         model_id: props.modelId || undefined,
         provider_id: props.providerId || undefined,
         input_price: undefined,
@@ -395,6 +510,7 @@ function handleCreate() {
         cached_price: undefined,
         cache_creation_price: undefined,
     }
+    keyMode.value = 'inherit'
     metadataList.value = []
     headersList.value = []
 }
@@ -406,6 +522,8 @@ async function handleEdit(record = {}) {
     })
     formRecord.value = record
     formData.value = normalizeAuthType(cloneDeep(record))
+    const inferred = resolveEndpointKeyMode(formData.value)
+    keyMode.value = inferred === 'oauth' ? 'inherit' : inferred
     metadataList.value = jsonToMetadata(record.metadata)
     headersList.value = jsonToHeaders(record.headers)
 }
@@ -422,6 +540,8 @@ async function handleCopy(record = {}) {
     delete copiedData.status_points
 
     formData.value = copiedData
+    const inferred = resolveEndpointKeyMode(formData.value)
+    keyMode.value = inferred === 'oauth' ? 'inherit' : inferred
     metadataList.value = jsonToMetadata(record.metadata)
     headersList.value = jsonToHeaders(record.headers)
 }
@@ -432,15 +552,7 @@ function handleOk() {
         .then(async (values) => {
             try {
                 showLoading()
-                const params = {
-                    ...values,
-                    auth_type: values.auth_type || formData.value.auth_type || 'api_key',
-                    metadata: metadataToJSON(metadataList.value),
-                    headers: headersToJSON(headersList.value),
-                }
-                if (params.auth_type === 'oauth_token') {
-                    params.api_key = ''
-                }
+                const params = buildEndpointPayload(values)
                 let result = null
                 switch (modal.value.type) {
                     case 'create':
@@ -486,15 +598,7 @@ function handleTest() {
         .then(async (values) => {
             try {
                 testing.value = true
-                const params = {
-                    ...values,
-                    auth_type: values.auth_type || formData.value.auth_type || 'api_key',
-                    metadata: metadataToJSON(metadataList.value),
-                    headers: headersToJSON(headersList.value),
-                }
-                if (params.auth_type === 'oauth_token') {
-                    params.api_key = ''
-                }
+                const params = buildEndpointPayload(values)
                 const { data, success, message: errMessage } = await apis.endpoint.testEndpointDraft(params)
                 if (success && data && data.success) {
                     message.success(t('pages.endpoint.test.success', { latency: data.latency_ms }))
@@ -531,6 +635,7 @@ function filterModelOption(input, option) {
 
 function onAfterClose() {
     resetForm()
+    keyMode.value = 'inherit'
     testing.value = false
     hideLoading()
 }

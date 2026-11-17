@@ -51,6 +51,10 @@ func (a *Resource) Init(ctx context.Context) error {
 		}
 	}
 
+	if err := biz.BackfillProviderKeyBindings(ctx, a.DB); err != nil {
+		return err
+	}
+
 	// Start OAuth token background refresher cron loop
 	refresher := biz.NewTokenRefresher(a.DB, a.ConfigRedisSync)
 	go refresher.StartCronLoop(ctx)
@@ -68,6 +72,7 @@ func (a *Resource) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) e
 		providers.GET(":id", a.ProviderAPI.Get)
 		providers.POST("", a.ProviderAPI.Create)
 		providers.PUT(":id", a.ProviderAPI.Update)
+		providers.POST(":id/key-impact", a.ProviderAPI.PreviewKeyImpact)
 		providers.DELETE(":id", a.ProviderAPI.Delete)
 		providers.POST(":id/fetch-models", a.ProviderAPI.FetchModels)
 		providers.GET(":id/quota", a.ProviderAPI.GetQuota)

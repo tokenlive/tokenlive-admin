@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/tokenlive/tokenlive-admin/internal/config"
@@ -57,10 +58,25 @@ type ProviderQueryResult struct {
 // Providers defines a slice of Provider.
 type Providers []*Provider
 
-// ApiKeyItem represents a single API key with optional description.
+// ApiKeyItem represents a single API key with a stable ID and optional description.
 type ApiKeyItem struct {
+	ID          string `json:"id,omitempty"`
 	Value       string `json:"value"`
 	Description string `json:"description"`
+}
+
+// AffectedEndpointInfo describes an endpoint affected by removing or invalidating a provider key.
+type AffectedEndpointInfo struct {
+	ID            string `json:"id"`
+	Code          string `json:"code"`
+	ModelID       string `json:"model_id"`
+	ProviderKeyID string `json:"provider_key_id,omitempty"`
+}
+
+// ProviderKeyImpactResult reports endpoints that will be auto-disabled by a provider update.
+type ProviderKeyImpactResult struct {
+	AffectedEndpointCount int                    `json:"affected_endpoint_count"`
+	AffectedEndpoints     []AffectedEndpointInfo `json:"affected_endpoints,omitempty"`
 }
 
 // OAuthCredential holds the OAuth secrets and refresh metadata for a provider,
@@ -143,6 +159,56 @@ func (p *Provider) GetApiKeys() []ApiKeyItem {
 	var keys []ApiKeyItem
 	_ = json.Unmarshal(p.ApiKeys, &keys)
 	return keys
+}
+
+// FindApiKeyByID returns the ApiKeyItem matching the given key ID, if present.
+func (p *Provider) FindApiKeyByID(id string) (ApiKeyItem, bool) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ApiKeyItem{}, false
+	}
+	for _, item := range p.GetApiKeys() {
+		if strings.TrimSpace(item.ID) == id {
+			return item, true
+		}
+	}
+	return ApiKeyItem{}, false
+}
+
+// EnsureAPIKeyIDs assigns a stable XID to any key item missing an ID and trims IDs/values.
+// Returns the normalized slice and whether any item was modified.
+func EnsureAPIKeyIDs(keys []ApiKeyItem) ([]ApiKeyItem, bool) {
+	if len(keys) == 0 {
+		return nil, false
+	}
+	out := make([]ApiKeyItem, len(keys))
+	seenIDs := make(map[string]struct{}, len(keys))
+	changed := false
+	for i, item := range keys {
+		id := strings.TrimSpace(item.ID)
+		val := strings.TrimSpace(item.Value)
+		if id != item.ID || val != item.Value {
+			changed = true
+		}
+		if id == "" {
+			if val != "" {
+				id = util.NewXID()
+				changed = true
+			}
+		} else if _, dup := seenIDs[id]; dup {
+			id = util.NewXID()
+			changed = true
+		}
+		if id != "" {
+			seenIDs[id] = struct{}{}
+		}
+		out[i] = ApiKeyItem{
+			ID:          id,
+			Value:       val,
+			Description: item.Description,
+		}
+	}
+	return out, changed
 }
 
 // GetOAuth deserializes the JSON oauth field into an OAuthCredential.

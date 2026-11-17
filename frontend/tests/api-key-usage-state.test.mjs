@@ -173,3 +173,26 @@ test('refreshes after 30 seconds, pauses hidden/inactive, and resumes without du
     t.mock.timers.tick(60000)
     assert.equal(calls, 4)
 })
+
+test('SWR retains current rows with refreshing=true while switching to an uncached query', async () => {
+    const second = deferred()
+    let calls = 0
+    const controller = controllerFor(() => {
+        calls++
+        return calls === 1 ? Promise.resolve(ready(12)) : second.promise
+    })
+    await activate(controller)
+    assert.equal(controller.getState().phase, 'ready')
+    assert.equal(controller.getState().refreshing, false)
+
+    controller.setQuery({ sort_by: 'cost', limit: 20 })
+    assert.equal(controller.getState().refreshing, true)
+    assert.equal(controller.getState().phase, 'ready')
+    assert.equal(controller.getState().data.summary.request_count, 12)
+
+    second.resolve(ready(24))
+    await controller.refresh()
+    assert.equal(controller.getState().refreshing, false)
+    assert.equal(controller.getState().data.summary.request_count, 24)
+    controller.dispose()
+})

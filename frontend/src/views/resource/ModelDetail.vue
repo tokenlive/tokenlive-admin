@@ -345,6 +345,11 @@
                                         >{{ $t('pages.endpoint.form.protocol.inherit') }}</span
                                     >
                                 </template>
+                                <template v-if="'key_mode' === column.key">
+                                    <a-tag :color="getEndpointKeyDisplay(record).color">
+                                        {{ getEndpointKeyDisplay(record).label }}
+                                    </a-tag>
+                                </template>
                                 <template v-if="'real_model' === column.key">
                                     <a-tooltip :title="record.real_model">
                                         <span class="url-text">{{ record.real_model || '--' }}</span>
@@ -796,6 +801,7 @@ import CircuitBreakEditDialog from '@/views/policy/CircuitBreakEditDialog.vue'
 import InvocationEditDialog from '@/views/policy/InvocationEditDialog.vue'
 import TaggingEditDialog from '@/views/policy/TaggingEditDialog.vue'
 import { getProviderProtocolLabel } from '@/enums/provider'
+import { resolveEndpointKeyDisplay } from '@/utils/endpointKeyMode'
 
 defineOptions({
     name: 'modelDetail',
@@ -1109,6 +1115,11 @@ const endpointColumns = [
         width: 180,
     },
     {
+        title: t('pages.endpoint.form.key_mode'),
+        key: 'key_mode',
+        width: 200,
+    },
+    {
         title: t('pages.endpoint.recent_status'),
         key: 'recent_status',
         width: 180,
@@ -1309,6 +1320,11 @@ function getInheritedProtocol(providerId) {
     if (!providerId) return ''
     const p = providerOptions.value.find((item) => item.id === providerId)
     return p ? p.protocol : ''
+}
+
+function getEndpointKeyDisplay(record) {
+    const provider = providerOptions.value.find((item) => item.id === record?.provider_id) || null
+    return resolveEndpointKeyDisplay(record, provider, t)
 }
 
 async function loadModelDetail() {
@@ -1616,7 +1632,7 @@ async function loadProviderOptions() {
     try {
         const { data, success } = await apis.provider
             .getProviderList({
-                pageSize: 100,
+                pageSize: 1000,
                 current: 1,
             })
             .catch(() => {

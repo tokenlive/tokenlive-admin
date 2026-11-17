@@ -668,6 +668,38 @@
         <APIKeyUsageRanking
             v-if="canViewAPIKeyUsage"
             :authorized="canViewAPIKeyUsage" />
+        <a-card
+            v-else-if="showAPIKeyUsagePlaceholder"
+            class="dashboard-panel api-key-usage-placeholder"
+            :title="$t('pages.dashboard.apiKeyRanking.title')"
+            :bordered="false"
+            aria-hidden="true">
+            <div class="usage-placeholder-stage">
+                <div class="usage-placeholder-table">
+                    <div class="usage-placeholder-row usage-placeholder-row--head">
+                        <span class="skeleton-block block-long"></span>
+                        <span class="skeleton-block block-short"></span>
+                        <span class="skeleton-block block-med"></span>
+                        <span class="skeleton-block block-short"></span>
+                        <span class="skeleton-block block-long"></span>
+                    </div>
+                    <div
+                        v-for="row in 6"
+                        :key="row"
+                        class="usage-placeholder-row">
+                        <span class="skeleton-block block-long"></span>
+                        <span class="skeleton-block block-short"></span>
+                        <span class="skeleton-block block-med"></span>
+                        <span class="skeleton-block block-short"></span>
+                        <span class="skeleton-block block-long"></span>
+                    </div>
+                </div>
+                <div class="usage-placeholder-footer">
+                    <span class="skeleton-block block-long"></span>
+                    <span class="skeleton-block block-med"></span>
+                </div>
+            </div>
+        </a-card>
 
         <!-- 第四行：策略分布与资产汇总 -->
         <a-row
@@ -897,6 +929,7 @@ import UsageTrends from './components/UsageTrends.vue'
 import MonitoringStatus from '@/components/MonitoringStatus.vue'
 import { monitoringSnapshot, monitoringSuccessRates } from '@/utils/monitoring-snapshot'
 import { monitoringChart } from '@/utils/monitoring-chart'
+import { isPanelRememberedDisabled } from '@/utils/dashboard-panel-memory'
 
 defineOptions({
     name: 'home',
@@ -910,13 +943,27 @@ const userStore = useUserStore()
 const canViewAPIKeyUsage = computed(
     () => userStore.isLogin && userStore.userInfoVerified && userStore.userInfo?.is_root === true
 )
+const verifyingAPIKeyUsage = ref(
+    userStore.isLogin &&
+        !userStore.userInfoVerified &&
+        userStore.userInfo?.is_root === true &&
+        !isPanelRememberedDisabled('api-key-ranking')
+)
+const showAPIKeyUsagePlaceholder = computed(() => !canViewAPIKeyUsage.value && verifyingAPIKeyUsage.value)
 // A reload restores display-only cached user data. Re-verify the principal
 // before mounting the cross-tenant usage panel, independently of telemetry.
 onMounted(() => {
     if (userStore.isLogin && !userStore.userInfoVerified) {
-        userStore.getUserInfo().catch(() => {
-            // Keep the privileged panel hidden when identity cannot be verified.
-        })
+        userStore
+            .getUserInfo()
+            .catch(() => {
+                // Keep the privileged panel hidden when identity cannot be verified.
+            })
+            .finally(() => {
+                verifyingAPIKeyUsage.value = false
+            })
+    } else {
+        verifyingAPIKeyUsage.value = false
     }
 })
 
@@ -1216,14 +1263,14 @@ function connectWebSocket() {
 }
 
 onMounted(async () => {
-    // 1. 获取静态实体数量
-    await fetchStaticCounts()
-    // 2. 立即通过 HTTP 拉取初始指标，避免白屏
+    // 1. 并发拉取静态实体数量与初始遥测指标，避免首屏瀑布流等待
+    const staticCountsPromise = fetchStaticCounts()
     await fetchTelemetryData()
-    // 3. 启动默认 HTTP 轮询 定时器
+    // 2. 启动默认 HTTP 轮询 定时器
     timer.value = setInterval(fetchTelemetryData, 10000)
-    // 4. 尝试连接 WebSocket，若连接成功且有数据将被接管并自动关闭 HTTP 轮询定时器
+    // 3. 尝试连接 WebSocket，若连接成功且有数据将被接管并自动关闭 HTTP 轮询定时器
     connectWebSocket()
+    await staticCountsPromise
 })
 
 onUnmounted(() => {
@@ -2094,5 +2141,71 @@ function modelRankingRowProps(record) {
 
 [data-theme='dark'] .home-model-code {
     color: rgba(255, 255, 255, 0.45);
+}
+
+.dashboard-panel.api-key-usage-placeholder {
+    margin-bottom: 16px;
+    contain: layout style;
+
+    :deep(.ant-card-head) {
+        min-height: 56px;
+    }
+
+    :deep(.ant-card-head-title) {
+        font-size: 16px;
+        font-weight: 600;
+    }
+}
+
+.usage-placeholder-stage {
+    height: 520px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.usage-placeholder-table {
+    flex: 1;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.usage-placeholder-row {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1.4fr 1fr 1.6fr;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--dashboard-border);
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.usage-placeholder-row--head {
+    flex: 0 0 auto;
+    background: var(--dashboard-panel-soft);
+}
+
+.usage-placeholder-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+@media (max-width: 700px) {
+    .api-key-usage-placeholder :deep(.ant-card-body) {
+        padding: 16px;
+    }
+
+    .usage-placeholder-stage {
+        height: 560px;
+    }
 }
 </style>

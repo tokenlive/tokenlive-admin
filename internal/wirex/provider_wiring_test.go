@@ -14,16 +14,17 @@ import (
 	"github.com/tokenlive/tokenlive-admin/pkg/util"
 )
 
-// Version-check wiring must preserve the existing provider runtime behavior.
-// Enabling EndpointDAL is separate work: sequential overlapping replacements
-// can re-match endpoints already changed earlier in the same transaction.
+// Provider wiring injects EndpointDAL and updates bound endpoints atomically by
+// stable key ID, so swap and overlapping replacements never clobber one another.
 func TestBuildInjectorPreservesProviderEndpointKeysForOverlappingUpdates(t *testing.T) {
 	for _, tc := range []struct {
-		name    string
-		newKeys []schema.ApiKeyItem
+		name     string
+		newVals  [2]string
+		wantEpA  string
+		wantEpB  string
 	}{
-		{"swap", []schema.ApiKeyItem{{Value: "fixture-b"}, {Value: "fixture-a"}}},
-		{"overlap", []schema.ApiKeyItem{{Value: "fixture-b"}, {Value: "fixture-c"}}},
+		{"swap", [2]string{"fixture-b", "fixture-a"}, "fixture-b", "fixture-a"},
+		{"overlap", [2]string{"fixture-b", "fixture-c"}, "fixture-b", "fixture-c"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			injector := providerWiringInjector(t)
@@ -33,6 +34,9 @@ func TestBuildInjectorPreservesProviderEndpointKeysForOverlappingUpdates(t *test
 			}
 			ctx := util.NewTenant(util.NewUsername(context.Background(), "fixture-user"), "fixture-tenant")
 			provider := injector.M.Resource.ProviderAPI.ProviderBIZ
+			if provider.EndpointDAL == nil {
+				t.Fatal("expected EndpointDAL to be wired into ProviderBIZ")
+			}
 			form := &schema.ProviderForm{
 				Code: "fixture-provider", Name: "Fixture Provider", Protocol: "fixture",
 				ApiKeys: []schema.ApiKeyItem{{Value: "fixture-a"}, {Value: "fixture-b"}},
@@ -41,11 +45,15 @@ func TestBuildInjectorPreservesProviderEndpointKeysForOverlappingUpdates(t *test
 			if err != nil {
 				t.Fatal(err)
 			}
+			createdKeys := created.GetApiKeys()
+			if len(createdKeys) != 2 || createdKeys[0].ID == "" || createdKeys[1].ID == "" {
+				t.Fatalf("expected created provider keys to have IDs, got %+v", createdKeys)
+			}
 			endpoints := []schema.Endpoint{
-				{ID: "fixture-ep-a", Code: "fixture-ep-a", ProviderID: created.ID, ModelID: "fixture-model", ApiKey: "fixture-a", Deleted: "0"},
-				{ID: "fixture-ep-b", Code: "fixture-ep-b", ProviderID: created.ID, ModelID: "fixture-model", ApiKey: "fixture-b", Deleted: "0"},
-				{ID: "fixture-inherit", Code: "fixture-inherit", ProviderID: created.ID, ModelID: "fixture-model", Deleted: "0"},
-				{ID: "fixture-other", Code: "fixture-other", ProviderID: "other-provider", ModelID: "fixture-model", ApiKey: "fixture-a", Deleted: "0"},
+				{ID: "fixture-ep-a", Code: "fixture-ep-a", ProviderID: created.ID, ModelID: "fixture-model", ProviderKeyID: createdKeys[0].ID, ApiKey: "fixture-a", Enabled: 1, Deleted: "0"},
+				{ID: "fixture-ep-b", Code: "fixture-ep-b", ProviderID: created.ID, ModelID: "fixture-model", ProviderKeyID: createdKeys[1].ID, ApiKey: "fixture-b", Enabled: 1, Deleted: "0"},
+				{ID: "fixture-inherit", Code: "fixture-inherit", ProviderID: created.ID, ModelID: "fixture-model", Enabled: 1, Deleted: "0"},
+				{ID: "fixture-other", Code: "fixture-other", ProviderID: "other-provider", ModelID: "fixture-model", ApiKey: "fixture-a", Enabled: 1, Deleted: "0"},
 			}
 			t.Cleanup(func() {
 				if err := db.Unscoped().Where("id IN ?", []string{"fixture-ep-a", "fixture-ep-b", "fixture-inherit", "fixture-other"}).
@@ -55,7 +63,7 @@ func TestBuildInjectorPreservesProviderEndpointKeysForOverlappingUpdates(t *test
 				if err := db.Unscoped().Where("data_id = ?", created.ID).Delete(&schema.DataPermission{}).Error; err != nil {
 					t.Error(err)
 				}
-				if err := db.Unscoped().Where("resource_id = ?", created.ID).Delete(&opsSchema.AuditLog{}).Error; err != nil {
+				if err := db.Unscoped().Where("resource_id = ? OR resource_id IN ?", created.ID, []string{"fixture-ep-a", "fixture-ep-b"}).Delete(&opsSchema.AuditLog{}).Error; err != nil {
 					t.Error(err)
 				}
 				if err := db.Unscoped().Where("id = ?", created.ID).Delete(&schema.Provider{}).Error; err != nil {
@@ -68,7 +76,10 @@ func TestBuildInjectorPreservesProviderEndpointKeysForOverlappingUpdates(t *test
 				}
 			}
 
-			form.ApiKeys = tc.newKeys
+			form.ApiKeys = []schema.ApiKeyItem{
+				{ID: createdKeys[0].ID, Value: tc.newVals[0]},
+				{ID: createdKeys[1].ID, Value: tc.newVals[1]},
+			}
 			if err := provider.Update(ctx, created.ID, form); err != nil {
 				t.Fatal(err)
 			}
@@ -76,8 +87,8 @@ func TestBuildInjectorPreservesProviderEndpointKeysForOverlappingUpdates(t *test
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := updated.GetApiKeys(); !reflect.DeepEqual(got, tc.newKeys) {
-				t.Fatalf("provider update itself did not persist: got %+v, want %+v", got, tc.newKeys)
+			if got := updated.GetApiKeys(); !reflect.DeepEqual(got, form.ApiKeys) {
+				t.Fatalf("provider update itself did not persist: got %+v, want %+v", got, form.ApiKeys)
 			}
 			var actual []schema.Endpoint
 			if err := db.Order("id").Find(&actual).Error; err != nil {
@@ -88,18 +99,18 @@ func TestBuildInjectorPreservesProviderEndpointKeysForOverlappingUpdates(t *test
 				gotKeys[endpoint.ID] = endpoint.ApiKey
 			}
 			wantKeys := map[string]string{
-				"fixture-ep-a": "fixture-a", "fixture-ep-b": "fixture-b",
+				"fixture-ep-a": tc.wantEpA, "fixture-ep-b": tc.wantEpB,
 				"fixture-inherit": "", "fixture-other": "fixture-a",
 			}
 			if !reflect.DeepEqual(gotKeys, wantKeys) {
-				t.Errorf("version wiring changed existing endpoint key associations: got %v, want %v", gotKeys, wantKeys)
+				t.Errorf("endpoint cascade mismatch: got %v, want %v", gotKeys, wantKeys)
 			}
-			var auditCount int64
-			if err := db.Model(&opsSchema.AuditLog{}).Where("resource_id = ?", created.ID).Count(&auditCount).Error; err != nil {
+			var providerAuditCount int64
+			if err := db.Model(&opsSchema.AuditLog{}).Where("resource_id = ?", created.ID).Count(&providerAuditCount).Error; err != nil {
 				t.Fatal(err)
 			}
-			if auditCount != 2 {
-				t.Errorf("provider create/update audit dependency lost: got %d records, want 2", auditCount)
+			if providerAuditCount != 2 {
+				t.Errorf("provider create/update audit dependency lost: got %d records, want 2", providerAuditCount)
 			}
 		})
 	}

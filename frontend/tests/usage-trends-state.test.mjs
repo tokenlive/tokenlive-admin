@@ -149,3 +149,44 @@ test('chart preserves zero latency and null samples and uses independent failure
     assert.equal(formatTrendValue(0, 'ms'), '0 ms')
     assert.deepEqual(latency.xAxis.data, ['00:00', '00:01'])
 })
+
+test('SWR retains current chart during range switch and preserves cached snapshot on poll outage', async () => {
+    let nextCall = null
+    let calls = 0
+    const c = controller((query) => {
+        calls++
+        return new Promise((resolve, reject) => {
+            nextCall = { query, resolve, reject }
+        })
+    })
+    const initialPromise = activate(c)
+    nextCall.resolve(ready(5))
+    await initialPromise
+    assert.equal(c.getState().phase, 'ready')
+    assert.equal(c.getState().stale, false)
+
+    // 切换时间范围但新请求尚在途中：保留当前数据防止塌缩为骨架屏
+    c.setTimeRange('7d')
+    assert.equal(c.getState().timeRange, '7d')
+    assert.equal(c.getState().refreshing, true)
+    assert.equal(c.getState().data.summary.requests, 5)
+    assert.equal(c.getState().phase, 'ready')
+
+    // 切回已缓存的 today：立即命中缓存，且后台刷新失败时标记 stale 并保留缓存
+    c.setTimeRange('today')
+    assert.equal(c.getState().data.summary.requests, 5)
+    nextCall.reject({ response: { status: 503 } })
+    await tick()
+    assert.equal(c.getState().phase, 'ready')
+    assert.equal(c.getState().stale, true)
+    assert.equal(c.getState().data.summary.requests, 5)
+
+    // 切换到未缓存的时间范围且失败：显示错误而不是旧范围数据
+    c.setTimeRange('1h')
+    nextCall.reject({ response: { status: 503 } })
+    await tick()
+    assert.equal(c.getState().phase, 'error')
+    assert.equal(c.getState().data, null)
+    assert.equal(calls, 4)
+    c.dispose()
+})

@@ -248,6 +248,7 @@ CREATE TABLE IF NOT EXISTS `endpoint`
     `provider_id`          CHAR(20)                                              NOT NULL COMMENT '关联 of provider ID',
     `url`                  VARCHAR(1024)                                         NOT NULL COMMENT '上游 API 地址',
     `auth_type`            VARCHAR(64)                                                    DEFAULT 'api_key' COMMENT '认证类型: api_key, oauth_token',
+    `provider_key_id`      VARCHAR(20)                                                    DEFAULT NULL COMMENT '关联的供应商密钥ID（仅密钥绑定模式）',
     `api_key`              TEXT COMMENT '可选，覆盖 provider 级别的 api_key',
     `protocol`             VARCHAR(64) COMMENT '可选，覆盖 provider 级别的 protocol',
     `real_model`           VARCHAR(128) COMMENT '可选，覆盖 model 级别的 real_model',
@@ -269,6 +270,7 @@ CREATE TABLE IF NOT EXISTS `endpoint`
     `deleted_at`           DATETIME                                              NULL     DEFAULT NULL COMMENT '逻辑删除时间',
     KEY `idx_endpoint_route` (`model_id`, `provider_id`) USING BTREE,
     KEY `idx_provider_id` (`provider_id`, `deleted`),
+    KEY `idx_provider_key_id` (`provider_key_id`, `deleted`),
     KEY `idx_model_id` (`model_id`, `deleted`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4

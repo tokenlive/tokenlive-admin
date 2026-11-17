@@ -30,7 +30,14 @@ export function createAPIKeyUsageController({
     setTimeoutFn = setTimeout,
     clearTimeoutFn = clearTimeout,
 }) {
-    const state = { phase: 'idle', data: null, stale: false, error: null, query: { ...defaultQuery } }
+    const state = {
+        phase: 'idle',
+        data: null,
+        stale: false,
+        refreshing: false,
+        error: null,
+        query: { ...defaultQuery },
+    }
     const cache = new Map()
     let authorized = false
     let active = false
@@ -54,6 +61,7 @@ export function createAPIKeyUsageController({
         sequence++
         current?.abort.abort()
         current = null
+        state.refreshing = false
     }
     const clearData = () => {
         cache.clear()
@@ -80,6 +88,7 @@ export function createAPIKeyUsageController({
         const abort = new AbortController()
         const query = { ...state.query }
         state.error = null
+        state.refreshing = true
         if (!state.data) state.phase = 'loading'
         emit()
         // Install the in-flight entry before a synchronously throwing loader can
@@ -115,6 +124,7 @@ export function createAPIKeyUsageController({
             } finally {
                 if (!disposed && id === sequence) {
                     current = null
+                    state.refreshing = false
                     emit()
                     schedule()
                 }
@@ -130,10 +140,16 @@ export function createAPIKeyUsageController({
         if (queryKey(next) === queryKey(state.query)) return
         cancelCurrent()
         state.query = next
-        state.data = authorized ? cache.get(queryKey(next)) || null : null
+        const cached = authorized ? cache.get(queryKey(next)) || null : null
+        if (cached) {
+            state.data = cached
+            state.phase = phaseFor(cached)
+        } else if (!authorized || !state.data) {
+            state.data = null
+            state.phase = 'idle'
+        }
         state.stale = false
         state.error = null
-        state.phase = state.data ? phaseFor(state.data) : 'idle'
         emit()
         refresh()
     }

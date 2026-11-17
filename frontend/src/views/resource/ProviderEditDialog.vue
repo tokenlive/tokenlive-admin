@@ -84,7 +84,7 @@
                 name="api_keys">
                 <div
                     v-for="(item, index) in formData.api_keys"
-                    :key="index"
+                    :key="item.id || index"
                     style="display: flex; align-items: center; margin-bottom: 8px; gap: 8px">
                     <a-input-password
                         v-model:value="formData.api_keys[index].value"
@@ -224,7 +224,7 @@
 
 <script setup>
 import { cloneDeep } from 'lodash-es'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import { computed, ref } from 'vue'
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons-vue'
 import { config } from '@/config'
@@ -511,15 +511,66 @@ async function handleEdit(record = {}) {
     cancelCodexOAuth()
 }
 
+function hasRemovedOrInvalidatedKeys(original = {}, nextParams = {}) {
+    const oldAuthType = original.auth_type || 'api_key'
+    const nextAuthType = nextParams.auth_type || 'api_key'
+    const oldKeys = Array.isArray(original.api_keys)
+        ? original.api_keys.filter((k) => String(k?.value || '').trim())
+        : []
+    if (oldAuthType === 'oauth_token' || oldKeys.length === 0) {
+        return false
+    }
+    if (nextAuthType === 'oauth_token') {
+        return true
+    }
+    const nextKeys = Array.isArray(nextParams.api_keys) ? nextParams.api_keys : []
+    const nextIds = new Set(nextKeys.map((k) => k?.id).filter(Boolean))
+    const nextValues = new Set(nextKeys.map((k) => String(k?.value || '').trim()).filter(Boolean))
+    return oldKeys.some((oldItem) => {
+        if (oldItem?.id) {
+            return !nextIds.has(oldItem.id)
+        }
+        return !nextValues.has(String(oldItem?.value || '').trim())
+    })
+}
+
+async function confirmKeyImpactIfNeeded(id, params) {
+    if (!hasRemovedOrInvalidatedKeys(formRecord.value, params)) {
+        return true
+    }
+    const res = await apis.provider.previewProviderKeyImpact(id, params)
+    const count = res?.data?.affected_endpoint_count || 0
+    if (count <= 0) {
+        return true
+    }
+    hideLoading()
+    return await new Promise((resolve) => {
+        Modal.confirm({
+            title: t('pages.provider.form.api_keys.delete_confirm_title', '确认删除或切换失效密钥？'),
+            content: t('pages.provider.form.api_keys.delete_confirm_desc', { count }),
+            okText: t('button.confirm', '确认'),
+            cancelText: t('button.cancel', '取消'),
+            onOk: () => resolve(true),
+            onCancel: () => resolve(false),
+        })
+    })
+}
+
 function handleOk() {
     formRef.value
         .validateFields()
         .then(async (values) => {
             try {
+                const authType = values.auth_type || formData.value.auth_type || 'api_key'
+                const apiKeys = Array.isArray(formData.value.api_keys) ? formData.value.api_keys : []
+                if (authType !== 'oauth_token' && apiKeys.some((item) => !String(item?.value || '').trim())) {
+                    message.warning(t('pages.provider.form.api_keys.empty_error', '请填写完整的 API 密钥或删除空白项'))
+                    return
+                }
                 showLoading()
                 const params = {
                     ...values,
-                    api_keys: formData.value.api_keys,
+                    api_keys: apiKeys,
                     oauth: formData.value.oauth,
                 }
                 let result = null
@@ -529,11 +580,17 @@ function handleOk() {
                             throw new Error()
                         })
                         break
-                    case 'edit':
+                    case 'edit': {
+                        const confirmed = await confirmKeyImpactIfNeeded(formData.value.id, params)
+                        if (!confirmed) {
+                            return
+                        }
+                        showLoading()
                         result = await apis.provider.updateProvider(formData.value.id, params).catch(() => {
                             throw new Error()
                         })
                         break
+                    }
                 }
                 hideLoading()
                 if (config('http.code.success') === result?.success) {

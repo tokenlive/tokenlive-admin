@@ -91,12 +91,18 @@ func (p *Provider) Create(ctx context.Context, formItem *schema.ProviderForm) (*
 		return nil, errors.BadRequest("", "Provider code already exists")
 	}
 
+	if err := validateUniqueProviderAPIKeys(formItem.AuthType, formItem.ApiKeys); err != nil {
+		return nil, err
+	}
+	normalizedForm := *formItem
+	normalizedForm.ApiKeys = resolveFormAPIKeyIDs(formItem.AuthType, nil, formItem.ApiKeys)
+
 	provider := &schema.Provider{
 		ID:        util.NewXID(),
 		Creator:   util.FromUsername(ctx),
 		CreatedAt: time.Now(),
 	}
-	if err := formItem.FillTo(provider); err != nil {
+	if err := normalizedForm.FillTo(provider); err != nil {
 		return nil, err
 	}
 
@@ -130,37 +136,48 @@ func (p *Provider) Update(ctx context.Context, id string, formItem *schema.Provi
 
 	beforeProvider := *provider
 
-	// Calculate APIKey changes (index-aligned)
-	oldKeys := beforeProvider.GetApiKeys()
-	newKeys := formItem.ApiKeys
-	changeMap := make(map[string]string)
-
-	minLen := len(oldKeys)
-	if len(newKeys) < minLen {
-		minLen = len(newKeys)
-	}
-
-	for i := 0; i < minLen; i++ {
-		oldVal := strings.TrimSpace(oldKeys[i].Value)
-		newVal := strings.TrimSpace(newKeys[i].Value)
-		if oldVal != "" && newVal != "" && oldVal != newVal {
-			changeMap[oldVal] = newVal
+	var endpoints schema.Endpoints
+	if p.EndpointDAL != nil {
+		endpoints, err = p.EndpointDAL.ListByProviderID(ctx, provider.ID)
+		if err != nil {
+			return err
 		}
 	}
 
-	if err := formItem.FillTo(provider); err != nil {
+	plan, err := planProviderKeyCascade(&beforeProvider, formItem, endpoints)
+	if err != nil {
 		return err
 	}
-	provider.Modifier = util.FromUsername(ctx)
-	provider.UpdatedAt = time.Now()
+
+	normalizedForm := *formItem
+	normalizedForm.ApiKeys = plan.resolvedNewKeys
+
+	if err := normalizedForm.FillTo(provider); err != nil {
+		return err
+	}
+	modifier := util.FromUsername(ctx)
+	now := time.Now()
+	provider.Modifier = modifier
+	provider.UpdatedAt = now
 
 	err = p.Trans.Exec(ctx, func(ctx context.Context) error {
 		if err := p.ProviderDAL.Update(ctx, provider); err != nil {
 			return err
 		}
-		if p.EndpointDAL != nil && len(changeMap) > 0 {
-			for oldKey, newKey := range changeMap {
-				if err := p.EndpointDAL.UpdateApiKeyByProviderAndOldKey(ctx, provider.ID, oldKey, newKey); err != nil {
+		if p.EndpointDAL != nil {
+			for i := range plan.mutations {
+				m := &plan.mutations[i]
+				m.after.Modifier = modifier
+				m.after.UpdatedAt = now
+				if err := p.EndpointDAL.UpdateCascadeFields(
+					ctx,
+					m.after.ID,
+					m.after.ProviderKeyID,
+					m.after.ApiKey,
+					m.after.Enabled,
+					modifier,
+					now,
+				); err != nil {
 					return err
 				}
 			}
@@ -170,6 +187,13 @@ func (p *Provider) Update(ctx context.Context, id string, formItem *schema.Provi
 	if err == nil {
 		_ = p.ConfigRedisSync.SyncProviderID(ctx, provider.ID)
 		p.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeProvider, provider.ID, provider.Name, beforeProvider, provider)
+		for i := range plan.mutations {
+			m := &plan.mutations[i]
+			if m.reason == cascadeReasonClaimed {
+				continue
+			}
+			p.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionUpdate, opsSchema.AuditResourceTypeEndpoint, m.after.ID, m.after.Code, m.before, m.after)
+		}
 	}
 	return err
 }

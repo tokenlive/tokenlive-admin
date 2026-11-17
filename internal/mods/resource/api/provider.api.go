@@ -117,6 +117,35 @@ func (p *Provider) Update(c *gin.Context) {
 
 // @Tags ProviderAPI
 // @Security ApiKeyAuth
+// @Summary Preview endpoints impacted by provider API key changes
+// @Param id path string true "unique id"
+// @Param body body schema.ProviderForm true "Request body"
+// @Success 200 {object} util.ResponseResult{data=schema.ProviderKeyImpactResult}
+// @Failure 400 {object} util.ResponseResult
+// @Failure 401 {object} util.ResponseResult
+// @Failure 500 {object} util.ResponseResult
+// @Router /api/v1/providers/{id}/key-impact [post]
+func (p *Provider) PreviewKeyImpact(c *gin.Context) {
+	ctx := c.Request.Context()
+	item := new(schema.ProviderForm)
+	if err := util.ParseJSON(c, item); err != nil {
+		util.ResError(c, err)
+		return
+	} else if err := item.Validate(); err != nil {
+		util.ResError(c, err)
+		return
+	}
+
+	result, err := p.ProviderBIZ.PreviewKeyImpact(ctx, c.Param("id"), item)
+	if err != nil {
+		util.ResError(c, err)
+		return
+	}
+	util.ResSuccess(c, result)
+}
+
+// @Tags ProviderAPI
+// @Security ApiKeyAuth
 // @Summary Delete provider record by ID
 // @Param id path string true "unique id"
 // @Success 200 {object} util.ResponseResult
