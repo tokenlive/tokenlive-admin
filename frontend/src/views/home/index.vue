@@ -213,13 +213,15 @@
         <UsageTrends />
 
         <!-- 第二行：遥测图表（走势 + Token 分布） -->
-        <a-row :gutter="16">
+        <a-row
+            :gutter="16"
+            class="equal-height-row">
             <a-col
                 :xs="24"
                 :lg="16"
-                style="margin-bottom: 16px">
+                style="margin-bottom: 16px; display: flex">
                 <a-card
-                    class="dashboard-panel"
+                    class="dashboard-panel dashboard-chart-panel"
                     :bordered="false"
                     hoverable>
                     <template #title>
@@ -415,6 +417,7 @@
                         </div>
                         <a-empty
                             v-else-if="trafficChart.mode === 'empty'"
+                            class="dashboard-chart-empty"
                             :description="$t('pages.dashboard.trends.empty')" />
                         <x-chart
                             v-else-if="trafficChart.mode === 'chart'"
@@ -426,9 +429,9 @@
             <a-col
                 :xs="24"
                 :lg="8"
-                style="margin-bottom: 16px">
+                style="margin-bottom: 16px; display: flex">
                 <a-card
-                    class="dashboard-panel"
+                    class="dashboard-panel dashboard-chart-panel"
                     :title="$t('pages.dashboard.tokens.distribution')"
                     :bordered="false"
                     hoverable>
@@ -1626,6 +1629,28 @@ function modelRankingRowProps(record) {
 .equal-height-row {
     display: flex;
     flex-wrap: wrap;
+}
+
+.dashboard-chart-panel {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+
+    :deep(.ant-card-body) {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+.dashboard-chart-empty {
+    flex: 1;
+    min-height: 340px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .dashboard-health-alert {
