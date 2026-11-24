@@ -374,6 +374,24 @@ export default {
     'pages.provider.fetchModels.success': '{count} models selected',
     'pages.provider.fetchModels.table.model': 'Model',
     'pages.provider.fetchModels.table.owned_by': 'Sub Provider',
+    'pages.provider.fetchModels.search.placeholder': 'Search discovered model names or IDs',
+    'pages.provider.fetchModels.gemini.search.placeholder':
+        'Search model names, IDs, descriptions, or generation methods',
+    'pages.provider.fetchModels.unknown': 'Unknown',
+    'pages.provider.fetchModels.table.input_token_limit': 'Input Token Limit',
+    'pages.provider.fetchModels.table.output_token_limit': 'Output Token Limit',
+    'pages.provider.fetchModels.table.supported_generation_methods': 'Native Methods',
+    'pages.provider.fetchModels.gemini.hint':
+        'Only Gemini models declaring generateContent can be imported. Other models remain visible but cannot be selected. Token limits come from the native API; missing limits are unknown. Streaming, tool, and vision abilities are not inferred.',
+    'pages.provider.fetchModels.gemini.unsupported':
+        'The gateway only supports gemini_generate_content. Models without generateContent (including embedContent-only models) cannot be imported.',
+    'pages.provider.fetchModels.base_url.changed': 'Base URL has changed. Fetch models again before confirming import.',
+    'pages.provider.fetchModels.mapping.duplicate_code':
+        'Duplicate new model code in this batch: {code}. Rename before saving.',
+    'pages.provider.fetchModels.mapping.existing_code_conflict':
+        'Model code or name {code} already exists. Map to the existing model or choose another code.',
+    'pages.provider.fetchModels.mapping.gemini.request_type_warning':
+        'The selected existing model does not enable gemini_generate_content. Add it in model settings after import.',
     'pages.provider.fetchModels.mapping.title': 'Map imported models to system models',
     'pages.provider.fetchModels.mapping.hint':
         'Choose how each discovered model should be linked. Existing models will not be created again.',

@@ -239,13 +239,26 @@ func (p *Provider) ensureProviderCanDelete(ctx context.Context, id string) error
 	return nil
 }
 
-// FetchModels calls the upstream provider's /v1/models API and returns the model list.
+// FetchModels calls the upstream provider's model catalog and returns the model list.
 func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem *schema.FetchModelsForm) (*schema.FetchModelsResult, error) {
 	provider, err := p.ProviderDAL.Get(ctx, providerID)
 	if err != nil {
 		return nil, err
 	} else if provider == nil {
 		return nil, errors.NotFound("", "Provider not found")
+	}
+
+	if !util.FromIsRootUser(ctx) && p.DataPermissionBIZ != nil {
+		ok, err := p.DataPermissionBIZ.HasReadPermission(ctx, schema.DataPermissionTypeProvider, providerID)
+		if err != nil {
+			return nil, err
+		} else if !ok {
+			return nil, errors.NotFound("", "Provider not found")
+		}
+	}
+
+	if err := validateFetchModelsBaseURLOverride(provider, formItem); err != nil {
+		return nil, err
 	}
 
 	// If the provider uses OAuth and the token is expiring (or expired), refresh it first!
@@ -279,6 +292,9 @@ func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem 
 	baseURL := strings.TrimRight(formItem.BaseURL, "/")
 	if baseURL == "" {
 		baseURL = strings.TrimRight(provider.URL, "/")
+	}
+	if provider.Protocol == "gemini" {
+		return p.fetchGeminiModels(ctx, baseURL, apiKey)
 	}
 	// Codex OAuth defaults to the ChatGPT backend base when URL is empty.
 	if baseURL == "" && isCodexOAuthProvider(provider) {

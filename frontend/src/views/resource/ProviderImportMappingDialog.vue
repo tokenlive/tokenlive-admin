@@ -30,12 +30,17 @@
                             <span style="color: #1890ff; font-weight: 500">🆕 创建为新系统模型</span>
                         </a-select-option>
                         <a-select-option
-                            v-for="item in existingModels"
+                            v-for="item in mappableExistingModels"
                             :key="item.id"
                             :value="item.id">
                             {{ item.model_name }} ({{ item.model_code }})
                         </a-select-option>
                     </a-select>
+                    <div
+                        v-if="hasIncompatibleExistingRequestTypes(mapping[record.id])"
+                        class="mapping-compat-warning">
+                        {{ $t('pages.provider.fetchModels.mapping.gemini.request_type_warning') }}
+                    </div>
                 </template>
                 <template v-if="'new_code' === column.key">
                     <div v-if="mapping[record.id] === '__NEW__'">
@@ -87,6 +92,13 @@ import { message } from 'ant-design-vue'
 import apis from '@/apis'
 import { config } from '@/config'
 import { useI18n } from 'vue-i18n'
+import {
+    buildEndpointCode,
+    geminiEndpointMetadata,
+    isValidTokenLimit,
+    modelSupportsRequestType,
+    supportsGeminiGenerateContent,
+} from '@/utils/provider-models'
 
 const emit = defineEmits(['ok'])
 const { t } = useI18n()
@@ -98,6 +110,7 @@ const models = ref([])
 const mapping = ref({})
 const newModelCodes = ref({})
 const existingModels = ref([])
+const mappableExistingModels = computed(() => existingModels.value.filter((item) => item?.model_type !== 'smart'))
 const applyInvocationSeed = ref(true)
 const applyCircuitBreakSeed = ref(true)
 const newModelCount = computed(() => Object.values(mapping.value).filter((value) => value === '__NEW__').length)
@@ -184,10 +197,33 @@ async function handleOpen(context) {
     visible.value = true
 }
 
+function hasIncompatibleExistingRequestTypes(modelId) {
+    if (importContext.value.protocol !== 'gemini' || !modelId || modelId === '__NEW__') {
+        return false
+    }
+    const existing = existingModels.value.find((m) => m.id === modelId)
+    if (!existing) return false
+    return !modelSupportsRequestType(existing, 'gemini_generate_content')
+}
+
 async function handleOk() {
-    // 提前校验待新建模型的 code 格式，防止脏数据和部分失败
+    const isGeminiImport = importContext.value.protocol === 'gemini'
+    // Validate the entire batch before creating any models or endpoints, even when the drawer was bypassed.
+    if (isGeminiImport && models.value.some((model) => !supportsGeminiGenerateContent(model))) {
+        message.error(t('pages.provider.fetchModels.gemini.unsupported'))
+        return
+    }
+    // 提前校验待新建模型的 code 格式、批内唯一性及与已有模型的冲突，防止脏数据和部分失败
+    const seenNewCodes = new Set()
+    const existingCodesOrNames = new Set()
+    for (const item of existingModels.value) {
+        if (item?.model_code) existingCodesOrNames.add(String(item.model_code).trim())
+        if (item?.model_name) existingCodesOrNames.add(String(item.model_name).trim())
+    }
+    let hasIncompatibleExistingMapping = false
     for (const selectedModel of models.value) {
-        if (mapping.value[selectedModel.id] === '__NEW__') {
+        const targetId = mapping.value[selectedModel.id]
+        if (targetId === '__NEW__') {
             const rawCode = (newModelCodes.value[selectedModel.id] || selectedModel.id || '').trim()
             if (isInvalidModelCode(rawCode)) {
                 message.error(
@@ -195,6 +231,17 @@ async function handleOk() {
                 )
                 return
             }
+            if (seenNewCodes.has(rawCode)) {
+                message.error(t('pages.provider.fetchModels.mapping.duplicate_code', { code: rawCode }))
+                return
+            }
+            if (existingCodesOrNames.has(rawCode)) {
+                message.error(t('pages.provider.fetchModels.mapping.existing_code_conflict', { code: rawCode }))
+                return
+            }
+            seenNewCodes.add(rawCode)
+        } else if (hasIncompatibleExistingRequestTypes(targetId)) {
+            hasIncompatibleExistingMapping = true
         }
     }
 
@@ -227,26 +274,34 @@ async function handleOk() {
                     (importContext.value.base_url || '').toLowerCase().includes('chatgpt.com/backend-api/codex') ||
                     ((importContext.value.auth_type || '') === 'oauth_token' &&
                         (importContext.value.base_url || '').toLowerCase().includes('chatgpt.com'))
-                const request_types =
-                    importContext.value.protocol === 'gemini'
-                        ? JSON.stringify(['gemini_generate_content'])
-                        : selectedModel.id.toLowerCase().includes('embed')
-                          ? JSON.stringify(['embedding'])
-                          : isCodexImport || selectedModel.id.toLowerCase().includes('responses')
-                            ? JSON.stringify(['responses'])
-                            : JSON.stringify(['chat_completion'])
+                const request_types = isGeminiImport
+                    ? JSON.stringify(['gemini_generate_content'])
+                    : selectedModel.id.toLowerCase().includes('embed')
+                      ? JSON.stringify(['embedding'])
+                      : isCodexImport || selectedModel.id.toLowerCase().includes('responses')
+                        ? JSON.stringify(['responses'])
+                        : JSON.stringify(['chat_completion'])
 
                 const modelPayload = {
                     model_name: modelCodeForEp,
                     model_code: modelCodeForEp,
                     space_code: importContext.value.space_code,
                     request_types: request_types,
-                    context_length: 8192,
-                    max_output_tokens: 8192,
-                    abilities: JSON.stringify(['stream', 'tool_call']),
+                    context_length:
+                        isGeminiImport && isValidTokenLimit(selectedModel.input_token_limit)
+                            ? selectedModel.input_token_limit
+                            : 8192,
+                    max_output_tokens:
+                        isGeminiImport && isValidTokenLimit(selectedModel.output_token_limit)
+                            ? selectedModel.output_token_limit
+                            : 8192,
+                    abilities: JSON.stringify(isGeminiImport ? [] : ['stream', 'tool_call']),
                     owner: selectedModel.owned_by || 'system',
                     enabled: 1,
-                    description: 'Imported from provider model fetch',
+                    description:
+                        isGeminiImport && selectedModel.description
+                            ? Array.from(selectedModel.description).slice(0, 255).join('')
+                            : 'Imported from provider model fetch',
                     apply_invocation_seed: applyInvocationSeed.value,
                     apply_circuit_break_seed: applyCircuitBreakSeed.value,
                 }
@@ -278,7 +333,12 @@ async function handleOk() {
                 const keyId = typeof keyItem === 'object' ? keyItem?.id || '' : ''
                 const keyVal = typeof keyItem === 'object' ? keyItem?.value || '' : keyItem || ''
                 const keySuffix = importContext.value.keysToCreate.length > 1 ? `-${keyIndex + 1}` : ''
-                const epCode = `ep-${modelCodeForEp}-${importContext.value.providerCode}-${endpointCodeTs}${keySuffix}`
+                const epCode = buildEndpointCode(
+                    modelCodeForEp,
+                    importContext.value.providerCode,
+                    endpointCodeTs,
+                    keySuffix
+                )
                 const endpointPayload = {
                     code: epCode,
                     provider_id: importContext.value.providerId,
@@ -295,6 +355,7 @@ async function handleOk() {
                     priority: 1,
                     weight: 1,
                     description: 'Auto created from provider model fetch',
+                    ...(isGeminiImport ? { metadata: geminiEndpointMetadata(selectedModel) } : {}),
                 }
 
                 const { success: endpointSuccess } = await apis.endpoint
@@ -309,6 +370,9 @@ async function handleOk() {
             }
         }
 
+        if (hasIncompatibleExistingMapping) {
+            message.warning(t('pages.provider.fetchModels.mapping.gemini.request_type_warning'))
+        }
         showImportResultMessage({
             successModelCount,
             successEndpointCount,
@@ -381,5 +445,12 @@ defineExpose({
 .recommended-policies-hint {
     opacity: 0.65;
     line-height: 1.5;
+}
+
+.mapping-compat-warning {
+    margin-top: 4px;
+    color: #d46b08;
+    font-size: 12px;
+    line-height: 1.3;
 }
 </style>

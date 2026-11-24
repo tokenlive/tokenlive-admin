@@ -20,21 +20,28 @@ func endpointCapabilities(ep *schema.Endpoint) (int64, int64, []string) {
 	}
 	var metadata map[string]json.RawMessage
 	if json.Unmarshal(ep.Metadata, &metadata) == nil {
-		for key, dst := range map[string]*int64{"context_length": &contextLength, "max_output_tokens": &maxOutput} {
-			if raw, exists := metadata[key]; exists {
-				var value int64
-				if json.Unmarshal(raw, &value) == nil {
-					*dst = value
+		overrideFromMetadata := func(dst *int64, keys ...string) {
+			for _, key := range keys {
+				raw, exists := metadata[key]
+				if !exists {
 					continue
+				}
+				var value int64
+				if json.Unmarshal(raw, &value) == nil && value >= 0 {
+					*dst = value
+					return
 				}
 				var text string
 				if json.Unmarshal(raw, &text) == nil {
-					if value, err := strconv.ParseInt(text, 10, 64); err == nil {
-						*dst = value
+					if parsed, err := strconv.ParseInt(text, 10, 64); err == nil && parsed >= 0 {
+						*dst = parsed
+						return
 					}
 				}
 			}
 		}
+		overrideFromMetadata(&contextLength, "context_length", "input_token_limit")
+		overrideFromMetadata(&maxOutput, "max_output_tokens", "output_token_limit")
 	}
 	return contextLength, maxOutput, abilities
 }

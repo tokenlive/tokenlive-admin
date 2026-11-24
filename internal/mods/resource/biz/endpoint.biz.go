@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -691,6 +692,15 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			"max_tokens": 1,
 			"stream":     false,
 		})
+	case endpointProbeGemini:
+		var err error
+		reqURL, reqBody, err = buildGeminiProbe(url, realModel)
+		if err != nil {
+			return &schema.EndpointTestResult{
+				Success: false,
+				Message: fmt.Sprintf("构建 Gemini 探测请求失败: %s", err.Error()),
+			}, nil
+		}
 	default:
 		if strings.Contains(url, "/chat/completions") {
 			reqURL = url
@@ -738,6 +748,8 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 			req.Header.Set("client", "JoyCodeIDE")
 			req.Header.Set("clientVersion", "3.8.61")
 			req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+		} else if probeKind == endpointProbeGemini {
+			req.Header.Set("x-goog-api-key", apiKey)
 		} else {
 			req.Header.Set("Authorization", "Bearer "+apiKey)
 		}
@@ -759,6 +771,9 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 
 	// 6. 执行请求并测量耗时
 	client := &http.Client{}
+	if probeKind == endpointProbeGemini {
+		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
+	}
 	startTime := time.Now()
 	resp, err := client.Do(req)
 	latency := time.Since(startTime).Milliseconds()
@@ -864,6 +879,9 @@ func (e *Endpoint) Test(ctx context.Context, formItem *schema.EndpointForm) (*sc
 
 	} else if probeKind == endpointProbeResponses || isCodex {
 		return evaluateResponsesTestResult(resp.StatusCode, latency, bodyBytes, rawDetail, isCodex)
+
+	} else if probeKind == endpointProbeGemini {
+		return evaluateGeminiTestResult(resp.StatusCode, latency, bodyBytes, rawDetail)
 
 	} else if protocol == "anthropic" {
 		// 校验 Anthropic Chat
@@ -975,6 +993,7 @@ const (
 	endpointProbeChat endpointProbeKind = iota
 	endpointProbeResponses
 	endpointProbeAnthropic
+	endpointProbeGemini
 	endpointProbeJoyCode
 	endpointProbeEmbedding
 	endpointProbeImageGeneration
@@ -991,6 +1010,7 @@ func selectEndpointProbeKind(protocol string, requestTypes []string, isCodex boo
 	hasEmbedding := false
 	hasResponses := false
 	hasMessages := false
+	hasGemini := false
 	hasChat := false
 	for _, cap := range requestTypes {
 		switch strings.TrimSpace(cap) {
@@ -1002,12 +1022,17 @@ func selectEndpointProbeKind(protocol string, requestTypes []string, isCodex boo
 			hasResponses = true
 		case "messages":
 			hasMessages = true
+		case "gemini_generate_content":
+			hasGemini = true
 		case "chat_completion":
 			hasChat = true
 		}
 	}
-	if hasEmbedding && !hasResponses && !hasMessages && !hasChat {
+	if hasEmbedding && !hasResponses && !hasMessages && !hasGemini && !hasChat {
 		return endpointProbeEmbedding
+	}
+	if protocol == "gemini" || (hasGemini && !hasChat && !hasResponses && !hasMessages) {
+		return endpointProbeGemini
 	}
 	if protocol == "anthropic" || (hasMessages && !hasChat && !hasResponses) {
 		return endpointProbeAnthropic
@@ -1016,6 +1041,96 @@ func selectEndpointProbeKind(protocol string, requestTypes []string, isCodex boo
 		return endpointProbeResponses
 	}
 	return endpointProbeChat
+}
+
+func buildGeminiProbe(baseURL, model string) (string, []byte, error) {
+	normalizedBase, err := normalizeGeminiModelsBaseURL(baseURL)
+	if err != nil {
+		return "", nil, err
+	}
+	modelID := strings.TrimPrefix(strings.TrimSpace(model), "models/")
+	if modelID == "" {
+		return "", nil, errors.BadRequest("", "Gemini 探测缺少模型名称")
+	}
+	reqURL := normalizedBase + "/models/" + url.PathEscape(modelID) + ":generateContent"
+	reqBody, _ := json.Marshal(map[string]interface{}{
+		"contents": []map[string]interface{}{
+			{
+				"role": "user",
+				"parts": []map[string]string{
+					{"text": "ping"},
+				},
+			},
+		},
+		"generationConfig": map[string]interface{}{
+			"maxOutputTokens": 1,
+		},
+	})
+	return reqURL, reqBody, nil
+}
+
+func evaluateGeminiTestResult(statusCode int, latency int64, bodyBytes []byte, rawDetail string) (*schema.EndpointTestResult, error) {
+	var geminiResp struct {
+		Candidates []struct {
+			Content struct {
+				Parts []struct {
+					Text string `json:"text"`
+				} `json:"parts"`
+			} `json:"content"`
+		} `json:"candidates"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+			Status  string `json:"status"`
+		} `json:"error"`
+	}
+
+	_ = json.Unmarshal(bodyBytes, &geminiResp)
+
+	if statusCode != http.StatusOK {
+		errMsg := fmt.Sprintf("上游返回错误状态码: %d", statusCode)
+		if geminiResp.Error != nil && strings.TrimSpace(geminiResp.Error.Message) != "" {
+			errMsg = fmt.Sprintf("上游返回错误状态码: %d (%s)", statusCode, geminiResp.Error.Message)
+		}
+		return &schema.EndpointTestResult{
+			Success:   false,
+			LatencyMs: latency,
+			Message:   errMsg,
+			Detail:    rawDetail,
+		}, nil
+	}
+
+	if geminiResp.Error != nil && strings.TrimSpace(geminiResp.Error.Message) != "" {
+		return &schema.EndpointTestResult{
+			Success:   false,
+			LatencyMs: latency,
+			Message:   fmt.Sprintf("Gemini 上游返回业务报错: %s", geminiResp.Error.Message),
+			Detail:    rawDetail,
+		}, nil
+	}
+
+	if len(geminiResp.Candidates) == 0 {
+		return &schema.EndpointTestResult{
+			Success:   false,
+			LatencyMs: latency,
+			Message:   "上游响应不符合 Gemini 规范 (未获取到 candidates 数组)",
+			Detail:    rawDetail,
+		}, nil
+	}
+
+	detailText := "连接成功 (未返回文本内容)"
+	for _, part := range geminiResp.Candidates[0].Content.Parts {
+		if strings.TrimSpace(part.Text) != "" {
+			detailText = part.Text
+			break
+		}
+	}
+	return &schema.EndpointTestResult{
+		Success:   true,
+		LatencyMs: latency,
+		Message:   "测试连接成功",
+		Detail:    detailText,
+	}, nil
 }
 
 func buildJoyCodeProbe(baseURL, model string, requestTypes []string) (string, []byte, error) {

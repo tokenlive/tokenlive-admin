@@ -2,7 +2,7 @@
     <a-drawer
         :open="visible"
         :title="$t('pages.provider.fetchModels.title')"
-        :width="660"
+        :width="isGeminiProvider ? 1080 : 660"
         @afterOpenChange="onAfterOpen"
         @close="handleClose">
         <a-form
@@ -44,9 +44,11 @@
                         <a-input
                             v-model:value="formData.base_url"
                             :placeholder="
-                                isCodexProvider
-                                    ? 'https://chatgpt.com/backend-api/codex'
-                                    : $t('pages.provider.fetchModels.base_url.placeholder')
+                                isGeminiProvider
+                                    ? GEMINI_DEFAULT_BASE_URL
+                                    : isCodexProvider
+                                      ? 'https://chatgpt.com/backend-api/codex'
+                                      : $t('pages.provider.fetchModels.base_url.placeholder')
                             " />
                     </a-col>
                     <a-col :span="6">
@@ -74,6 +76,13 @@
 
         <a-divider />
 
+        <a-alert
+            v-if="isGeminiProvider"
+            type="info"
+            show-icon
+            style="margin-bottom: 12px"
+            :message="$t('pages.provider.fetchModels.gemini.hint')" />
+
         <div class="model-table-container">
             <div
                 class="model-list-header"
@@ -82,14 +91,18 @@
                     {{
                         $t('pages.provider.fetchModels.selected', {
                             count: selectedModels.length,
-                            total: filteredModelList.length,
+                            total: modelList.length,
                         })
                     }}
                 </span>
             </div>
             <a-input-search
                 v-model:value="searchQuery"
-                placeholder="输入发现的模型名称/Code进行模糊过滤..."
+                :placeholder="
+                    isGeminiProvider
+                        ? $t('pages.provider.fetchModels.gemini.search.placeholder')
+                        : $t('pages.provider.fetchModels.search.placeholder')
+                "
                 style="margin-bottom: 12px; width: 100%"
                 allow-clear />
             <a-table
@@ -98,7 +111,7 @@
                 :row-selection="rowSelection"
                 :row-key="(record) => record.id"
                 :pagination="false"
-                :scroll="{ y: 'calc(100vh - 365px)' }"
+                :scroll="{ x: isGeminiProvider ? 980 : undefined, y: 'calc(100vh - 365px)' }"
                 size="small"
                 class="model-table">
             </a-table>
@@ -121,7 +134,9 @@
 <script setup>
 import { ref, computed, h } from 'vue'
 import { CloudDownloadOutlined } from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
 import { cloneDeep } from 'lodash-es'
+import { GEMINI_DEFAULT_BASE_URL, isKnownTokenLimit, supportsGeminiGenerateContent } from '@/utils/provider-models'
 import apis from '@/apis'
 import { config } from '@/config'
 import { useI18n } from 'vue-i18n'
@@ -135,6 +150,7 @@ const visible = ref(false)
 const fetching = ref(false)
 const fetched = ref(false)
 const isCodexProvider = ref(false)
+const isGeminiProvider = ref(false)
 const formRef = ref(null)
 const providerId = ref('')
 const providerApiKeys = ref([])
@@ -155,68 +171,140 @@ const formRules = ref({
 const modelList = ref([])
 const selectedModels = ref([])
 const searchQuery = ref('')
+const fetchedBaseUrl = ref('')
+let fetchSeq = 0
 
 const filteredModelList = computed(() => {
     if (!searchQuery.value) return modelList.value
     const query = searchQuery.value.toLowerCase()
-    return modelList.value.filter(
-        (m) => m.id.toLowerCase().includes(query) || (m.owned_by && m.owned_by.toLowerCase().includes(query))
-    )
+    return modelList.value.filter((model) => {
+        const fields = isGeminiProvider.value
+            ? [
+                  model.id,
+                  model.owned_by,
+                  model.name,
+                  model.display_name,
+                  model.description,
+                  ...(model.supported_generation_methods || []),
+              ]
+            : [model.id, model.owned_by]
+        return fields.some((value) => typeof value === 'string' && value.toLowerCase().includes(query))
+    })
 })
 
-const columns = computed(() => [
-    {
-        title: t('pages.provider.fetchModels.table.model'),
-        dataIndex: 'id',
-        key: 'id',
-        width: 380,
-        customRender: ({ text }) => {
-            return h('span', { class: 'model-id' }, text)
+const columns = computed(() => {
+    const result = [
+        {
+            title: t('pages.provider.fetchModels.table.model'),
+            dataIndex: 'id',
+            key: 'id',
+            width: 380,
+            customRender: ({ text, record }) => {
+                const id = h('span', { class: 'model-id' }, text)
+                if (!isGeminiProvider.value) return id
+                return h('div', { class: 'native-model-details' }, [
+                    id,
+                    record.display_name && h('div', { class: 'native-display-name' }, record.display_name),
+                    record.description && h('div', { class: 'native-description' }, record.description),
+                    !supportsGeminiGenerateContent(record) &&
+                        h('div', { class: 'native-unsupported' }, t('pages.provider.fetchModels.gemini.unsupported')),
+                ])
+            },
         },
-    },
-    {
-        title: t('pages.provider.fetchModels.table.owned_by'),
-        dataIndex: 'owned_by',
-        key: 'owned_by',
-        width: 180,
-    },
-])
+        {
+            title: t('pages.provider.fetchModels.table.owned_by'),
+            dataIndex: 'owned_by',
+            key: 'owned_by',
+            width: isGeminiProvider.value ? 120 : 180,
+        },
+    ]
+    if (isGeminiProvider.value) {
+        for (const field of ['input_token_limit', 'output_token_limit']) {
+            result.push({
+                title: t(`pages.provider.fetchModels.table.${field}`),
+                dataIndex: field,
+                key: field,
+                width: 130,
+                customRender: ({ text }) => (isKnownTokenLimit(text) ? text : t('pages.provider.fetchModels.unknown')),
+            })
+        }
+        result.push({
+            title: t('pages.provider.fetchModels.table.supported_generation_methods'),
+            dataIndex: 'supported_generation_methods',
+            key: 'supported_generation_methods',
+            width: 220,
+            customRender: ({ text }) =>
+                Array.isArray(text) && text.length ? text.join(', ') : t('pages.provider.fetchModels.unknown'),
+        })
+    }
+    return result
+})
 
 const rowSelection = computed(() => {
     return {
         selectedRowKeys: selectedModels.value,
+        preserveSelectedRowKeys: true,
         onChange: (selectedRowKeys) => {
             selectedModels.value = selectedRowKeys
         },
+        ...(isGeminiProvider.value
+            ? {
+                  getCheckboxProps: (model) => ({
+                      disabled: !supportsGeminiGenerateContent(model),
+                      title: supportsGeminiGenerateContent(model)
+                          ? undefined
+                          : t('pages.provider.fetchModels.gemini.unsupported'),
+                  }),
+              }
+            : {}),
     }
 })
 
 async function handleFetchModels() {
+    if (isGeminiProvider.value && !String(formData.value.base_url || '').trim()) {
+        formData.value.base_url = GEMINI_DEFAULT_BASE_URL
+    }
+    const seq = ++fetchSeq
     try {
         await formRef.value.validateFields(['base_url'])
     } catch {
         return
     }
+    if (seq !== fetchSeq || !visible.value) return
 
+    const requestedBaseUrl = String(formData.value.base_url || '').trim()
     try {
         fetching.value = true
         const { success, data } = await apis.provider
             .fetchProviderModels(providerId.value, {
-                base_url: formData.value.base_url,
+                base_url: requestedBaseUrl,
                 api_key: formData.value.api_key || '',
             })
             .catch(() => {
                 throw new Error()
             })
+        if (seq !== fetchSeq || !visible.value) return
         fetching.value = false
         fetched.value = true
         if (config('http.code.success') === success) {
             modelList.value = data?.models || []
+            const resolvedBaseUrl =
+                typeof data?.base_url === 'string' && data.base_url ? data.base_url : requestedBaseUrl
+            formData.value.base_url = resolvedBaseUrl
+            fetchedBaseUrl.value = resolvedBaseUrl
             selectedModels.value = []
+        } else {
+            modelList.value = []
+            selectedModels.value = []
+            fetchedBaseUrl.value = ''
         }
     } catch {
+        if (seq !== fetchSeq) return
         fetching.value = false
         fetched.value = true
+        modelList.value = []
+        selectedModels.value = []
+        fetchedBaseUrl.value = ''
     }
 }
 
@@ -242,20 +330,24 @@ async function loadSpaces() {
 }
 
 function handleConfirm() {
+    const currentBaseUrl = String(formData.value.base_url || '').trim()
+    if (fetchedBaseUrl.value && currentBaseUrl !== fetchedBaseUrl.value) {
+        message.warning(t('pages.provider.fetchModels.base_url.changed'))
+        return
+    }
+    const models = selectedModels.value.map((id) => modelList.value.find((model) => model.id === id))
+    if (isGeminiProvider.value && models.some((model) => !supportsGeminiGenerateContent(model))) {
+        message.error(t('pages.provider.fetchModels.gemini.unsupported'))
+        return
+    }
     emit('confirm', {
         providerId: providerId.value,
         space_code: formData.value.space_code,
-        base_url: formData.value.base_url,
+        base_url: fetchedBaseUrl.value || currentBaseUrl,
         api_key: formData.value.api_key,
         api_keys: providerApiKeys.value.map((item) => item.value),
         provider_api_keys: providerApiKeys.value,
-        models: selectedModels.value.map((id) => {
-            const model = modelList.value.find((m) => m.id === id)
-            return {
-                id,
-                owned_by: model?.owned_by || '',
-            }
-        }),
+        models: models.map((model, index) => cloneDeep(model || { id: selectedModels.value[index], owned_by: '' })),
     })
     handleClose()
 }
@@ -276,8 +368,11 @@ function detectCodexProvider(record = {}) {
 function handleOpen(record) {
     providerId.value = record.id
     providerApiKeys.value = Array.isArray(record.api_keys) ? cloneDeep(record.api_keys) : []
-    isCodexProvider.value = detectCodexProvider(record)
-    const defaultBaseUrl = record.url || (isCodexProvider.value ? CODEX_DEFAULT_BASE_URL : '')
+    isGeminiProvider.value = record.protocol === 'gemini'
+    isCodexProvider.value = !isGeminiProvider.value && detectCodexProvider(record)
+    const defaultBaseUrl =
+        record.url ||
+        (isGeminiProvider.value ? GEMINI_DEFAULT_BASE_URL : isCodexProvider.value ? CODEX_DEFAULT_BASE_URL : '')
     const defaultApiKey = providerApiKeys.value.length > 0 ? providerApiKeys.value[0].value : undefined
     formData.value = {
         space_code: undefined,
@@ -286,6 +381,9 @@ function handleOpen(record) {
     }
     loadSpaces()
 
+    fetchSeq++
+    fetching.value = false
+    fetchedBaseUrl.value = ''
     modelList.value = []
     selectedModels.value = []
     searchQuery.value = ''
@@ -300,7 +398,12 @@ function onAfterOpen(open) {
 }
 
 function handleClose() {
+    fetchSeq++
     visible.value = false
+    fetching.value = false
+    fetchedBaseUrl.value = ''
+    modelList.value = []
+    selectedModels.value = []
     searchQuery.value = ''
     formRef.value?.resetFields()
 }
@@ -326,6 +429,28 @@ defineExpose({
 .model-id {
     font-family: monospace;
     font-size: 13px;
+}
+
+.native-model-details {
+    overflow-wrap: anywhere;
+}
+
+.native-display-name {
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+.native-description {
+    margin-top: 4px;
+    color: var(--color-text-tertiary);
+    font-size: 12px;
+    white-space: pre-wrap;
+}
+
+.native-unsupported {
+    margin-top: 4px;
+    color: #d46b08;
+    font-size: 12px;
 }
 
 :deep(.ant-form-item-required::before) {

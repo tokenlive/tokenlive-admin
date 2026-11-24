@@ -367,6 +367,22 @@ export default {
     'pages.provider.fetchModels.success': '已选择 {count} 个模型',
     'pages.provider.fetchModels.table.model': '模型',
     'pages.provider.fetchModels.table.owned_by': '子供应商',
+    'pages.provider.fetchModels.search.placeholder': '输入发现的模型名称/Code进行模糊过滤...',
+    'pages.provider.fetchModels.gemini.search.placeholder': '搜索模型名称、编码、描述或生成方法',
+    'pages.provider.fetchModels.unknown': '未知',
+    'pages.provider.fetchModels.table.input_token_limit': '输入 Token 上限',
+    'pages.provider.fetchModels.table.output_token_limit': '输出 Token 上限',
+    'pages.provider.fetchModels.table.supported_generation_methods': '原生支持方法',
+    'pages.provider.fetchModels.gemini.hint':
+        '仅支持导入声明 generateContent 的 Gemini 模型；其他模型仍会展示，但不可选择。Token 上限来自原生接口，缺失时显示未知，不推测流式、工具或视觉能力。',
+    'pages.provider.fetchModels.gemini.unsupported':
+        '网关仅支持 gemini_generate_content；未声明 generateContent 的模型（包括仅支持 embedContent 的模型）不可导入。',
+    'pages.provider.fetchModels.base_url.changed': 'Base URL 已修改，请先重新点击“获取模型”后再确认导入',
+    'pages.provider.fetchModels.mapping.duplicate_code': '同批次中存在重复的新建模型编码：{code}，请修改后再保存',
+    'pages.provider.fetchModels.mapping.existing_code_conflict':
+        '模型编码或名称 {code} 已在系统中存在，请改为映射到已有模型或修改新编码',
+    'pages.provider.fetchModels.mapping.gemini.request_type_warning':
+        '所选已有模型未启用 gemini_generate_content，导入后请在模型配置中补充该请求类型',
     'pages.provider.fetchModels.mapping.title': '确认导入模型与系统模型映射',
     'pages.provider.fetchModels.mapping.hint':
         '请选择每个发现的模型应该在当前系统中关联的模型。如果选择已存在的模型，将不会在系统中重复创建该模型。',

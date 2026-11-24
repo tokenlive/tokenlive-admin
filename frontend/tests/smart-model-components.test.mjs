@@ -10,12 +10,12 @@ import zh from '../src/locales/lang/zh-CN/pages.js'
 const moduleURL = (source) => `data:text/javascript,${encodeURIComponent(source)}`
 const stubs = {
     '@/apis': moduleURL(
-        'export default { model: new Proxy({}, { get: (_, key) => (...args) => globalThis.__smartApi[key](...args) }) }'
+        'const domain = () => new Proxy({}, { get: (_, key) => (...args) => globalThis.__smartApi[key](...args) }); export default { model: domain(), provider: domain(), endpoint: domain(), space: domain() }'
     ),
     '@/utils/request': moduleURL('export default {basic: {put: (path, body) => globalThis.__smartHttp(path, body)}}'),
     '@/config': moduleURL('export const config = () => true'),
     'ant-design-vue': moduleURL(
-        'export const message = new Proxy({}, {get: (_, type) => text => globalThis.__smartMessages.push({type,text})})'
+        'export const message = new Proxy({}, {get: (_, type) => text => { globalThis.__smartMessages.push({type,text}); return type === "loading" ? () => {} : undefined }})'
     ),
     '@/utils/spaceStorage': moduleURL(
         'export const initSpaceCode = () => "demo"; export const setCurrentSpaceCode = () => {}'
@@ -145,7 +145,10 @@ function mount(Component, props = {}) {
     for (const tag of tags) {
         app.component(tag, {
             inheritAttrs: false,
-            setup(_, { attrs, slots }) {
+            setup(_, { attrs, slots, expose }) {
+                if (tag === 'a-form') {
+                    expose({ validateFields: async () => ({ ...attrs.model }), resetFields() {}, clearValidate() {} })
+                }
                 return () => h(tag, attrs, [slots.default?.(), slots.footer?.(), slots.action?.()])
             },
         })
