@@ -361,8 +361,10 @@ func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem 
 		var joycodeResp struct {
 			Code interface{} `json:"code"`
 			Data []struct {
-				ChatApiModel string `json:"chatApiModel"`
-				Label        string `json:"label"`
+				ChatApiModel string          `json:"chatApiModel"`
+				Label        string          `json:"label"`
+				ExtJSON      json.RawMessage `json:"extJson"`
+				Ext          json.RawMessage `json:"ext"`
 			} `json:"data"`
 			Msg     string `json:"msg"`
 			Message string `json:"message"`
@@ -423,13 +425,24 @@ func (p *Provider) FetchModels(ctx context.Context, providerID string, formItem 
 			if modelID == "" {
 				modelID = m.Label
 			}
-			if modelID != "" {
-				upstreamModels = append(upstreamModels, schema.UpstreamModel{
-					ID:      modelID,
-					Object:  "model",
-					OwnedBy: "jd",
-				})
+			if modelID == "" {
+				continue
 			}
+			model := schema.UpstreamModel{ID: modelID, Object: "model", OwnedBy: "jd"}
+			var ext struct {
+				AdapterType string `json:"adapterType"`
+			}
+			if err := json.Unmarshal(m.ExtJSON, &ext); err != nil || ext.AdapterType == "" {
+				ext.AdapterType = ""
+				var legacy string
+				if json.Unmarshal(m.Ext, &legacy) == nil {
+					_ = json.Unmarshal([]byte(legacy), &ext)
+				}
+			}
+			if ext.AdapterType == "openai-response" {
+				model.RequestTypes = []string{"responses"}
+			}
+			upstreamModels = append(upstreamModels, model)
 		}
 	} else {
 		reqURL := baseURL + "/models"

@@ -18,7 +18,7 @@ export function isValidTokenLimit(value) {
     return isKnownTokenLimit(value) && value > 0
 }
 
-export function modelSupportsRequestType(model, targetType) {
+export function modelSupportsRequestType(model, targetType, { exclusive = false } = {}) {
     if (!model || !targetType) return false
     let types = model.request_types
     if (typeof types === 'string') {
@@ -28,7 +28,9 @@ export function modelSupportsRequestType(model, targetType) {
             return false
         }
     }
-    return Array.isArray(types) && types.includes(targetType)
+    return (
+        Array.isArray(types) && types.includes(targetType) && (!exclusive || types.every((type) => type === targetType))
+    )
 }
 
 // Endpoint publication requires a map of strings, not native numeric/array values.

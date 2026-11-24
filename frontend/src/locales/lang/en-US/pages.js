@@ -392,6 +392,8 @@ export default {
         'Model code or name {code} already exists. Map to the existing model or choose another code.',
     'pages.provider.fetchModels.mapping.gemini.request_type_warning':
         'The selected existing model does not enable gemini_generate_content. Add it in model settings after import.',
+    'pages.provider.fetchModels.mapping.joycode.responses_required':
+        'This JoyCode model requires Responses. Map it to a Responses-only model or create a new model.',
     'pages.provider.fetchModels.mapping.title': 'Map imported models to system models',
     'pages.provider.fetchModels.mapping.hint':
         'Choose how each discovered model should be linked. Existing models will not be created again.',

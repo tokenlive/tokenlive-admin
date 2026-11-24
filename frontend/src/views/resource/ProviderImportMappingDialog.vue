@@ -37,7 +37,12 @@
                         </a-select-option>
                     </a-select>
                     <div
-                        v-if="hasIncompatibleExistingRequestTypes(mapping[record.id])"
+                        v-if="hasIncompatibleJoyCodeMapping(record, mapping[record.id])"
+                        class="mapping-compat-warning">
+                        {{ $t('pages.provider.fetchModels.mapping.joycode.responses_required') }}
+                    </div>
+                    <div
+                        v-else-if="hasIncompatibleExistingRequestTypes(mapping[record.id])"
                         class="mapping-compat-warning">
                         {{ $t('pages.provider.fetchModels.mapping.gemini.request_type_warning') }}
                     </div>
@@ -206,6 +211,16 @@ function hasIncompatibleExistingRequestTypes(modelId) {
     return !modelSupportsRequestType(existing, 'gemini_generate_content')
 }
 
+function isJoyCodeResponses(model) {
+    return importContext.value.protocol === 'joycode' && modelSupportsRequestType(model, 'responses')
+}
+
+function hasIncompatibleJoyCodeMapping(model, modelId) {
+    if (!modelId || modelId === '__NEW__' || !isJoyCodeResponses(model)) return false
+    const existing = existingModels.value.find((item) => item.id === modelId)
+    return !modelSupportsRequestType(existing, 'responses', { exclusive: true })
+}
+
 async function handleOk() {
     const isGeminiImport = importContext.value.protocol === 'gemini'
     // Validate the entire batch before creating any models or endpoints, even when the drawer was bypassed.
@@ -223,6 +238,10 @@ async function handleOk() {
     let hasIncompatibleExistingMapping = false
     for (const selectedModel of models.value) {
         const targetId = mapping.value[selectedModel.id]
+        if (hasIncompatibleJoyCodeMapping(selectedModel, targetId)) {
+            message.error(t('pages.provider.fetchModels.mapping.joycode.responses_required'))
+            return
+        }
         if (targetId === '__NEW__') {
             const rawCode = (newModelCodes.value[selectedModel.id] || selectedModel.id || '').trim()
             if (isInvalidModelCode(rawCode)) {
@@ -274,19 +293,28 @@ async function handleOk() {
                     (importContext.value.base_url || '').toLowerCase().includes('chatgpt.com/backend-api/codex') ||
                     ((importContext.value.auth_type || '') === 'oauth_token' &&
                         (importContext.value.base_url || '').toLowerCase().includes('chatgpt.com'))
-                const request_types = isGeminiImport
-                    ? JSON.stringify(['gemini_generate_content'])
-                    : selectedModel.id.toLowerCase().includes('embed')
-                      ? JSON.stringify(['embedding'])
-                      : isCodexImport || selectedModel.id.toLowerCase().includes('responses')
-                        ? JSON.stringify(['responses'])
-                        : JSON.stringify(['chat_completion'])
+                const upstreamID = selectedModel.id.toLowerCase()
+                let requestType = 'chat_completion'
+                switch (true) {
+                    case isGeminiImport:
+                        requestType = 'gemini_generate_content'
+                        break
+                    case isJoyCodeResponses(selectedModel):
+                        requestType = 'responses'
+                        break
+                    case upstreamID.includes('embed'):
+                        requestType = 'embedding'
+                        break
+                    case isCodexImport || upstreamID.includes('responses'):
+                        requestType = 'responses'
+                        break
+                }
 
                 const modelPayload = {
                     model_name: modelCodeForEp,
                     model_code: modelCodeForEp,
                     space_code: importContext.value.space_code,
-                    request_types: request_types,
+                    request_types: JSON.stringify([requestType]),
                     context_length:
                         isGeminiImport && isValidTokenLimit(selectedModel.input_token_limit)
                             ? selectedModel.input_token_limit

@@ -244,6 +244,7 @@ type UpstreamModel struct {
 	InputTokenLimit            *int     `json:"input_token_limit,omitempty"`
 	OutputTokenLimit           *int     `json:"output_token_limit,omitempty"`
 	SupportedGenerationMethods []string `json:"supported_generation_methods,omitempty"`
+	RequestTypes               []string `json:"request_types,omitempty"`
 }
 
 // FetchModelsResult defines the response for the fetch models API.

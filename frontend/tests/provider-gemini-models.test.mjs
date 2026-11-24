@@ -578,3 +578,56 @@ test('OpenAI drawer and mapping preserve legacy request types, defaults, capabil
         assert.equal(endpoint.provider_key_id, item.auth_type === 'oauth_token' ? '' : 'test-key')
     }
 })
+
+test('JoyCode import uses the catalog Responses capability and preserves the real model ID', async (t) => {
+    const upstream = [{ id: 'GPT-6.2 Sol', request_types: ['responses'] }, { id: 'GLM-5.3' }]
+    const baseURL = 'https://api-ai.jd.com'
+    const drawer = await fetchDrawer(t, { models: upstream }, { protocol: 'joycode', url: baseURL })
+    await selectAndConfirm(
+        drawer,
+        upstream.map((model) => model.id)
+    )
+
+    const writes = importAPI()
+    const mapping = mount(ImportMappingDialog)
+    t.after(() => mapping.app.unmount())
+    await mapping.state.handleOpen(
+        importContext(drawer.confirmed[0].models, { protocol: 'joycode', base_url: baseURL })
+    )
+    await nodes(mapping.root, 'a-modal')[0].props.onOk()
+
+    assert.deepEqual(
+        writes
+            .filter((write) => write.type === 'model')
+            .map(({ payload }) => [payload.model_code, JSON.parse(payload.request_types)]),
+        [
+            ['GPT-6.2-Sol', ['responses']],
+            ['GLM-5.3', ['chat_completion']],
+        ]
+    )
+    assert.equal(writes[1].payload.real_model, 'GPT-6.2 Sol')
+})
+
+test('JoyCode Responses import rejects an existing Chat mapping before writing any endpoints', async (t) => {
+    const chat = existingModelRecord({ id: 'chat', request_types: '["chat_completion","responses"]' })
+    const responses = existingModelRecord({ id: 'responses', request_types: '["responses"]' })
+    const writes = importAPI({ getModelList: async () => ({ success: true, data: [chat, responses] }) })
+    const mapping = mount(ImportMappingDialog)
+    t.after(() => mapping.app.unmount())
+    const discovered = { id: 'GPT-6.2 Sol', request_types: ['responses'] }
+    await mapping.state.handleOpen(importContext([discovered], { protocol: 'joycode' }))
+
+    mapping.state.mapping[discovered.id] = chat.id
+    await nodes(mapping.root, 'a-modal')[0].props.onOk()
+    assert.deepEqual(writes, [])
+    assert.equal(mapping.state.visible, true)
+    assert.match(globalThis.__providerMessages.at(-1).text, /Responses/)
+
+    mapping.state.mapping[discovered.id] = responses.id
+    await nodes(mapping.root, 'a-modal')[0].props.onOk()
+    assert.deepEqual(
+        writes.map((write) => write.type),
+        ['endpoint']
+    )
+    assert.equal(writes[0].payload.model_id, responses.id)
+})

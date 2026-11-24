@@ -383,6 +383,8 @@ export default {
         '模型编码或名称 {code} 已在系统中存在，请改为映射到已有模型或修改新编码',
     'pages.provider.fetchModels.mapping.gemini.request_type_warning':
         '所选已有模型未启用 gemini_generate_content，导入后请在模型配置中补充该请求类型',
+    'pages.provider.fetchModels.mapping.joycode.responses_required':
+        '该 JoyCode 模型需要 Responses。请映射到仅启用 Responses 的模型，或创建新模型。',
     'pages.provider.fetchModels.mapping.title': '确认导入模型与系统模型映射',
     'pages.provider.fetchModels.mapping.hint':
         '请选择每个发现的模型应该在当前系统中关联的模型。如果选择已存在的模型，将不会在系统中重复创建该模型。',
