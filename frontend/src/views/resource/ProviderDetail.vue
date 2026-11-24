@@ -356,7 +356,7 @@
                             :data-source="endpointListData"
                             :loading="endpointLoading"
                             :pagination="endpointPagination"
-                            :scroll="{ x: 'max-content', y: endpointTableScrollY || undefined }"
+                            :scroll="{ x: endpointTableScrollX, y: endpointTableScrollY || undefined }"
                             @change="onEndpointTableChange">
                             <template #bodyCell="{ column, record }">
                                 <template v-if="'model_id' === column.key">
@@ -716,7 +716,7 @@ const endpointColumns = [
     {
         title: t('pages.endpoint.form.url'),
         key: 'url',
-        minWidth: 240,
+        width: 240,
         ellipsis: true,
     },
     {
@@ -745,6 +745,7 @@ const endpointColumns = [
     {
         title: t('pages.endpoint.form.description'),
         dataIndex: 'description',
+        width: 200,
         ellipsis: true,
     },
     {
@@ -760,6 +761,8 @@ const endpointColumns = [
         fixed: 'right',
     },
 ]
+// 使用明确的列宽，让空表表头与表体采用同一套固定列偏移。
+const endpointTableScrollX = endpointColumns.reduce((total, { width }) => total + width, 0)
 
 const hasPermission = (permission, bit) => {
     return (Number(permission) & bit) === bit
