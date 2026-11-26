@@ -44,8 +44,25 @@ export function parseContextLength(value) {
 }
 
 export function filterContextLengthOption(input, option) {
-    const query = String(input).toLowerCase().replace(/,/g, '')
+    const query = String(input ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/,/g, '')
+    if (!query) {
+        return true
+    }
     const val = String(option.value ?? '')
     const label = String(option.label ?? '').toLowerCase()
     return val.includes(query) || label.includes(query)
+}
+
+export function getContextLengthDropdownOptions(options, searchQuery, isFiltering) {
+    if (!isFiltering) {
+        return options
+    }
+    const query = String(searchQuery ?? '').trim()
+    if (!query) {
+        return options
+    }
+    return options.filter((option) => filterContextLengthOption(query, option))
 }

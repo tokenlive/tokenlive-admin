@@ -69,13 +69,9 @@
                     <a-form-item
                         label="上下文长度"
                         name="context_length">
-                        <a-auto-complete
+                        <ContextLengthInput
                             v-model:value="formData.context_length"
-                            placeholder="请选择或输入上下文长度"
-                            :options="contextLengthOptions"
-                            :filter-option="filterContextLengthOption"
-                            allow-clear
-                            style="width: 100%" />
+                            placeholder="请选择或输入上下文长度" />
                     </a-form-item>
                 </a-col>
                 <a-col :span="12">
@@ -134,12 +130,8 @@
 import { ref, reactive } from 'vue'
 import { message } from 'ant-design-vue'
 import apis from '@/apis'
-import {
-    CONTEXT_LENGTH_OPTIONS,
-    filterContextLengthOption,
-    parseContextLength,
-    toContextLengthSelectValue,
-} from '@/enums/model'
+import ContextLengthInput from '@/components/ContextLengthInput.vue'
+import { parseContextLength, toContextLengthSelectValue } from '@/enums/model'
 
 const emit = defineEmits(['success'])
 const visible = ref(false)
@@ -167,8 +159,6 @@ const modalityOptions = [
     { value: 'video', label: '视频 (Video)' },
     { value: 'file', label: '文件 (File)' },
 ]
-
-const contextLengthOptions = CONTEXT_LENGTH_OPTIONS
 
 const defaultForm = {
     model_id: '',

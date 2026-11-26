@@ -79,13 +79,9 @@
             <a-form-item
                 :label="$t('pages.model.form.context_length')"
                 name="context_length">
-                <a-auto-complete
+                <ContextLengthInput
                     v-model:value="formData.context_length"
-                    :placeholder="$t('pages.model.form.context_length.placeholder')"
-                    :options="contextLengthOptions"
-                    :filter-option="filterContextLengthOption"
-                    allow-clear
-                    style="width: 100%" />
+                    :placeholder="$t('pages.model.form.context_length.placeholder')" />
             </a-form-item>
 
             <a-form-item
@@ -232,12 +228,8 @@ import { useForm, useModal } from '@/hooks'
 import { useI18n } from 'vue-i18n'
 import { initSpaceCode, setCurrentSpaceCode } from '@/utils/spaceStorage'
 import { buildModelRoutingFields, isModelEnableBlocked, getModelSaveFeedback } from '@/utils/smart-model'
-import {
-    CONTEXT_LENGTH_OPTIONS,
-    filterContextLengthOption,
-    parseContextLength,
-    toContextLengthSelectValue,
-} from '@/enums/model'
+import ContextLengthInput from '@/components/ContextLengthInput.vue'
+import { parseContextLength, toContextLengthSelectValue } from '@/enums/model'
 
 const props = defineProps({
     spaceOptions: {
@@ -301,8 +293,6 @@ function filterSpaceOption(input, option) {
     const label = option.children?.[0]?.children || ''
     return option.value.toLowerCase().includes(input.toLowerCase()) || label.toLowerCase().includes(input.toLowerCase())
 }
-
-const contextLengthOptions = CONTEXT_LENGTH_OPTIONS
 
 const ownerOptions = ref([
     { value: 'OpenAI', label: 'OpenAI' },
