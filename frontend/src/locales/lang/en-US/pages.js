@@ -364,6 +364,9 @@ export default {
     'pages.provider.fetchModels.fetch': 'Fetch Models',
     'pages.provider.fetchModels.selectAll': 'Select All',
     'pages.provider.fetchModels.selected': 'Selected {count} / {total} models',
+    'pages.provider.fetchModels.imported': 'Imported',
+    'pages.provider.fetchModels.hide_imported': 'Hide imported',
+    'pages.provider.fetchModels.clear_selection': 'Clear selection',
     'pages.provider.fetchModels.empty': 'No models found, please check the API URL and key',
     'pages.provider.fetchModels.api_keys_confirm_title': 'Select API Keys for Endpoints',
     'pages.provider.fetchModels.api_keys_confirm_desc':
@@ -374,6 +377,7 @@ export default {
     'pages.provider.fetchModels.success': '{count} models selected',
     'pages.provider.fetchModels.table.model': 'Model',
     'pages.provider.fetchModels.table.owned_by': 'Sub Provider',
+    'pages.provider.fetchModels.table.token_limits': 'Input / Output Limit',
     'pages.provider.fetchModels.search.placeholder': 'Search discovered model names or IDs',
     'pages.provider.fetchModels.gemini.search.placeholder':
         'Search model names, IDs, descriptions, or generation methods',
@@ -383,6 +387,17 @@ export default {
     'pages.provider.fetchModels.table.supported_generation_methods': 'Native Methods',
     'pages.provider.fetchModels.gemini.hint':
         'Only Gemini models declaring generateContent can be imported. Other models remain visible but cannot be selected. Token limits come from the native API; missing limits are unknown. Streaming, tool, and vision abilities are not inferred.',
+    'pages.provider.fetchModels.gemini.hint_short':
+        'Only models declaring generateContent can be imported; token limits come from the native API.',
+    'pages.provider.fetchModels.gemini.filter.supported': 'Importable',
+    'pages.provider.fetchModels.gemini.filter.all': 'All',
+    'pages.provider.fetchModels.gemini.filter.unsupported': 'Unsupported',
+    'pages.provider.fetchModels.gemini.family.all': 'All families',
+    'pages.provider.fetchModels.gemini.family.other': 'Other',
+    'pages.provider.fetchModels.gemini.not_importable': 'Unsupported',
+    'pages.provider.fetchModels.gemini.selected': 'Selected {count} / {total} importable',
+    'pages.provider.fetchModels.gemini.show_all_models': 'Show all {count} models',
+    'pages.provider.fetchModels.gemini.provider_badge': 'Provider: {owner}',
     'pages.provider.fetchModels.gemini.unsupported':
         'The gateway only supports gemini_generate_content. Models without generateContent (including embedContent-only models) cannot be imported.',
     'pages.provider.fetchModels.base_url.changed': 'Base URL has changed. Fetch models again before confirming import.',

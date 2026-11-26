@@ -357,6 +357,9 @@ export default {
     'pages.provider.fetchModels.fetch': '获取模型列表',
     'pages.provider.fetchModels.selectAll': '全选',
     'pages.provider.fetchModels.selected': '已选 {count} / {total} 个模型',
+    'pages.provider.fetchModels.imported': '已导入',
+    'pages.provider.fetchModels.hide_imported': '隐藏已导入',
+    'pages.provider.fetchModels.clear_selection': '清空已选',
     'pages.provider.fetchModels.empty': '未获取到模型，请检查API地址和密钥',
     'pages.provider.fetchModels.api_keys_confirm_title': '选择端点绑定的 API 密钥',
     'pages.provider.fetchModels.api_keys_confirm_desc':
@@ -367,6 +370,7 @@ export default {
     'pages.provider.fetchModels.success': '已选择 {count} 个模型',
     'pages.provider.fetchModels.table.model': '模型',
     'pages.provider.fetchModels.table.owned_by': '子供应商',
+    'pages.provider.fetchModels.table.token_limits': '输入 / 输出上限',
     'pages.provider.fetchModels.search.placeholder': '输入发现的模型名称/Code进行模糊过滤...',
     'pages.provider.fetchModels.gemini.search.placeholder': '搜索模型名称、编码、描述或生成方法',
     'pages.provider.fetchModels.unknown': '未知',
@@ -375,6 +379,17 @@ export default {
     'pages.provider.fetchModels.table.supported_generation_methods': '原生支持方法',
     'pages.provider.fetchModels.gemini.hint':
         '仅支持导入声明 generateContent 的 Gemini 模型；其他模型仍会展示，但不可选择。Token 上限来自原生接口，缺失时显示未知，不推测流式、工具或视觉能力。',
+    'pages.provider.fetchModels.gemini.hint_short':
+        '仅支持导入声明 generateContent 的模型；Token 上限取自原生接口（缺失显示未知）',
+    'pages.provider.fetchModels.gemini.filter.supported': '可导入',
+    'pages.provider.fetchModels.gemini.filter.all': '全部',
+    'pages.provider.fetchModels.gemini.filter.unsupported': '不可导入',
+    'pages.provider.fetchModels.gemini.family.all': '全部系列',
+    'pages.provider.fetchModels.gemini.family.other': '其他',
+    'pages.provider.fetchModels.gemini.not_importable': '不可导入',
+    'pages.provider.fetchModels.gemini.selected': '已选 {count} / 可导入 {total} 个',
+    'pages.provider.fetchModels.gemini.show_all_models': '查看全部 {count} 个模型',
+    'pages.provider.fetchModels.gemini.provider_badge': '供应商：{owner}',
     'pages.provider.fetchModels.gemini.unsupported':
         '网关仅支持 gemini_generate_content；未声明 generateContent 的模型（包括仅支持 embedContent 的模型）不可导入。',
     'pages.provider.fetchModels.base_url.changed': 'Base URL 已修改，请先重新点击“获取模型”后再确认导入',

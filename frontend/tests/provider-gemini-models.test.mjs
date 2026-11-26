@@ -3,10 +3,21 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { registerHooks } from 'node:module'
 import { parse, compileScript, compileTemplate } from '@vue/compiler-sfc'
-import { createRenderer, h, nextTick } from 'vue'
+import { Comment, createRenderer, h, nextTick } from 'vue'
 import { createI18n } from 'vue-i18n'
 import zh from '../src/locales/lang/zh-CN/pages.js'
-import { buildEndpointCode, ENDPOINT_CODE_MAX_LENGTH } from '../src/utils/provider-models.js'
+import {
+    GEMINI_OTHER_FAMILY,
+    buildEndpointCode,
+    compareGeminiFamilies,
+    ENDPOINT_CODE_MAX_LENGTH,
+    extractGeminiModelFamily,
+    formatTokenLimitCompact,
+    formatTokenLimitExact,
+    getDistinctGeminiDescription,
+    getDistinctGeminiDisplayName,
+    orderGeminiMethods,
+} from '../src/utils/provider-models.js'
 
 const moduleURL = (source) => `data:text/javascript,${encodeURIComponent(source)}`
 const stubs = {
@@ -100,7 +111,8 @@ function mount(Component, props = {}) {
                 if (tag === 'a-form') {
                     expose({ validateFields: async () => ({ ...attrs.model }), resetFields() {}, clearValidate() {} })
                 }
-                return () => h(tag, attrs, [slots.default?.(), slots.footer?.(), slots.action?.()])
+                return () =>
+                    h(tag, { ...attrs, __slots: slots }, [slots.default?.(), slots.footer?.(), slots.action?.()])
             },
         })
     }
@@ -111,6 +123,47 @@ function mount(Component, props = {}) {
 
 function nodes(root, tag) {
     return root.children?.flatMap((child) => [...(child.tag === tag ? [child] : []), ...nodes(child, tag)]) || []
+}
+
+function vnodeText(node) {
+    if (node == null || typeof node === 'boolean' || node.type === Comment) return ''
+    if (typeof node === 'string' || typeof node === 'number') return String(node)
+    if (Array.isArray(node)) return node.map(vnodeText).join(' ').replace(/\s+/g, ' ').trim()
+    if (typeof node.children === 'string' || typeof node.children === 'number') {
+        return String(node.children).trim()
+    }
+    if (Array.isArray(node.children)) {
+        return vnodeText(node.children)
+    }
+    if (node.children && typeof node.children === 'object') {
+        return Object.values(node.children)
+            .filter((slot) => typeof slot === 'function')
+            .map((slot) => vnodeText(slot()))
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+    }
+    return ''
+}
+
+function findVNodes(node, predicate) {
+    if (!node || typeof node !== 'object' || node.type === Comment) return []
+    if (Array.isArray(node)) return node.flatMap((item) => findVNodes(item, predicate))
+    const matched = predicate(node) ? [node] : []
+    if (Array.isArray(node.children)) {
+        matched.push(...findVNodes(node.children, predicate))
+    } else if (node.children && typeof node.children === 'object') {
+        for (const slot of Object.values(node.children)) {
+            if (typeof slot === 'function') matched.push(...findVNodes(slot(), predicate))
+        }
+    }
+    return matched
+}
+
+function renderBodyCell(table, key, record) {
+    const column = table.props.columns.find((item) => item.key === key)
+    assert.ok(column, `missing column ${key}`)
+    return table.props.__slots.bodyCell({ column, record })
 }
 
 function formBoundary(state) {
@@ -165,6 +218,7 @@ function importAPI(extra = {}) {
     globalThis.__providerApi = {
         getModelList: async () => ({ success: true, data: [], total: 0 }),
         getSpaceList: async () => ({ success: true, data: [{ code: 'demo', name: 'Demo' }] }),
+        getEndpointsByProviderId: async () => ({ success: true, data: [] }),
         createModel: async (payload) => {
             writes.push({ type: 'model', payload })
             return { success: true, data: { id: `created-${writes.length}` } }
@@ -182,8 +236,8 @@ function importAPI(extra = {}) {
     return writes
 }
 
-async function fetchDrawer(t, result, provider = {}) {
-    importAPI({ fetchProviderModels: async () => ({ success: true, data: result }) })
+async function fetchDrawer(t, result, provider = {}, apiExtra = {}) {
+    importAPI({ fetchProviderModels: async () => ({ success: true, data: result }), ...apiExtra })
     const confirmed = []
     const mounted = mount(FetchModelsDrawer, { onConfirm: (payload) => confirmed.push(payload) })
     t.after(() => mounted.app.unmount())
@@ -199,6 +253,83 @@ async function selectAndConfirm({ root }, ids) {
     await nextTick()
     await nodes(root, 'a-button').at(-1).props.onClick()
 }
+
+test('Provider model helpers deduplicate Gemini labels, format token limits, order methods, and extract families', () => {
+    assert.equal(getDistinctGeminiDisplayName({ id: 'gemini-2.5-flash', display_name: 'Gemini 2.5 Flash' }), '')
+    assert.equal(getDistinctGeminiDisplayName({ id: 'gemma-4-26b-a4b-it', display_name: 'Gemma 4 26B A4B IT' }), '')
+    assert.equal(
+        getDistinctGeminiDisplayName({ id: 'gemini-2.5-flash-image', display_name: 'Nano Banana' }),
+        'Nano Banana'
+    )
+
+    assert.equal(
+        getDistinctGeminiDescription({
+            id: 'gemini-2.5-flash-preview-tts',
+            display_name: 'Gemini 2.5 Flash Preview TTS',
+            description: 'Gemini 2.5 Flash Preview TTS',
+        }),
+        ''
+    )
+    assert.equal(
+        getDistinctGeminiDescription({
+            id: 'gemini-2.5-flash',
+            display_name: 'Gemini 2.5 Flash',
+            description: 'gemini-2.5-flash',
+        }),
+        ''
+    )
+    assert.equal(
+        getDistinctGeminiDescription({
+            id: 'gemini-2.5-pro',
+            display_name: 'Gemini 2.5 Pro',
+            description: 'Stable release of Gemini 2.5 Pro',
+        }),
+        'Stable release of Gemini 2.5 Pro'
+    )
+
+    assert.equal(formatTokenLimitCompact(1048576), '1M')
+    assert.equal(formatTokenLimitCompact(2097152), '2M')
+    assert.equal(formatTokenLimitCompact(1000000), '1M')
+    assert.equal(formatTokenLimitCompact(262144), '256K')
+    assert.equal(formatTokenLimitCompact(65536), '64K')
+    assert.equal(formatTokenLimitCompact(32768), '32K')
+    assert.equal(formatTokenLimitCompact(8192), '8K')
+    assert.equal(formatTokenLimitCompact(2048), '2K')
+    assert.equal(formatTokenLimitCompact(512), '512')
+    assert.equal(formatTokenLimitCompact(0), '0')
+    assert.equal(formatTokenLimitCompact(undefined), '未知')
+    assert.equal(formatTokenLimitCompact(-1, 'Unknown'), 'Unknown')
+    assert.equal(formatTokenLimitExact(1048576), '1,048,576')
+    assert.equal(formatTokenLimitExact(0), '0')
+    assert.equal(formatTokenLimitExact(null), '未知')
+
+    assert.deepEqual(
+        orderGeminiMethods(['batchGenerateContent', 'countTokens', 'generateContent', 'countTokens', 'customMethod']),
+        ['generateContent', 'countTokens', 'batchGenerateContent', 'customMethod']
+    )
+    assert.deepEqual(orderGeminiMethods(undefined), [])
+
+    assert.equal(extractGeminiModelFamily({ id: 'gemini-3-flash-preview' }), 'Gemini 3')
+    assert.equal(extractGeminiModelFamily({ id: 'gemini-2.5-pro' }), 'Gemini 2.5')
+    assert.equal(extractGeminiModelFamily({ id: 'gemini-flash-latest' }), 'Gemini')
+    assert.equal(extractGeminiModelFamily({ id: 'gemma-4-31b-it' }), 'Gemma')
+    assert.equal(extractGeminiModelFamily({ id: 'imagen-3.0-generate-002' }), 'Imagen')
+    assert.equal(extractGeminiModelFamily({ id: 'veo-2.0-generate-001' }), 'Veo')
+    assert.equal(extractGeminiModelFamily({ id: 'gemini-embedding-001' }), 'Gemini')
+    assert.equal(extractGeminiModelFamily({ id: 'text-embedding-004' }), 'Embedding')
+    assert.equal(extractGeminiModelFamily({ id: 'custom-model' }), GEMINI_OTHER_FAMILY)
+
+    const families = ['Embedding', GEMINI_OTHER_FAMILY, 'Gemma', 'Gemini 2.0', 'Gemini', 'Gemini 3', 'Gemini 2.5']
+    assert.deepEqual([...families].sort(compareGeminiFamilies), [
+        'Gemini 3',
+        'Gemini 2.5',
+        'Gemini 2.0',
+        'Gemini',
+        'Gemma',
+        'Embedding',
+        GEMINI_OTHER_FAMILY,
+    ])
+})
 
 test('Gemini drawer confirms complete native model objects and preserves selection across search filters', async (t) => {
     const discovered = nativeModel()
@@ -283,31 +414,86 @@ test('Drawer blocks confirm when base_url changed after fetch, clears stale mode
     assert.equal(drawer.state.formData.base_url, 'https://b.example/v1beta')
 })
 
-test('Gemini drawer displays searchable native details, limits, and methods with unknown missing limits', async (t) => {
+test('Gemini drawer displays compact searchable native details, merged limits, deduplicated labels, and ordered methods', async (t) => {
+    const redundant = nativeModel({
+        id: 'gemini-2.5-flash-preview-tts',
+        display_name: 'Gemini 2.5 Flash Preview TTS',
+        description: 'Gemini 2.5 Flash Preview TTS',
+        input_token_limit: 8192,
+        output_token_limit: 16384,
+        supported_generation_methods: ['countTokens', 'generateContent'],
+    })
+    const aliased = nativeModel({
+        id: 'gemini-2.5-flash-image',
+        display_name: 'Nano Banana',
+        description: 'Gemini 2.5 Flash Preview Image',
+        input_token_limit: 1048576,
+        output_token_limit: 65536,
+        supported_generation_methods: ['batchGenerateContent', 'countTokens', 'generateContent', 'createCachedContent'],
+    })
     const unknown = nativeModel({ id: 'unknown-limits', input_token_limit: undefined, output_token_limit: undefined })
-    const drawer = await fetchDrawer(t, { models: [nativeModel(), unknown] })
+    const drawer = await fetchDrawer(t, { models: [nativeModel(), redundant, aliased, unknown] })
     const table = nodes(drawer.root, 'a-table')[0]
     assert.ok(nodes(drawer.root, 'a-drawer')[0].props.width > 660)
-    for (const field of ['input_token_limit', 'output_token_limit', 'supported_generation_methods']) {
-        assert.ok(
-            table.props.columns.some((column) => column.dataIndex === field),
-            `missing ${field} column`
-        )
-    }
-    for (const query of ['native flash display', 'useful details', 'counttokens', 'models/gemini-2.0-flash']) {
+    assert.deepEqual(
+        table.props.columns.map((column) => column.key),
+        ['id', 'token_limits', 'supported_generation_methods']
+    )
+
+    for (const query of [
+        'native flash display',
+        'useful details',
+        'counttokens',
+        'models/gemini-2.0-flash',
+        'gemini 2.5 flash preview tts',
+    ]) {
         nodes(drawer.root, 'a-input-search')[0].props['onUpdate:value'](query)
         await nextTick()
         assert.ok(nodes(drawer.root, 'a-table')[0].props['data-source'].length > 0, `cannot search ${query}`)
     }
-    const limitColumn = table.props.columns.find((column) => column.dataIndex === 'input_token_limit')
-    assert.equal(limitColumn.customRender({ text: undefined, record: unknown }), '未知')
-    const modelColumn = table.props.columns.find((column) => column.dataIndex === 'id')
-    const details = modelColumn.customRender({ text: unknown.id, record: unknown })
-    assert.ok(details.children.some((child) => child?.children === unknown.display_name))
-    assert.ok(details.children.some((child) => child?.children === unknown.description))
+    nodes(drawer.root, 'a-input-search')[0].props['onUpdate:value']('')
+    await nextTick()
+
+    const redundantIdText = vnodeText(renderBodyCell(table, 'id', redundant))
+    assert.equal(redundantIdText, 'gemini-2.5-flash-preview-tts')
+
+    const aliasedIdText = vnodeText(renderBodyCell(table, 'id', aliased))
+    assert.match(aliasedIdText, /gemini-2\.5-flash-image/)
+    assert.match(aliasedIdText, /Nano Banana/)
+    assert.match(aliasedIdText, /Gemini 2\.5 Flash Preview Image/)
+
+    const aliasedLimitCell = renderBodyCell(table, 'token_limits', aliased)
+    assert.equal(vnodeText(aliasedLimitCell), '1M / 64K')
+    const limitTooltips = findVNodes(aliasedLimitCell, (node) => typeof node.props?.title === 'string')
+    assert.match(limitTooltips[0].props.title, /1,048,576.*65,536/)
+
+    const unknownLimitCell = renderBodyCell(table, 'token_limits', unknown)
+    assert.equal(vnodeText(unknownLimitCell), '未知 / 未知')
+
+    const aliasedMethodsCell = renderBodyCell(table, 'supported_generation_methods', aliased)
+    assert.equal(vnodeText(aliasedMethodsCell), 'generateContent +3')
+    const methodTooltip = findVNodes(aliasedMethodsCell, (node) => typeof node.props?.title === 'string')
+    assert.equal(
+        methodTooltip[0].props.title,
+        'generateContent, countTokens, createCachedContent, batchGenerateContent'
+    )
+
+    const redundantMethodsCell = renderBodyCell(table, 'supported_generation_methods', redundant)
+    assert.equal(vnodeText(redundantMethodsCell), 'generateContent countTokens')
+
+    // Non-Gemini provider retains owned_by column.
+    const openaiDrawer = await fetchDrawer(
+        t,
+        { models: [{ id: 'gpt-4o', owned_by: 'openai' }] },
+        { protocol: '', url: 'https://api.openai.com' }
+    )
+    assert.deepEqual(
+        nodes(openaiDrawer.root, 'a-table')[0].props.columns.map((column) => column.key),
+        ['id', 'owned_by']
+    )
 })
 
-test('Gemini drawer keeps embed-only and undeclared methods visible but blocks selection and bypassed confirm', async (t) => {
+test('Gemini drawer defaults to importable models, supports filter switching and sorting, and blocks unsupported selection and bypassed confirm', async (t) => {
     const blocked = [
         nativeModel({ id: 'embed-only', supported_generation_methods: ['embedContent'] }),
         nativeModel({ id: 'gemini-name-without-methods', supported_generation_methods: undefined }),
@@ -317,10 +503,21 @@ test('Gemini drawer keeps embed-only and undeclared methods visible but blocks s
         id: 'embed-in-name-but-generates',
         supported_generation_methods: ['generateContent'],
     })
-    const drawer = await fetchDrawer(t, { models: [generator, ...blocked] })
+    // Put unsupported models first in upstream response to verify importable-first sorting when viewing all.
+    const drawer = await fetchDrawer(t, { models: [...blocked, generator] })
     const table = nodes(drawer.root, 'a-table')[0]
+    assert.equal(drawer.state.geminiSupportFilter, 'supported')
     assert.deepEqual(
         table.props['data-source'].map((item) => item.id),
+        [generator.id]
+    )
+
+    // Switch to 'all': all models are visible and importable ones sort before unsupported ones.
+    const filterGroup = nodes(drawer.root, 'a-radio-group')[0]
+    filterGroup.props['onUpdate:value']('all')
+    await nextTick()
+    assert.deepEqual(
+        nodes(drawer.root, 'a-table')[0].props['data-source'].map((item) => item.id),
         [generator.id, ...blocked.map((item) => item.id)]
     )
     assert.equal(typeof table.props['row-selection'].getCheckboxProps, 'function')
@@ -329,13 +526,102 @@ test('Gemini drawer keeps embed-only and undeclared methods visible but blocks s
         const checkbox = table.props['row-selection'].getCheckboxProps(item)
         assert.equal(checkbox.disabled, true)
         assert.match(checkbox.title, /generateContent/)
+        const idCellText = vnodeText(renderBodyCell(nodes(drawer.root, 'a-table')[0], 'id', item))
+        assert.match(idCellText, /不可导入/)
         drawer.state.selectedModels = [generator.id, item.id]
         drawer.state.handleConfirm()
         assert.deepEqual(drawer.confirmed, [])
         assert.equal(drawer.state.visible, true)
     }
+
+    // Switch to 'unsupported' and back to 'supported', preserving selected importable key.
+    drawer.state.selectedModels = [generator.id]
+    filterGroup.props['onUpdate:value']('unsupported')
+    await nextTick()
+    assert.deepEqual(
+        nodes(drawer.root, 'a-table')[0].props['data-source'].map((item) => item.id),
+        blocked.map((item) => item.id)
+    )
+    assert.deepEqual(drawer.state.selectedModels, [generator.id])
+
+    filterGroup.props['onUpdate:value']('supported')
+    await nextTick()
     await selectAndConfirm(drawer, [generator.id])
     assert.equal(drawer.confirmed[0].models[0].id, generator.id)
+})
+
+test('Gemini drawer filters by model family, marks imported endpoints, hides imported models, and ignores stale endpoint loads', async (t) => {
+    const models = [
+        nativeModel({ id: 'gemini-3-flash-preview' }),
+        nativeModel({ id: 'gemini-2.5-pro' }),
+        nativeModel({ id: 'gemma-4-31b-it' }),
+        nativeModel({ id: 'custom-gen-model' }),
+    ]
+    const drawer = await fetchDrawer(
+        t,
+        { models },
+        {},
+        {
+            getEndpointsByProviderId: async () => ({
+                success: true,
+                data: [{ id: 'ep-1', real_model: 'gemini-2.5-pro' }],
+            }),
+        }
+    )
+
+    assert.deepEqual(
+        drawer.state.familyOptions.map((item) => item.value),
+        ['Gemini 3', 'Gemini 2.5', 'Gemma', GEMINI_OTHER_FAMILY]
+    )
+    assert.equal(drawer.state.importedVisibleCount, 1)
+
+    const table = nodes(drawer.root, 'a-table')[0]
+    assert.match(vnodeText(renderBodyCell(table, 'id', models[1])), /已导入/)
+    assert.doesNotMatch(vnodeText(renderBodyCell(table, 'id', models[0])), /已导入/)
+
+    // Filter by family.
+    drawer.state.selectedFamily = 'Gemini 2.5'
+    await nextTick()
+    assert.deepEqual(
+        nodes(drawer.root, 'a-table')[0].props['data-source'].map((m) => m.id),
+        ['gemini-2.5-pro']
+    )
+
+    // Toggle hideImported on the full supported list.
+    drawer.state.selectedFamily = '__ALL__'
+    drawer.state.hideImported = true
+    await nextTick()
+    assert.deepEqual(
+        nodes(drawer.root, 'a-table')[0].props['data-source'].map((m) => m.id),
+        ['gemini-3-flash-preview', 'gemma-4-31b-it', 'custom-gen-model']
+    )
+
+    // Stale endpoint response from provider-a must not pollute provider-b.
+    const pendingEndpoints = []
+    globalThis.__providerApi.getEndpointsByProviderId = () => new Promise((resolve) => pendingEndpoints.push(resolve))
+    globalThis.__providerApi.fetchProviderModels = async () => ({
+        success: true,
+        data: { models, base_url: GEMINI_BASE_URL },
+    })
+    drawer.state.handleOpen({ id: 'provider-a', protocol: 'gemini', url: GEMINI_BASE_URL })
+    drawer.state.handleOpen({ id: 'provider-b', protocol: 'gemini', url: GEMINI_BASE_URL })
+    await flush()
+    assert.equal(pendingEndpoints.length, 2)
+    pendingEndpoints[1]({ success: true, data: [{ id: 'ep-b', real_model: 'gemini-3-flash-preview' }] })
+    await flush()
+    pendingEndpoints[0]({ success: true, data: [{ id: 'ep-a', real_model: 'gemma-4-31b-it' }] })
+    await flush()
+    assert.equal(drawer.state.importedModelIds.has('gemini-3-flash-preview'), true)
+    assert.equal(drawer.state.importedModelIds.has('gemma-4-31b-it'), false)
+
+    // Endpoint loading error must degrade gracefully without throwing or breaking open/fetch.
+    globalThis.__providerApi.getEndpointsByProviderId = async () => {
+        throw new Error('endpoint list failed')
+    }
+    drawer.state.handleOpen({ id: 'provider-c', protocol: 'gemini', url: GEMINI_BASE_URL })
+    await flush()
+    assert.equal(drawer.state.visible, true)
+    assert.equal(drawer.state.importedModelIds.size, 0)
 })
 
 test('Gemini mapping uses imported limits, no inferred abilities, edited system code/name, and canonical native metadata', async (t) => {
@@ -487,12 +773,10 @@ test('Gemini drawer renders known zero token limits as zero and preserves them t
     const discovered = nativeModel({ input_token_limit: 0, output_token_limit: 0 })
     const drawer = await fetchDrawer(t, { models: [discovered] })
     const table = nodes(drawer.root, 'a-table')[0]
-    for (const field of ['input_token_limit', 'output_token_limit']) {
-        const column = table.props.columns.find((item) => item.dataIndex === field)
-        assert.equal(column.customRender({ text: discovered[field], record: discovered }), 0)
-        for (const invalid of [undefined, null, -1, NaN, Infinity, 1.5]) {
-            assert.equal(column.customRender({ text: invalid, record: discovered }), '未知')
-        }
+    assert.equal(vnodeText(renderBodyCell(table, 'token_limits', discovered)), '0 / 0')
+    for (const invalid of [undefined, null, -1, NaN, Infinity, 1.5]) {
+        const invalidModel = nativeModel({ input_token_limit: invalid, output_token_limit: invalid })
+        assert.equal(vnodeText(renderBodyCell(table, 'token_limits', invalidModel)), '未知 / 未知')
     }
     await selectAndConfirm(drawer, [discovered.id])
     assert.deepEqual(drawer.confirmed[0].models, [discovered])
