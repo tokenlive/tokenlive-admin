@@ -23,10 +23,15 @@ type Policy struct {
 	PolicyCircuitBreakAPI *api.PolicyCircuitBreak
 	PolicyInvocationAPI   *api.PolicyInvocation
 	PolicyTaggingAPI      *api.PolicyTagging
+	PolicyDialectAPI      *api.PolicyDialect
 }
 
 func (a *Policy) AutoMigrate(ctx context.Context) error {
-	return a.DB.AutoMigrate(new(schema.PolicyLoadbalance), new(schema.PolicyRoute), new(schema.PolicyRouteDetail), new(schema.PolicyLimit), new(schema.PolicyCircuitBreak), new(schema.PolicyInvocation), new(schema.PolicyTagging))
+	db := a.DB.WithContext(ctx)
+	if err := db.AutoMigrate(new(schema.PolicyLoadbalance), new(schema.PolicyRoute), new(schema.PolicyRouteDetail), new(schema.PolicyLimit), new(schema.PolicyCircuitBreak), new(schema.PolicyInvocation), new(schema.PolicyTagging)); err != nil {
+		return err
+	}
+	return migratePolicyDialect(db)
 }
 
 func (a *Policy) Init(ctx context.Context) error {
@@ -48,6 +53,11 @@ func (a *Policy) Init(ctx context.Context) error {
 
 func (a *Policy) RegisterV1Routers(ctx context.Context, v1 *gin.RouterGroup) error {
 	v1 = v1.Group("policy")
+	dialects := v1.Group("policy-dialects")
+	dialects.GET("", a.PolicyDialectAPI.Query)
+	dialects.POST("", a.PolicyDialectAPI.Create)
+	dialects.PUT(":id/enabled", a.PolicyDialectAPI.UpdateEnabled)
+	dialects.DELETE(":id", a.PolicyDialectAPI.Delete)
 	policyLoadbalance := v1.Group("policy-loadbalances")
 	{
 		policyLoadbalance.GET("", a.PolicyLoadbalanceAPI.Query)

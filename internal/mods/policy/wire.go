@@ -9,6 +9,8 @@ import (
 
 var Set = wire.NewSet(
 	wire.Struct(new(Policy), "*"),
+	wire.Struct(new(biz.PolicyDialect), "*"),
+	wire.Struct(new(api.PolicyDialect), "*"),
 	wire.Struct(new(dal.PolicyLoadbalance), "*"),
 	wire.Struct(new(biz.PolicyLoadbalance), "*"),
 	wire.Struct(new(api.PolicyLoadbalance), "*"),

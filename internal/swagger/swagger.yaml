@@ -1973,6 +1973,57 @@ definitions:
     required:
     - model_id
     type: object
+  schema.PolicyDialect:
+    properties:
+      created_at:
+        type: string
+      creator:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: integer
+      id:
+        type: string
+      implementation:
+        type: string
+      model_id:
+        type: string
+      modifier:
+        type: string
+      name:
+        type: string
+      scope_code:
+        type: string
+      scope_type:
+        type: string
+      updated_at:
+        type: string
+      version:
+        type: integer
+    type: object
+  schema.PolicyDialectEnabledForm:
+    properties:
+      enabled:
+        enum:
+        - 0
+        - 1
+        type: integer
+    required:
+    - enabled
+    type: object
+  schema.PolicyDialectForm:
+    properties:
+      implementation:
+        maxLength: 64
+        type: string
+      model_id:
+        maxLength: 20
+        type: string
+    required:
+    - implementation
+    - model_id
+    type: object
   schema.PolicyEnabledForm:
     properties:
       enabled:
@@ -6446,6 +6497,114 @@ paths:
       summary: Toggle policy circuit break enabled status by ID
       tags:
       - PolicyCircuitBreakAPI
+  /api/v1/policy/policy-dialects:
+    get:
+      parameters:
+      - description: Model ID
+        in: query
+        name: model_id
+        required: true
+        type: string
+      - description: Page number
+        in: query
+        name: current
+        type: integer
+      - description: Page size
+        in: query
+        name: pageSize
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/schema.PolicyDialect'
+                  type: array
+              type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List dialect adaptations for an ordinary model
+      tags:
+      - PolicyDialectAPI
+    post:
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyDialectForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.PolicyDialect'
+              type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Create a disabled dialect adaptation
+      tags:
+      - PolicyDialectAPI
+  /api/v1/policy/policy-dialects/{id}:
+    delete:
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.ModelMutationResult'
+              type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a dialect adaptation
+      tags:
+      - PolicyDialectAPI
+  /api/v1/policy/policy-dialects/{id}/enabled:
+    put:
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PolicyDialectEnabledForm'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/util.ResponseResult'
+            - properties:
+                data:
+                  $ref: '#/definitions/schema.ModelMutationResult'
+              type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Enable or disable a dialect adaptation
+      tags:
+      - PolicyDialectAPI
   /api/v1/policy/policy-invocations:
     get:
       responses:

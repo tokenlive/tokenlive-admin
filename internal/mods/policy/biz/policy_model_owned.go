@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/tokenlive/tokenlive-admin/internal/config"
 	resourceDal "github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
 	resourceSchema "github.com/tokenlive/tokenlive-admin/internal/mods/resource/schema"
 	"github.com/tokenlive/tokenlive-admin/pkg/errors"
@@ -29,8 +28,7 @@ func requireModelPermission(ctx context.Context, modelDAL *resourceDal.Model, da
 	if util.FromIsRootUser(ctx) {
 		return model, nil
 	}
-	permTable := config.C.FormatTableName("data_permission")
-	ok, err := util.Exists(ctx, util.GetDB(ctx, dataPermissionDAL.DB).Table(permTable).
+	ok, err := util.Exists(ctx, resourceDal.GetDataPermissionDB(ctx, dataPermissionDAL.DB).
 		Where("type = ? AND data_id = ? AND user = ? AND tenant = ? AND permission & ? = ?",
 			resourceSchema.DataPermissionTypeModel, modelID, util.FromUsername(ctx), util.FromTenant(ctx), permission, permission))
 	if err != nil {

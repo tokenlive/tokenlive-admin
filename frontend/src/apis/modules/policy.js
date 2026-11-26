@@ -105,3 +105,9 @@ export const toggleTaggingEnabled = (id, params) =>
     request.basic.put(`/api/v1/policy/policy-taggings/${id}/enabled`, params)
 // 删除流量染色策略
 export const delTagging = (id) => request.basic.delete(`/api/v1/policy/policy-taggings/${id}`)
+
+const dialectPath = '/api/v1/policy/policy-dialects'
+export const getDialectList = (params) => request.basic.get(dialectPath, params)
+export const createDialect = (params) => request.basic.post(dialectPath, params)
+export const toggleDialectEnabled = (id, params) => request.basic.put(`${dialectPath}/${id}/enabled`, params)
+export const delDialect = (id) => request.basic.delete(`${dialectPath}/${id}`)

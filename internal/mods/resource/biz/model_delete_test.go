@@ -92,6 +92,7 @@ func TestModelDeleteCascadeDeletesAssociatedPolicies(t *testing.T) {
 	requireModelSoftDeleted(t, db, &policySchema.PolicyCircuitBreak{}, "circuit-break-1")
 	requireModelSoftDeleted(t, db, &policySchema.PolicyInvocation{}, "invocation-1")
 	requireModelSoftDeleted(t, db, &policySchema.PolicyTagging{}, "tagging-1")
+	requireModelSoftDeleted(t, db, &policySchema.PolicyDialect{}, "dialect-1")
 
 	var model schema.Model
 	require.NoError(t, db.Unscoped().First(&model, "id = ?", "model-1").Error)
@@ -185,6 +186,9 @@ func seedModelPolicies(t *testing.T, db *gorm.DB) {
 		Deleted:   "0",
 		CreatedAt: time.Now(),
 	}).Error)
+	require.NoError(t, db.Create(&policySchema.PolicyDialect{
+		ID: "dialect-1", ModelID: "model-1", Name: policySchema.DialectStoreUnsupported, Implementation: policySchema.DialectStoreUnsupported, Enabled: 1,
+	}).Error)
 }
 
 func requireModelSoftDeleted(t *testing.T, db *gorm.DB, model interface{}, id string) {
@@ -257,6 +261,7 @@ func newModelDeleteTestDB(t *testing.T) *gorm.DB {
 		&policySchema.PolicyCircuitBreak{},
 		&policySchema.PolicyInvocation{},
 		&policySchema.PolicyTagging{},
+		&policySchema.PolicyDialect{},
 		&opsSchema.AuditLog{},
 	))
 	require.NoError(t, db.Exec("CREATE TABLE IF NOT EXISTS tenant_model (tenant_code varchar(64), model_id varchar(20))").Error)

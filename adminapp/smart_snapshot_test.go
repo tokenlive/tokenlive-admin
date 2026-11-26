@@ -27,7 +27,7 @@ func TestLoadGatewaySnapshotCarriesSmartRoutingContract(t *testing.T) {
 	require.NoError(t, db.AutoMigrate(
 		&schema.Model{}, &schema.Endpoint{}, &schema.Provider{}, &schema.ModelAlias{},
 		&policySchema.PolicyLoadbalance{}, &policySchema.PolicyInvocation{}, &policySchema.PolicyLimit{},
-		&policySchema.PolicyCircuitBreak{}, &policySchema.PolicyTagging{}, &policySchema.PolicyRoute{}, &policySchema.PolicyRouteDetail{},
+		&policySchema.PolicyDialect{}, &policySchema.PolicyCircuitBreak{}, &policySchema.PolicyTagging{}, &policySchema.PolicyRoute{}, &policySchema.PolicyRouteDetail{},
 	))
 	for _, sql := range []string{
 		"CREATE TABLE user (id TEXT, tenant TEXT)",

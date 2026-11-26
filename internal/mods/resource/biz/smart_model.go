@@ -52,6 +52,16 @@ func smartReferences(ctx context.Context, db *gorm.DB, id string) ([]*schema.Mod
 }
 
 func (m *Model) validateSmartModel(ctx context.Context, model, before *schema.Model) error {
+	if before != nil && before.ModelType != schema.ModelTypeSmart && model.ModelType == schema.ModelTypeSmart {
+		exists, err := util.Exists(ctx, util.GetDB(ctx, m.ModelDAL.DB).Model(&policySchema.PolicyDialect{}).
+			Where("model_id = ? AND deleted = '0'", model.ID))
+		if err != nil {
+			return err
+		}
+		if exists {
+			return errors.BadRequest("", "请先删除方言适配策略，再转换为智能模型")
+		}
+	}
 	if err := m.checkSmartModel(ctx, model); err != nil {
 		return err
 	}

@@ -231,6 +231,10 @@
                         :key="item.key"
                         :tab="item.label" />
                     <a-tab-pane
+                        v-if="!isSmartModel && modelData.id"
+                        key="dialect"
+                        :tab="$t('pages.model.dialect.title')" />
+                    <a-tab-pane
                         key="monitor"
                         :tab="$t('pages.model.detail.tab.monitor')" />
                     <a-tab-pane
@@ -476,6 +480,12 @@
                         </a-table>
                     </div>
                 </div>
+
+                <ModelDialectTab
+                    v-else-if="!isSmartModel && activeTab === 'dialect'"
+                    :key="modelId"
+                    :model-id="modelId"
+                    class="tab-content tab-content--scroll" />
 
                 <!-- 治理策略 Tab 内容 -->
                 <div
@@ -792,6 +802,7 @@ import ModelMemberEditDialog from './ModelMemberEditDialog.vue'
 import EndpointEditDialog from './EndpointEditDialog.vue'
 import EndpointStatusStrip from '@/components/EndpointStatusStrip.vue'
 import ModelMonitorTab from './ModelMonitorTab.vue'
+import ModelDialectTab from './ModelDialectTab.vue'
 import ModelEditDialog from './ModelEditDialog.vue'
 import SmartRoutingEditor from './SmartRoutingEditor.vue'
 import LoadbalanceEditDialog from '@/views/policy/LoadbalanceEditDialog.vue'

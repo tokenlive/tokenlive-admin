@@ -112,6 +112,11 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 			return s.deleteRouting(ctx, modelCode)
 		}
 
+		dialects, err := enabledModelDialects(util.GetDB(ctx, s.ModelDAL.DB), []string{model.ID})
+		if err != nil {
+			return fmt.Errorf("query model dialects: %w", err)
+		}
+
 		// 3. Map to ResolvedEndpoint structures applying inheritance rules
 		var resolvedList []ResolvedEndpoint
 		for _, ep := range endpoints {
@@ -223,6 +228,8 @@ func (s *ConfigRedisSync) SyncModelByCode(ctx context.Context, modelCode string)
 
 			for _, apiKey := range apiKeys {
 				resolvedList = append(resolvedList, ResolvedEndpoint{
+					DialectImplementations: dialects[model.ID],
+
 					ID:                 ep.ID,
 					Code:               ep.Code,
 					Description:        ep.Description,

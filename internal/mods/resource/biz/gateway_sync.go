@@ -77,6 +77,8 @@ type ProviderConfig struct {
 }
 
 type EndpointConfig struct {
+	DialectImplementations []string `json:"dialect_implementations,omitempty"`
+
 	ContextLength   int64             `json:"context_length,omitempty"`
 	MaxOutputTokens int64             `json:"max_output_tokens,omitempty"`
 	Abilities       []string          `json:"abilities,omitempty"`
@@ -203,6 +205,19 @@ func (s *GatewaySync) buildGatewayConfig(ctx context.Context, modelCode string) 
 		return nil, fmt.Errorf("query endpoints: %w", err)
 	}
 
+	modelIDs := make([]string, 0, len(dbEndpoints))
+	seenModels := make(map[string]bool)
+	for _, ep := range dbEndpoints {
+		if !seenModels[ep.ModelID] {
+			modelIDs = append(modelIDs, ep.ModelID)
+			seenModels[ep.ModelID] = true
+		}
+	}
+	dialects, err := enabledModelDialects(db, modelIDs)
+	if err != nil {
+		return nil, fmt.Errorf("query model dialects: %w", err)
+	}
+
 	providersMap := make(map[string]ProviderConfig)
 
 	for _, ep := range dbEndpoints {
@@ -266,6 +281,8 @@ func (s *GatewaySync) buildGatewayConfig(ctx context.Context, modelCode string) 
 
 		contextLength, maxOutputTokens, abilities := endpointCapabilities(&ep)
 		epCfg := EndpointConfig{
+			DialectImplementations: dialects[ep.ModelID],
+
 			ContextLength: contextLength, MaxOutputTokens: maxOutputTokens, Abilities: abilities,
 			ID:        ep.ID,
 			Code:      ep.Code,

@@ -484,6 +484,16 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 	apiPolicyTagging := &api4.PolicyTagging{
 		PolicyTaggingBIZ: bizPolicyTagging,
 	}
+	policyDialect := &biz4.PolicyDialect{
+		Trans:             trans,
+		ModelDAL:          model,
+		DataPermissionDAL: dataPermission,
+		Publisher:         configRedisSync,
+		AuditLogBIZ:       bizAuditLog,
+	}
+	apiPolicyDialect := &api4.PolicyDialect{
+		PolicyDialectBIZ: policyDialect,
+	}
 	policyPolicy := &policy.Policy{
 		DB:                    db,
 		PolicyLoadbalanceAPI:  apiPolicyLoadbalance,
@@ -493,6 +503,7 @@ func BuildInjector(ctx context.Context) (*Injector, func(), error) {
 		PolicyCircuitBreakAPI: apiPolicyCircuitBreak,
 		PolicyInvocationAPI:   apiPolicyInvocation,
 		PolicyTaggingAPI:      apiPolicyTagging,
+		PolicyDialectAPI:      apiPolicyDialect,
 	}
 	reader := dashboard.ProvideMonitor(db, redisClient)
 	apiDashboard := dashboard.ProvideDashboard(reader, configRedisSync)

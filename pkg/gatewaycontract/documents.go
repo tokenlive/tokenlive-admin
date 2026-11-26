@@ -6,6 +6,8 @@ import "github.com/tokenlive/tokenlive-admin/pkg/compositerouting"
 // a normal model. Gateway's twin type also accepts auth_type and endpoint_id
 // aliases; Admin does not emit either.
 type ResolvedEndpoint struct {
+	DialectImplementations []string `json:"dialect_implementations,omitempty"`
+
 	ID                 string            `json:"id,omitempty"`
 	Code               string            `json:"code,omitempty"`
 	Description        string            `json:"description,omitempty"`

@@ -276,6 +276,31 @@ CREATE TABLE IF NOT EXISTS `endpoint`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin COMMENT ='Endpoint 定义表，一个 provider 可配置多个上游地址';
 
+-- 模型方言适配策略表
+CREATE TABLE IF NOT EXISTS `policy_dialect`
+(
+    `id`             CHAR(20) PRIMARY KEY COMMENT '主键ID (XID)',
+    `model_id`       CHAR(20)     NOT NULL COMMENT '所属普通模型ID',
+    `scope_type`     VARCHAR(32)  NOT NULL DEFAULT 'global' COMMENT '作用域类型，global 表示对所属模型全局生效',
+    `scope_code`     VARCHAR(128) NOT NULL DEFAULT '' COMMENT '作用域编码，global 作用域为空',
+    `name`           VARCHAR(128) NOT NULL DEFAULT '' COMMENT '策略名称，创建时使用适配实现ID',
+    `implementation` VARCHAR(64)  NOT NULL COMMENT '内置方言适配实现ID',
+    `version`        BIGINT       NOT NULL DEFAULT 1 COMMENT '配置版本号',
+    `enabled`        INT          NOT NULL DEFAULT 0 COMMENT '启用状态: 0-未启用，1-启用',
+    `description`    VARCHAR(255)          DEFAULT NULL COMMENT '备注描述',
+    `creator`        VARCHAR(255)          DEFAULT NULL COMMENT '创建者',
+    `modifier`       VARCHAR(255)          DEFAULT NULL COMMENT '修改者',
+    `created_at`     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at`     TIMESTAMP             DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted`        VARCHAR(20)  NOT NULL DEFAULT '0' COMMENT '逻辑删除标识',
+    `deleted_at`     DATETIME              DEFAULT NULL COMMENT '逻辑删除时间',
+    UNIQUE KEY `uniq_policy_dialect_model_impl_deleted` (`model_id`, `implementation`, `deleted`),
+    KEY `idx_policy_dialect_model` (`model_id`, `deleted`, `enabled`),
+    KEY `idx_policy_dialect_scope` (`scope_type`, `scope_code`, `deleted`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin COMMENT ='模型方言适配策略表';
+
 -- 染色打标策略表
 CREATE TABLE IF NOT EXISTS `policy_tagging`
 (

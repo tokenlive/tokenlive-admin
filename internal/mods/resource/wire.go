@@ -2,6 +2,7 @@ package resource
 
 import (
 	"github.com/google/wire"
+	policyBiz "github.com/tokenlive/tokenlive-admin/internal/mods/policy/biz"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/api"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/biz"
 	"github.com/tokenlive/tokenlive-admin/internal/mods/resource/dal"
@@ -20,6 +21,7 @@ var Set = wire.NewSet(
 	wire.Struct(new(biz.Model), "*"),
 	wire.Struct(new(api.Model), "*"),
 	wire.Struct(new(biz.ConfigRedisSync), "*"),
+	wire.Bind(new(policyBiz.DialectPublisher), new(*biz.ConfigRedisSync)),
 	wire.Struct(new(dal.ModelAlias), "*"),
 	wire.Struct(new(biz.ModelAlias), "*"),
 	wire.Struct(new(api.ModelAlias), "*"),

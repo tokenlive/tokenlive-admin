@@ -515,6 +515,7 @@ var modelOwnedPolicyTables = []string{
 	"policy_circuit_break",
 	"policy_invocation",
 	"policy_tagging",
+	"policy_dialect",
 }
 
 func collectModelOwnedPolicies(tx *gorm.DB, modelID string) ([]modelPolicyCascadeRecord, error) {
@@ -578,6 +579,9 @@ func (m *Model) syncDeletedModelPolicyDimensions(ctx context.Context, modelCode 
 	_ = m.PolicyRedisSync.SyncDimension(ctx, "", "", modelCode)
 	seen := map[string]bool{"global:": true}
 	for _, policy := range policies {
+		if policy.Table == "policy_dialect" {
+			continue
+		}
 		dimensionKey := policy.ScopeType + ":" + policy.ScopeCode
 		if seen[dimensionKey] {
 			continue
