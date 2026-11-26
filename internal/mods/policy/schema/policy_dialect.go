@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	DialectDeveloperToSystem = "chat_developer_to_system"
-	DialectStoreUnsupported  = "chat_store_unsupported"
+	DialectDeveloperToSystem             = "chat_developer_to_system"
+	DialectStoreUnsupported              = "chat_store_unsupported"
+	DialectGeminiStripThinkingExtensions = "chat_gemini_strip_thinking_extensions"
 )
 
 // PolicyDialect belongs to one ordinary model.
@@ -44,6 +45,7 @@ type PolicyDialectQuery struct {
 type PolicyDialectForm struct {
 	ModelID        string `json:"model_id" binding:"required,max=20"`
 	Implementation string `json:"implementation" binding:"required,max=64"`
+	Enabled        int    `json:"enabled" binding:"oneof=0 1" default:"0"`
 }
 
 type PolicyDialectEnabledForm struct {

@@ -2,7 +2,9 @@
     <div
         class="app-page"
         :style="{ height: appStore.mainHeight }">
-        <div class="model-detail">
+        <div
+            v-if="modelData.id"
+            class="model-detail">
             <!-- 基本信息 -->
             <a-card
                 class="info-card"
@@ -231,7 +233,7 @@
                         :key="item.key"
                         :tab="item.label" />
                     <a-tab-pane
-                        v-if="!isSmartModel && modelData.id"
+                        v-if="!isSmartModel"
                         key="dialect"
                         :tab="$t('pages.model.dialect.title')" />
                     <a-tab-pane
@@ -772,6 +774,20 @@
                 :space-options="spaceOptions"
                 @ok="loadModelDetail" />
         </div>
+        <a-card
+            v-else
+            :bordered="false"
+            :aria-busy="modelDetailLoading">
+            <a-skeleton
+                v-if="modelDetailLoading"
+                active
+                :paragraph="{ rows: 5 }" />
+            <a-empty
+                v-else
+                :description="$t('pages.model.detail.load.failed')">
+                <a-button @click="loadModelDetail">{{ $t('pages.model.detail.load.retry') }}</a-button>
+            </a-empty>
+        </a-card>
     </div>
 </template>
 
@@ -845,6 +861,8 @@ const {
 } = useTableAutoScrollY()
 const modelId = ref(route.params.id)
 const modelData = ref({})
+const modelDetailLoading = ref(true)
+let modelDetailRequest = 0
 const isSmartModel = computed(() => modelData.value.model_type === 'smart')
 const activeTab = ref(route.query.tab === 'monitor' ? 'monitor' : 'endpoint')
 const basicInfoCollapsed = ref(false)
@@ -1342,10 +1360,12 @@ function getEndpointKeyDisplay(record) {
 }
 
 async function loadModelDetail() {
+    const request = ++modelDetailRequest
+    modelDetailLoading.value = true
     try {
         const { data, success } = await apis.model.getModel(modelId.value)
-        if (success) {
-            modelData.value = data || {}
+        if (request === modelDetailRequest && success && data?.id) {
+            modelData.value = data
             if (isSmartModel.value && activeTab.value === 'endpoint') {
                 activeTab.value = 'smart_routing'
             } else if (!isSmartModel.value && activeTab.value === 'smart_routing') {
@@ -1357,6 +1377,10 @@ async function loadModelDetail() {
         }
     } catch (error) {
         // ignore
+    } finally {
+        if (request === modelDetailRequest) {
+            modelDetailLoading.value = false
+        }
     }
 }
 

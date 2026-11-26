@@ -53,14 +53,20 @@ func (a *PolicyDialect) Query(ctx context.Context, query schema.PolicyDialectQue
 	return items, page, err
 }
 
-func (a *PolicyDialect) Create(ctx context.Context, form schema.PolicyDialectForm) (*schema.PolicyDialect, error) {
+type PolicyDialectCreateResult struct {
+	*schema.PolicyDialect
+	*resourceSchema.ModelMutationResult
+}
+
+func (a *PolicyDialect) Create(ctx context.Context, form schema.PolicyDialectForm) (*PolicyDialectCreateResult, error) {
 	switch form.Implementation {
-	case schema.DialectDeveloperToSystem, schema.DialectStoreUnsupported:
+	case schema.DialectDeveloperToSystem, schema.DialectStoreUnsupported, schema.DialectGeminiStripThinkingExtensions:
 	default:
 		return nil, errors.BadRequest("", "未知的方言适配实现")
 	}
 	item := &schema.PolicyDialect{
 		ID: util.NewXID(), ModelID: form.ModelID, Name: form.Implementation, Implementation: form.Implementation,
+		Enabled: form.Enabled,
 	}
 	if username := util.FromUsername(ctx); username != "" {
 		item.Creator = &username
@@ -82,7 +88,11 @@ func (a *PolicyDialect) Create(ctx context.Context, form schema.PolicyDialectFor
 		return nil, err
 	}
 	a.AuditLogBIZ.RecordAction(ctx, opsSchema.AuditActionCreate, opsSchema.AuditResourceTypePolicy, item.ID, item.Name, nil, item)
-	return item, nil
+	result := &PolicyDialectCreateResult{PolicyDialect: item}
+	if item.Enabled == 1 {
+		result.ModelMutationResult = a.publish(ctx, item.ModelID)
+	}
+	return result, nil
 }
 
 func (a *PolicyDialect) ToggleEnabled(ctx context.Context, id string, enabled int) (*resourceSchema.ModelMutationResult, error) {
@@ -145,11 +155,15 @@ func (a *PolicyDialect) change(ctx context.Context, id, action string, enabled *
 	}
 
 	a.AuditLogBIZ.RecordAction(ctx, action, opsSchema.AuditResourceTypePolicy, id, before.Name, before, after)
+	return a.publish(ctx, item.ModelID), nil
+}
+
+func (a *PolicyDialect) publish(ctx context.Context, modelID string) *resourceSchema.ModelMutationResult {
 	result := &resourceSchema.ModelMutationResult{Saved: true, SyncStatus: "synced"}
-	if err := a.Publisher.PublishModelDialects(ctx, item.ModelID); err != nil {
-		logging.Context(ctx).Warn("failed to publish model dialects", zap.String("model_id", item.ModelID), zap.Error(err))
+	if err := a.Publisher.PublishModelDialects(ctx, modelID); err != nil {
+		logging.Context(ctx).Warn("failed to publish model dialects", zap.String("model_id", modelID), zap.Error(err))
 		result.SyncStatus = "failed"
 		result.Warnings = []string{"方言适配变更已保存，但配置同步失败，请重试模型同步"}
 	}
-	return result, nil
+	return result
 }

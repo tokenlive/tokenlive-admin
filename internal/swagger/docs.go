@@ -4895,7 +4895,7 @@ const docTemplate = `{
                 "tags": [
                     "PolicyDialectAPI"
                 ],
-                "summary": "Create a disabled dialect adaptation",
+                "summary": "Create a dialect adaptation with an optional initial enabled state",
                 "parameters": [
                     {
                         "description": "Request body",
@@ -4919,7 +4919,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/schema.PolicyDialect"
+                                            "$ref": "#/definitions/biz.PolicyDialectCreateResult"
                                         }
                                     }
                                 }
@@ -10157,6 +10157,68 @@ const docTemplate = `{
                 }
             }
         },
+        "biz.PolicyDialectCreateResult": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "creator": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "implementation": {
+                    "type": "string"
+                },
+                "model_id": {
+                    "type": "string"
+                },
+                "modifier": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "referenced_by": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ModelReference"
+                    }
+                },
+                "saved": {
+                    "type": "boolean"
+                },
+                "scope_code": {
+                    "type": "string"
+                },
+                "scope_type": {
+                    "type": "string"
+                },
+                "sync_status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "biz.PortalUserResult": {
             "type": "object",
             "properties": {
@@ -13088,6 +13150,14 @@ const docTemplate = `{
                 "model_id"
             ],
             "properties": {
+                "enabled": {
+                    "type": "integer",
+                    "default": 0,
+                    "enum": [
+                        0,
+                        1
+                    ]
+                },
                 "implementation": {
                     "type": "string",
                     "maxLength": 64

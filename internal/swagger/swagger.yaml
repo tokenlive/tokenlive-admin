@@ -6,6 +6,47 @@ definitions:
       scope_type:
         type: string
     type: object
+  biz.PolicyDialectCreateResult:
+    properties:
+      created_at:
+        type: string
+      creator:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: integer
+      id:
+        type: string
+      implementation:
+        type: string
+      model_id:
+        type: string
+      modifier:
+        type: string
+      name:
+        type: string
+      referenced_by:
+        items:
+          $ref: '#/definitions/schema.ModelReference'
+        type: array
+      saved:
+        type: boolean
+      scope_code:
+        type: string
+      scope_type:
+        type: string
+      sync_status:
+        type: string
+      updated_at:
+        type: string
+      version:
+        type: integer
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
   biz.PortalUserResult:
     properties:
       display_name:
@@ -2014,6 +2055,12 @@ definitions:
     type: object
   schema.PolicyDialectForm:
     properties:
+      enabled:
+        default: 0
+        enum:
+        - 0
+        - 1
+        type: integer
       implementation:
         maxLength: 64
         type: string
@@ -6546,11 +6593,11 @@ paths:
             - $ref: '#/definitions/util.ResponseResult'
             - properties:
                 data:
-                  $ref: '#/definitions/schema.PolicyDialect'
+                  $ref: '#/definitions/biz.PolicyDialectCreateResult'
               type: object
       security:
       - ApiKeyAuth: []
-      summary: Create a disabled dialect adaptation
+      summary: Create a dialect adaptation with an optional initial enabled state
       tags:
       - PolicyDialectAPI
   /api/v1/policy/policy-dialects/{id}:

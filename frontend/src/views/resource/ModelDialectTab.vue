@@ -42,6 +42,9 @@
                         record.implementation
                     }}
                 </template>
+                <template v-else-if="column.key === 'protocol'">
+                    {{ implementations.find((item) => item.value === record.implementation)?.protocol || '—' }}
+                </template>
                 <template v-else-if="column.key === 'enabled'">
                     <a-tag :color="record.enabled === 1 ? 'green' : 'default'">
                         {{
@@ -100,6 +103,14 @@
                         :placeholder="$t('pages.model.dialect.placeholder')"
                         :disabled="busy" />
                 </a-form-item>
+                <a-form-item :label="$t('pages.model.form.enabled')">
+                    <a-switch
+                        v-model:checked="createEnabled"
+                        :aria-label="$t('pages.model.form.enabled')"
+                        :checked-children="$t('pages.model.form.enabled.active')"
+                        :un-checked-children="$t('pages.model.form.enabled.inactive')"
+                        :disabled="busy" />
+                </a-form-item>
             </a-form>
         </a-modal>
     </div>
@@ -125,11 +136,25 @@ const loadFailed = ref(false)
 const syncFailed = ref(false)
 const createOpen = ref(false)
 const selectedImplementation = ref()
+const createEnabled = ref(true)
 const actionsDisabled = computed(() => busy.value || loading.value || loadFailed.value)
 
 const implementations = computed(() => [
-    { value: 'chat_developer_to_system', label: t('pages.model.dialect.developer') },
-    { value: 'chat_store_unsupported', label: t('pages.model.dialect.store') },
+    {
+        value: 'chat_developer_to_system',
+        label: t('pages.model.dialect.developer'),
+        protocol: 'Chat Completions',
+    },
+    {
+        value: 'chat_store_unsupported',
+        label: t('pages.model.dialect.store'),
+        protocol: 'Chat Completions',
+    },
+    {
+        value: 'chat_gemini_strip_thinking_extensions',
+        label: t('pages.model.dialect.geminiThinking'),
+        protocol: 'Chat Completions',
+    },
 ])
 const availableImplementations = computed(() => {
     const configured = new Set(items.value.map((item) => item.implementation))
@@ -137,6 +162,7 @@ const availableImplementations = computed(() => {
 })
 const columns = computed(() => [
     { title: t('pages.model.dialect.implementation'), key: 'implementation' },
+    { title: t('pages.model.dialect.protocol'), key: 'protocol', width: 180 },
     { title: t('pages.model.form.enabled'), key: 'enabled', width: 120 },
     { title: t('button.action'), key: 'action', width: 120 },
 ])
@@ -156,12 +182,19 @@ async function load() {
 
 function openCreate() {
     selectedImplementation.value = undefined
+    createEnabled.value = true
     createOpen.value = true
 }
 
 function create() {
     if (!selectedImplementation.value) return
-    return mutate(() => createDialect({ model_id: props.modelId, implementation: selectedImplementation.value }))
+    return mutate(() =>
+        createDialect({
+            model_id: props.modelId,
+            implementation: selectedImplementation.value,
+            enabled: createEnabled.value ? 1 : 0,
+        })
+    )
 }
 
 async function toggle(record) {

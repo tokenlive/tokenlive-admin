@@ -53,7 +53,7 @@ func TestModelDialectLifecycleAndSnapshots(t *testing.T) {
 	}
 	create := func(model, implementation string) policySchema.PolicyDialect {
 		t.Helper()
-		data := request(ctx, http.MethodPost, "", `{"model_id":"`+model+`","implementation":"`+implementation+`","enabled":1}`, http.StatusOK)
+		data := request(ctx, http.MethodPost, "", `{"model_id":"`+model+`","implementation":"`+implementation+`"}`, http.StatusOK)
 		var result policySchema.PolicyDialect
 		require.NoError(t, json.Unmarshal(data, &result))
 		require.Zero(t, result.Enabled)
@@ -158,6 +158,45 @@ func TestModelDialectLifecycleAndSnapshots(t *testing.T) {
 	assertPublication([]string{developer}, 2)
 	request(ctx, http.MethodDelete, "/"+developerPolicy.ID, "", http.StatusOK)
 	assertPublication(nil, 2)
-	require.NotEqual(t, developerPolicy.ID, create("a", developer).ID)
+	data = request(ctx, http.MethodPost, "", `{"model_id":"a","implementation":"`+developer+`","enabled":0}`, http.StatusOK)
+	var disabled policySchema.PolicyDialect
+	require.NoError(t, json.Unmarshal(data, &disabled))
+	require.NotEqual(t, developerPolicy.ID, disabled.ID)
+	require.Zero(t, disabled.Enabled)
+	assertPublication(nil, 2)
 	request(ctx, http.MethodPut, "/"+developerPolicy.ID+"/enabled", `{"enabled":1}`, http.StatusNotFound)
+
+	gemini := policySchema.DialectGeminiStripThinkingExtensions
+	request(ctx, http.MethodPost, "", `{"model_id":"a","implementation":"`+gemini+`","enabled":2}`, http.StatusBadRequest)
+	enabledGemini := `{"model_id":"a","implementation":"` + gemini + `","enabled":1}`
+	data = request(ctx, http.MethodPost, "", enabledGemini, http.StatusOK)
+	var created policyBiz.PolicyDialectCreateResult
+	require.NoError(t, json.Unmarshal(data, &created))
+	require.Equal(t, 1, created.Enabled)
+	require.Equal(t, int64(1), created.Version)
+	require.NotNil(t, created.ModelMutationResult)
+	require.True(t, created.Saved)
+	require.Equal(t, "synced", created.SyncStatus)
+	assertPublication([]string{gemini}, 2)
+	request(ctx, http.MethodDelete, "/"+created.ID, "", http.StatusOK)
+	assertPublication(nil, 2)
+
+	redisServer.SetError("ERR simulated publish outage")
+	data = request(ctx, http.MethodPost, "", enabledGemini, http.StatusOK)
+	var failed policyBiz.PolicyDialectCreateResult
+	require.NoError(t, json.Unmarshal(data, &failed))
+	require.Equal(t, 1, failed.Enabled)
+	require.NotNil(t, failed.ModelMutationResult)
+	require.True(t, failed.Saved)
+	require.Equal(t, "failed", failed.SyncStatus)
+	require.NotEmpty(t, failed.Warnings)
+	var committed policySchema.PolicyDialect
+	require.NoError(t, db.First(&committed, "id = ?", failed.ID).Error)
+	require.Equal(t, 1, committed.Enabled)
+	httpConfig, err = pull.GetGatewayConfig(ctx, "a")
+	require.NoError(t, err)
+	require.Equal(t, []string{gemini}, httpConfig.Models["a"].Endpoints[0].DialectImplementations)
+	redisServer.SetError("")
+	require.NoError(t, models.Sync(ctx, "a"))
+	assertPublication([]string{gemini}, 2)
 }

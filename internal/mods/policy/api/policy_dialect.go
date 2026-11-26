@@ -35,9 +35,9 @@ func (a *PolicyDialect) Query(c *gin.Context) {
 
 // @Tags PolicyDialectAPI
 // @Security ApiKeyAuth
-// @Summary Create a disabled dialect adaptation
+// @Summary Create a dialect adaptation with an optional initial enabled state
 // @Param body body schema.PolicyDialectForm true "Request body"
-// @Success 200 {object} util.ResponseResult{data=schema.PolicyDialect}
+// @Success 200 {object} util.ResponseResult{data=biz.PolicyDialectCreateResult}
 // @Router /api/v1/policy/policy-dialects [post]
 func (a *PolicyDialect) Create(c *gin.Context) {
 	var form schema.PolicyDialectForm
