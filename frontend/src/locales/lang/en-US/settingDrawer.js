@@ -69,6 +69,21 @@ export default {
     'app.about.copyGuidance': 'Copy upgrade guidance',
     'app.about.checkUpdates': 'Check for updates',
     'app.about.retryAfter': 'Try again in {seconds} seconds.',
+    'app.about.checkResult.available': 'Update sources checked: a stable update is available.',
+    'app.about.checkResult.current': 'Update sources checked: running versions match the current stable release.',
+    'app.about.checkResult.completed': 'Update sources checked. Review each component status above.',
+    'app.about.checkResult.unavailable':
+        'Update check attempted, but one or more update sources are currently unavailable.',
+    'app.about.checkResult.rateLimited':
+        'Update check attempted, but GitHub rate-limited the request. Try again later.',
+    'app.about.checkResult.timeout':
+        'Update check attempted, but the source request timed out. Check network or proxy settings.',
+    'app.about.checkResult.unsupportedChannel': 'This installation channel has no configured online update source.',
+    'app.about.sourceError.rate_limited': 'Reason: GitHub API rate limit exceeded. Try again later.',
+    'app.about.sourceError.timeout': 'Reason: update source request timed out. Check network connectivity.',
+    'app.about.sourceError.unsupported_channel':
+        'Reason: no online update source is configured for this installation channel.',
+    'app.about.sourceError.check_failed': 'Reason: unable to reach the update source. Check network or proxy settings.',
     'app.setting.topBottom': 'topBottom',
     'app.setting.leftRight': 'leftRight',
     'app.setting.pagestyle': 'Page style setting',

@@ -186,7 +186,7 @@ func TestComposeDevelopmentIdentityAndMissingSourceAreNotComparable(t *testing.T
 		t.Fatalf("development identity became an update target: %+v", got)
 	}
 	missing := onlyComponent(t, Compose(identity, nil, updatecheck.CheckResult{Enabled: true}), "admin")
-	if missing.State != "unavailable" || missing.Source.Status != "unavailable" || missing.Latest != "" {
+	if missing.State != "unavailable" || missing.Source.Status != "unavailable" || missing.Source.ErrorCode != "unsupported_channel" || missing.Latest != "" {
 		t.Fatalf("missing source invented an update: %+v", missing)
 	}
 }

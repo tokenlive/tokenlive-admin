@@ -5,6 +5,9 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/tokenlive/tokenlive-admin/pkg/logging"
+	"go.uber.org/zap"
 )
 
 // Options controls background checks, the shared deadline and manual cooldown.
@@ -204,9 +207,15 @@ func (c *Checker) runFlight(ctx context.Context, cancel context.CancelFunc, f *f
 				state.Stale = state.Candidate != nil
 				state.ErrorCode = ""
 			default:
+				code := sourceErrorCode(err)
 				state.Status = "unavailable"
 				state.Stale = state.Candidate != nil
-				state.ErrorCode = sourceErrorCode(err)
+				state.ErrorCode = code
+				logging.Context(c.ctx).Warn("update check source failed",
+					zap.String("component", name),
+					zap.String("error_code", code),
+					zap.Error(err),
+				)
 			}
 			c.states[name] = state
 		}()

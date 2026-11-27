@@ -462,3 +462,86 @@ test('late responses do not repopulate an unmounted instance', async (t) => {
     assert.equal(state.updates.value, null)
     assert.equal(calls.length, 1)
 })
+
+test('transient update read or check failure does not lock out manual retry', async (t) => {
+    let failUpdates = true
+    let failCheck = true
+    const { state, calls } = mountVersion(t, (config) => {
+        if (config.url.endsWith('/version')) return ok(summary)
+        if (config.method === 'get' && failUpdates) {
+            return { status: 500, data: { success: false, error: { code: 500, detail: 'transient' } } }
+        }
+        if (config.method === 'post' && failCheck) {
+            return { status: 502, data: { success: false, error: { code: 502, detail: 'bad gateway' } } }
+        }
+        return ok(updates)
+    })
+    await state.load()
+    assert.equal(state.updates.value, null)
+    assert.ok(state.error.value)
+    await state.check()
+    assert.equal(calls.filter(({ method }) => method === 'post').length, 1)
+    assert.equal(state.updates.value, null)
+    failCheck = false
+    await state.check()
+    assert.equal(calls.filter(({ method }) => method === 'post').length, 2)
+    assert.deepEqual(state.updates.value, updates)
+    assert.equal(state.error.value, null)
+    assert.deepEqual(state.lastCheckResult.value, { kind: 'available' })
+})
+
+test('manual check feedback distinguishes honest outcomes and never triggers on cache loads', async (t) => {
+    let nextCheckSnapshot = updates
+    const { state } = mountVersion(t, (config) => {
+        if (config.url.endsWith('/version')) return ok(summary)
+        if (config.method === 'post') return ok(nextCheckSnapshot)
+        return ok(updates)
+    })
+    await state.load()
+    assert.equal(state.lastCheckResult.value, null)
+
+    nextCheckSnapshot = {
+        ...updates,
+        components: [
+            { ...updates.components[0], state: 'current', source: { ...updates.components[0].source, stale: false } },
+        ],
+    }
+    await state.check()
+    assert.deepEqual(state.lastCheckResult.value, { kind: 'current' })
+
+    nextCheckSnapshot = {
+        ...updates,
+        components: [
+            {
+                ...updates.components[0],
+                state: 'unavailable',
+                source: { ...updates.components[0].source, status: 'unavailable', error_code: 'rate_limited' },
+            },
+        ],
+    }
+    await state.check()
+    assert.deepEqual(state.lastCheckResult.value, { kind: 'unavailable', errorCode: 'rate_limited' })
+
+    nextCheckSnapshot = {
+        ...updates,
+        components: [
+            {
+                ...updates.components[0],
+                state: 'unavailable',
+                source: { ...updates.components[0].source, status: 'unavailable', error_code: 'unsupported_channel' },
+            },
+        ],
+    }
+    await state.check()
+    assert.deepEqual(state.lastCheckResult.value, { kind: 'unavailable', errorCode: 'unsupported_channel' })
+
+    nextCheckSnapshot = {
+        ...updates,
+        components: [{ ...updates.components[0], state: 'uncomparable' }],
+    }
+    await state.check()
+    assert.deepEqual(state.lastCheckResult.value, { kind: 'completed' })
+
+    state.clearCheckFeedback()
+    assert.equal(state.lastCheckResult.value, null)
+})

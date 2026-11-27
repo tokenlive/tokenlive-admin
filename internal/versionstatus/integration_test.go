@@ -38,13 +38,13 @@ func TestReleaseSnapshotRecomparesLiveMemoryRegistry(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
-		if r.URL.Path != "/repos/tokenlive/tokenlive-gateway/releases/latest" {
+		if r.URL.Path != "/tokenlive/tokenlive-gateway/releases/latest" {
 			t.Errorf("unexpected release path: %s", r.URL.Path)
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"tag_name":"v1.2.4","draft":false,"prerelease":false}`))
+		w.Header().Set("Location", "https://github.com/tokenlive/tokenlive-gateway/releases/tag/v1.2.4")
+		w.WriteHeader(http.StatusFound)
 	}))
 	defer server.Close()
 	client := &http.Client{Transport: releaseTransport{server.URL, server.Client().Transport}}

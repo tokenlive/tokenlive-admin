@@ -222,9 +222,10 @@ func TestCustomCooldownAndZeroClock(t *testing.T) {
 
 func TestCandidateHistoryIsStaleAfterFailureOrWithdrawal(t *testing.T) {
 	for name, sourceErr := range map[string]error{
-		"failure":   errors.New("private upstream credentials must not be exposed"),
-		"withdrawn": fmt.Errorf("release withdrawn: %w", ErrNoCandidate),
-		"timed_out": context.DeadlineExceeded,
+		"failure":      errors.New("private upstream credentials must not be exposed"),
+		"rate_limited": fmt.Errorf("%w: HTTP 403", ErrRateLimited),
+		"withdrawn":    fmt.Errorf("release withdrawn: %w", ErrNoCandidate),
+		"timed_out":    context.DeadlineExceeded,
 	} {
 		t.Run(name, func(t *testing.T) {
 			clock := newCheckerClock()
@@ -262,6 +263,9 @@ func TestCandidateHistoryIsStaleAfterFailureOrWithdrawal(t *testing.T) {
 			}
 			if wantStatus == "unavailable" && state.ErrorCode == "" {
 				t.Fatal("unavailable result lacks a safe error code")
+			}
+			if errors.Is(sourceErr, ErrRateLimited) && state.ErrorCode != "rate_limited" {
+				t.Fatalf("rate limited error code = %q, want rate_limited", state.ErrorCode)
 			}
 			clock.Advance(time.Minute)
 			result, err = c.Check(context.Background(), false)

@@ -195,6 +195,7 @@
         :checking="checking"
         :retry-after-seconds="retryAfterSeconds"
         :error="error"
+        :last-check-result="lastCheckResult"
         :upgrade="upgrade.state.value"
         :labels="versionLabels"
         @check="check"
@@ -237,7 +238,18 @@ const configDialogRef = ref()
 const aboutOpen = ref(false)
 const { t } = useI18n()
 // All menu layouts and About share this one cache-reading owner.
-const { summary, updates, fallbackVersion, checking, error, retryAfterSeconds, load, check } = useSystemVersion()
+const {
+    summary,
+    updates,
+    fallbackVersion,
+    checking,
+    error,
+    retryAfterSeconds,
+    lastCheckResult,
+    clearCheckFeedback,
+    load,
+    check,
+} = useSystemVersion()
 const upgrade = useUpgrade(() => {
     // A finished upgrade changed local versions: refresh summary and updates.
     void load()
@@ -276,7 +288,10 @@ const gatewaySummary = computed(() => {
 })
 const hasUpdate = computed(() => hasAvailableUpdate(summary.value, updates.value))
 watch(aboutOpen, (open) => {
-    if (open) void load()
+    if (open) {
+        clearCheckFeedback()
+        void load()
+    }
     upgrade.sync(summary.value, open)
 })
 watch(summary, (value) => {

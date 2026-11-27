@@ -123,6 +123,11 @@
                         {{ $t('app.about.historyResult', { version: item.source.candidate.version }) }}
                     </p>
                     <p v-else-if="item.latest">{{ $t('app.about.latestStable', { version: item.latest }) }}</p>
+                    <p
+                        v-if="sourceErrorReason(item)"
+                        class="system-about__muted">
+                        {{ sourceErrorReason(item) }}
+                    </p>
                     <p class="system-about__muted">
                         {{ $t('app.about.lastAttempt', { time: displayTime(item.source?.last_attempt) }) }}
                     </p>
@@ -159,10 +164,16 @@
                     block
                     class="system-about__check"
                     :loading="checking"
-                    :disabled="updates?.enabled !== true || checking || retryAfterSeconds > 0"
+                    :disabled="updates?.enabled === false || checking || retryAfterSeconds > 0"
                     @click="$emit('check')"
                     >{{ $t('app.about.checkUpdates') }}</a-button
                 >
+                <p
+                    v-if="!error && checkFeedbackMessage"
+                    :role="lastCheckResult?.kind === 'unavailable' ? 'alert' : 'status'"
+                    :class="lastCheckResult?.kind === 'unavailable' ? 'system-about__error' : 'system-about__feedback'">
+                    {{ checkFeedbackMessage }}
+                </p>
                 <p
                     v-if="retryAfterSeconds > 0"
                     role="status"
@@ -316,6 +327,7 @@ const props = defineProps({
     checking: { type: Boolean, default: false },
     retryAfterSeconds: { type: Number, default: 0 },
     error: { type: Object, default: null },
+    lastCheckResult: { type: Object, default: null },
     upgrade: { type: Object, default: null },
     labels: { type: Object, required: true },
 })
@@ -342,6 +354,27 @@ const errorMessage = computed(() => {
     }
     return t('app.about.checkFailed')
 })
+const knownSourceErrors = new Set(['rate_limited', 'timeout', 'unsupported_channel', 'check_failed'])
+const checkFeedbackMessage = computed(() => {
+    const result = props.lastCheckResult
+    if (!result) return ''
+    if (result.kind === 'unavailable') {
+        if (result.errorCode === 'rate_limited') return t('app.about.checkResult.rateLimited')
+        if (result.errorCode === 'timeout') return t('app.about.checkResult.timeout')
+        if (result.errorCode === 'unsupported_channel') return t('app.about.checkResult.unsupportedChannel')
+        return t('app.about.checkResult.unavailable')
+    }
+    if (result.kind === 'available') return t('app.about.checkResult.available')
+    if (result.kind === 'current') return t('app.about.checkResult.current')
+    if (result.kind === 'completed') return t('app.about.checkResult.completed')
+    return ''
+})
+function sourceErrorReason(item) {
+    if (item?.source?.status !== 'unavailable') return ''
+    const code = item.source.error_code
+    if (!code || !knownSourceErrors.has(code)) return ''
+    return t(`app.about.sourceError.${code}`)
+}
 // These commands are local templates, never server-provided executable text.
 const brewUpgrade = 'brew update\nbrew upgrade tokenlive'
 const brewRestart = 'brew services restart tokenlive'
@@ -600,6 +633,13 @@ async function copyText(text) {
         color: var(--color-text-primary);
         border-left: 2px solid var(--color-primary);
         padding-left: 10px;
+    }
+
+    &__feedback {
+        margin: 8px 0 6px;
+        color: var(--color-text-primary);
+        font-size: 12px;
+        overflow-wrap: anywhere;
     }
 
     &__update-heading {

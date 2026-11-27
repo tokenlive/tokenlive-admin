@@ -66,6 +66,8 @@ func cloneResult(result CheckResult, now time.Time, interval time.Duration) Chec
 // Keep error details local: upstream messages may contain sensitive URLs.
 func sourceErrorCode(err error) string {
 	switch {
+	case errors.Is(err, ErrRateLimited):
+		return "rate_limited"
 	case errors.Is(err, context.DeadlineExceeded):
 		return "timeout"
 	case errors.Is(err, context.Canceled):

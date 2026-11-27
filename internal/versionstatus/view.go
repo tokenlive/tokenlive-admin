@@ -81,6 +81,9 @@ func composeComponent(name string, current productversion.Build, count int, resu
 	source := result.Sources[name]
 	if source.Status == "" {
 		source.Status = "unavailable"
+		if result.Enabled && source.ErrorCode == "" {
+			source.ErrorCode = "unsupported_channel"
+		}
 	}
 	if source.Candidate != nil {
 		candidate := *source.Candidate

@@ -69,6 +69,56 @@ func TestCandidateReleaseParsing(t *testing.T) {
 	}
 }
 
+func TestGitHubReleaseRedirectParsing(t *testing.T) {
+	tests := []struct {
+		name      string
+		component string
+		location  string
+		want      Candidate
+		noTarget  bool
+		bad       bool
+	}{
+		{
+			name: "admin absolute redirect", component: "admin",
+			location: "https://github.com/tokenlive/tokenlive-admin/releases/tag/v1.0.7",
+			want:     Candidate{"v1.0.7", "https://github.com/tokenlive/tokenlive-admin/releases/tag/v1.0.7"},
+		},
+		{
+			name: "gateway relative redirect with metadata", component: "gateway",
+			location: "/tokenlive/tokenlive-gateway/releases/tag/1.2.4%2Bbuild.7",
+			want:     Candidate{"v1.2.4", "https://github.com/tokenlive/tokenlive-gateway/releases/tag/1.2.4+build.7"},
+		},
+		{
+			name: "no stable release redirects to releases index", component: "admin",
+			location: "https://github.com/tokenlive/tokenlive-admin/releases",
+			noTarget: true,
+		},
+		{
+			name: "prerelease tag", component: "gateway",
+			location: "https://github.com/tokenlive/tokenlive-gateway/releases/tag/v1.3.0-rc.1",
+			noTarget: true,
+		},
+		{
+			name: "nested path tag", component: "admin",
+			location: "https://github.com/tokenlive/tokenlive-admin/releases/tag/v1.2.3/extra",
+			noTarget: true,
+		},
+		{name: "missing location", component: "admin", location: "", bad: true},
+		{name: "wrong host", component: "admin", location: "https://attacker.invalid/tokenlive/tokenlive-admin/releases/tag/v1.2.3", bad: true},
+		{name: "downgrade http", component: "admin", location: "http://github.com/tokenlive/tokenlive-admin/releases/tag/v1.2.3", bad: true},
+		{name: "wrong repository", component: "admin", location: "https://github.com/tokenlive/tokenlive-gateway/releases/tag/v1.2.3", bad: true},
+		{name: "query string rejected", component: "admin", location: "https://github.com/tokenlive/tokenlive-admin/releases/tag/v1.2.3?x=1", bad: true},
+		{name: "fragment rejected", component: "admin", location: "https://github.com/tokenlive/tokenlive-admin/releases/tag/v1.2.3#top", bad: true},
+		{name: "userinfo rejected", component: "admin", location: "https://user@github.com/tokenlive/tokenlive-admin/releases/tag/v1.2.3", bad: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseGitHubReleaseRedirect(tt.location, tt.component)
+			assertCandidateResult(t, got, err, tt.want, tt.noTarget, tt.bad)
+		})
+	}
+}
+
 func TestFormulaParsing(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -111,30 +161,42 @@ func TestFormulaParsing(t *testing.T) {
 	}
 }
 
-func TestSourceRequests(t *testing.T) {
+func TestSourceRequestsPrimaryChannelsAvoidGitHubAPI(t *testing.T) {
 	tests := []struct {
-		name string
-		new  func(*http.Client) Source
-		path string
-		body string
-		want Candidate
+		name   string
+		new    func(*http.Client) Source
+		host   string
+		path   string
+		accept string
+		resp   func(io.ReadCloser) *http.Response
+		body   string
+		want   Candidate
 	}{
 		{
-			name: "admin", new: func(c *http.Client) Source { return NewGitHubSource(c, "admin") },
-			path: "/repos/tokenlive/tokenlive-admin/releases/latest",
-			body: `{"tag_name":"v1.2.4","draft":false,"prerelease":false}`,
+			name: "admin redirect", new: func(c *http.Client) Source { return NewGitHubSource(c, "admin") },
+			host: "github.com", path: "/tokenlive/tokenlive-admin/releases/latest", accept: "text/html",
+			resp: func(b io.ReadCloser) *http.Response {
+				r := response(http.StatusFound, b)
+				r.Header.Set("Location", "https://github.com/tokenlive/tokenlive-admin/releases/tag/v1.2.4")
+				return r
+			},
 			want: Candidate{"v1.2.4", "https://github.com/tokenlive/tokenlive-admin/releases/tag/v1.2.4"},
 		},
 		{
-			name: "gateway", new: func(c *http.Client) Source { return NewGitHubSource(c, "gateway") },
-			path: "/repos/tokenlive/tokenlive-gateway/releases/latest",
-			body: `{"tag_name":"v1.2.5","draft":false,"prerelease":false}`,
+			name: "gateway redirect", new: func(c *http.Client) Source { return NewGitHubSource(c, "gateway") },
+			host: "github.com", path: "/tokenlive/tokenlive-gateway/releases/latest", accept: "text/html",
+			resp: func(b io.ReadCloser) *http.Response {
+				r := response(http.StatusFound, b)
+				r.Header.Set("Location", "https://github.com/tokenlive/tokenlive-gateway/releases/tag/v1.2.5")
+				return r
+			},
 			want: Candidate{"v1.2.5", "https://github.com/tokenlive/tokenlive-gateway/releases/tag/v1.2.5"},
 		},
 		{
-			name: "formula stays older than standalone release", new: NewHomebrewSource,
-			path: "/repos/tokenlive/homebrew-tokenlive/contents/Formula/tokenlive.rb",
-			body: formulaContents(t, "version \"1.2.3\"\n"),
+			name: "homebrew raw formula stays older than standalone release", new: NewHomebrewSource,
+			host: "raw.githubusercontent.com", path: "/tokenlive/homebrew-tokenlive/main/Formula/tokenlive.rb", accept: "text/plain",
+			resp: func(b io.ReadCloser) *http.Response { return response(http.StatusOK, b) },
+			body: "version \"1.2.3\"\n",
 			want: Candidate{"v1.2.3", "https://github.com/tokenlive/tokenlive-standalone/releases/tag/v1.2.3"},
 		},
 	}
@@ -144,11 +206,11 @@ func TestSourceRequests(t *testing.T) {
 			body := &trackedBody{Reader: strings.NewReader(tt.body)}
 			client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 				calls++
-				if req.URL.Path == "/repos/tokenlive/tokenlive-standalone/releases/latest" {
-					return response(http.StatusOK, io.NopCloser(strings.NewReader(`{"tag_name":"v9.9.9","draft":false,"prerelease":false}`))), nil
+				if req.URL.Host == "api.github.com" {
+					t.Fatalf("primary channel should not contact api.github.com: %s", req.URL)
 				}
-				assertAnonymousRequest(t, req, tt.path)
-				return response(http.StatusOK, body), nil
+				assertAnonymousRequest(t, req, tt.host, tt.path, tt.accept)
+				return tt.resp(body), nil
 			})}
 			got, err := tt.new(client).Latest(context.Background())
 			assertCandidateResult(t, got, err, tt.want, false, false)
@@ -157,6 +219,69 @@ func TestSourceRequests(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSourceFallbackToGitHubAPIAndETagCaching(t *testing.T) {
+	t.Run("admin falls back to api.github.com and reuses ETag", func(t *testing.T) {
+		var requests []*http.Request
+		client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			requests = append(requests, req)
+			if req.URL.Host == "github.com" {
+				return response(http.StatusServiceUnavailable, io.NopCloser(strings.NewReader("unavailable"))), nil
+			}
+			assertAnonymousRequest(t, req, "api.github.com", "/repos/tokenlive/tokenlive-admin/releases/latest", "application/vnd.github+json")
+			if req.Header.Get("If-None-Match") == `"etag-v124"` {
+				return response(http.StatusNotModified, io.NopCloser(strings.NewReader(""))), nil
+			}
+			r := response(http.StatusOK, io.NopCloser(strings.NewReader(`{"tag_name":"v1.2.4","draft":false,"prerelease":false}`)))
+			r.Header.Set("ETag", `"etag-v124"`)
+			return r, nil
+		})}
+		src := NewGitHubSource(client, "admin")
+		want := Candidate{"v1.2.4", "https://github.com/tokenlive/tokenlive-admin/releases/tag/v1.2.4"}
+		got, err := src.Latest(context.Background())
+		assertCandidateResult(t, got, err, want, false, false)
+		got2, err := src.Latest(context.Background())
+		assertCandidateResult(t, got2, err, want, false, false)
+		if len(requests) != 4 || requests[3].Header.Get("If-None-Match") != `"etag-v124"` {
+			t.Fatalf("expected ETag reuse on second API fallback, got %d requests", len(requests))
+		}
+	})
+
+	t.Run("homebrew raw ETag 304 and API fallback with multiline base64", func(t *testing.T) {
+		rawCalls := 0
+		failRaw := false
+		formula := "class Tokenlive < Formula\n  version \"1.2.3\"\nend\n" + strings.Repeat("# pad\n", 15)
+		client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if req.URL.Host == "raw.githubusercontent.com" {
+				rawCalls++
+				if failRaw {
+					return response(http.StatusNotFound, io.NopCloser(strings.NewReader("not found"))), nil
+				}
+				assertAnonymousRequest(t, req, "raw.githubusercontent.com", "/tokenlive/homebrew-tokenlive/main/Formula/tokenlive.rb", "text/plain")
+				if req.Header.Get("If-None-Match") == `"raw-etag"` {
+					return response(http.StatusNotModified, io.NopCloser(strings.NewReader(""))), nil
+				}
+				r := response(http.StatusOK, io.NopCloser(strings.NewReader(formula)))
+				r.Header.Set("ETag", `"raw-etag"`)
+				return r, nil
+			}
+			assertAnonymousRequest(t, req, "api.github.com", "/repos/tokenlive/homebrew-tokenlive/contents/Formula/tokenlive.rb", "application/vnd.github+json")
+			return response(http.StatusOK, io.NopCloser(strings.NewReader(multilineFormulaContents(t, formula)))), nil
+		})}
+		src := NewHomebrewSource(client)
+		want := Candidate{"v1.2.3", "https://github.com/tokenlive/tokenlive-standalone/releases/tag/v1.2.3"}
+		got, err := src.Latest(context.Background())
+		assertCandidateResult(t, got, err, want, false, false)
+		got2, err := src.Latest(context.Background())
+		assertCandidateResult(t, got2, err, want, false, false)
+		if rawCalls != 2 {
+			t.Fatalf("expected 2 raw calls with 304 cache hit, got %d", rawCalls)
+		}
+		failRaw = true
+		got3, err := src.Latest(context.Background())
+		assertCandidateResult(t, got3, err, want, false, false)
+	})
 }
 
 func TestSourceSizeBoundaries(t *testing.T) {
@@ -169,19 +294,22 @@ func TestSourceSizeBoundaries(t *testing.T) {
 		want Candidate
 	}{
 		{
-			name: "exactly one MiB response", new: func(c *http.Client) Source { return NewGitHubSource(c, "admin") },
+			name: "exactly one MiB API release response", new: func(c *http.Client) Source { return NewGitHubSource(c, "admin") },
 			body: release + strings.Repeat(" ", (1<<20)-len(release)),
 			want: Candidate{"v1.2.4", "https://github.com/tokenlive/tokenlive-admin/releases/tag/v1.2.4"},
 		},
 		{
-			name: "exactly 64 KiB decoded Formula", new: NewHomebrewSource,
-			body: formulaContents(t, formula+strings.Repeat("#", (64<<10)-len(formula))),
+			name: "exactly 64 KiB raw Formula", new: NewHomebrewSource,
+			body: formula + strings.Repeat("#", (64<<10)-len(formula)),
 			want: Candidate{"v1.2.3", "https://github.com/tokenlive/tokenlive-standalone/releases/tag/v1.2.3"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if req.URL.Host == "github.com" {
+					return response(http.StatusBadGateway, io.NopCloser(strings.NewReader(""))), nil
+				}
 				return response(http.StatusOK, io.NopCloser(strings.NewReader(tt.body))), nil
 			})}
 			got, err := tt.new(client).Latest(context.Background())
@@ -194,13 +322,15 @@ func TestSourceLatestWithoutStableCandidate(t *testing.T) {
 	calls := 0
 	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		calls++
-		assertAnonymousRequest(t, req, "/repos/tokenlive/tokenlive-gateway/releases/latest")
-		return response(http.StatusOK, io.NopCloser(strings.NewReader(`{"tag_name":"v1.3.0-rc.1","draft":false,"prerelease":false}`))), nil
+		assertAnonymousRequest(t, req, "github.com", "/tokenlive/tokenlive-gateway/releases/latest", "text/html")
+		r := response(http.StatusFound, io.NopCloser(strings.NewReader("")))
+		r.Header.Set("Location", "https://github.com/tokenlive/tokenlive-gateway/releases/tag/v1.3.0-rc.1")
+		return r, nil
 	})}
 	got, err := NewGitHubSource(client, "gateway").Latest(context.Background())
 	assertCandidateResult(t, got, err, Candidate{}, true, false)
 	if calls != 1 {
-		t.Fatalf("requests=%d; must not fall back to historical releases", calls)
+		t.Fatalf("requests=%d; must not fall back to historical releases or API when primary returns ErrNoCandidate", calls)
 	}
 }
 
@@ -208,8 +338,10 @@ func TestSourceNilClientUsesAnonymousDefaultClone(t *testing.T) {
 	previous := http.DefaultClient
 	t.Cleanup(func() { http.DefaultClient = previous })
 	http.DefaultClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		assertAnonymousRequest(t, req, "/repos/tokenlive/tokenlive-admin/releases/latest")
-		return response(http.StatusOK, io.NopCloser(strings.NewReader(`{"tag_name":"v1.2.4","draft":false,"prerelease":false}`))), nil
+		assertAnonymousRequest(t, req, "github.com", "/tokenlive/tokenlive-admin/releases/latest", "text/html")
+		r := response(http.StatusFound, io.NopCloser(strings.NewReader("")))
+		r.Header.Set("Location", "https://github.com/tokenlive/tokenlive-admin/releases/tag/v1.2.4")
+		return r, nil
 	})}
 	got, err := NewGitHubSource(nil, "admin").Latest(context.Background())
 	assertCandidateResult(t, got, err, Candidate{"v1.2.4", "https://github.com/tokenlive/tokenlive-admin/releases/tag/v1.2.4"}, false, false)
@@ -218,25 +350,49 @@ func TestSourceNilClientUsesAnonymousDefaultClone(t *testing.T) {
 	}
 }
 
-func TestSourceHTTPFailures(t *testing.T) {
+func TestSourceHTTPFailuresAndRateLimitClassification(t *testing.T) {
 	for _, constructor := range sourceConstructors() {
 		t.Run(constructor.name, func(t *testing.T) {
-			for _, status := range []int{http.StatusForbidden, http.StatusTooManyRequests, http.StatusNotFound} {
-				t.Run(http.StatusText(status), func(t *testing.T) {
-					body := &trackedBody{Reader: strings.NewReader("upstream message must not be returned")}
+			for _, tc := range []struct {
+				name        string
+				status      int
+				remaining   string
+				rateLimited bool
+			}{
+				{"Forbidden", http.StatusForbidden, "", false},
+				{"ForbiddenRateLimited", http.StatusForbidden, "0", true},
+				{"TooManyRequests", http.StatusTooManyRequests, "", true},
+				{"NotFound", http.StatusNotFound, "", false},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					var bodies []*trackedBody
 					client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-						return response(status, body), nil
+						body := &trackedBody{Reader: strings.NewReader("upstream message must not be returned")}
+						bodies = append(bodies, body)
+						r := response(tc.status, body)
+						if tc.remaining != "" {
+							r.Header.Set("X-RateLimit-Remaining", tc.remaining)
+						}
+						return r, nil
 					})}
 					got, err := constructor.new(client).Latest(context.Background())
 					assertCandidateResult(t, got, err, Candidate{}, false, true)
-					if body.read != 0 || !body.closed || strings.Contains(err.Error(), "upstream message") {
-						t.Fatalf("status handling read=%d closed=%v err=%v", body.read, body.closed, err)
+					if errors.Is(err, ErrRateLimited) != tc.rateLimited {
+						t.Fatalf("rateLimited=%v, err=%v", tc.rateLimited, err)
+					}
+					for _, body := range bodies {
+						if body.read != 0 || !body.closed || strings.Contains(err.Error(), "upstream message") {
+							t.Fatalf("status handling read=%d closed=%v err=%v", body.read, body.closed, err)
+						}
 					}
 				})
 			}
 			t.Run("oversized", func(t *testing.T) {
 				body := &trackedBody{Reader: strings.NewReader(strings.Repeat(" ", (1<<20)+10))}
 				client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+					if req.URL.Host == "github.com" {
+						return response(http.StatusBadGateway, io.NopCloser(strings.NewReader(""))), nil
+					}
 					return response(http.StatusOK, body), nil
 				})}
 				got, err := constructor.new(client).Latest(context.Background())
@@ -249,6 +405,9 @@ func TestSourceHTTPFailures(t *testing.T) {
 				wantErr := errors.New("read failed")
 				body := &trackedBody{Reader: errorReader{wantErr}}
 				client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+					if req.URL.Host == "github.com" || req.URL.Host == "raw.githubusercontent.com" {
+						return response(http.StatusBadGateway, io.NopCloser(strings.NewReader(""))), nil
+					}
 					return response(http.StatusOK, body), nil
 				})}
 				_, err := constructor.new(client).Latest(context.Background())
@@ -259,7 +418,9 @@ func TestSourceHTTPFailures(t *testing.T) {
 			t.Run("context cancellation", func(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
+				calls := 0
 				client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+					calls++
 					cancel()
 					select {
 					case <-req.Context().Done():
@@ -269,8 +430,8 @@ func TestSourceHTTPFailures(t *testing.T) {
 					}
 				})}
 				_, err := constructor.new(client).Latest(ctx)
-				if !errors.Is(err, context.Canceled) {
-					t.Fatalf("got %v; want context.Canceled", err)
+				if !errors.Is(err, context.Canceled) || calls != 1 {
+					t.Fatalf("got %v (calls=%d); want context.Canceled with 1 call", err, calls)
 				}
 			})
 			t.Run("parent deadline", func(t *testing.T) {
@@ -292,7 +453,7 @@ func TestSourceHTTPFailures(t *testing.T) {
 	}
 }
 
-func TestSourceFormulaContents(t *testing.T) {
+func TestSourceFormulaContentsFallback(t *testing.T) {
 	tests := []struct {
 		name     string
 		body     string
@@ -310,6 +471,9 @@ func TestSourceFormulaContents(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if req.URL.Host == "raw.githubusercontent.com" {
+					return response(http.StatusServiceUnavailable, io.NopCloser(strings.NewReader(""))), nil
+				}
 				return response(http.StatusOK, io.NopCloser(strings.NewReader(tt.body))), nil
 			})}
 			got, err := NewHomebrewSource(client).Latest(context.Background())
@@ -337,47 +501,56 @@ func TestSourceRedirectPolicy(t *testing.T) {
 		"https://github.com/redirected",
 	} {
 		t.Run(target, func(t *testing.T) {
-			calls := 0
+			apiCalls := 0
 			client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-				calls++
+				if req.URL.Host == "github.com" {
+					return response(http.StatusBadGateway, io.NopCloser(strings.NewReader(""))), nil
+				}
+				apiCalls++
 				return redirectResponse(target), nil
 			})}
 			got, err := NewGitHubSource(client, "admin").Latest(context.Background())
 			assertCandidateResult(t, got, err, Candidate{}, false, true)
-			if calls != 1 {
-				t.Fatalf("followed forbidden redirect: requests=%d", calls)
+			if apiCalls != 1 {
+				t.Fatalf("followed forbidden redirect: api requests=%d", apiCalls)
 			}
 		})
 	}
 	t.Run("allowed host", func(t *testing.T) {
-		calls := 0
+		apiCalls := 0
 		client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-			calls++
-			if calls == 1 {
+			if req.URL.Host == "github.com" {
+				return response(http.StatusBadGateway, io.NopCloser(strings.NewReader(""))), nil
+			}
+			apiCalls++
+			if apiCalls == 1 {
 				return redirectResponse("https://api.github.com/redirected"), nil
 			}
-			assertAnonymousRequest(t, req, "/redirected")
+			assertAnonymousRequest(t, req, "api.github.com", "/redirected", "application/vnd.github+json")
 			return response(http.StatusOK, io.NopCloser(strings.NewReader(`{"tag_name":"v1.2.4","draft":false,"prerelease":false}`))), nil
 		})}
 		got, err := NewGitHubSource(client, "admin").Latest(context.Background())
 		assertCandidateResult(t, got, err, Candidate{"v1.2.4", "https://github.com/tokenlive/tokenlive-admin/releases/tag/v1.2.4"}, false, false)
-		if calls != 2 {
-			t.Fatalf("requests=%d; want 2", calls)
+		if apiCalls != 2 {
+			t.Fatalf("api requests=%d; want 2", apiCalls)
 		}
 	})
 	t.Run("bounded redirect loop", func(t *testing.T) {
-		calls := 0
+		apiCalls := 0
 		client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-			calls++
-			if calls > 12 {
+			if req.URL.Host == "github.com" {
+				return response(http.StatusBadGateway, io.NopCloser(strings.NewReader(""))), nil
+			}
+			apiCalls++
+			if apiCalls > 12 {
 				return nil, errors.New("unbounded redirects")
 			}
 			return redirectResponse("https://api.github.com/loop"), nil
 		})}
 		got, err := NewGitHubSource(client, "admin").Latest(context.Background())
 		assertCandidateResult(t, got, err, Candidate{}, false, true)
-		if calls > 10 {
-			t.Fatalf("redirect loop made %d requests; want at most 10", calls)
+		if apiCalls > 10 {
+			t.Fatalf("redirect loop made %d api requests; want at most 10", apiCalls)
 		}
 	})
 }
@@ -388,16 +561,22 @@ func TestSourceDoesNotMutateBorrowedClientOrSendCookies(t *testing.T) {
 		t.Fatal(err)
 	}
 	apiURL, _ := url.Parse("https://api.github.com")
+	ghURL, _ := url.Parse("https://github.com")
 	jar.SetCookies(apiURL, []*http.Cookie{{Name: "business-session", Value: "private"}})
+	jar.SetCookies(ghURL, []*http.Cookie{{Name: "business-session", Value: "private"}})
 	callerRedirect := errors.New("caller redirect policy")
 	originalRedirect := func(req *http.Request, via []*http.Request) error { return callerRedirect }
-	calls := 0
+	apiCalls := 0
 	client := &http.Client{
 		Jar: jar, Timeout: time.Second, CheckRedirect: originalRedirect,
 		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-			calls++
-			assertAnonymousRequest(t, req, req.URL.Path)
-			if calls == 1 {
+			if req.URL.Host == "github.com" {
+				assertAnonymousRequest(t, req, "github.com", "/tokenlive/tokenlive-admin/releases/latest", "text/html")
+				return response(http.StatusBadGateway, io.NopCloser(strings.NewReader(""))), nil
+			}
+			apiCalls++
+			assertAnonymousRequest(t, req, "api.github.com", req.URL.Path, "application/vnd.github+json")
+			if apiCalls == 1 {
 				return redirectResponse("https://api.github.com/redirected"), nil
 			}
 			return response(http.StatusOK, io.NopCloser(strings.NewReader(`{"tag_name":"v1.2.4","draft":false,"prerelease":false}`))), nil
@@ -432,19 +611,19 @@ func assertCandidateResult(t *testing.T, got Candidate, err error, want Candidat
 	}
 }
 
-func assertAnonymousRequest(t *testing.T, req *http.Request, path string) {
+func assertAnonymousRequest(t *testing.T, req *http.Request, host, path, accept string) {
 	t.Helper()
-	if req.Method != http.MethodGet || req.URL.Scheme != "https" || req.URL.Host != "api.github.com" || req.URL.Path != path || req.URL.RawQuery != "" || req.URL.User != nil {
+	if req.Method != http.MethodGet || req.URL.Scheme != "https" || req.URL.Host != host || req.URL.Path != path || req.URL.RawQuery != "" || req.URL.User != nil {
 		t.Fatalf("unexpected source request: %s %s", req.Method, req.URL)
 	}
 	if req.Body != nil || req.ContentLength != 0 {
 		t.Fatal("source request must not contain a body")
 	}
-	if req.Header.Get("Accept") != "application/vnd.github+json" || req.Header.Get("User-Agent") != "tokenlive-admin-updatecheck" {
+	if req.Header.Get("Accept") != accept || req.Header.Get("User-Agent") != "tokenlive-admin-updatecheck" {
 		t.Fatalf("unexpected source headers: %v", req.Header)
 	}
 	for name := range req.Header {
-		if name != "Accept" && name != "User-Agent" {
+		if name != "Accept" && name != "User-Agent" && name != "If-None-Match" {
 			t.Fatalf("unexpected business or credential header: %s", name)
 		}
 	}
@@ -455,6 +634,27 @@ func formulaContents(t *testing.T, formula string) string {
 	body, err := json.Marshal(map[string]any{
 		"type": "file", "encoding": "base64", "name": "tokenlive.rb",
 		"path": "Formula/tokenlive.rb", "content": base64.StdEncoding.EncodeToString([]byte(formula)) + "\n",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(body)
+}
+
+func multilineFormulaContents(t *testing.T, formula string) string {
+	t.Helper()
+	raw := base64.StdEncoding.EncodeToString([]byte(formula))
+	var lines []string
+	for i := 0; i < len(raw); i += 60 {
+		end := i + 60
+		if end > len(raw) {
+			end = len(raw)
+		}
+		lines = append(lines, raw[i:end])
+	}
+	body, err := json.Marshal(map[string]any{
+		"type": "file", "encoding": "base64", "name": "tokenlive.rb",
+		"path": "Formula/tokenlive.rb", "content": strings.Join(lines, "\n") + "\n",
 	})
 	if err != nil {
 		t.Fatal(err)

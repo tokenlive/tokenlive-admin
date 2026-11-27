@@ -256,21 +256,36 @@ func TestSourcesFollowEditionAndConfirmedInstallChannel(t *testing.T) {
 		{"standalone release is not confirmed Homebrew", testIdentity("standalone", "release"), []string{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			var paths []string
+			var endpoints []string
 			client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-				paths = append(paths, request.URL.Path)
-				if request.URL.Scheme != "https" || request.URL.Host != "api.github.com" {
+				endpoints = append(endpoints, request.URL.Host+request.URL.Path)
+				switch request.URL.Host {
+				case "github.com":
+					header := make(http.Header)
+					header.Set("Location", "https://github.com"+strings.TrimSuffix(request.URL.Path, "/latest")+"/tag/v2.0.0")
+					return &http.Response{
+						StatusCode: http.StatusFound, Header: header,
+						Body: io.NopCloser(strings.NewReader("")),
+					}, nil
+				case "raw.githubusercontent.com":
+					return &http.Response{
+						StatusCode: http.StatusOK, Header: make(http.Header),
+						Body: io.NopCloser(strings.NewReader("version \"2.0.0\"\n")),
+					}, nil
+				case "api.github.com":
+					body := `{"tag_name":"v2.0.0","draft":false,"prerelease":false}`
+					if strings.Contains(request.URL.Path, "/contents/Formula/") {
+						body = `{"type":"file","encoding":"base64","content":"` +
+							base64.StdEncoding.EncodeToString([]byte("version \"2.0.0\"\n")) + `"}`
+					}
+					return &http.Response{
+						StatusCode: http.StatusOK, Header: make(http.Header),
+						Body: io.NopCloser(strings.NewReader(body)),
+					}, nil
+				default:
 					t.Fatalf("unexpected source URL: %s", request.URL)
+					return nil, nil
 				}
-				body := `{"tag_name":"v2.0.0","draft":false,"prerelease":false}`
-				if strings.Contains(request.URL.Path, "/contents/Formula/") {
-					body = `{"type":"file","encoding":"base64","content":"` +
-						base64.StdEncoding.EncodeToString([]byte("version \"2.0.0\"\n")) + `"}`
-				}
-				return &http.Response{
-					StatusCode: http.StatusOK, Header: make(http.Header),
-					Body: io.NopCloser(strings.NewReader(body)),
-				}, nil
 			})}
 			sources := sourcesForIdentity(tc.identity, client)
 			keys := make([]string, 0, len(sources))
@@ -278,8 +293,8 @@ func TestSourcesFollowEditionAndConfirmedInstallChannel(t *testing.T) {
 				keys = append(keys, key)
 			}
 			sort.Strings(keys)
-			if !reflect.DeepEqual(keys, tc.keys) || len(paths) != 0 {
-				t.Fatalf("wrong sources or eager HTTP: keys=%v requests=%v", keys, paths)
+			if !reflect.DeepEqual(keys, tc.keys) || len(endpoints) != 0 {
+				t.Fatalf("wrong sources or eager HTTP: keys=%v requests=%v", keys, endpoints)
 			}
 			for _, key := range keys {
 				candidate, err := sources[key].Latest(context.Background())
@@ -287,17 +302,17 @@ func TestSourcesFollowEditionAndConfirmedInstallChannel(t *testing.T) {
 					t.Fatalf("selected %s source cannot consume its channel: %+v, %v", key, candidate, err)
 				}
 			}
-			wantPaths := map[string]string{
-				"admin":      "/repos/tokenlive/tokenlive-admin/releases/latest",
-				"gateway":    "/repos/tokenlive/tokenlive-gateway/releases/latest",
-				"standalone": "/repos/tokenlive/homebrew-tokenlive/contents/Formula/tokenlive.rb",
+			wantEndpoints := map[string]string{
+				"admin":      "github.com/tokenlive/tokenlive-admin/releases/latest",
+				"gateway":    "github.com/tokenlive/tokenlive-gateway/releases/latest",
+				"standalone": "raw.githubusercontent.com/tokenlive/homebrew-tokenlive/main/Formula/tokenlive.rb",
 			}
-			if len(paths) != len(keys) {
-				t.Fatalf("selected sources made %d requests for %d keys", len(paths), len(keys))
+			if len(endpoints) != len(keys) {
+				t.Fatalf("selected sources made %d requests for %d keys", len(endpoints), len(keys))
 			}
 			for i, key := range keys {
-				if paths[i] != wantPaths[key] {
-					t.Fatalf("%s uses wrong publishing channel: %s", key, paths[i])
+				if endpoints[i] != wantEndpoints[key] {
+					t.Fatalf("%s uses wrong publishing channel: %s", key, endpoints[i])
 				}
 			}
 		})

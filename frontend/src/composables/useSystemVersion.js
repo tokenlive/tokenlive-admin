@@ -22,12 +22,41 @@ function hasRejectedSnapshot(failure) {
     )
 }
 
+function summarizeManualCheck(snapshot) {
+    if (!snapshot) return null
+    if (snapshot.enabled === false) return { kind: 'disabled' }
+    const components = Array.isArray(snapshot.components) ? snapshot.components : []
+    const unavailable = components.filter(
+        (item) => item?.state === 'unavailable' || item?.source?.status === 'unavailable'
+    )
+    if (unavailable.length > 0) {
+        const codes = new Set(unavailable.map((item) => item?.source?.error_code).filter(Boolean))
+        if (codes.has('rate_limited')) return { kind: 'unavailable', errorCode: 'rate_limited' }
+        if (codes.has('timeout')) return { kind: 'unavailable', errorCode: 'timeout' }
+        if (codes.size === 1 && codes.has('unsupported_channel') && unavailable.length === components.length) {
+            return { kind: 'unavailable', errorCode: 'unsupported_channel' }
+        }
+        return { kind: 'unavailable', errorCode: 'check_failed' }
+    }
+    if (components.some((item) => item?.state === 'available' && item?.source?.stale === false)) {
+        return { kind: 'available' }
+    }
+    if (
+        components.length > 0 &&
+        components.every((item) => item?.state === 'current' && item?.source?.stale === false)
+    ) {
+        return { kind: 'current' }
+    }
+    return { kind: 'completed' }
+}
+
 // Own one instance at layout level. About-open calls load(); it never calls check().
 export function useSystemVersion() {
     const summary = ref(null)
     const updates = ref(null)
     const checking = ref(false)
     const error = ref(null)
+    const lastCheckResult = ref(null)
     const now = ref(Date.now())
     const retryDeadline = ref(0)
     // This is frontend build information only. Consumers must label it as such.
@@ -50,11 +79,16 @@ export function useSystemVersion() {
         retryDeadline.value = 0
     }
 
+    function clearCheckFeedback() {
+        lastCheckResult.value = null
+    }
+
     function revokeUpdatePermission() {
         permissionEpoch++
         updateRevision++
         clearUpdates()
         error.value = null
+        lastCheckResult.value = null
         if (summary.value) {
             // Losing update-management must not erase a separately granted
             // upgrade-execution capability. Login loss uses revokePermission.
@@ -130,7 +164,7 @@ export function useSystemVersion() {
         now.value = Date.now()
         if (
             summary.value?.can_manage_updates !== true ||
-            updates.value?.enabled !== true ||
+            updates.value?.enabled === false ||
             retryAfterSeconds.value > 0
         ) {
             return Promise.resolve()
@@ -139,12 +173,17 @@ export function useSystemVersion() {
         updateRevision++
         checking.value = true
         error.value = null
+        lastCheckResult.value = null
         checkPromise = (async () => {
             try {
                 const snapshot = responseData(await checkUpdates())
-                if (isCurrent(epoch)) applyUpdates(snapshot)
+                if (isCurrent(epoch)) {
+                    applyUpdates(snapshot)
+                    lastCheckResult.value = summarizeManualCheck(snapshot)
+                }
             } catch (failure) {
                 if (!isCurrent(epoch)) return
+                lastCheckResult.value = null
                 if (isAuthorizationFailure(failure)) {
                     revokeUpdatePermission()
                 } else if (hasRejectedSnapshot(failure)) {
@@ -209,5 +248,16 @@ export function useSystemVersion() {
         document.removeEventListener('visibilitychange', onVisibilityChange)
     })
 
-    return { summary, updates, fallbackVersion, load, check, checking, error, retryAfterSeconds }
+    return {
+        summary,
+        updates,
+        fallbackVersion,
+        load,
+        check,
+        checking,
+        error,
+        retryAfterSeconds,
+        lastCheckResult,
+        clearCheckFeedback,
+    }
 }
